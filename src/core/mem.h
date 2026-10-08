@@ -90,6 +90,83 @@ typedef struct {
 
 extern CL_Heap cl_heap;
 
+/* --- Arena iterator ----------------------------------------------------
+ * The one way to step the arena's header chain block by block, from the
+ * first slot after NIL to the bump front: every object, every free block
+ * and every bare gap header, in address order.  The collector's passes,
+ * the image writer/reader and the shutdown release walk all iterate
+ * through it, so a backend that changes what a "block" is (hole clipping
+ * in the Immix backend, specs/gc-backend-immix.md) changes it in exactly
+ * one place.
+ *
+ *     GcWalk w; uint32_t off, size; uint8_t type;
+ *     gc_walk_begin(&w);
+ *     while (gc_walk_next(&w, &off, &size, &type)) { ... }
+ *
+ * The cursor advances BEFORE the body sees the block, so a body may
+ * rewrite the block's header freely (the sweep coalesces, the slide
+ * clears the mark); a body that merges blocks re-seeks with gc_walk_seek.
+ * A header that cannot be stepped over (size 0; in DEBUG_GC /
+ * DEBUG_GC_STRESS builds also an unaligned size, a block crossing the
+ * walk end or an impossible type tag) ends the walk there:
+ * gc_walk_complete() is then false, and the debug builds name the header
+ * and abort instead of letting the pass truncate silently.  Static inline
+ * because the passes it serves are the collector's O(arena) loops and
+ * the m68k build has no LTO. */
+typedef struct {
+    uint32_t off;               /* next block start */
+    uint32_t end;               /* walk limit: the bump front at begin */
+} GcWalk;
+
+#if defined(DEBUG_GC) || defined(DEBUG_GC_STRESS)
+void gc_walk_broken(uint32_t off, uint32_t hdr, uint32_t end);   /* mem.c */
+#else
+#define gc_walk_broken(off, hdr, end) ((void)0)
+#endif
+
+static inline void gc_walk_begin(GcWalk *w)
+{
+    w->off = CL_ALIGN;
+    w->end = cl_heap.bump;
+}
+
+/* Continue at `off` (a block start the body just wrote). */
+static inline void gc_walk_seek(GcWalk *w, uint32_t off)
+{
+    w->off = off;
+}
+
+/* Did the last gc_walk_next return 0 because the walk end was reached,
+ * rather than because of a header it could not step over? */
+static inline int gc_walk_complete(const GcWalk *w)
+{
+    return w->off >= w->end;
+}
+
+static inline int gc_walk_next(GcWalk *w, uint32_t *off, uint32_t *size,
+                               uint8_t *type)
+{
+    uint32_t hdr, s;
+    if (w->off >= w->end)
+        return 0;
+    hdr = CL_HDR(cl_heap.arena + w->off);
+    s = hdr & CL_HDR_SIZE_MASK;
+#if defined(DEBUG_GC) || defined(DEBUG_GC_STRESS)
+    if (s == 0 || (s & (CL_ALIGN - 1)) != 0 || w->off + s > w->end ||
+        ((hdr >> CL_HDR_TYPE_SHIFT) & 0xFF) > CL_TYPE_MAX) {
+#else
+    if (s == 0) {
+#endif
+        gc_walk_broken(w->off, hdr, w->end);
+        return 0;
+    }
+    *off = w->off;
+    *size = s;
+    *type = (uint8_t)((hdr >> CL_HDR_TYPE_SHIFT) & 0xFF);
+    w->off += s;
+    return 1;
+}
+
 /* Initialize/shutdown heap.  cl_mem_try_init returns -1 (message printed)
  * when the arena cannot be allocated, leaving the caller to hand back what
  * it holds before exiting -- main() does, since on AmigaOS off-heap memory

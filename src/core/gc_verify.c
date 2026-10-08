@@ -185,17 +185,17 @@ static void gc_verify_check_ref(CL_Obj parent_offset, const char *field,
 
 void gc_verify_marked(void)
 {
-    uint8_t *ptr = cl_heap.arena + CL_ALIGN;
-    uint8_t *end = cl_heap.arena + cl_heap.bump;
+    GcWalk w;
+    uint32_t off, size;
+    uint8_t type;
     gc_verify_errors = 0;
 
-    while (ptr < end) {
-        uint32_t size = CL_HDR_SIZE(ptr);
-        if (size == 0) break;
+    gc_walk_begin(&w);
+    while (gc_walk_next(&w, &off, &size, &type)) {
+        uint8_t *ptr = cl_heap.arena + off;
 
         if (CL_HDR_MARKED(ptr)) {
-            CL_Obj parent_off = (CL_Obj)(ptr - cl_heap.arena);
-            uint8_t type = CL_HDR_TYPE(ptr);
+            CL_Obj parent_off = (CL_Obj)off;
 
             switch (type) {
             case TYPE_CONS: {
@@ -345,7 +345,6 @@ void gc_verify_marked(void)
                 return;
             }
         }
-        ptr += size;
     }
 }
 
@@ -375,26 +374,22 @@ static int gc_is_freed(uint32_t offset)
  * to identify freed blocks (can't use type==0 since TYPE_CONS==0). */
 void gc_verify_after_sweep(void)
 {
-    uint8_t *ptr = cl_heap.arena + CL_ALIGN;
-    uint8_t *end = cl_heap.arena + cl_heap.bump;
+    GcWalk w;
+    uint32_t off, obj_size;
+    uint8_t type;
     int errors = 0;
 
-    while (ptr < end) {
-        uint32_t obj_size = CL_HDR_SIZE(ptr);
-        CL_Obj parent_off = (CL_Obj)(ptr - cl_heap.arena);
-
-        if (obj_size == 0) break;
+    gc_walk_begin(&w);
+    while (gc_walk_next(&w, &off, &obj_size, &type)) {
+        uint8_t *ptr = cl_heap.arena + off;
+        CL_Obj parent_off = (CL_Obj)off;
 
         /* Skip free blocks */
-        if (gc_is_freed(parent_off)) {
-            ptr += obj_size;
+        if (gc_is_freed(parent_off))
             continue;
-        }
 
         /* Live object — check CL_Obj fields for poison or dead refs */
         {
-            uint8_t type = CL_HDR_TYPE(ptr);
-
             #define CHECK_FIELD(val, fname) do { \
                 CL_Obj _v = (val); \
                 if (_v == 0xDEDEDEDEu) { \
@@ -478,7 +473,6 @@ void gc_verify_after_sweep(void)
                 return;
             }
         }
-        ptr += obj_size;
     }
 
     if (errors > 0) {

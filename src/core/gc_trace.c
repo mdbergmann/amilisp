@@ -688,19 +688,19 @@ void gc_mark(void)
      * so this is the quadratic last resort, not the normal path.  The pass
      * counter feeds ext:%gc-mark-stats so the fallback is observable. */
     while (gc_mark_overflow) {
-        uint8_t *ptr = cl_heap.arena + CL_ALIGN;
-        uint8_t *end = cl_heap.arena + cl_heap.bump;
+        GcWalk w;
+        uint32_t off, size;
+        uint8_t type;
 
         gc_mark_overflow = 0;
         gc_mark_rescan_passes++;
-        while (ptr < end) {
-            uint32_t size = CL_HDR_SIZE(ptr);
-            if (size == 0) break;
+        gc_walk_begin(&w);
+        while (gc_walk_next(&w, &off, &size, &type)) {
+            uint8_t *ptr = cl_heap.arena + off;
             if (CL_HDR_MARKED(ptr)) {
                 /* Re-push children — gc_mark_obj will skip already-marked ones */
-                gc_mark_children(ptr, CL_HDR_TYPE(ptr));
+                gc_mark_children(ptr, type);
             }
-            ptr += size;
         }
         /* Drain anything newly pushed */
         while (gc_mark_top > 0) {

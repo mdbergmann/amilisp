@@ -202,6 +202,34 @@ Classic: the bare chain.  Immix: the chain with hole clipping (§below).
 The "size == 0 → stop" guard becomes a loud `cl_gc_verify_heap`-style
 report in debug builds instead of a silent truncation.
 
+*Done 2026-10-08.*  `GcWalk` / `gc_walk_begin` / `gc_walk_next` /
+`gc_walk_seek` / `gc_walk_complete` live in `mem.h` as `static inline`
+(image.c and the tests use them too, and the passes they serve are the
+O(arena) loops of a build without LTO; the struct's address never escapes
+to an out-of-line call, so the cursor stays in registers exactly like the
+old `ptr`/`end` locals).  Eighteen loops went through it: forwarding,
+reference update, slide, rehash, the gen-mode mark clear and the DEBUG_GC
+hash-chain audit (gc_compact.c); the sweep (gc_classic.c — it re-seeks
+past the block it coalesced); the mark-overflow rescan (gc_trace.c); the
+post-mark and post-sweep verifiers (gc_verify.c); the JIT scan's
+no-index fallback and its index cross-check (gc_jitscan.c); the image
+adopter's two normalisations and the shutdown off-heap release (mem.c);
+the save preconditions, the bytecode census, the blob writer and the
+relink walk (image.c).  The cursor advances before the body sees the
+block, so a body may rewrite the header it was handed.  A size-0 header
+ends the walk with `gc_walk_complete()` false — a release build truncates
+the pass as before, DEBUG_GC / DEBUG_GC_STRESS builds also reject an
+unaligned size, a block crossing the walk end and an impossible type tag,
+and name the header and abort (`gc_walk_broken`, mem.c).  Deliberately
+*not* on the iterator: `cl_gc_verify_heap`'s pass 1 (it *is* the
+chain check and must report, not abort), `cl_gc_audit_hdr_index` and the
+gen-mode `gen_covering_object` / `gen_walk_dirty_objects` (page-bounded
+walks from an index entry, with their own desync recovery), and the
+sweep's inner coalescing loop (it reads the raw neighbours of the block
+it is merging).  `tests/test_gc_walk.c`: contiguity from `CL_ALIGN` to
+the bump front, free blocks and a bare sub-header gap as blocks, the
+dense chain after a compaction, seek, and the broken-header stop.
+
 ### Unification C — one allocation cursor
 
 The TLAB (`t->tlab_cur/tlab_end`, host multi-threaded only) and the

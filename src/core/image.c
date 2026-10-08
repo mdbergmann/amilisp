@@ -281,7 +281,9 @@ int cl_image_restored_p(void)
 static const char *image_save_preconditions(void)
 {
     static char msg[512];
-    uint8_t *ptr, *end;
+    GcWalk w;
+    uint32_t off, size;
+    uint8_t type;
 
     if (image_boot_roots < 0)
         return "SAVE-IMAGE: internal error - boot root count was never "
@@ -339,12 +341,9 @@ static const char *image_save_preconditions(void)
     /* 2 + 3. One arena walk: open file/socket streams and owned foreign
      * pointers.  Console, string, synonym, two-way, broadcast,
      * concatenated, echo, cbuf and closed streams are fine. */
-    ptr = cl_heap.arena + CL_ALIGN;
-    end = cl_heap.arena + cl_heap.bump;
-    while (ptr < end) {
-        uint32_t size = CL_HDR_SIZE(ptr);
-        uint8_t type = (uint8_t)CL_HDR_TYPE(ptr);
-        if (size == 0) break;
+    gc_walk_begin(&w);
+    while (gc_walk_next(&w, &off, &size, &type)) {
+        uint8_t *ptr = cl_heap.arena + off;
         if (type == TYPE_STREAM) {
             CL_Stream *st = (CL_Stream *)ptr;
             if ((st->flags & CL_STREAM_FLAG_OPEN) &&
@@ -378,7 +377,6 @@ static const char *image_save_preconditions(void)
                        "it down in EXT:*SAVE-HOOKS* and rebuild it in "
                        "EXT:*RESTORE-HOOKS*";
         }
-        ptr += size;
     }
 
     return NULL;
@@ -527,21 +525,20 @@ static uint16_t img_source_index(ImgSources *t, const char *path, int add)
  * them have a source file the table could not take. */
 static uint32_t image_collect_bytecodes(ImgSources *srcs, uint32_t *lost)
 {
-    uint8_t *ptr = cl_heap.arena + CL_ALIGN;
-    uint8_t *end = cl_heap.arena + cl_heap.bump;
+    GcWalk w;
+    uint32_t off, size;
+    uint8_t type;
     uint32_t n = 0;
     *lost = 0;
-    while (ptr < end) {
-        uint32_t size = CL_HDR_SIZE(ptr);
-        if (size == 0) break;
-        if (CL_HDR_TYPE(ptr) == TYPE_BYTECODE) {
-            const CL_Bytecode *bc = (const CL_Bytecode *)ptr;
+    gc_walk_begin(&w);
+    while (gc_walk_next(&w, &off, &size, &type)) {
+        if (type == TYPE_BYTECODE) {
+            const CL_Bytecode *bc = (const CL_Bytecode *)(cl_heap.arena + off);
             n++;
             if (bc->source_file &&
                 img_source_index(srcs, bc->source_file, 1) == 0)
                 (*lost)++;
         }
-        ptr += size;
     }
     return n;
 }
@@ -792,18 +789,17 @@ static int image_write_file(const char *path, int exe, uint32_t exe_heap)
 
     /* --- Section 5: BLOBS (bytecode side buffers, then outbufs) --- */
     {
-        uint8_t *ptr = cl_heap.arena + CL_ALIGN;
-        uint8_t *end = cl_heap.arena + cl_heap.bump;
-        while (ptr < end) {
-            uint32_t size = CL_HDR_SIZE(ptr);
-            if (size == 0) break;
-            if (CL_HDR_TYPE(ptr) == TYPE_BYTECODE) {
-                const CL_Bytecode *bc = (const CL_Bytecode *)ptr;
-                image_write_bytecode_blob(&w,
-                    (uint32_t)(ptr - cl_heap.arena), bc,
+        GcWalk gw;
+        uint32_t off, size;
+        uint8_t type;
+        gc_walk_begin(&gw);
+        while (gc_walk_next(&gw, &off, &size, &type)) {
+            if (type == TYPE_BYTECODE) {
+                const CL_Bytecode *bc =
+                    (const CL_Bytecode *)(cl_heap.arena + off);
+                image_write_bytecode_blob(&w, off, bc,
                     img_source_index(&srcs, bc->source_file, 0));
             }
-            ptr += size;
         }
     }
     if (srcs.paths) platform_free((void *)srcs.paths);
@@ -1595,13 +1591,15 @@ int cl_image_restore_staged(void)
         }
     }
 
-    /* ---- The relink walk: one linear pass, same shape as sweep.  Also
-     * the integrity check — any malformed header aborts cleanly. ---- */
+    /* ---- The relink walk: one linear pass over the arena iterator
+     * (cl_mem_adopt_image_begin set the bump front to the payload's).
+     * Also the integrity check — any malformed header aborts cleanly. ---- */
     {
         ImgReader br;
         uint32_t blob_idx = 0;
-        uint8_t *ptr = cl_heap.arena + CL_ALIGN;
-        uint8_t *end = cl_heap.arena + h->bump;
+        GcWalk gw;
+        uint32_t off, size;
+        uint8_t type;
         char namebuf[256];
 
         br.data = r.data;
@@ -1610,13 +1608,12 @@ int cl_image_restore_staged(void)
         br.error = 0;
         stale_first[0] = '\0';
 
-        while (ptr < end) {
-            uint32_t off = (uint32_t)(ptr - cl_heap.arena);
-            uint32_t size = CL_HDR_SIZE(ptr);
-            uint8_t type = (uint8_t)CL_HDR_TYPE(ptr);
+        gc_walk_begin(&gw);
+        while (gc_walk_next(&gw, &off, &size, &type)) {
+            uint8_t *ptr = cl_heap.arena + off;
 
-            if (size == 0 || (size & (CL_ALIGN - 1)) != 0 ||
-                off + size > h->bump || type > CL_TYPE_MAX)
+            if ((size & (CL_ALIGN - 1)) != 0 || off + size > h->bump ||
+                type > CL_TYPE_MAX)
                 image_fatal("bad object header 0x%08x at offset 0x%08x",
                             (unsigned)CL_HDR(ptr), (unsigned)off);
 
@@ -1835,8 +1832,11 @@ int cl_image_restore_staged(void)
                 /* Fully arena-contained — nothing to do. */
                 break;
             }
-            ptr += size;
         }
+        if (!gc_walk_complete(&gw))      /* a size-0 header ended the walk */
+            image_fatal("bad object header 0x%08x at offset 0x%08x",
+                        (unsigned)CL_HDR(cl_heap.arena + gw.off),
+                        (unsigned)gw.off);
 
         if (blob_idx != h->n_blobs)
             image_fatal("blob count mismatch: %u blobs in file, %u "

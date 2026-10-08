@@ -277,16 +277,17 @@ void gen_reset(void)
 
 void gc_sweep(void)
 {
-    uint8_t *ptr = cl_heap.arena + CL_ALIGN;  /* Skip offset 0 (reserved for NIL) */
+    GcWalk w;
+    uint32_t off, size;
+    uint8_t type;
     uint8_t *end = cl_heap.arena + cl_heap.bump;
 
     cl_heap.free_list = 0;
     cl_heap.total_allocated = 0;
 
-    while (ptr < end) {
-        uint32_t size = CL_HDR_SIZE(ptr);
-
-        if (size == 0) break;  /* Safety: shouldn't happen */
+    gc_walk_begin(&w);
+    while (gc_walk_next(&w, &off, &size, &type)) {
+        uint8_t *ptr = cl_heap.arena + off;
 
         if (CL_HDR_MARKED(ptr)) {
             /* Live object — clear mark for next cycle */
@@ -318,7 +319,7 @@ void gc_sweep(void)
 
             fb->size = total;
             fb->next_offset = cl_heap.free_list;
-            cl_heap.free_list = (uint32_t)(ptr - cl_heap.arena);
+            cl_heap.free_list = off;
 #ifdef DEBUG_GC
             /* Poison free block data after the 8-byte header (size +
              * next_offset) to detect use-after-free. */
@@ -326,14 +327,14 @@ void gc_sweep(void)
                 memset((uint8_t *)fb + sizeof(CL_FreeBlock), 0xDE,
                        total - sizeof(CL_FreeBlock));
 #endif
-            size = total;  /* advance past entire coalesced region */
+            size = total;  /* the coalesced region is one block now */
+            gc_walk_seek(&w, off + total);
         }
         /* Block-start index: coalescing just erased the headers inside a
          * free block, so every page this block covers is re-pointed at
          * it (live objects re-note themselves, a no-op in effect). */
-        if (GC_HDR_CROSSES((uint32_t)(ptr - cl_heap.arena), size))
-            gc_hdr_note((uint32_t)(ptr - cl_heap.arena), size);
-        ptr += size;
+        if (GC_HDR_CROSSES(off, size))
+            gc_hdr_note(off, size);
     }
     gc_hdr_bump_reset();
 }

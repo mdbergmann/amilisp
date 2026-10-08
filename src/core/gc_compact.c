@@ -214,8 +214,9 @@ static uint32_t gc_place(GcPlace *pl, uint32_t off, uint32_t size, int record_ga
  * cursor from which gc_forward derives every forwarding address. */
 static void gc_compute_forwarding(void)
 {
-    uint8_t *ptr = cl_heap.arena + CL_ALIGN;
-    uint8_t *end = cl_heap.arena + cl_heap.bump;
+    GcWalk w;
+    uint32_t off, size;
+    uint8_t type;
     uint32_t npages = (cl_heap.bump + GC_FWD_PAGE - 1) >> GC_FWD_PAGE_SHIFT;
     uint32_t next_page = 0;
     GcPlace pl;
@@ -231,12 +232,9 @@ static void gc_compute_forwarding(void)
         qsort(jit_pinned, (size_t)jit_pinned_count, sizeof(jit_pinned[0]),
               cand_cmp);
 
-    while (ptr < end) {
-        uint32_t size = CL_HDR_SIZE(ptr);
-        if (size == 0) break;
-
-        if (CL_HDR_MARKED(ptr)) {
-            uint32_t off = (uint32_t)(ptr - cl_heap.arena);
+    gc_walk_begin(&w);
+    while (gc_walk_next(&w, &off, &size, &type)) {
+        if (CL_HDR_MARKED(cl_heap.arena + off)) {
             uint32_t new_off;
 
             /* Pages whose first byte lies in the dead run before this
@@ -254,7 +252,6 @@ static void gc_compute_forwarding(void)
             }
             gc_fwd_set_range(off >> GC_FWD_ALIGN_SHIFT, (off + size) >> GC_FWD_ALIGN_SHIFT);
         }
-        ptr += size;
     }
     while (next_page < npages)
         gc_fwd_page[next_page++] = pl.cur;
@@ -570,19 +567,18 @@ void gc_update_all_roots(void)
 /* Pass 3: Walk all live heap objects + all roots and update references */
 static void gc_update_all_references(void)
 {
-    uint8_t *ptr, *end;
+    GcWalk w;
+    uint32_t off, size;
+    uint8_t type;
 
     gc_update_all_roots();
 
     /* Walk all live heap objects and update their children */
-    ptr = cl_heap.arena + CL_ALIGN;
-    end = cl_heap.arena + cl_heap.bump;
-    while (ptr < end) {
-        uint32_t size = CL_HDR_SIZE(ptr);
-        if (size == 0) break;
+    gc_walk_begin(&w);
+    while (gc_walk_next(&w, &off, &size, &type)) {
+        uint8_t *ptr = cl_heap.arena + off;
         if (CL_HDR_MARKED(ptr))
-            gc_update_children(ptr, CL_HDR_TYPE(ptr));
-        ptr += size;
+            gc_update_children(ptr, type);
     }
 }
 
@@ -659,8 +655,9 @@ static void gc_make_free_gap(uint32_t offset, uint32_t total)
  * gap-free compaction (free_list ends empty). */
 static void gc_slide(void)
 {
-    uint8_t *ptr = cl_heap.arena + CL_ALIGN;
-    uint8_t *end = cl_heap.arena + cl_heap.bump;
+    GcWalk w;
+    uint32_t old_offset, size;
+    uint8_t type;
     uint32_t fill = CL_ALIGN;          /* next contiguous position in new layout */
     uint32_t live_total = 0;
     GcPlace pl;
@@ -679,12 +676,11 @@ static void gc_slide(void)
     }
 #endif
 
-    while (ptr < end) {
-        uint32_t size = CL_HDR_SIZE(ptr);
-        if (size == 0) break;
+    gc_walk_begin(&w);
+    while (gc_walk_next(&w, &old_offset, &size, &type)) {
+        uint8_t *ptr = cl_heap.arena + old_offset;
 
         if (CL_HDR_MARKED(ptr)) {
-            uint32_t old_offset = (uint32_t)(ptr - cl_heap.arena);
             uint32_t new_offset = gc_place(&pl, old_offset, size, 0);
 #if defined(DEBUG_GC) || defined(DEBUG_GC_STRESS)
             /* The lookup pass 3 used must agree with the placement the
@@ -725,7 +721,6 @@ static void gc_slide(void)
             /* Dead object — release external resources before overwriting */
             gc_finalize_dead(ptr);
         }
-        ptr += size;
     }
 
     cl_heap.bump = fill;
@@ -894,17 +889,16 @@ static void gc_verify_ht_chains(CL_Hashtable *ht, const char *when)
 /* Sweep the arena and verify every populated table (see gc_verify_ht_chains). */
 static void gc_verify_all_ht_chains(const char *when)
 {
-    uint8_t *ptr = cl_heap.arena + CL_ALIGN;
-    uint8_t *end = cl_heap.arena + cl_heap.bump;
-    while (ptr < end) {
-        uint32_t size = CL_HDR_SIZE(ptr);
-        if (size == 0) break;
-        if (CL_HDR_TYPE(ptr) == TYPE_HASHTABLE) {
-            CL_Hashtable *ht = (CL_Hashtable *)ptr;
+    GcWalk w;
+    uint32_t off, size;
+    uint8_t type;
+    gc_walk_begin(&w);
+    while (gc_walk_next(&w, &off, &size, &type)) {
+        if (type == TYPE_HASHTABLE) {
+            CL_Hashtable *ht = (CL_Hashtable *)(cl_heap.arena + off);
             if (ht->count > 0)
                 gc_verify_ht_chains(ht, when);
         }
-        ptr += size;
     }
 }
 #endif
@@ -980,18 +974,17 @@ void gc_rehash_table(CL_Hashtable *ht)
  * to an identity hash), and identity changes when the GC moves the object. */
 static void gc_rehash_tables(void)
 {
-    uint8_t *ptr = cl_heap.arena + CL_ALIGN;
-    uint8_t *end = cl_heap.arena + cl_heap.bump;
+    GcWalk w;
+    uint32_t off, size;
+    uint8_t type;
 
-    while (ptr < end) {
-        uint32_t size = CL_HDR_SIZE(ptr);
-        if (size == 0) break;
-        if (CL_HDR_TYPE(ptr) == TYPE_HASHTABLE) {
-            CL_Hashtable *ht = (CL_Hashtable *)ptr;
+    gc_walk_begin(&w);
+    while (gc_walk_next(&w, &off, &size, &type)) {
+        if (type == TYPE_HASHTABLE) {
+            CL_Hashtable *ht = (CL_Hashtable *)(cl_heap.arena + off);
             if (ht->count > 0)
                 gc_rehash_table(ht);
         }
-        ptr += size;
     }
 }
 
@@ -1030,21 +1023,18 @@ void cl_gc_compact(void)
 
 #ifdef CL_GENGC
     if (gen_enabled) {
-        uint8_t *cptr, *cend;
+        GcWalk w;
+        uint32_t off, size;
+        uint8_t type;
         /* The passes below write mark bits and slide objects everywhere —
          * drop old-space protection for the duration. */
         gen_unprotect_all();
         /* Sticky marks would prune the FULL trace at the roots (gc_mark_obj
          * skips marked objects) — clear every mark bit first so this
          * collection sees the true live set.  One linear walk. */
-        cptr = cl_heap.arena + CL_ALIGN;
-        cend = cl_heap.arena + cl_heap.bump;
-        while (cptr < cend) {
-            uint32_t csize = CL_HDR_SIZE(cptr);
-            if (csize == 0) break;
-            CL_HDR_CLR_MARK(cptr);
-            cptr += csize;
-        }
+        gc_walk_begin(&w);
+        while (gc_walk_next(&w, &off, &size, &type))
+            CL_HDR_CLR_MARK(cl_heap.arena + off);
     }
 #endif
 

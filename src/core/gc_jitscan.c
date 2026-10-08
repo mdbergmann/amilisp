@@ -373,8 +373,6 @@ void gc_scan_jit_native_stack(CL_Thread *t)
     char *scan_lo;
     char *scan_hi;
     uintptr_t addr;
-    uint8_t *p;
-    uint8_t *end;
     static int oom_warned = 0;
 
     if (t->jit_depth <= 0 || t->jit_stack_top == NULL) return;
@@ -487,19 +485,16 @@ void gc_scan_jit_native_stack(CL_Thread *t)
             gc_jit_scan_verify_index(candidates, n_cand);
 #endif
         } else {
-            p   = cl_heap.arena + CL_ALIGN;
-            end = cl_heap.arena + cl_heap.bump;
-            while (p < end) {
-                uint32_t size = CL_HDR_SIZE(p);
-                uint32_t offset;
-                if (size == 0) break;       /* defensive: malformed header */
-                offset = (uint32_t)(p - cl_heap.arena);
+            GcWalk w;
+            uint32_t offset, size;
+            uint8_t type;
+            gc_walk_begin(&w);
+            while (gc_walk_next(&w, &offset, &size, &type)) {
                 if (cand_bsearch(candidates, n_cand, offset) &&
                     !gc_offset_is_free_block(offset)) {
                     gc_mark_obj((CL_Obj)offset);
                     jit_pin_record(offset);
                 }
-                p += size;
             }
         }
     }
@@ -590,17 +585,15 @@ static void gc_jit_scan_verify_index(const uint32_t *candidates, int n_cand)
     for (i = 0; i < n_cand; i++) {
         uint32_t offset = candidates[i];
         int by_index, by_walk = 0;
-        uint8_t *p = cl_heap.arena + CL_ALIGN;
-        uint8_t *end = cl_heap.arena + cl_heap.bump;
+        GcWalk w;
+        uint32_t o, size;
+        uint8_t type;
         if (i > 0 && offset == candidates[i - 1]) continue;
         by_index = gc_hdr_is_block_start(offset, &cur);
-        while (p < end) {
-            uint32_t size = CL_HDR_SIZE(p);
-            uint32_t o = (uint32_t)(p - cl_heap.arena);
-            if (size == 0) break;
+        gc_walk_begin(&w);
+        while (gc_walk_next(&w, &o, &size, &type)) {
             if (o == offset) { by_walk = 1; break; }
             if (o > offset) break;
-            p += size;
         }
         if (by_index != by_walk) {
             char buf[128];

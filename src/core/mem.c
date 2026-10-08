@@ -642,11 +642,35 @@ void cl_mem_adopt_image_begin(uint32_t bump)
     gc_hdr_bump_reset();
 }
 
+#if defined(DEBUG_GC) || defined(DEBUG_GC_STRESS)
+/* The arena iterator (mem.h) met a header it cannot step over.  A release
+ * build ends the walk quietly — the pass truncates, as the hand-written
+ * loops used to; the debug builds name the header and abort, since every
+ * block past it is invisible to the collector and the next pass would
+ * free or slide garbage. */
+void gc_walk_broken(uint32_t off, uint32_t hdr, uint32_t end)
+{
+    char buf[160];
+    snprintf(buf, sizeof(buf),
+             "FATAL: GC arena walk broken at 0x%08lx: header 0x%08lx "
+             "(size %lu, type %u), walk end 0x%08lx\n",
+             (unsigned long)off, (unsigned long)hdr,
+             (unsigned long)(hdr & CL_HDR_SIZE_MASK),
+             (unsigned)((hdr >> CL_HDR_TYPE_SHIFT) & 0xFF),
+             (unsigned long)end);
+    platform_write_string(buf);
+    platform_flush_output();
+    abort();
+}
+#endif
+
 void cl_mem_adopt_image_finish(void)
 {
-    uint8_t *ptr = cl_heap.arena + CL_ALIGN;
-    uint8_t *end = cl_heap.arena + cl_heap.bump;
+    GcWalk w;
+    uint32_t off, size;
+    uint8_t type;
 
+    gc_walk_begin(&w);
 #ifdef CL_GENGC
     if (gen_enabled) {
         /* The whole payload becomes OLD space: sticky marks set (a minor
@@ -655,12 +679,9 @@ void cl_mem_adopt_image_finish(void)
          * bits cleared, old-space protection re-armed.  The survivor/
          * finalizable/rehash side lists are empty by construction (fresh
          * init, no nursery allocation has happened yet). */
-        while (ptr < end) {
-            uint32_t size = CL_HDR_SIZE(ptr);
-            if (size == 0) break;
-            CL_HDR_SET_MARK(ptr);
-            gen_cross_note((uint32_t)(ptr - cl_heap.arena));
-            ptr += size;
+        while (gc_walk_next(&w, &off, &size, &type)) {
+            CL_HDR_SET_MARK(cl_heap.arena + off);
+            gen_cross_note(off);
         }
         gen_old_top = cl_heap.bump;
         gen_live_count = 0;
@@ -677,13 +698,10 @@ void cl_mem_adopt_image_finish(void)
      * state gc_mark assumes at cycle start.  Also covers a classic-mode
      * save, where the pre-dump compaction already left marks clear.
      * The same walk rebuilds the block-start index for the payload. */
-    while (ptr < end) {
-        uint32_t size = CL_HDR_SIZE(ptr);
-        if (size == 0) break;
-        CL_HDR_CLR_MARK(ptr);
-        if (GC_HDR_CROSSES((uint32_t)(ptr - cl_heap.arena), size))
-            gc_hdr_note((uint32_t)(ptr - cl_heap.arena), size);
-        ptr += size;
+    while (gc_walk_next(&w, &off, &size, &type)) {
+        CL_HDR_CLR_MARK(cl_heap.arena + off);
+        if (GC_HDR_CROSSES(off, size))
+            gc_hdr_note(off, size);
     }
 }
 
@@ -718,11 +736,10 @@ static void gc_reset_transient_state(void)
  * next reboot, so every clamiga run permanently ate a few megabytes of Fast
  * RAM.  That is the leak this walk closes.
  *
- * The walk mirrors gc_sweep's: step object by object from the first slot to
- * the bump pointer using the header size.  Free-list blocks are walked over
- * safely — a free block's header word is its raw size, which reads back as
- * an unmarked TYPE_CONS, so it never matches TYPE_BYTECODE and its size
- * still advances the cursor correctly.
+ * The walk is the arena iterator's: block by block from the first slot to
+ * the bump pointer.  Free-list blocks are walked over safely — a free
+ * block's header word is its raw size, which reads back as an unmarked
+ * TYPE_CONS, so it never matches TYPE_BYTECODE.
  *
  * Only memory is released here.  OS handles (stream fds, lock mutexes,
  * thread handles) are deliberately left to the dedicated shutdown paths that
@@ -731,16 +748,15 @@ static void gc_reset_transient_state(void)
  * warning for a stream the caller never had to close. */
 static uint32_t gc_release_all_offheap(void)
 {
-    uint8_t *ptr = cl_heap.arena + CL_ALIGN;  /* offset 0 is reserved for NIL */
-    uint8_t *end = cl_heap.arena + cl_heap.bump;
+    GcWalk w;
+    uint32_t off, size;
+    uint8_t type;
     uint32_t freed = 0;
 
-    while (ptr < end) {
-        uint32_t size = CL_HDR_SIZE(ptr);
-        if (size == 0) break;             /* corrupt header — stop, don't guess */
-        if (CL_HDR_TYPE(ptr) == TYPE_BYTECODE)
-            freed += bytecode_release_offheap((CL_Bytecode *)ptr);
-        ptr += size;
+    gc_walk_begin(&w);
+    while (gc_walk_next(&w, &off, &size, &type)) {
+        if (type == TYPE_BYTECODE)
+            freed += bytecode_release_offheap((CL_Bytecode *)(cl_heap.arena + off));
     }
     return freed;
 }
