@@ -1,8 +1,10 @@
 # GC backend seam + Immix-style mark-region collector
 
-Status: PROPOSED (2026-10-08) — nothing implemented yet.  Phase 0 measured
-2026-10-08: `docs/gc-phase0-results.md` (gate passed for the churn and
-allocation cases; the idle-heap pause is the mark and needs its own work).
+Status: IN PROGRESS.  Phase 0 measured 2026-10-08:
+`docs/gc-phase0-results.md` (gate passed for the churn and allocation
+cases; the idle-heap pause is the mark and needs its own work).  Phase 1
+step 1 (the mechanical split of `mem.c`) landed 2026-10-08; steps 2–5
+open.
 Companion: `specs/generational-gc.md` (the host collector this leaves alone).
 
 ## Why
@@ -20,7 +22,7 @@ Two of the three phases of a classic cycle are proportional to the
 *arena*, not to the live set:
 
 - **sweep** walks every header in `[CL_ALIGN, bump)`, coalesces dead runs
-  and rebuilds the free list (`gc_sweep`, mem.c:4274);
+  and rebuilds the free list (`gc_sweep`, gc_classic.c);
 - **allocation** between cycles probes that free list
   (`alloc_from_free_list`, bounded by `CL_FREELIST_PROBE_LIMIT`), and when
   the probe keeps missing we fall into the "sweep-forever" regime that
@@ -122,14 +124,27 @@ sento pinned/tell + pinned/ask pair (interleaved, see memory), the Amiga
 suite.  `vm.o` stays non-LTO; the split files are compiled like `mem.c`
 is today.
 
+*Done 2026-10-08.*  Every function body is byte-identical to the one-file
+`mem.c`; the only edits are `static` dropped from the 70-odd symbols that
+cross a file boundary (declared in `gc_internal.h`) and the forward
+declarations the header makes redundant.  Two deliberate deviations from
+the table above, both for step 4: `alloc_from_bump` / `alloc_from_free_list`
+stayed in `mem.c` (they are only called from `cl_alloc` and the TLAB
+refill, and the m68k build has no LTO to re-inline a cross-file call —
+Unification C turns them into `gcb_alloc_slow` anyway), and the classic
+policy counters (`gc_last_compact_cycle`, `gc_sweeps_since_compact`) stay
+in `mem.c` next to the `cl_alloc` triggers that read them until step 5
+lifts the policy into the backend.  m68k `.text` +208 bytes (0.03 %);
+`cl_alloc` 237→236 instructions.
+
 ### Unification A — one root walk, slot-visitor form
 
 Today the roots are enumerated twice: `gc_mark_thread_roots` +
-`gc_mark` (mem.c:3592–3996, value form, `gc_mark_obj(x)`) and
+`gc_mark` (gc_trace.c, value form, `gc_mark_obj(x)`) and
 `gc_update_thread_roots` + `gc_update_registered_roots` +
-`gc_update_shared_roots` (mem.c:4629–5081, slot form, `*slot =
+`gc_update_shared_roots` (gc_compact.c, slot form, `*slot =
 gc_forward(*slot)`).  The children side is already one X-macro
-(`GC_WALK_OBJ_CHILDREN`, mem.c:2810) instantiated twice.  Make the roots
+(`GC_WALK_OBJ_CHILDREN`, gc_internal.h) instantiated twice.  Make the roots
 the same shape:
 
 ```c

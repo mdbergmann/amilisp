@@ -2438,7 +2438,12 @@ src/
     builtins_amiga.c  AMIGA package (AmigaOS/MorphOS only)
     vm.c / compiler*.c  S-expr -> bytecode compiler and stack VM
     peephole.c        Bytecode peephole pass and superinstructions
-    mem.c             Arena allocator, mark-sweep-compact and generational GC
+    mem.c             Arena, allocation fast path, object constructors, roots
+    gc_trace.c        GC mark phase (shared by every collector)
+    gc_classic.c      Classic collector: sweep, free list, generational mode
+    gc_compact.c      Sliding compactor (defragmentation, image save)
+    gc_jitscan.c      Conservative JIT-stack scan and its block-start index
+    gc_verify.c       Heap verifiers and audits (ext:%heap-verify)
     fasl.c / image.c  FASL reader/writer, heap images
     debugger.c        Interactive debugger and backtraces
   jit/            JIT -- bytecode -> native translators (m68k; AArch64 on arm64 macOS/Linux)

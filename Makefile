@@ -77,6 +77,11 @@ PLATFORM_SRC = $(PLATFORM_IMPL) \
                $(SRCDIR)/platform/tls_openssl.c
 CORE_SRC     = $(SRCDIR)/core/types.c \
                $(SRCDIR)/core/mem.c \
+               $(SRCDIR)/core/gc_trace.c \
+               $(SRCDIR)/core/gc_classic.c \
+               $(SRCDIR)/core/gc_compact.c \
+               $(SRCDIR)/core/gc_jitscan.c \
+               $(SRCDIR)/core/gc_verify.c \
                $(SRCDIR)/core/mem_track.c \
                $(SRCDIR)/core/error.c \
                $(SRCDIR)/core/symbol.c \

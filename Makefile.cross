@@ -105,6 +105,11 @@ PLATFORM_ASM = $(SRCDIR)/platform/ffi_dispatch_m68k.s \
                $(SRCDIR)/platform/cpu_store_probe_m68k.s
 CORE_SRC     = $(SRCDIR)/core/types.c \
                $(SRCDIR)/core/mem.c \
+               $(SRCDIR)/core/gc_trace.c \
+               $(SRCDIR)/core/gc_classic.c \
+               $(SRCDIR)/core/gc_compact.c \
+               $(SRCDIR)/core/gc_jitscan.c \
+               $(SRCDIR)/core/gc_verify.c \
                $(SRCDIR)/core/mem_track.c \
                $(SRCDIR)/core/error.c \
                $(SRCDIR)/core/symbol.c \
