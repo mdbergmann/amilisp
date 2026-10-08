@@ -1753,34 +1753,20 @@ void cl_check_c_stack(const char *context)
  *
  * IMPORTANT: vm_extra_args holds CL_Obj values removed from the VM stack
  * during &rest/&key processing.  cl_cons (called to build the &rest list)
- * can trigger GC.  These arrays MUST be GC-rooted — see cl_vm_gc_mark_extra. */
+ * can trigger GC.  These arrays MUST be GC-rooted — see
+ * cl_vm_gc_visit_extra_thread. */
 /* vm_extra_args, vm_extra_args_count, vm_flat_args are now in CL_Thread.
  * Local macros above redirect the old names. */
 
-/* GC root marking for VM-internal buffers.
- * Called from gc_mark() in mem.c to mark CL_Obj values held in static
- * arrays that are not on the VM stack (e.g., during &rest list building). */
-/* Mark VM extra args for a specific thread (multi-thread GC) */
-void cl_vm_gc_mark_extra_thread(CL_Thread *t)
-{
-    extern void gc_mark_obj(CL_Obj obj);
-    int i;
-    for (i = 0; i < t->vm_extra_count; i++)
-        gc_mark_obj(t->vm_extra_args_buf[i]);
-}
-
-/* Legacy wrapper — marks current thread's extra args */
-void cl_vm_gc_mark_extra(void)
-{
-    cl_vm_gc_mark_extra_thread(cl_get_current_thread());
-}
-
-/* Update VM extra args during compaction (mirrors gc_mark_extra_thread) */
-void cl_vm_gc_update_extra_thread(CL_Thread *t, void (*update)(CL_Obj *))
+/* GC root walk for the VM-internal buffers: the CL_Obj values held in a
+ * thread's extra-args array while it is not on the VM stack (during &rest
+ * list building).  Part of gc_visit_thread_roots (gc_trace.c), so the same
+ * slots are marked and forwarded. */
+void cl_vm_gc_visit_extra_thread(CL_Thread *t, void (*visit)(CL_Obj *))
 {
     int i;
     for (i = 0; i < t->vm_extra_count; i++)
-        update(&t->vm_extra_args_buf[i]);
+        visit(&t->vm_extra_args_buf[i]);
 }
 
 /* dbg_last_*, vm_trace[], vm_trace_idx are now in CL_Thread.

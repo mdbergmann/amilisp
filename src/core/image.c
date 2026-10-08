@@ -1517,7 +1517,7 @@ int cl_image_restore_staged(void)
 
     /* The virgin boot's per-thread Lisp references (mv_values, reader/
      * printer state, ...) are stale offsets into the heap just replaced;
-     * gc_mark_thread_roots walks them unconditionally. */
+     * gc_visit_thread_roots walks them unconditionally. */
     cl_thread_reset_lisp_state(mt);
 
     /* Roots: registered globals by index, then the named shared tables. */

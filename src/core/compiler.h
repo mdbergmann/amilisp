@@ -288,10 +288,10 @@ void cl_alist_index_reset(CL_AlistIndex *ix);
  * from the top-level REPL — only the global baseline is updated then). */
 void cl_process_declaration_specifier(struct CL_Compiler_s *c, CL_Obj spec, int proclaimed);
 
-/* GC marking: mark all CL_Obj values referenced by active compiler(s) */
-void cl_compiler_gc_mark(void);
+/* GC root walk: visit every CL_Obj slot held by a thread's active compiler
+ * chain (instantiated by the marker and the compactor, see gc_trace.c). */
 struct CL_Thread_s;
-void cl_compiler_gc_mark_thread(struct CL_Thread_s *t);
+void cl_compiler_gc_visit_thread(struct CL_Thread_s *t, void (*visit)(CL_Obj *));
 
 /* Save/restore active compiler chain across non-local exits.
  * cl_compiler_mark() returns an opaque snapshot.

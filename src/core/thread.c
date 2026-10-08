@@ -1059,7 +1059,7 @@ void cl_thread_backtrace_release(CL_Thread *t)
     t->backtrace_cap = CL_BACKTRACE_BUF_SIZE;
 }
 
-/* Reset every Lisp-heap reference gc_mark_thread_roots walks for this
+/* Reset every Lisp-heap reference gc_visit_thread_roots walks for this
  * thread.  Called by cl_mem_init for each REGISTERED thread on heap
  * re-initialization: the arena those CL_Obj values pointed into was just
  * freed, so each one is a stale offset that — once the fresh heap's bump
@@ -1068,7 +1068,7 @@ void cl_thread_backtrace_release(CL_Thread *t)
  * "stale static tables on re-init" corruption class; see the shared-
  * globals reset in cl_mem_init and the regression tests in
  * tests/test_gc_threaded.c).  Keep the field list in sync with
- * gc_mark_thread_roots in mem.c. */
+ * gc_visit_thread_roots in gc_trace.c. */
 void cl_thread_reset_lisp_state(CL_Thread *t)
 {
     int i;
@@ -1117,9 +1117,9 @@ void cl_thread_reset_lisp_state(CL_Thread *t)
         t->tlv_table[i].value = CL_NIL;
     }
     t->tlv_entry_count = 0;
-    t->vm_extra_count = 0;   /* cl_vm_gc_mark_extra_thread walks this too */
+    t->vm_extra_count = 0;   /* cl_vm_gc_visit_extra_thread walks this too */
     t->wait_kind = 0;        /* MP wait registration (wait_obj/wait_lock are
-                              * GC roots — see gc_mark_thread_roots) */
+                              * GC roots — see gc_visit_thread_roots) */
     t->wait_obj = CL_NIL;
     t->wait_lock = CL_NIL;
 }

@@ -6513,182 +6513,98 @@ CL_Obj cl_compile_defun(CL_Obj name, CL_Obj lambda_list, CL_Obj body)
     return cl_compile(form);
 }
 
-/* Mark compiler constants for a specific thread's active compiler chain.
- * Used by multi-thread GC (Phase 2+). */
-void cl_compiler_gc_mark_thread(CL_Thread *t)
+/* GC root walk over a thread's active compiler chain: every CL_Obj slot the
+ * compilers hold in platform_alloc'd memory (not reachable from the arena).
+ * Part of gc_visit_thread_roots (gc_trace.c): the marker instantiates it
+ * with "mark the value", the compactor with "forward the slot in place",
+ * so a slot listed here is both kept alive and rewritten — and one missing
+ * here is neither.  Each slot must be visited EXACTLY once per walk: the
+ * compactor's visitor is not idempotent (it forwards an arena offset
+ * through the relocation map; a second forward of the same slot rewrites
+ * it to an unrelated object — "Unbound variable: BOX<n>" when handler-case
+ * was compiled under GC stress, back when the env chain was walked twice). */
+void cl_compiler_gc_visit_thread(CL_Thread *t, void (*visit)(CL_Obj *))
 {
-    extern void gc_mark_obj(CL_Obj obj);
     CL_Compiler *c = t->active_compiler;
     while (c) {
         int i;
         for (i = 0; i < c->const_count; i++)
-            gc_mark_obj(c->constants[i]);
-        /* Also mark block/tagbody tags and outer block/tag references */
+            visit(&c->constants[i]);
+        /* Block/tagbody tags and outer block/tag references */
         for (i = 0; i < c->block_count; i++)
-            gc_mark_obj(c->blocks[i].tag);
+            visit(&c->blocks[i].tag);
         for (i = 0; i < c->tagbody_count; i++) {
             int j;
-            gc_mark_obj(c->tagbodies[i].id);
+            visit(&c->tagbodies[i].id);
             for (j = 0; j < c->tagbodies[i].n_tags; j++)
-                gc_mark_obj(c->tagbodies[i].tags[j].tag);
+                visit(&c->tagbodies[i].tags[j].tag);
         }
         for (i = 0; i < c->notinline_count; i++)
-            gc_mark_obj(c->notinline_fns[i]);
+            visit(&c->notinline_fns[i]);
         for (i = 0; i < c->outer_block_count; i++)
-            gc_mark_obj(c->outer_blocks[i]);
+            visit(&c->outer_blocks[i]);
         for (i = 0; i < c->outer_tag_count; i++) {
-            gc_mark_obj(c->outer_tags[i].tag);
-            gc_mark_obj(c->outer_tags[i].tagbody_id);
+            visit(&c->outer_tags[i].tag);
+            visit(&c->outer_tags[i].tagbody_id);
         }
         /* Pending tail frames hold continuation forms (e.g. the ELSE
          * branch of an IF whose THEN is still compiling) that must
          * survive GC during the body's compilation. */
         for (i = 0; i < c->tail_count; i++)
-            gc_mark_obj(c->tail_stack[i].cont_form);
+            visit(&c->tail_stack[i].cont_form);
         /* Lambda list symbols — live from parse_lambda_list through compile_body;
          * any allocating call (compile_expr for defaults, determine_boxed_vars)
-         * can trigger compaction that would leave these stale without marking. */
+         * can trigger compaction that would leave these stale otherwise. */
         {
             int j;
             for (j = 0; j < c->ll.n_required; j++)
-                gc_mark_obj(c->ll.required[j]);
+                visit(&c->ll.required[j]);
             for (j = 0; j < c->ll.n_optional; j++) {
-                gc_mark_obj(c->ll.opt_names[j]);
-                gc_mark_obj(c->ll.opt_defaults[j]);
-                gc_mark_obj(c->ll.opt_suppliedp[j]);
+                visit(&c->ll.opt_names[j]);
+                visit(&c->ll.opt_defaults[j]);
+                visit(&c->ll.opt_suppliedp[j]);
             }
             if (c->ll.has_rest)
-                gc_mark_obj(c->ll.rest_name);
+                visit(&c->ll.rest_name);
             for (j = 0; j < c->ll.n_keys; j++) {
-                gc_mark_obj(c->ll.key_names[j]);
-                gc_mark_obj(c->ll.key_keywords[j]);
-                gc_mark_obj(c->ll.key_defaults[j]);
-                gc_mark_obj(c->ll.key_suppliedp[j]);
+                visit(&c->ll.key_names[j]);
+                visit(&c->ll.key_keywords[j]);
+                visit(&c->ll.key_defaults[j]);
+                visit(&c->ll.key_suppliedp[j]);
             }
             for (j = 0; j < c->ll.n_aux; j++) {
-                gc_mark_obj(c->ll.aux_names[j]);
-                gc_mark_obj(c->ll.aux_inits[j]);
+                visit(&c->ll.aux_names[j]);
+                visit(&c->ll.aux_inits[j]);
             }
         }
-        /* Mark compile-time environment (platform_alloc'd, holds CL_Obj refs) */
-        if (c->env) {
-            CL_CompEnv *env = c->env;
-            while (env) {
-                for (i = 0; i < env->local_count; i++)
-                    gc_mark_obj(env->locals[i]);
-                for (i = 0; i < env->local_fun_count; i++) {
-                    gc_mark_obj(env->local_funs[i].name);
-                    gc_mark_obj(env->local_funs[i].inline_body);
-                    gc_mark_obj(env->local_funs[i].inline_params);
-                }
-                for (i = 0; i < env->local_macro_count; i++) {
-                    gc_mark_obj(env->local_macros[i].name);
-                    gc_mark_obj(env->local_macros[i].expander);
-                }
-                for (i = 0; i < env->symbol_macro_count; i++) {
-                    gc_mark_obj(env->symbol_macros[i].name);
-                    gc_mark_obj(env->symbol_macros[i].expansion);
-                }
-                env = env->parent;
-            }
-        }
-        c = c->parent;
-    }
-}
-
-/* Legacy wrapper — marks current thread's compiler chain */
-void cl_compiler_gc_mark(void)
-{
-    cl_compiler_gc_mark_thread(cl_get_current_thread());
-}
-
-/* Update compiler roots during compaction (mirrors gc_mark_thread but rewrites) */
-void cl_compiler_gc_update_thread(CL_Thread *t, void (*update)(CL_Obj *))
-{
-    CL_Compiler *c = t->active_compiler;
-    while (c) {
-        int i;
-        for (i = 0; i < c->const_count; i++)
-            update(&c->constants[i]);
-        for (i = 0; i < c->block_count; i++)
-            update(&c->blocks[i].tag);
-        for (i = 0; i < c->tagbody_count; i++) {
-            int j;
-            update(&c->tagbodies[i].id);
-            for (j = 0; j < c->tagbodies[i].n_tags; j++)
-                update(&c->tagbodies[i].tags[j].tag);
-        }
-        for (i = 0; i < c->notinline_count; i++)
-            update(&c->notinline_fns[i]);
-        for (i = 0; i < c->outer_block_count; i++)
-            update(&c->outer_blocks[i]);
-        for (i = 0; i < c->outer_tag_count; i++) {
-            update(&c->outer_tags[i].tag);
-            update(&c->outer_tags[i].tagbody_id);
-        }
-        /* Pending tail-frame continuation forms — see mark side. */
-        for (i = 0; i < c->tail_count; i++)
-            update(&c->tail_stack[i].cont_form);
-        /* Lambda list symbols — mirrors mark side. */
-        {
-            int j;
-            for (j = 0; j < c->ll.n_required; j++)
-                update(&c->ll.required[j]);
-            for (j = 0; j < c->ll.n_optional; j++) {
-                update(&c->ll.opt_names[j]);
-                update(&c->ll.opt_defaults[j]);
-                update(&c->ll.opt_suppliedp[j]);
-            }
-            if (c->ll.has_rest)
-                update(&c->ll.rest_name);
-            for (j = 0; j < c->ll.n_keys; j++) {
-                update(&c->ll.key_names[j]);
-                update(&c->ll.key_keywords[j]);
-                update(&c->ll.key_defaults[j]);
-                update(&c->ll.key_suppliedp[j]);
-            }
-            for (j = 0; j < c->ll.n_aux; j++) {
-                update(&c->ll.aux_names[j]);
-                update(&c->ll.aux_inits[j]);
-            }
-        }
-        /* Update ONLY this compiler's own env, NOT the env->parent chain.
+        /* The compile-time environment (platform_alloc'd, holds CL_Obj
+         * refs): ONLY this compiler's own env, NOT the env->parent chain.
          *
          * Each compiler owns exactly one env: cl_compile_env and compile_lambda
          * each call cl_env_create once, and the LET family (LET, LET-star, FLET,
          * LABELS) reuses the compiler's env (no cl_env_create).  compile_lambda
          * builds its inner env with cl_env_create(c->env), so inner->env->parent
          * == the parent compiler's env: the env->parent chain mirrors the
-         * compiler->parent chain exactly.  Walking the full parent chain for
-         * every compiler would visit each ancestor env once per descendant.
-         *
-         * Unlike the mark phase, gc_update_slot is NOT idempotent — it forwards
-         * an arena offset through the relocation map.  Forwarding an
-         * already-forwarded slot a second time corrupts it, leaving a stale
-         * offset in env->locals.  A closed-over variable then fails the
-         * eq-compare in cl_env_lookup and is mis-emitted as a global load,
-         * surfacing as "Unbound variable: BOX<n>" when handler-case is compiled
-         * under GC stress (the gensym box reachable only via the form).
-         *
-         * The c = c->parent loop below visits every ancestor compiler — hence
-         * every ancestor env — exactly once, so dropping the parent walk here
-         * still covers all live envs with no double-forwarding. */
+         * compiler->parent chain exactly.  The c = c->parent loop below visits
+         * every ancestor compiler — hence every ancestor env — exactly once;
+         * walking the full parent chain here would visit each ancestor env
+         * once per descendant, i.e. forward it twice (see above). */
         if (c->env) {
             CL_CompEnv *env = c->env;
             for (i = 0; i < env->local_count; i++)
-                update(&env->locals[i]);
+                visit(&env->locals[i]);
             for (i = 0; i < env->local_fun_count; i++) {
-                update(&env->local_funs[i].name);
-                update(&env->local_funs[i].inline_body);
-                update(&env->local_funs[i].inline_params);
+                visit(&env->local_funs[i].name);
+                visit(&env->local_funs[i].inline_body);
+                visit(&env->local_funs[i].inline_params);
             }
             for (i = 0; i < env->local_macro_count; i++) {
-                update(&env->local_macros[i].name);
-                update(&env->local_macros[i].expander);
+                visit(&env->local_macros[i].name);
+                visit(&env->local_macros[i].expander);
             }
             for (i = 0; i < env->symbol_macro_count; i++) {
-                update(&env->symbol_macros[i].name);
-                update(&env->symbol_macros[i].expansion);
+                visit(&env->symbol_macros[i].name);
+                visit(&env->symbol_macros[i].expansion);
             }
         }
         c = c->parent;

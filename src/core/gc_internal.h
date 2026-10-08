@@ -98,8 +98,24 @@ extern uint32_t gc_mark_stack_test_limit;
 void gc_mark_stack_release(void);
 void gc_mark_obj(CL_Obj obj);
 void gc_mark_children(void *ptr, uint8_t type);
-void gc_mark_thread_roots(CL_Thread *t);
 void gc_mark(void);
+
+/* Root enumeration in slot-visitor form (see gc_trace.c): the one list of
+ * non-arena CL_Obj slots, instantiated by the mark phase (mark the value)
+ * and by the compactor (forward the slot in place). */
+typedef void (*gc_slot_fn)(CL_Obj *slot);
+void gc_visit_thread_roots(CL_Thread *t, gc_slot_fn visit);
+void gc_visit_registered_roots(gc_slot_fn visit);
+void gc_visit_shared_roots(gc_slot_fn visit);
+void gc_visit_roots(gc_slot_fn visit);
+
+/* Off-arena CL_Obj holders owned by other modules, walked by the above. */
+void cl_compiler_gc_visit_thread(CL_Thread *t, gc_slot_fn visit);  /* compiler.c */
+void cl_vm_gc_visit_extra_thread(CL_Thread *t, gc_slot_fn visit);  /* vm.c */
+void cl_fasl_gc_visit_readers(gc_slot_fn visit);                   /* fasl.c */
+void cl_fasl_gc_visit_writers(gc_slot_fn visit);
+void cl_fasl_gc_visit_mlf(gc_slot_fn visit);
+void cl_fasl_mlf_gc_relocated(void);
 void gc_srcloc_invalidate_dead(void);
 void gc_srcloc_forward(void);
 uint32_t bytecode_release_offheap(CL_Bytecode *bc);

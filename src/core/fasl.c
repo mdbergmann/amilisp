@@ -75,8 +75,7 @@ void cl_fasl_writer_release(CL_FaslWriter *w)
  * so ALL MAKE-LOAD-FORM calls happen here, up front — serialization
  * itself never allocates from the arena.  During the pre-pass the
  * walk's work/seen arrays and the result cache hold raw CL_Obj offsets,
- * so they are registered as GC roots (cl_fasl_gc_mark_mlf /
- * cl_fasl_gc_update_mlf, mirroring the active-reader rooting).
+ * so they are registered as GC roots (cl_fasl_gc_visit_mlf, mirroring the active-reader rooting).
  *
  * Single-threaded: like the DEBUG_FASL histogram globals, the writer
  * path assumes COMPILE-FILE is not run concurrently from multiple
@@ -114,7 +113,7 @@ static uint32_t fasl_obj_hash(CL_Obj obj)
  * slot), in the style of the writer's shared-object dedup table below.
  *
  * Compaction hazard: the backing arrays hold raw arena offsets that
- * cl_fasl_gc_update_mlf rewrites when a %FASL-LOAD-FORM call triggers a
+ * cl_fasl_gc_visit_mlf (as the compactor instantiates it) rewrites when a %FASL-LOAD-FORM call triggers a
  * moving GC — invalidating every probe position keyed on the old bits.
  * The update hook therefore just marks the index dirty; it is rebuilt
  * lazily before the next probe.  Rebuilds use platform_alloc only
@@ -360,36 +359,28 @@ static int cl_fasl_mlf_lookup(CL_Obj obj, CL_Obj *creation, CL_Obj *init)
     return 0;
 }
 
-/* GC mark/update hooks: the walk arrays and the result cache hold raw
- * arena offsets that a compaction during %FASL-LOAD-FORM must forward.
- * Called from mem.c during the stop-the-world mark/update phases. */
-void cl_fasl_gc_mark_mlf(void)
+/* GC root walk: the walk arrays and the result cache hold raw arena
+ * offsets that a collection during %FASL-LOAD-FORM must keep alive and a
+ * compaction must forward.  Part of gc_visit_shared_roots (gc_trace.c),
+ * called with the world stopped. */
+void cl_fasl_gc_visit_mlf(void (*visit)(CL_Obj *))
 {
-    extern void gc_mark_obj(CL_Obj obj);
     uint32_t k;
     if (!g_mlf.active) return;
     for (k = 0; k < g_mlf.count; k++) {
-        gc_mark_obj(g_mlf.objs[k]);
-        gc_mark_obj(g_mlf.creations[k]);
-        gc_mark_obj(g_mlf.inits[k]);
+        visit(&g_mlf.objs[k]);
+        visit(&g_mlf.creations[k]);
+        visit(&g_mlf.inits[k]);
     }
-    for (k = 0; k < g_mlf.work_count; k++) gc_mark_obj(g_mlf.work[k]);
-    for (k = 0; k < g_mlf.seen_count; k++) gc_mark_obj(g_mlf.seen[k]);
+    for (k = 0; k < g_mlf.work_count; k++) visit(&g_mlf.work[k]);
+    for (k = 0; k < g_mlf.seen_count; k++) visit(&g_mlf.seen[k]);
 }
 
-void cl_fasl_gc_update_mlf(void (*update_fn)(CL_Obj *))
+/* The compactor rewrote the entries above: they hash differently now —
+ * invalidate the indices; they rebuild lazily on the next probe. */
+void cl_fasl_mlf_gc_relocated(void)
 {
-    uint32_t k;
     if (!g_mlf.active) return;
-    for (k = 0; k < g_mlf.count; k++) {
-        update_fn(&g_mlf.objs[k]);
-        update_fn(&g_mlf.creations[k]);
-        update_fn(&g_mlf.inits[k]);
-    }
-    for (k = 0; k < g_mlf.work_count; k++) update_fn(&g_mlf.work[k]);
-    for (k = 0; k < g_mlf.seen_count; k++) update_fn(&g_mlf.seen[k]);
-    /* The rewritten entries hash differently now — invalidate the
-     * indices; they rebuild lazily on the next probe. */
     g_mlf.seen_index.dirty = 1;
     g_mlf.objs_index.dirty = 1;
 }
@@ -444,7 +435,7 @@ static int fasl_mlf_enqueue(CL_Obj obj)
  * Leaves g_mlf.active = 1 and the cache live for the serialize phase;
  * the caller must invoke cl_fasl_mlf_cleanup() once serialization is
  * done.  GC-safe: %FASL-LOAD-FORM may compact, and all live walk state
- * is GC-rooted via cl_fasl_gc_mark_mlf / cl_fasl_gc_update_mlf. */
+ * is GC-rooted via cl_fasl_gc_visit_mlf. */
 void cl_fasl_mlf_prepass(CL_Obj bc_vec, int bc_count)
 {
     CL_Obj active_fn, fasl_fn;
@@ -2252,7 +2243,7 @@ static void fasl_reg_restore_count(FaslRegistry *reg, int n)
  * deserialized objects that a forward GENSYM_REF/OBJ_REF resolves through, so
  * they must stay live and be forwarded across a mid-load compaction even before
  * the objects are stitched into the reachable graph (see the rooting rationale
- * above cl_fasl_gc_mark_readers).  Loads nest (a CLASS_REF may load another
+ * above cl_fasl_gc_visit_readers).  Loads nest (a CLASS_REF may load another
  * FASL), hence the stack of active readers. */
 void cl_fasl_reader_register(CL_FaslReader *r)   { fasl_reg_add(&fasl_reader_reg, r, NULL, "reader"); }
 void cl_fasl_reader_unregister(CL_FaslReader *r) { fasl_reg_remove(&fasl_reader_reg, r); }
@@ -2412,58 +2403,33 @@ void cl_fasl_release_registries(void)
                      fasl_writer_aux, fasl_writer_anchor, FASL_MAX_ACTIVE_WRITERS);
 }
 
-void cl_fasl_gc_mark_writers(void)
-{
-    extern void gc_mark_obj(CL_Obj obj);
-    int i;
-    uint16_t k;
-    for (i = 0; i < fasl_writer_reg.count; i++) {
-        CL_FaslWriter *w = (CL_FaslWriter *)fasl_writer_reg.items[i];
-        for (k = 0; k < w->gensym_count; k++)
-            gc_mark_obj(w->gensym_objs[k]);
-    }
-}
-
-void cl_fasl_gc_update_writers(void (*update_fn)(CL_Obj *))
+/* GC root walks (part of gc_visit_shared_roots, gc_trace.c): the gensym
+ * dedup entries of every registered writer, and the gensym/shared-object
+ * tables of every registered reader.  The marker keeps them alive, the
+ * compactor forwards them.  Run under stop-the-world GC — no registry
+ * lock needed. */
+void cl_fasl_gc_visit_writers(void (*visit)(CL_Obj *))
 {
     int i;
     uint16_t k;
     for (i = 0; i < fasl_writer_reg.count; i++) {
         CL_FaslWriter *w = (CL_FaslWriter *)fasl_writer_reg.items[i];
         for (k = 0; k < w->gensym_count; k++)
-            update_fn(&w->gensym_objs[k]);
+            visit(&w->gensym_objs[k]);
     }
 }
 
-/* Mark/update phases run under stop-the-world GC — no registry lock needed. */
-void cl_fasl_gc_mark_readers(void)
-{
-    extern void gc_mark_obj(CL_Obj obj);
-    int i;
-    uint16_t k;
-    for (i = 0; i < fasl_reader_reg.count; i++) {
-        CL_FaslReader *r = (CL_FaslReader *)fasl_reader_reg.items[i];
-        for (k = 0; k < r->gensym_count; k++)
-            gc_mark_obj(r->gensym_objs[k]);
-        if (r->shared_objs) {
-            for (k = 0; k < r->shared_count; k++)
-                gc_mark_obj(r->shared_objs[k]);
-        }
-    }
-}
-
-/* Compaction update phase: forward the relocated offsets in those tables. */
-void cl_fasl_gc_update_readers(void (*update_fn)(CL_Obj *))
+void cl_fasl_gc_visit_readers(void (*visit)(CL_Obj *))
 {
     int i;
     uint16_t k;
     for (i = 0; i < fasl_reader_reg.count; i++) {
         CL_FaslReader *r = (CL_FaslReader *)fasl_reader_reg.items[i];
         for (k = 0; k < r->gensym_count; k++)
-            update_fn(&r->gensym_objs[k]);
+            visit(&r->gensym_objs[k]);
         if (r->shared_objs) {
             for (k = 0; k < r->shared_count; k++)
-                update_fn(&r->shared_objs[k]);
+                visit(&r->shared_objs[k]);
         }
     }
 }

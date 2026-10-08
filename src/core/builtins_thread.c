@@ -179,9 +179,9 @@ static void *thread_entry(void *arg)
 
     /* 4. Retrieve stashed function (stored in result field by parent).
      *
-     *    DO NOT clear t->result here.  t->result is a GC root: it is marked by
-     *    gc_mark_thread_roots and forwarded by gc_update_thread_roots as thread
-     *    metadata, so it is the ONLY thing keeping `func` (a freshly-allocated
+     *    DO NOT clear t->result here.  t->result is a GC root: gc_visit_thread_roots
+     *    marks and forwards it as thread metadata, so it is the ONLY thing
+     *    keeping `func` (a freshly-allocated
      *    closure object) alive while we apply it below.  Nulling it would leave
      *    `func` reachable only through this unrooted C local — a concurrent
      *    stop-the-world mark-and-sweep (e.g. another thread calling (gc))
@@ -206,7 +206,7 @@ static void *thread_entry(void *arg)
      *    saved_gc_roots so cl_error_unwind can drop CL_GC_PROTECT entries
      *    that belong to C frames it is unwinding out of.  Without this,
      *    a worker's stale gc_roots[] survives the longjmp back here and
-     *    a subsequent gc_mark_thread_roots walks dangling stack pointers
+     *    a subsequent gc_visit_thread_roots walks dangling stack pointers
      *    — manifesting as gc_mark SEGV under sento workloads. */
     if (t->error_frame_top < CL_MAX_ERROR_FRAMES) {
         t->error_frames[t->error_frame_top].active = 1;
@@ -397,7 +397,7 @@ static void *thread_entry(void *arg)
     t->gc_root_count = 0;
 
     /* 6a. Publish the result into the GC-managed wrapper BEFORE unregistering.
-     *   After step 7 unregisters this worker, gc_mark_thread_roots no longer
+     *   After step 7 unregisters this worker, gc_visit_thread_roots no longer
      *   marks or forwards t->result, so a peer thread's compaction that runs
      *   while JOIN-THREAD is parked (in cl_gc_leave_safe_region around
      *   pthread_join) would sweep or relocate the result object out from under
@@ -421,7 +421,7 @@ static void *thread_entry(void *arg)
      *   `t` (along with `t->vm.stack`, `t->vm.frames`, `t->nlx_stack`),
      *   leaving a dangling pointer in `cl_thread_list`.  The next
      *   stop-the-world `gc_mark` walks that list and SEGVs in
-     *   `gc_mark_thread_roots` while reading freed memory.
+     *   `gc_visit_thread_roots` while reading freed memory.
      *
      *   By unregistering FIRST, status >= 2 implies "no longer in
      *   cl_thread_list", and gc_mark cannot reach a freed worker via the
@@ -574,19 +574,22 @@ static CL_Obj bi_make_thread(CL_Obj *args, int n)
     /* Stash func in child->result for the entry wrapper to retrieve.
      *
      * child->result (and child->name above) are GC roots automatically: once
-     * the child is registered, gc_mark_thread_roots marks t->result / t->name
-     * as thread metadata and gc_update_thread_roots forwards those exact slots
-     * after a compaction (see mem.c).  So the closure stays live and its offset
-     * is kept current across any peer thread's stop-the-world GC.
+     * the child is registered, gc_visit_thread_roots marks t->result / t->name
+     * as thread metadata and forwards those exact slots after a compaction
+     * (gc_trace.c).  So the closure stays live and its offset is kept current
+     * across any peer thread's stop-the-world GC.
      *
      * Do NOT also register &child->result / &child->name in child->gc_roots[].
-     * gc_update_thread_roots would then forward each slot TWICE — once via the
-     * gc_roots[] entry and once via the direct t->result / t->name update — and
+     * Historically that forwarded each slot TWICE — once via the gc_roots[]
+     * entry and once via the direct t->result / t->name update — and
      * gc_forward() is not idempotent: re-forwarding an already-relocated offset
      * re-maps it through whatever live object now occupies that arena slot,
      * leaving child->result pointing at the wrong object.  That was the
      * multi-thread "func has wrong type at thread entry → TYPE-ERROR" corruption
-     * exposed once concurrent make-thread stopped hanging.  gc_root_count stays
+     * exposed once concurrent make-thread stopped hanging.  (The compactor's
+     * registered-root pass now skips a registration the thread walk already
+     * covers, so the double registration would merely be dead weight — still
+     * don't.)  gc_root_count stays
      * 0; the worker uses gc_roots[] for its own CL_GC_PROTECT calls. */
     child->result = func;
 

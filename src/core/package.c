@@ -1485,7 +1485,7 @@ void cl_package_init(void)
     cl_gc_register_root(&cl_package_amiga);
     /* cl_current_package is NOT registered here: it is a per-thread slot
      * (CL_Thread.current_package) marked and forwarded by the thread walk
-     * in gc_mark_thread_roots / gc_update_thread_roots.  Registering the
+     * in gc_visit_thread_roots.  Registering the
      * main thread's slot as a global root as well would forward it TWICE
      * on compaction — the double-forward corruption documented above. */
 }

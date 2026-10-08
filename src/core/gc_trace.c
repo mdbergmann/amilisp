@@ -278,112 +278,128 @@ void gc_mark_obj(CL_Obj obj)
     gc_mark_children(ptr, CL_HDR_TYPE(ptr));
 }
 
-/* Mark all per-thread roots for a single thread.
- * Called during STW GC — no locking needed, thread is stopped.
+/* --- Root enumeration, slot-visitor form ---------------------------------
+ *
+ * The root set is enumerated ONCE, here, as the set of CL_Obj *slots* that
+ * live outside the arena, and every pass that needs the roots instantiates
+ * the walk with its own visitor: the mark phase with "mark the value"
+ * (gc_mark_slot below), the compactor with "forward the slot in place"
+ * (gc_update_slot, gc_compact.c), the registered-root dedup with an
+ * address probe.  Mark and forward can therefore never disagree on what a
+ * root is: a slot the walk skips is neither kept alive nor rewritten, and
+ * a slot it visits is both.  The three parts:
+ *
+ *   gc_visit_thread_roots(t)    everything hanging off one CL_Thread except
+ *                               its gc_roots[] stack
+ *   gc_visit_registered_roots   global_roots[] + every thread's gc_roots[]
+ *                               (the CL_GC_PROTECT / cl_gc_register_root
+ *                               slots), plain order, no dedup — the
+ *                               compactor has its own instantiation that
+ *                               forwards each distinct address once
+ *   gc_visit_shared_roots       the process-wide tables and registries
+ *
+ * Deliberately NOT visited (stale words that are not object starts, so
+ * marking them would set mark bits inside objects and forwarding them
+ * would rewrite garbage into garbage):
+ *   nlx_stack[i].mv_values      written together with mv_count only in the
+ *                               zero-allocation window between a throw's
+ *                               stash and its longjmp landing; outside it
+ *                               mv_values[0] is whatever the frame push
+ *                               left there.  Values that live across an
+ *                               ALLOCATING unwind-protect cleanup are parked
+ *                               in pending_mv_values / saved_pending_stack.
+ *   pre_call_mv_values          call_builtin (vm.c) snapshots mv_values into
+ *                               it before every builtin; the only consumers
+ *                               (THROW's NLX capture, builtins_io.c) read it
+ *                               back before any allocating call — verified
+ *                               zero-alloc.  REGRESSION HAZARD: if an NLX
+ *                               builtin ever allocates before consuming it,
+ *                               these slots must be visited under a validity
+ *                               flag, like pending_mv_values.
+ *   pending_mv_values beyond pending_mv_count, or at all while no throw is
+ *                               pending — stale offsets from completed throws.
+ *   the JIT native stack        gc_scan_jit_native_stack (mark only): a
+ *                               conservative scan that PINS what it finds,
+ *                               so the compactor never rewrites C-stack
+ *                               words.
+ *
+ * Called with the world stopped — no locking, every thread is parked.
  *
  * We must #undef gc_root_count here because thread.h defines it as
  * (CT->gc_root_count), which collides with t->gc_root_count member access. */
 #undef gc_root_count
 
-void gc_mark_thread_roots(CL_Thread *t)
+void gc_visit_thread_roots(CL_Thread *t, gc_slot_fn visit)
 {
     int i;
-
-    /* GC root stack */
-    for (i = 0; i < t->gc_root_count; i++) {
-        GC_DBG_SRC("gc_roots", i);
-        gc_mark_obj(*t->gc_roots[i]);
-    }
 
     /* Dynamic binding stack (saved old values) */
     for (i = 0; i < t->dyn_top; i++) {
         GC_DBG_SRC("dyn_stack", i);
-        gc_mark_obj(t->dyn_stack[i].symbol);
-        gc_mark_obj(t->dyn_stack[i].old_value);
+        visit(&t->dyn_stack[i].symbol);
+        visit(&t->dyn_stack[i].old_value);
     }
 
-    /* NLX stack (catch tags, results, and saved bytecodes).
-     * NOTE: nlx_stack[i].mv_values are deliberately NOT marked: they are
-     * written together with mv_count only in the zero-allocation window
-     * between a throw's stash and its longjmp landing (immediately
-     * consumed into cl_mv_values); outside that window mv_count is 1
-     * from the frame push while mv_values[0] holds a stale/garbage word
-     * — marking it would set mark bits at non-object-start offsets.
-     * Values that live across an ALLOCATING unwind-protect cleanup are
-     * parked in pending_mv_values / saved_pending_stack, marked below. */
+    /* NLX stack (catch tags, results, and saved bytecodes; mv_values
+     * deliberately excluded — see the header comment). */
     for (i = 0; i < t->nlx_top; i++) {
         /* Every frame below nlx_top must have all three initialized — a
          * C-pushed frame too (cl_nlx_frame_init_c): the slot's previous
          * occupant leaves stale offsets behind, and marking one corrupts
          * the arena walk.  The per-field source names the culprit. */
         GC_DBG_SRC("nlx_stack.tag", i);
-        gc_mark_obj(t->nlx_stack[i].tag);
+        visit(&t->nlx_stack[i].tag);
         GC_DBG_SRC("nlx_stack.result", i);
-        gc_mark_obj(t->nlx_stack[i].result);
+        visit(&t->nlx_stack[i].result);
         GC_DBG_SRC("nlx_stack.bytecode", i);
-        gc_mark_obj(t->nlx_stack[i].bytecode);
+        visit(&t->nlx_stack[i].bytecode);
     }
 
     /* Handler stack */
     for (i = 0; i < t->handler_top; i++) {
         GC_DBG_SRC("handler_stack", i);
-        gc_mark_obj(t->handler_stack[i].type_name);
-        gc_mark_obj(t->handler_stack[i].handler);
+        visit(&t->handler_stack[i].type_name);
+        visit(&t->handler_stack[i].handler);
     }
 
     /* Restart stack */
     for (i = 0; i < t->restart_top; i++) {
         GC_DBG_SRC("restart_stack", i);
-        gc_mark_obj(t->restart_stack[i].name);
-        gc_mark_obj(t->restart_stack[i].handler);
-        gc_mark_obj(t->restart_stack[i].tag);
-        gc_mark_obj(t->restart_stack[i].restart);
+        visit(&t->restart_stack[i].name);
+        visit(&t->restart_stack[i].handler);
+        visit(&t->restart_stack[i].tag);
+        visit(&t->restart_stack[i].restart);
     }
 
     /* VM execution stack */
     if (t->vm.stack) {
         for (i = 0; i < t->vm.sp; i++) {
             GC_DBG_SRC("vm.stack", i);
-            gc_mark_obj(t->vm.stack[i]);
+            visit(&t->vm.stack[i]);
         }
     }
-
-    /* JIT native stack — conservative scan when this thread is
-     * currently inside JIT'd code.  No-op otherwise. */
-    gc_scan_jit_native_stack(t);
 
     /* Bytecode objects referenced by active VM frames */
     for (i = 0; i < t->vm.fp; i++) {
         GC_DBG_SRC("vm.frames.bytecode", i);
-        gc_mark_obj(t->vm.frames[i].bytecode);
+        visit(&t->vm.frames[i].bytecode);
     }
 
     /* Multiple values and pending throw state */
     for (i = 0; i < CL_MAX_MV; i++) {
         GC_DBG_SRC("mv_values", i);
-        gc_mark_obj(t->mv_values[i]);
+        visit(&t->mv_values[i]);
     }
-    /* NOTE: pre_call_mv_values is deliberately NOT marked (nor forwarded
-     * in gc_update_thread_roots).  call_builtin (vm.c) snapshots mv_values
-     * into it immediately before every builtin invocation, and the only
-     * consumers (THROW's NLX capture paths in builtins_io.c) read it back
-     * BEFORE any allocating call in that window — verified zero-alloc, so
-     * no GC can observe a live-but-unmarked value there.  Outside that
-     * window the array holds stale offsets from completed calls; marking
-     * those would set mark bits at non-object-start offsets and corrupt
-     * the arena walk (same hazard as nlx_stack[i].mv_values above).
-     * REGRESSION HAZARD: if an NLX builtin ever allocates before
-     * consuming pre_call_mv_values, these slots must instead be marked +
-     * forwarded under a validity flag, like pending_mv_values below. */
+    /* (pre_call_mv_values deliberately excluded — see the header comment.) */
     GC_DBG_SRC("pending_tag/value", 0);
-    gc_mark_obj(t->pending_tag);
-    gc_mark_obj(t->pending_value);
+    visit(&t->pending_tag);
+    visit(&t->pending_value);
     /* UNWIND-PROTECT value records (OP_MV_SAVE): every used word is a
      * CL_Obj — the values, and their count as a fixnum — live across the
      * allocating cleanup forms. */
     for (i = 0; i < t->mv_save_top && i < CL_MV_SAVE_SIZE; i++) {
         GC_DBG_SRC("mv_save_buf", i);
-        gc_mark_obj(t->mv_save_buf[i]);
+        visit(&t->mv_save_buf[i]);
     }
     /* Secondary values of an in-flight THROW.  These are live while an
      * unwind-protect cleanup runs (arbitrary allocating Lisp) between
@@ -396,7 +412,7 @@ void gc_mark_thread_roots(CL_Thread *t)
      * at non-object-start offsets and corrupt the arena walk. */
     if (t->pending_throw) {
         for (i = 0; i < t->pending_mv_count && i < CL_MAX_MV; i++)
-            gc_mark_obj(t->pending_mv_values[i]);
+            visit(&t->pending_mv_values[i]);
     }
     /* Saved pending-throw snapshots: one per armed unwind-protect whose
      * cleanup is running (nested UWPs park the OUTER throw's tag/values
@@ -408,42 +424,42 @@ void gc_mark_thread_roots(CL_Thread *t)
          * with an armed pending_throw hold live references. */
         if (!t->saved_pending_stack[i].pending_throw)
             continue;
-        gc_mark_obj(t->saved_pending_stack[i].pending_tag);
-        gc_mark_obj(t->saved_pending_stack[i].pending_value);
+        visit(&t->saved_pending_stack[i].pending_tag);
+        visit(&t->saved_pending_stack[i].pending_value);
         for (m = 0; m < t->saved_pending_stack[i].pending_mv_count &&
                     m < CL_MAX_MV; m++)
-            gc_mark_obj(t->saved_pending_stack[i].pending_mv_values[m]);
+            visit(&t->saved_pending_stack[i].pending_mv_values[m]);
     }
     /* Compiler hand-off: holds a CL_Obj symbol across compile_expr's allocations
      * (set in compile_named_lambda/compile_defun, consumed in compile_lambda).
      * Must be marked AND updated or a compaction mid-lambda-compile leaves
      * bc->name a stale offset under GC stress. */
     GC_DBG_SRC("pending_lambda_name", 0);
-    gc_mark_obj(t->pending_lambda_name);
+    visit(&t->pending_lambda_name);
     /* Foreign-callback boundary: the condition parked by a callback until
      * the foreign call returns, and the one an unwind is carrying. */
     GC_DBG_SRC("callback_error", 0);
-    gc_mark_obj(t->callback_error);
-    gc_mark_obj(t->last_condition);
+    visit(&t->callback_error);
+    visit(&t->last_condition);
 
     /* Thread metadata */
     GC_DBG_SRC("thread-metadata", 0);
-    gc_mark_obj(t->name);
-    gc_mark_obj(t->result);
-    gc_mark_obj(t->interrupt_func);
-    gc_mark_obj(t->thread_obj);
+    visit(&t->name);
+    visit(&t->result);
+    visit(&t->interrupt_func);
+    visit(&t->thread_obj);
     /* MP wait registration: the lock / condvar this thread is parked on
      * (and the lock a condition-wait re-acquires).  A parked thread keeps
      * its object alive, and the UPDATE counterpart forwards the record so
      * the releaser's / notifier's identity compare sees the moved object. */
     GC_DBG_SRC("mp-wait", 0);
-    gc_mark_obj(t->wait_obj);
-    gc_mark_obj(t->wait_lock);
+    visit(&t->wait_obj);
+    visit(&t->wait_lock);
 
     /* Current lexical env installed for a macro expander — keeps the
      * &environment alist alive while the expander runs. */
     GC_DBG_SRC("current_lex_env", 0);
-    gc_mark_obj(t->current_lex_env);
+    visit(&t->current_lex_env);
 
     /* Per-thread current package (the cl_current_package slot).  Packages
      * are also reachable via the package registry, so this mark is mostly
@@ -451,14 +467,14 @@ void gc_mark_thread_roots(CL_Thread *t)
      * counterpart forwards it after a compaction (a stale offset here
      * makes this thread's reader intern into garbage). */
     GC_DBG_SRC("current_package", 0);
-    gc_mark_obj(t->current_package);
+    visit(&t->current_package);
 
     /* Reader state — in-flight reader stream plus per-read uninterned
      * symbol alist (so #:foo identity survives a GC during a long READ). */
     GC_DBG_SRC("reader-state", 0);
-    gc_mark_obj(t->rd_stream);
-    gc_mark_obj(t->rd_uninterned);
-    gc_mark_obj(t->rd_labels);
+    visit(&t->rd_stream);
+    visit(&t->rd_uninterned);
+    visit(&t->rd_labels);
 
     /* Printer in-progress object stack (re-entrancy detection in
      * print-object-hook).  Pinned across hook apply so a GC inside the
@@ -466,7 +482,7 @@ void gc_mark_thread_roots(CL_Thread *t)
      * we're guarding. */
     for (i = 0; i < t->pr_inprog_top; i++) {
         GC_DBG_SRC("pr_inprog", i);
-        gc_mark_obj(t->pr_inprog[i]);
+        visit(&t->pr_inprog[i]);
     }
 
     /* Current printer output target (format/print/write).  Held in a thread
@@ -477,7 +493,7 @@ void gc_mark_thread_roots(CL_Thread *t)
      * offset and scribble into freed arena — the multi-thread `(format nil …)`
      * corruption.  Single-writer (owning thread), stopped during STW GC. */
     GC_DBG_SRC("pr_stream", 0);
-    gc_mark_obj(t->pr_stream);
+    visit(&t->pr_stream);
 
     /* *print-circle* detection table keys — live CL_Obj references while a
      * circular/shared print is in progress (pr_circle_active).  Same hazard
@@ -487,7 +503,7 @@ void gc_mark_thread_roots(CL_Thread *t)
         for (ci = 0; ci < CL_CIRCLE_HT_SIZE; ci++) {
             if (!CL_NULL_P(t->pr_circle_keys[ci])) {
                 GC_DBG_SRC("pr_circle_keys", ci);
-                gc_mark_obj(t->pr_circle_keys[ci]);
+                visit(&t->pr_circle_keys[ci]);
             }
         }
     }
@@ -495,42 +511,139 @@ void gc_mark_thread_roots(CL_Thread *t)
     /* Pending LOAD-TIME-VALUE (cell, thunk) pairs (compile-file only) */
     for (i = 0; i < t->ltv_init_count; i++) {
         GC_DBG_SRC("ltv_init", i);
-        gc_mark_obj(t->ltv_init_cells[i]);
-        gc_mark_obj(t->ltv_init_thunks[i]);
+        visit(&t->ltv_init_cells[i]);
+        visit(&t->ltv_init_thunks[i]);
     }
 
     /* Compiler constants (active compilers may hold CL_Obj values
      * in platform_alloc'd memory not reachable from the GC arena) */
     GC_DBG_SRC("compiler-constants", 0);
-    {
-        extern void cl_compiler_gc_mark_thread(CL_Thread *t);
-        cl_compiler_gc_mark_thread(t);
-    }
+    cl_compiler_gc_visit_thread(t, visit);
 
     /* VM-internal buffers (e.g. vm_extra_args during &rest processing) */
     GC_DBG_SRC("vm_extra_args", 0);
-    {
-        extern void cl_vm_gc_mark_extra_thread(CL_Thread *t);
-        cl_vm_gc_mark_extra_thread(t);
-    }
+    cl_vm_gc_visit_extra_thread(t, visit);
 
-    /* Thread-Local Value (TLV) table — mark both symbol and value
-     * for non-empty, non-tombstone entries */
+    /* Thread-Local Value (TLV) table — both symbol and value of every
+     * non-empty, non-tombstone entry */
     {
         int ti;
         for (ti = 0; ti < CL_TLV_TABLE_SIZE; ti++) {
             CL_Obj sym = t->tlv_table[ti].symbol;
             if (sym != CL_NIL && sym != CL_UNBOUND) {
                 GC_DBG_SRC("tlv_table", ti);
-                gc_mark_obj(sym);
-                gc_mark_obj(t->tlv_table[ti].value);
+                visit(&t->tlv_table[ti].symbol);
+                visit(&t->tlv_table[ti].value);
             }
         }
     }
-    GC_DBG_SRC("shared-globals", 0);
 }
-/* Restore gc_root_count macro for the rest of mem.c */
+
+/* The dynamically registered slots: cl_gc_register_root'ed globals and the
+ * CL_GC_PROTECT stacks of every thread.  Each entry is the ADDRESS of a C
+ * variable, so the same slot can legitimately appear twice (a double
+ * protect, a protect of a slot the thread walk already covers); this walk
+ * reports every registration as-is and leaves de-duplication to the
+ * visitor that needs it (gc_update_registered_roots). */
+void gc_visit_registered_roots(gc_slot_fn visit)
+{
+    CL_Thread *t;
+    int i;
+
+    for (i = 0; i < n_global_roots; i++) {
+        GC_DBG_SRC("global_roots", i);
+        visit(global_roots[i]);
+    }
+    for (t = cl_thread_list; t; t = t->next) {
+        for (i = 0; i < t->gc_root_count; i++) {
+            GC_DBG_SRC("gc_roots", i);
+            visit(t->gc_roots[i]);
+        }
+    }
+}
+/* Restore gc_root_count macro for the rest of the file */
 #define gc_root_count (CT->gc_root_count)
+
+/* Process-wide roots: the registries and tables that are not reachable
+ * through any thread.  Slots that may hold NIL are visited unconditionally
+ * — both gc_mark_obj and gc_forward are no-ops on immediates. */
+void gc_visit_shared_roots(gc_slot_fn visit)
+{
+    GC_DBG_SRC("shared-globals", 0);
+
+    /* Package registry — transitively reaches all packages, all symbols,
+     * and all their values/functions/plists */
+    visit(&cl_package_registry);
+
+    /* Compiler tables (alists not reachable through packages) */
+    visit(&macro_table);
+    visit(&setf_table);
+    visit(&setf_fn_table);
+    visit(&setf_expander_table);
+    visit(&type_table);
+    visit(&compiler_macro_table);
+    visit(&cl_clos_class_table);
+    visit(&struct_table);
+    visit(&condition_hierarchy);
+    visit(&condition_slot_table);
+    visit(&condition_default_initargs);
+    visit(&condition_slot_initforms);
+
+    /* Thread system: main thread's Lisp object */
+    {
+        extern CL_Obj *cl_main_thread_lisp_obj_ptr(void);
+        CL_Obj *slot = cl_main_thread_lisp_obj_ptr();
+        if (slot) visit(slot);
+    }
+
+    /* Readtable user macro closures */
+    {
+        int rt, ch;
+        for (rt = 0; rt < CL_RT_POOL_SIZE; rt++) {
+            if (!(cl_readtable_alloc_mask & (1u << rt)))
+                continue;
+            for (ch = 0; ch < CL_RT_CHARS; ch++) {
+                visit(&cl_readtable_pool[rt].macro_fn[ch]);
+                visit(&cl_readtable_pool[rt].dispatch_fn[ch]);
+            }
+        }
+    }
+
+    /* Active FASL readers — their gensym_objs[]/shared_objs[] dedup tables
+     * hold CL_Obj references that forward GENSYM_REF/OBJ_REF resolve through
+     * but which may not yet be reachable from the graph under construction. */
+    cl_fasl_gc_visit_readers(visit);
+
+    /* Active FASL WRITERS — bi_load's auto-cache writer holds gensym dedup
+     * entries across the interleaved compile/eval of later forms. */
+    cl_fasl_gc_visit_writers(visit);
+
+    /* Active MAKE-LOAD-FORM writer pre-pass — its walk/result arrays hold
+     * CL_Obj offsets that a compaction during a user MAKE-LOAD-FORM method
+     * must keep live and forward. */
+    cl_fasl_gc_visit_mlf(visit);
+}
+
+/* Every root slot, once per registration. */
+void gc_visit_roots(gc_slot_fn visit)
+{
+    CL_Thread *t;
+
+    for (t = cl_thread_list; t; t = t->next)
+        gc_visit_thread_roots(t, visit);
+    gc_visit_registered_roots(visit);
+    gc_visit_shared_roots(visit);
+}
+
+/* The mark phase's visitor: mark the slot's value.  Roots are marked
+ * directly (not via gc_mark_push): gc_mark_obj sets the mark bit at once
+ * and only then pushes children, so if the mark stack overflows the root
+ * itself is still marked and the heap re-scan recovers its children —
+ * a root dropped from the stack would never be marked at all. */
+static void gc_mark_slot(CL_Obj *slot)
+{
+    gc_mark_obj(*slot);
+}
 
 void gc_mark(void)
 {
@@ -541,101 +654,24 @@ void gc_mark(void)
      * transient (the failing platform_alloc can succeed now), and the
      * heap-proportional cap re-derives from the current arena anyway. */
     gc_mark_grow_failed = 0;
-    /* Reset the pinned-object set; the conservative JIT-stack scan
-     * (gc_scan_jit_native_stack, reached via gc_mark_thread_roots) rebuilds
-     * it this cycle.  Stays empty unless a JIT frame is live. */
+    /* Reset the pinned-object set; the conservative JIT-stack scan below
+     * rebuilds it this cycle.  Stays empty unless a JIT frame is live. */
     jit_pinned_count = 0;
     gc_jit_pin_oom = 0;
     /* Invalidate the free-list snapshot — the free list has changed since
      * the last cycle; the first JIT-stack scan this cycle re-collects it. */
     jit_scan_free_valid = 0;
 
-    /* Mark all roots directly (not via gc_mark_push).
-     * gc_mark_obj immediately sets the mark bit then pushes children.
-     * This is critical: if we used gc_mark_push for roots and the mark
-     * stack overflowed, dropped roots would never be marked and the
-     * heap re-scan couldn't recover them (it only processes children of
-     * already-marked objects).  With gc_mark_obj, even if children
-     * overflow, the root itself IS marked and recoverable by re-scan. */
-
-    /* Mark per-thread roots for ALL registered threads.
-     * During STW GC, all other threads are stopped, so the thread list
-     * is stable — no lock needed for iteration. */
+    /* Per-thread roots for ALL registered threads, plus the conservative
+     * scan of a thread's JIT native stack (no-op unless it is parked inside
+     * JIT'd code).  During STW GC all other threads are stopped, so the
+     * thread list is stable — no lock needed for iteration. */
     for (t = cl_thread_list; t; t = t->next) {
-        gc_mark_thread_roots(t);
+        gc_visit_thread_roots(t, gc_mark_slot);
+        gc_scan_jit_native_stack(t);
     }
-
-    /* Mark shared globals (not per-thread) */
-
-    /* Package registry — transitively marks all packages, all symbols,
-     * and all their values/functions/plists */
-    gc_mark_obj(cl_package_registry);
-
-    /* Compiler tables (alists not reachable through packages) */
-    gc_mark_obj(macro_table);
-    gc_mark_obj(setf_table);
-    gc_mark_obj(setf_fn_table);
-    gc_mark_obj(setf_expander_table);
-    gc_mark_obj(type_table);
-    gc_mark_obj(compiler_macro_table);
-    gc_mark_obj(cl_clos_class_table);
-    gc_mark_obj(struct_table);
-    gc_mark_obj(condition_hierarchy);
-    gc_mark_obj(condition_slot_table);
-    gc_mark_obj(condition_default_initargs);
-    gc_mark_obj(condition_slot_initforms);
-
-    /* Thread system: main thread's Lisp object */
-    {
-        extern CL_Obj cl_main_thread_lisp_obj(void);
-        CL_Obj mto = cl_main_thread_lisp_obj();
-        if (!CL_NULL_P(mto)) gc_mark_obj(mto);
-    }
-
-    /* Readtable user macro closures */
-    {
-        int rt, ch;
-        for (rt = 0; rt < CL_RT_POOL_SIZE; rt++) {
-            if (!(cl_readtable_alloc_mask & (1u << rt)))
-                continue;
-            for (ch = 0; ch < CL_RT_CHARS; ch++) {
-                if (!CL_NULL_P(cl_readtable_pool[rt].macro_fn[ch]))
-                    gc_mark_obj(cl_readtable_pool[rt].macro_fn[ch]);
-                if (!CL_NULL_P(cl_readtable_pool[rt].dispatch_fn[ch]))
-                    gc_mark_obj(cl_readtable_pool[rt].dispatch_fn[ch]);
-            }
-        }
-    }
-
-    /* Registered global roots (cached keyword/type symbols, etc.) */
-    {
-        int gi;
-        for (gi = 0; gi < n_global_roots; gi++)
-            gc_mark_obj(*global_roots[gi]);
-    }
-
-    /* Active FASL readers — their gensym_objs[]/shared_objs[] dedup tables
-     * hold CL_Obj references that forward GENSYM_REF/OBJ_REF resolve through
-     * but which may not yet be reachable from the graph under construction. */
-    {
-        extern void cl_fasl_gc_mark_readers(void);
-        cl_fasl_gc_mark_readers();
-    }
-
-    /* Active FASL WRITERS — bi_load's auto-cache writer holds gensym dedup
-     * entries across the interleaved compile/eval of later forms. */
-    {
-        extern void cl_fasl_gc_mark_writers(void);
-        cl_fasl_gc_mark_writers();
-    }
-
-    /* Active MAKE-LOAD-FORM writer pre-pass — its walk/result arrays hold
-     * CL_Obj offsets that a compaction during a user MAKE-LOAD-FORM method
-     * must keep live and forward. */
-    {
-        extern void cl_fasl_gc_mark_mlf(void);
-        cl_fasl_gc_mark_mlf();
-    }
+    gc_visit_registered_roots(gc_mark_slot);
+    gc_visit_shared_roots(gc_mark_slot);
 
     /* Drain mark stack iteratively (children pushed by gc_mark_obj above).
      * Do NOT clear gc_mark_overflow here — it may have been set during
@@ -842,7 +878,7 @@ void gc_finalize_dead(uint8_t *ptr)
          * are all platform_alloc'd and were otherwise leaked for good when
          * the object is swept.  Safe here: the world is stopped and a DEAD
          * (unmarked) bytecode cannot be executing — a running one is
-         * reachable from a VM frame (gc_mark_thread_roots marks both
+         * reachable from a VM frame (gc_visit_thread_roots marks both
          * vm.frames[i].bytecode and nlx_stack[i].bytecode, which is what
          * keeps the raw frame->code / frame->constants pointers valid) or
          * from the conservative JIT stack scan, and would have been marked. */
@@ -916,7 +952,7 @@ void gc_finalize_dead(uint8_t *ptr)
     case TYPE_THREAD: {
         /* Wrapper for an MP thread becoming dead means the OS thread must
          * already be finished: while the worker is registered, gc_mark
-         * marks t->thread_obj from gc_mark_thread_roots, so the wrapper
+         * marks t->thread_obj from gc_visit_thread_roots, so the wrapper
          * is reachable.  thread_entry publishes the terminal status (2
          * finished / 3 aborted) only AFTER it has called
          * cl_thread_unregister(t) — so a wrapper that reaches sweep is

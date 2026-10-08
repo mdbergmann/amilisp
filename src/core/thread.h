@@ -278,7 +278,7 @@ typedef struct CL_Thread_s {
      * *PACKAGE* view by cl_sync_current_package_from_dynamic; initialized
      * for workers from the GLOBAL value of *PACKAGE* in thread_entry
      * (fresh dynamic environment, like every other special).  Marked and
-     * forwarded in gc_mark_thread_roots / gc_update_thread_roots. */
+     * forwarded in gc_visit_thread_roots. */
     CL_Obj current_package;
 
     /* ---- Trace & debug ---- */
@@ -706,9 +706,9 @@ extern uint32_t cl_thread_table_gen[CL_MAX_THREADS];
  * in CL_Lock.state. */
 uint32_t cl_thread_next_serial(void);
 
-/* Reset every Lisp-heap reference gc_mark_thread_roots walks (stale after
+/* Reset every Lisp-heap reference gc_visit_thread_roots walks (stale after
  * a heap re-initialization — see cl_mem_init).  Keep in sync with
- * gc_mark_thread_roots in mem.c. */
+ * gc_visit_thread_roots in gc_trace.c. */
 void cl_thread_reset_lisp_state(CL_Thread *t);
 
 /* Allocate and initialize a new CL_Thread for a worker */

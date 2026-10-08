@@ -530,7 +530,7 @@ int cl_mem_try_init(uint32_t heap_size)
     /* Reset EVERY registered thread's Lisp-heap references (root stacks,
      * mv_values, pending/handler/restart/reader/printer/TLV state, ...)
      * — all of them are stale offsets into the arena just freed, and
-     * gc_mark_thread_roots walks them unconditionally.  Same bug class as
+     * gc_visit_thread_roots walks them unconditionally.  Same bug class as
      * the shared-globals reset below; resetting only the CURRENT thread's
      * gc_root_count (the old behavior) left e.g. main's mv_values[] from
      * a pre-re-init cl_error pointing into the fresh arena. */

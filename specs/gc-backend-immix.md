@@ -164,6 +164,30 @@ wrong, marking it twice is harmless.  Part 2's optional evacuation needs
 exactly this form (a slot is rewritten when its target has moved), which
 is why it is in Part 1.
 
+*Done 2026-10-08.*  `gc_visit_thread_roots` / `gc_visit_registered_roots`
+/ `gc_visit_shared_roots` / `gc_visit_roots` in gc_trace.c (the walk keeps
+the `GC_DBG_SRC` provenance for DEBUG_GC badmark reports); `gc_mark`
+instantiates them with `gc_mark_slot`, `gc_update_all_roots` with
+`gc_update_slot`.  The module-side holders became visit walkers too
+(`cl_compiler_gc_visit_thread`, `cl_vm_gc_visit_extra_thread`,
+`cl_fasl_gc_visit_readers/writers/mlf`; the MLF index invalidation moved
+to the compactor as `cl_fasl_mlf_gc_relocated`).  Two differences the
+unification settled in favour of the forwarding side: the compiler env
+chain is walked once per compiler (the mark side used to re-walk every
+ancestor env per descendant), and readtable slots are visited
+unconditionally (both visitors are no-ops on NIL).  The registered-root
+dedup no longer keeps its own list of "independently forwarded" ranges —
+it runs the thread + shared walks once more with a probe visitor that flags
+every registered address they visit, so the alias set *is* the walk and
+cannot drift from it; `root_slot_independently_forwarded` (the audit and
+the no-memory fallback) probes the same way.  That also made a protect of
+a thread scalar or a table global (`CL_GC_PROTECT(CT->pending_tag)`,
+`&macro_table`) safe, which the range list never covered.
+`tests/test_gc_roots.c` pins the contract (every slot once, the stale
+words never, the alias end-to-end through a real compaction — the
+thread-slot variant fails on the step-1 tree, the slot coming back as an
+unrelated object).
+
 ### Unification B — one arena iterator
 
 ```c

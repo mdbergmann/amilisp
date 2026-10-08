@@ -111,7 +111,7 @@ typedef struct {
     int      mv_state;
     /* Continuation form to dispatch when this postlude drains (used by
      * IF_AFTER_THEN to carry the ELSE form across THEN's compilation).
-     * GC-traced via cl_compiler_gc_mark_thread's tail_stack walk.
+     * GC-traced via cl_compiler_gc_visit_thread's tail_stack walk.
      * CL_NIL when not used. */
     CL_Obj   cont_form;
 } CL_TailFrame;

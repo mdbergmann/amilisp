@@ -362,167 +362,6 @@ void gc_update_children(void *ptr, uint8_t type)
 #undef GC_STREAM_TAIL
 }
 
-/* Pass 3b: Update per-thread roots (mirrors gc_mark_thread_roots).
- * Must #undef gc_root_count to avoid macro collision with t->gc_root_count. */
-#undef gc_root_count
-static void gc_update_thread_roots(CL_Thread *t)
-{
-    int i;
-
-    /* The gc_roots[] stack (CL_Obj* pointers to C locals) is NOT forwarded
-     * here — gc_update_registered_roots forwards all threads' entries from
-     * one deduplicated address list, so a slot registered twice (or one
-     * aliasing any of the independently-forwarded regions below) is
-     * forwarded exactly once. */
-
-    /* Dynamic binding stack */
-    for (i = 0; i < t->dyn_top; i++) {
-        gc_update_slot(&t->dyn_stack[i].symbol);
-        gc_update_slot(&t->dyn_stack[i].old_value);
-    }
-
-    /* NLX stack (mv_values deliberately excluded — see the mark phase) */
-    for (i = 0; i < t->nlx_top; i++) {
-        gc_update_slot(&t->nlx_stack[i].tag);
-        gc_update_slot(&t->nlx_stack[i].result);
-        gc_update_slot(&t->nlx_stack[i].bytecode);
-    }
-
-    /* Handler stack */
-    for (i = 0; i < t->handler_top; i++) {
-        gc_update_slot(&t->handler_stack[i].type_name);
-        gc_update_slot(&t->handler_stack[i].handler);
-    }
-
-    /* Restart stack */
-    for (i = 0; i < t->restart_top; i++) {
-        gc_update_slot(&t->restart_stack[i].name);
-        gc_update_slot(&t->restart_stack[i].handler);
-        gc_update_slot(&t->restart_stack[i].tag);
-        gc_update_slot(&t->restart_stack[i].restart);
-    }
-
-    /* VM execution stack */
-    if (t->vm.stack) {
-        for (i = 0; i < t->vm.sp; i++)
-            gc_update_slot(&t->vm.stack[i]);
-    }
-
-    /* VM frame bytecodes */
-    for (i = 0; i < t->vm.fp; i++)
-        gc_update_slot(&t->vm.frames[i].bytecode);
-
-    /* Multiple values and pending throw state.
-     * (pre_call_mv_values deliberately excluded — see the mark phase.) */
-    for (i = 0; i < CL_MAX_MV; i++)
-        gc_update_slot(&t->mv_values[i]);
-    gc_update_slot(&t->pending_tag);
-    gc_update_slot(&t->pending_value);
-    /* UNWIND-PROTECT value records — mirror of the mark phase. */
-    for (i = 0; i < t->mv_save_top && i < CL_MV_SAVE_SIZE; i++)
-        gc_update_slot(&t->mv_save_buf[i]);
-    /* In-flight THROW secondary values + saved pending-throw snapshots —
-     * mirror of gc_mark_thread_roots (a snapshot restored after an
-     * allocating unwind-protect cleanup must hold FORWARDED offsets, or
-     * the restored pending_tag no longer EQ-matches its catch tag:
-     * "No catch for tag" / garbage multiple values). */
-    if (t->pending_throw) {
-        for (i = 0; i < t->pending_mv_count && i < CL_MAX_MV; i++)
-            gc_update_slot(&t->pending_mv_values[i]);
-    }
-    for (i = 0; i < t->saved_pending_top; i++) {
-        int m;
-        if (!t->saved_pending_stack[i].pending_throw)
-            continue;  /* see gc_mark_thread_roots */
-        gc_update_slot(&t->saved_pending_stack[i].pending_tag);
-        gc_update_slot(&t->saved_pending_stack[i].pending_value);
-        for (m = 0; m < t->saved_pending_stack[i].pending_mv_count &&
-                    m < CL_MAX_MV; m++)
-            gc_update_slot(&t->saved_pending_stack[i].pending_mv_values[m]);
-    }
-    gc_update_slot(&t->pending_lambda_name);  /* see gc_mark counterpart */
-    gc_update_slot(&t->callback_error);
-    gc_update_slot(&t->last_condition);
-
-    /* Thread metadata */
-    gc_update_slot(&t->name);
-    gc_update_slot(&t->result);
-    gc_update_slot(&t->interrupt_func);
-    gc_update_slot(&t->current_lex_env);
-    gc_update_slot(&t->current_package);  /* per-thread *PACKAGE* mirror —
-                                           * see gc_mark counterpart */
-    gc_update_slot(&t->thread_obj);
-    gc_update_slot(&t->wait_obj);         /* MP wait registration — see
-                                           * gc_mark counterpart */
-    gc_update_slot(&t->wait_lock);
-
-    /* Reader state — must mirror gc_mark_thread_roots.  These were marked
-     * but not updated, leaving stale CL_Obj values pointing to old arena
-     * offsets after compaction; the next gc_mark would then dereference
-     * the stale offset, read garbage as a heap header, and run off the
-     * end of the arena while iterating "n_slots"/"n_constants" — manifesting
-     * as a SIGSEGV in gc_mark on sento workloads that compact under load. */
-    gc_update_slot(&t->rd_stream);
-    gc_update_slot(&t->rd_uninterned);
-    gc_update_slot(&t->rd_labels);
-
-    /* Printer in-progress object stack — heap pointers can be relocated
-     * by compaction during a Lisp print-object hook (which can allocate). */
-    for (i = 0; i < t->pr_inprog_top; i++)
-        gc_update_slot(&t->pr_inprog[i]);
-
-    /* Current printer output target — forward the relocated stream offset so
-     * a parked printer thread resumes writing to the moved object, not the
-     * stale one (mirror of the gc_mark_thread_roots counterpart). */
-    gc_update_slot(&t->pr_stream);
-
-    /* *print-circle* detection table keys (only meaningful while active). */
-    if (t->pr_circle_active) {
-        int ci;
-        for (ci = 0; ci < CL_CIRCLE_HT_SIZE; ci++) {
-            if (!CL_NULL_P(t->pr_circle_keys[ci]))
-                gc_update_slot(&t->pr_circle_keys[ci]);
-        }
-    }
-
-    /* Pending LOAD-TIME-VALUE (cell, thunk) pairs (compile-file only) */
-    for (i = 0; i < t->ltv_init_count; i++) {
-        gc_update_slot(&t->ltv_init_cells[i]);
-        gc_update_slot(&t->ltv_init_thunks[i]);
-    }
-
-    /* Compiler constants (platform_alloc'd, hold CL_Obj refs) */
-    {
-        extern void cl_compiler_gc_update_thread(CL_Thread *t,
-                                                  void (*update_fn)(CL_Obj *));
-        cl_compiler_gc_update_thread(t, gc_update_slot);
-    }
-
-    /* VM extra args buffer */
-    {
-        extern void cl_vm_gc_update_extra_thread(CL_Thread *t,
-                                                  void (*update_fn)(CL_Obj *));
-        cl_vm_gc_update_extra_thread(t, gc_update_slot);
-    }
-
-    /* TLV table */
-    {
-        int ti;
-        for (ti = 0; ti < CL_TLV_TABLE_SIZE; ti++) {
-            CL_Obj sym = t->tlv_table[ti].symbol;
-            if (sym != CL_NIL && sym != CL_UNBOUND) {
-                gc_update_slot(&t->tlv_table[ti].symbol);
-                gc_update_slot(&t->tlv_table[ti].value);
-            }
-        }
-    }
-
-    /* JIT native stack needs no forward-update pass: the mark-phase scan
-     * (gc_scan_jit_native_stack) pins every conservatively-referenced
-     * object, so they stay at their current offset and the JIT's spilled
-     * C-stack offsets remain valid without rewriting the stack. */
-}
-
 /* --- Registered-root forwarding with dedup (double-forward hardening) ---
  *
  * gc_forward is NOT idempotent: the forwarding table is keyed by
@@ -535,14 +374,20 @@ static void gc_update_thread_roots(CL_Thread *t)
  * already-rooted VM-stack slot like CL_GC_PROTECT(args[i])) corrupted
  * with layout-roulette timing.  This pass forwards all dynamically-
  * registered slots (global_roots[] + every thread's gc_roots[]) from one
- * sorted, deduplicated address list, and skips addresses that alias any
- * independently-forwarded thread region (VM stack, mv_values, pending
- * throw values, dyn/handler/restart stacks, vm_extra_args, compiler
- * chain — see root_slot_independently_forwarded) — making duplicate
- * registration harmless by construction.  cl_gc_audit_roots remains the tool for locating the
- * offending registration site.  (gc_root_slot_buf itself is declared with
- * the other persistent GC buffers near the top of the file, so
- * cl_mem_shutdown can free it.) */
+ * sorted, deduplicated address list, and skips the addresses the thread
+ * and shared root walks forward on their own (VM stack, mv_values, the
+ * pending-throw values, dyn/handler/restart stacks, vm_extra_args, the
+ * compiler chain, a table global, ...).  That alias set is not a list of
+ * ranges that could drift from the walks: it is found by running the SAME
+ * walks once more with a probe visitor that looks each visited address up
+ * in the sorted list — a slot is "independently forwarded" exactly when
+ * gc_visit_thread_roots / gc_visit_shared_roots visit it.  Duplicate
+ * registration is therefore harmless by construction; cl_gc_audit_roots
+ * remains the tool for locating the offending registration site.
+ * (gc_root_slot_buf itself is declared with the other persistent GC
+ * buffers near the top of the file, so cl_mem_shutdown can free it; its
+ * per-entry alias flags live in the same block, right after the
+ * gc_root_slot_cap pointers.) */
 static int root_slot_cmp(const void *a, const void *b)
 {
     CL_Obj * const *pa = (CL_Obj * const *)a;
@@ -552,10 +397,7 @@ static int root_slot_cmp(const void *a, const void *b)
     return 0;
 }
 
-/* Probe callback for testing whether a slot address is owned by an
- * external per-thread forwarding walker (compiler chain).  Reusing the
- * walker itself as the membership test guarantees this can never drift
- * from what gc_update_thread_roots actually forwards. */
+/* Single-address probe: is `gc_probe_slot` visited by the walks? */
 static CL_Obj *gc_probe_slot;
 static int     gc_probe_hit;
 static void gc_probe_check(CL_Obj *slot)
@@ -563,84 +405,44 @@ static void gc_probe_check(CL_Obj *slot)
     if (slot == gc_probe_slot) gc_probe_hit = 1;
 }
 
-/* Does slot alias a per-thread region that gc_update_thread_roots
- * forwards independently?  Those slots must be SKIPPED by the
- * registered-root pass, or they are forwarded twice (gc_forward is not
- * idempotent — double-forwarding rewrites the slot to an unrelated
- * object).  Historically only the VM value stack was exempted; a root
- * registered against mv_values / pending_mv_values / the dyn/handler/
- * restart stacks / vm_extra_args / a compiler-chain slot still
- * double-forwarded with layout-roulette timing.  Every range below is
- * bounded exactly like its forwarding loop in gc_update_thread_roots —
- * an out-of-bounds alias (e.g. beyond dyn_top) is NOT independently
- * forwarded and must stay in the registered-root pass. */
+/* Does slot alias a root the thread / shared walks forward themselves?
+ * Such a slot must be SKIPPED by the registered-root pass or it is
+ * forwarded twice.  One walk per call — used by the diagnostics
+ * (cl_gc_audit_roots) and by the no-memory fallback below; the main pass
+ * answers the question for the whole sorted list in one walk instead. */
 int root_slot_independently_forwarded(CL_Obj *slot)
 {
     CL_Thread *t;
-    for (t = cl_thread_list; t; t = t->next) {
-        /* VM value stack [stack, stack+sp) */
-        if (t->vm.stack && slot >= t->vm.stack &&
-            slot < t->vm.stack + t->vm.sp)
-            return 1;
-        /* Multiple-values buffer (forwarded unconditionally, all slots) */
-        if (slot >= t->mv_values && slot < t->mv_values + CL_MAX_MV)
-            return 1;
-        /* In-flight THROW secondary values — forwarded only while a
-         * throw is pending, and only up to pending_mv_count. */
-        if (t->pending_throw &&
-            slot >= t->pending_mv_values &&
-            slot < t->pending_mv_values +
-                   (t->pending_mv_count < CL_MAX_MV ? t->pending_mv_count
-                                                    : CL_MAX_MV))
-            return 1;
-        /* Dynamic-binding / handler / restart stacks: every CL_Obj field
-         * of an entry below the top is forwarded by its walker loop. */
-        if ((char *)slot >= (char *)t->dyn_stack &&
-            (char *)slot <  (char *)(t->dyn_stack + t->dyn_top))
-            return 1;
-        if ((char *)slot >= (char *)t->handler_stack &&
-            (char *)slot <  (char *)(t->handler_stack + t->handler_top))
-            return 1;
-        if ((char *)slot >= (char *)t->restart_stack &&
-            (char *)slot <  (char *)(t->restart_stack + t->restart_top))
-            return 1;
-        /* VM extra-args buffer (&rest processing) */
-        if (slot >= t->vm_extra_args_buf &&
-            slot < t->vm_extra_args_buf + t->vm_extra_count)
-            return 1;
-        /* Saved pending-throw snapshots: pending_tag/pending_value/
-         * pending_mv_values[] of each armed (pending_throw) entry below
-         * saved_pending_top are forwarded unconditionally by
-         * gc_update_thread_roots — mirror those exact bounds here. */
-        if (t->saved_pending_stack) {
-            int spi;
-            for (spi = 0; spi < t->saved_pending_top; spi++) {
-                CL_SavedPending *sp = &t->saved_pending_stack[spi];
-                if (!sp->pending_throw)
-                    continue;
-                if (slot == &sp->pending_tag || slot == &sp->pending_value)
-                    return 1;
-                if (slot >= sp->pending_mv_values &&
-                    slot < sp->pending_mv_values +
-                           (sp->pending_mv_count < CL_MAX_MV
-                                ? sp->pending_mv_count : CL_MAX_MV))
-                    return 1;
-            }
-        }
-        /* Compiler-chain constants/blocks/tagbodies/env — walked by
-         * cl_compiler_gc_update_thread; probe with the walker itself. */
-        if (t->active_compiler) {
-            extern void cl_compiler_gc_update_thread(CL_Thread *th,
-                                                     void (*update_fn)(CL_Obj *));
-            gc_probe_slot = slot;
-            gc_probe_hit = 0;
-            cl_compiler_gc_update_thread(t, gc_probe_check);
-            if (gc_probe_hit) return 1;
-        }
-    }
-    return 0;
+    gc_probe_slot = slot;
+    gc_probe_hit = 0;
+    for (t = cl_thread_list; t && !gc_probe_hit; t = t->next)
+        gc_visit_thread_roots(t, gc_probe_check);
+    if (!gc_probe_hit)
+        gc_visit_shared_roots(gc_probe_check);
+    return gc_probe_hit;
 }
 
+/* Sorted-list probe: flag the (first copy of the) registered entry at
+ * this address as aliased. */
+static uint32_t gc_alias_n;
+static uint8_t *gc_alias_flag;
+static void gc_alias_probe(CL_Obj *slot)
+{
+    uint32_t lo = 0, hi = gc_alias_n;
+    while (lo < hi) {
+        uint32_t mid = (lo + hi) / 2;
+        if (gc_root_slot_buf[mid] < slot)      lo = mid + 1;
+        else if (gc_root_slot_buf[mid] > slot) hi = mid;
+        else {
+            while (mid > 0 && gc_root_slot_buf[mid - 1] == slot)
+                mid--;           /* duplicates: flag the copy the pass keeps */
+            gc_alias_flag[mid] = 1;
+            return;
+        }
+    }
+}
+
+#undef gc_root_count
 static void gc_update_registered_roots(void)
 {
     uint32_t total = (uint32_t)n_global_roots;
@@ -657,7 +459,7 @@ static void gc_update_registered_roots(void)
         return;
 
     if (total > gc_root_slot_cap) {
-        CL_Obj **buf = (CL_Obj **)platform_alloc(total * sizeof(CL_Obj *));
+        CL_Obj **buf = (CL_Obj **)platform_alloc(total * (sizeof(CL_Obj *) + 1));
         if (buf) {
             if (gc_root_slot_buf) platform_free(gc_root_slot_buf);
             gc_root_slot_buf = buf;
@@ -668,9 +470,10 @@ static void gc_update_registered_roots(void)
         /* Buffer allocation failed — fall back to per-registry loops.
          * Exact-duplicate addresses would still double-forward here, but
          * skipping the update entirely would corrupt EVERY slot; the
-         * VM-stack alias check needs no memory, so it still applies. */
+         * alias probe needs no memory, so it still applies. */
         for (j = 0; j < n_global_roots; j++)
-            gc_update_slot(global_roots[j]);
+            if (!root_slot_independently_forwarded(global_roots[j]))
+                gc_update_slot(global_roots[j]);
         for (t = cl_thread_list; t; t = t->next)
             for (j = 0; j < t->gc_root_count; j++)
                 if (!root_slot_independently_forwarded(t->gc_roots[j]))
@@ -686,6 +489,15 @@ static void gc_update_registered_roots(void)
 
     qsort(gc_root_slot_buf, (size_t)n, sizeof(CL_Obj *), root_slot_cmp);
 
+    /* One more pass over the thread + shared roots, flagging every
+     * registered address they visit. */
+    gc_alias_n = n;
+    gc_alias_flag = (uint8_t *)(gc_root_slot_buf + gc_root_slot_cap);
+    memset(gc_alias_flag, 0, n);
+    for (t = cl_thread_list; t; t = t->next)
+        gc_visit_thread_roots(t, gc_alias_probe);
+    gc_visit_shared_roots(gc_alias_probe);
+
     for (i = 0; i < n; i++) {
         if (i > 0 && gc_root_slot_buf[i] == gc_root_slot_buf[i - 1]) {
 #ifdef DEBUG_GC
@@ -693,11 +505,11 @@ static void gc_update_registered_roots(void)
 #endif
             continue;               /* duplicate registration — forward once */
         }
-        if (root_slot_independently_forwarded(gc_root_slot_buf[i])) {
+        if (gc_alias_flag[i]) {
 #ifdef DEBUG_GC
             aliased++;
 #endif
-            continue;               /* owned by a thread-region forwarding loop */
+            continue;               /* owned by the thread / shared walk */
         }
         gc_update_slot(gc_root_slot_buf[i]);
     }
@@ -713,76 +525,37 @@ static void gc_update_registered_roots(void)
 }
 #define gc_root_count (CT->gc_root_count)
 
-/* Pass 3c: Update shared (non-per-thread) roots (mirrors gc_mark shared section) */
-static void gc_update_shared_roots(void)
+/* Pass 3 (roots half): update every non-heap root slot through the
+ * forwarding table — the root walk of gc_trace.c instantiated with
+ * gc_update_slot, plus the deduplicated registered-root pass.  Shared
+ * verbatim between a full compaction and a minor (nursery) collection —
+ * gc_forward leaves non-forwarded (old) offsets unchanged, so this is
+ * safe and cheap in both.
+ *
+ * The JIT native stack needs no forward-update pass: the mark-phase scan
+ * (gc_scan_jit_native_stack) pins every conservatively-referenced object,
+ * so they stay at their current offset and the JIT's spilled C-stack
+ * offsets remain valid without rewriting the stack. */
+void gc_update_all_roots(void)
 {
-    /* Package registry */
-    gc_update_slot(&cl_package_registry);
+    CL_Thread *t;
 
-    /* Compiler tables */
-    gc_update_slot(&macro_table);
-    gc_update_slot(&setf_table);
-    gc_update_slot(&setf_fn_table);
-    gc_update_slot(&setf_expander_table);
-    gc_update_slot(&type_table);
-    gc_update_slot(&compiler_macro_table);
-    gc_update_slot(&cl_clos_class_table);
-    gc_update_slot(&struct_table);
-    gc_update_slot(&condition_hierarchy);
-    gc_update_slot(&condition_slot_table);
-    gc_update_slot(&condition_default_initargs);
-    gc_update_slot(&condition_slot_initforms);
+    for (t = cl_thread_list; t; t = t->next)
+        gc_visit_thread_roots(t, gc_update_slot);
 
-    /* Main thread Lisp object */
-    {
-        extern CL_Obj *cl_main_thread_lisp_obj_ptr(void);
-        CL_Obj *ptr = cl_main_thread_lisp_obj_ptr();
-        if (ptr) gc_update_slot(ptr);
-    }
+    /* Registered root slots (global_roots[] + all thread gc_roots[]),
+     * deduplicated so a doubly-registered slot is forwarded exactly once
+     * and one aliasing a slot of the walks above/below is left to them. */
+    gc_update_registered_roots();
 
-    /* Readtable user macro closures */
-    {
-        int rt, ch;
-        for (rt = 0; rt < CL_RT_POOL_SIZE; rt++) {
-            if (!(cl_readtable_alloc_mask & (1u << rt)))
-                continue;
-            for (ch = 0; ch < CL_RT_CHARS; ch++) {
-                gc_update_slot(&cl_readtable_pool[rt].macro_fn[ch]);
-                gc_update_slot(&cl_readtable_pool[rt].dispatch_fn[ch]);
-            }
-        }
-    }
+    gc_visit_shared_roots(gc_update_slot);
 
-    /* Registered global roots (cached keyword/type symbols, etc.) are
-     * forwarded by gc_update_registered_roots — one deduplicated pass
-     * shared with the thread gc_roots[] stacks. */
-
-    /* Active FASL readers — forward the relocated offsets in their dedup
-     * tables (mirrors cl_fasl_gc_mark_readers in the mark phase). */
-    {
-        extern void cl_fasl_gc_update_readers(void (*update_fn)(CL_Obj *));
-        cl_fasl_gc_update_readers(gc_update_slot);
-    }
-
-    /* Active FASL writers — forward the gensym dedup entries (mirrors
-     * cl_fasl_gc_mark_writers). */
-    {
-        extern void cl_fasl_gc_update_writers(void (*update_fn)(CL_Obj *));
-        cl_fasl_gc_update_writers(gc_update_slot);
-    }
-
-    /* MAKE-LOAD-FORM writer pre-pass — forward the relocated offsets in
-     * its walk/result arrays (mirrors cl_fasl_gc_mark_mlf). */
-    {
-        extern void cl_fasl_gc_update_mlf(void (*update_fn)(CL_Obj *));
-        cl_fasl_gc_update_mlf(gc_update_slot);
-    }
-
-    /* Struct registry hash index — its keys (name symbols) and cached
-     * entry values just moved; mark it stale so it rebuilds lazily
-     * before the next lookup (builtins_struct.c).  Ditto the condition
-     * hierarchy index and the compiler's deftype / compiler-macro /
-     * defsetf table indexes (CL_AlistIndex, compiler.h). */
+    /* Side indexes keyed by the offsets that just moved: the struct
+     * registry hash index (builtins_struct.c), the condition hierarchy
+     * index, the compiler's deftype / compiler-macro / defsetf table
+     * indexes (CL_AlistIndex, compiler.h) and the MAKE-LOAD-FORM
+     * pre-pass's dedup indexes (fasl.c).  Mark them stale so they rebuild
+     * lazily before the next lookup. */
     {
         extern void cl_struct_index_gc_invalidate(void);
         extern void cl_condition_index_gc_invalidate(void);
@@ -790,30 +563,8 @@ static void gc_update_shared_roots(void)
         cl_struct_index_gc_invalidate();
         cl_condition_index_gc_invalidate();
         cl_compiler_indexes_gc_invalidate();
+        cl_fasl_mlf_gc_relocated();
     }
-}
-
-/* Pass 3 (roots half): update every non-heap root slot through the
- * forwarding table.  Shared verbatim between a full compaction and a
- * minor (nursery) collection — gc_forward leaves non-forwarded (old)
- * offsets unchanged, so this is safe and cheap in both. */
-void gc_update_all_roots(void)
-{
-    CL_Thread *t;
-
-    /* Update per-thread roots */
-    for (t = cl_thread_list; t; t = t->next)
-        gc_update_thread_roots(t);
-
-    /* Registered root slots (global_roots[] + all thread gc_roots[]),
-     * deduplicated so a doubly-registered slot is forwarded exactly once.
-     * Disjoint from the passes above/below: entries aliasing an
-     * independently-forwarded thread region are skipped (that region's
-     * own forwarding loop owns them). */
-    gc_update_registered_roots();
-
-    /* Update shared globals */
-    gc_update_shared_roots();
 }
 
 /* Pass 3: Walk all live heap objects + all roots and update references */

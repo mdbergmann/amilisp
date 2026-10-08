@@ -251,8 +251,7 @@ uint32_t cl_fasl_read_header(CL_FaslReader *r);
  * rationale ("Undefined function: PACKAGE" corruption under heap pressure). */
 void cl_fasl_reader_register(CL_FaslReader *r);
 void cl_fasl_reader_unregister(CL_FaslReader *r);
-void cl_fasl_gc_mark_readers(void);
-void cl_fasl_gc_update_readers(void (*update_fn)(CL_Obj *));
+void cl_fasl_gc_visit_readers(void (*visit)(CL_Obj *));
 
 /* --- MAKE-LOAD-FORM writer pre-pass (see FASL_TAG_LOAD_FORM) ---
  * cl_fasl_mlf_prepass walks the constant graph of the BC_COUNT bytecode
@@ -261,15 +260,16 @@ void cl_fasl_gc_update_readers(void (*update_fn)(CL_Obj *));
  * method, so the serializer can emit FASL_TAG_LOAD_FORM for them.  Call
  * it once before serializing a COMPILE-FILE run's units, and
  * cl_fasl_mlf_cleanup() once serialization (or an error path) is done.
- * The mark/update hooks GC-root the pre-pass state — the pre-pass calls
- * user code that can compact. */
+ * The GC root walk visits the pre-pass state — the pre-pass calls user
+ * code that can compact — and the compactor reports a relocation so the
+ * offset-keyed dedup indexes rebuild. */
 void cl_fasl_mlf_prepass(CL_Obj bc_vec, int bc_count);
 void cl_fasl_mlf_cleanup(void);
 /* Non-zero while a compile-file's MLF cache is live (prepass ran, cleanup
  * pending).  Lets LOAD reap a cache leaked by an unwound compile-file. */
 int  cl_fasl_mlf_active_p(void);
-void cl_fasl_gc_mark_mlf(void);
-void cl_fasl_gc_update_mlf(void (*update_fn)(CL_Obj *));
+void cl_fasl_gc_visit_mlf(void (*visit)(CL_Obj *));
+void cl_fasl_mlf_gc_relocated(void);
 /* Error-unwind snapshot/restore of the active-reader count (cl_error longjmps
  * past cl_fasl_reader_unregister; the error frame restores the count). */
 int  cl_fasl_reader_save_count(void);
@@ -292,8 +292,7 @@ void cl_fasl_writer_register(CL_FaslWriter *w, void *stack_anchor);
 void cl_fasl_writer_unregister(CL_FaslWriter *w);
 int  cl_fasl_writer_save_count(void);
 void cl_fasl_writer_restore_count(int n);
-void cl_fasl_gc_mark_writers(void);
-void cl_fasl_gc_update_writers(void (*update_fn)(CL_Obj *));
+void cl_fasl_gc_visit_writers(void (*visit)(CL_Obj *));
 /* The registered writer's per-unit scratch buffer (bi_load's `unit_buf`) is
  * not reachable from the CL_FaslWriter itself, so the registry keeps its own
  * copy to free on abandonment — call this whenever the caller (re)allocates
