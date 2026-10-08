@@ -2731,6 +2731,26 @@ void cl_gc_stw_stats(uint32_t *stops, uint64_t *max_us, uint32_t *epoch_skips)
     if (epoch_skips) *epoch_skips = gc_epoch_skips;
 }
 
+void cl_heap_free_list_stats(uint32_t *blocks, uint32_t *bytes,
+                             uint32_t *largest)
+{
+    uint32_t n = 0, total = 0, big = 0, off;
+    int multi = (cl_thread_count > 1);
+    if (multi && alloc_mutex) platform_mutex_lock(alloc_mutex);
+    for (off = cl_heap.free_list; off; ) {
+        const CL_FreeBlock *fb = (const CL_FreeBlock *)(cl_heap.arena + off);
+        if (fb->size == 0 || off + fb->size > cl_heap.bump) break;  /* corrupt: stop */
+        n++;
+        total += fb->size;
+        if (fb->size > big) big = fb->size;
+        off = fb->next_offset;
+    }
+    if (multi && alloc_mutex) platform_mutex_unlock(alloc_mutex);
+    if (blocks)  *blocks  = n;
+    if (bytes)   *bytes   = total;
+    if (largest) *largest = big;
+}
+
 static void gc_mark_push(CL_Obj obj)
 {
     /* Skip immediates and out-of-bounds */

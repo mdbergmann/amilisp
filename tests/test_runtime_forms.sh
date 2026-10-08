@@ -245,6 +245,13 @@ cat > "$WORK/forms.lisp" <<EOF
            (let ((s (ext:%gc-time-stats)))
              (list (length s) (floatp (third s)) (floatp (eighth s))))
            '(9 t t))
+(rf-repeat "heap-stats"
+           (let ((s (ext:%heap-stats)))
+             (list (length s) (every #'integerp s)
+                   (<= (second s) (first s))        ; bump <= arena
+                   (<= (eighth s) (first s))        ; free bytes <= arena
+                   (<= (ninth s) (max 1 (eighth s)))))  ; largest <= total free
+           '(9 t t t t))
 (rf-repeat "gengc-stats"
            (let ((sym (find-symbol "%GENGC-STATS" "EXT")))
              (if (and sym (fboundp sym))

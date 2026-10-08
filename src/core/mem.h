@@ -409,6 +409,13 @@ void cl_gc_time_stats(uint64_t *stw_us, uint64_t *mark_us,
  * out-param may be NULL. */
 void cl_gc_stw_stats(uint32_t *stops, uint64_t *max_us, uint32_t *epoch_skips);
 
+/* Free-list shape (classic collector): block count, total free bytes on the
+ * list, largest block.  Walks the list under alloc_mutex when threads are
+ * live — a diagnostic (ext:%heap-stats), not a hot path.  All zero in gen
+ * mode, where the free list is unused.  Any out-param may be NULL. */
+void cl_heap_free_list_stats(uint32_t *blocks, uint32_t *bytes,
+                             uint32_t *largest);
+
 #include "thread.h"
 
 #endif /* CL_MEM_H */

@@ -3286,6 +3286,33 @@ static CL_Obj bi_ext_gc_time_stats(CL_Obj *args, int n)
     return result;
 }
 
+/* (ext:%heap-stats) — allocator-side counters as a 9-element list:
+ * (arena-size bump total-allocated total-consed freelist-steps tlab-refills
+ *  free-blocks free-bytes largest-free).  freelist-steps is the monotonic
+ * count of free-list blocks the allocator has walked (every probe step is
+ * one): together with the free-list shape it says how much of the time
+ * between collections goes into the classic collector's first-fit search —
+ * the allocation-side cost the GC phase timers do not see. */
+static CL_Obj bi_ext_heap_stats(CL_Obj *args, int n)
+{
+    uint32_t blocks, bytes, largest;
+    CL_Obj result = CL_NIL;
+    CL_UNUSED(args); CL_UNUSED(n);
+    cl_heap_free_list_stats(&blocks, &bytes, &largest);
+    CL_GC_PROTECT(result);
+    result = cl_cons(CL_MAKE_FIXNUM((int32_t)(largest & CL_FIXNUM_MAX)), result);
+    result = cl_cons(CL_MAKE_FIXNUM((int32_t)(bytes & CL_FIXNUM_MAX)), result);
+    result = cl_cons(CL_MAKE_FIXNUM((int32_t)(blocks & CL_FIXNUM_MAX)), result);
+    result = cl_cons(CL_MAKE_FIXNUM((int32_t)(cl_heap.tlab_refills & CL_FIXNUM_MAX)), result);
+    result = cl_cons(CL_MAKE_FIXNUM((int32_t)(cl_heap.freelist_steps & CL_FIXNUM_MAX)), result);
+    result = cl_cons(CL_MAKE_FIXNUM((int32_t)(cl_heap.total_consed & CL_FIXNUM_MAX)), result);
+    result = cl_cons(CL_MAKE_FIXNUM((int32_t)(cl_heap.total_allocated & CL_FIXNUM_MAX)), result);
+    result = cl_cons(CL_MAKE_FIXNUM((int32_t)(cl_heap.bump & CL_FIXNUM_MAX)), result);
+    result = cl_cons(CL_MAKE_FIXNUM((int32_t)(cl_heap.arena_size & CL_FIXNUM_MAX)), result);
+    CL_GC_UNPROTECT(1);
+    return result;
+}
+
 #ifdef CL_GENGC
 /* (ext:%gengc-stats) — generational collector diagnostics as a 6-element
  * list: (enabled-p minor-count minor-seconds promoted-bytes old-top
@@ -5259,6 +5286,7 @@ void cl_builtins_io_init(void)
     extfun("%FASL-REGISTRY-STATS", bi_ext_fasl_registry_stats, 0, 0);
     extfun("%COMPILER-POOL-STATS", bi_ext_compiler_pool_stats, 0, 0);
     extfun("%GC-TIME-STATS", bi_ext_gc_time_stats, 0, 0);
+    extfun("%HEAP-STATS", bi_ext_heap_stats, 0, 0);
 #ifdef CL_GENGC
     extfun("%GENGC-STATS", bi_ext_gengc_stats, 0, 0);
     extfun("%GC-MINOR", bi_ext_gc_minor, 0, 0);

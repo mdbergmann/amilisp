@@ -1491,7 +1491,10 @@ generational machinery needs an MMU and is compiled out there.
   allocated the collector says so once and keeps sweeping without moving
   anything.
 - `(ext:%gc-time-stats)` and `(ext:%gengc-stats)` expose collector telemetry
-  (per-phase times, minor counts, promoted bytes, dirty-page counts).
+  (per-phase times, minor counts, promoted bytes, dirty-page counts);
+  `(ext:%heap-stats)` the allocator's side (bump front, live bytes,
+  free-list probe steps and free-list shape).  `trunk/gc-phase0.lisp`
+  reads all three to profile a collection cycle on a given machine.
 
 See `tests/test_gengc.c` and `tests/test_gengc_watch.c` for the behavioral
 contract, and `specs/generational-gc.md` for the design.
