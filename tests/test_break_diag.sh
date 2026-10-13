@@ -58,7 +58,7 @@ if ! grep -q '^\[GC\] [0-9]*ms #[0-9]* [a-z-]* pause=[0-9]*us used=[0-9]*K/[0-9]
 fi
 
 CLAMIGA_GC_DIAG=1 CLAMIGA_GENGC=0 "$TIMEOUT" 60 "$CLAMIGA" --non-interactive --load "$tmp" < /dev/null > "$out" 2>&1
-if ! grep -q '^\[GC\] [0-9]*ms #[0-9]* \(sweep\|compact\|compact-fallback\) pause=' "$out"; then
+if ! grep -q '^\[GC\] [0-9]*ms #[0-9]* \(sweep\|immix\|compact\|compact-fallback\) pause=' "$out"; then
     echo "FAIL: no [GC] trace line with CLAMIGA_GC_DIAG=1 (classic collector)"
     cat "$out"
     fail=1

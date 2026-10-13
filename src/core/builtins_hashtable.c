@@ -878,8 +878,18 @@ static CL_Obj bi_setf_gethash(CL_Obj *args, int n)
         ht->count++;
     }
 
-    /* Rehash if load factor exceeded */
+    /* Rehash if load factor exceeded.  That allocates the larger bucket
+     * vector, and a collection inside it moves `value`: keep it rooted so
+     * the caller gets the forwarded offset, not the one the pair above was
+     * built from.  (The classic gc-stress regime never showed this — a
+     * value allocated moments earlier sits at the dense bump front and
+     * does not move; the Immix regime's line-sweep cycles scatter fresh
+     * objects into holes, and the next compaction moves them.  Found by
+     * `make test-gc-stress GC=immix`, 2026-10-13, as a stale
+     * mv_values[0] from (setf (find-class name) class).) */
+    CL_GC_PROTECT(value);
     ht_maybe_rehash(ht_obj);
+    CL_GC_UNPROTECT(1);
 
     return value;
 }

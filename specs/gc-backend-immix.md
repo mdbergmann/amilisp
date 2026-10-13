@@ -3,8 +3,10 @@
 Status: IN PROGRESS.  Phase 0 measured 2026-10-08:
 `docs/gc-phase0-results.md` (gate passed for the churn and allocation
 cases; the idle-heap pause is the mark and needs its own work).  Phase 1
-(the seam) landed in five steps 2026-10-08 … 2026-10-13, classic only;
-Phase 2 (the Immix backend) is next.
+(the seam) landed in five steps 2026-10-08 … 2026-10-13, classic only.
+Phase 2 (the Immix backend on the host, `make host GC=immix`) landed
+2026-10-13 — see "As landed" under Part 2 for where it departs from the
+design text below.  Phase 3 (the m68k/MorphOS builds) is next.
 Companion: `specs/generational-gc.md` (the host collector this leaves alone).
 
 ## Why
@@ -553,6 +555,86 @@ bump)`, clears hole flags, resets the sense to normalised.  gc-stress
 unchanged under Immix and keeps catching unprotected `CL_Obj` locals; a
 second stress knob forces an Immix cycle every K allocations so the line
 sweep and the clipping rule get the same treatment.
+
+### As landed (Phase 2, 2026-10-13)
+
+`src/core/gc_immix.c` on the seam, `tests/test_gc_immix.c` the contract,
+the whole suite plus gc-stress (both knobs) and memleak under `GC=immix`.
+Three departures from the text above, each a simplification the
+implementation forced or allowed:
+
+- **No block table, no hole-start flag, no iterator clip.**  The line map
+  is the only allocator state: a line's byte equals the current epoch when
+  it is unavailable (stamped by the trace, or *claimed* by a cursor since —
+  a claim stamps the lines it takes) and is anything else when available;
+  the line sweep writes 0 into every line the trace did not stamp, so an
+  epoch can never alias.  A hole is a run of available lines found by
+  scanning the map from a monotonic cursor position (the chunk cursor
+  takes the next hole, a request that does not fit it takes the first run
+  ahead that does and leaves the small hole for a later refill; a request
+  larger than a chunk gets a run of exactly its size).  Large objects
+  span lines and blocks without any SPAN state.
+- **The chain is kept exact at the claim, not clipped in the walk.**
+  A claim finds the block covering the byte before the hole and, if it
+  extends into the hole, truncates it there (its header stays); finds the
+  block covering the hole's end byte and, if it starts inside the hole,
+  writes a dead header for its tail at the hole's end; formats the hole
+  as one block; and, above the bump front, writes a dead filler from the
+  old front to the hole.  Both walks are bounded by the block-start index
+  (about a page of headers).  A live object never touches an available
+  line, so everything rewritten is dead.  The block-start index persists
+  across cycles (nothing re-notes it) and a claim re-points the entries a
+  hole erases: the pages inside it, and those within one chunk length
+  after it that named a header inside (the only noted blocks that get cut
+  into un-noted pieces are chunk claims).  `cl_gc_audit_hdr_index` runs
+  after every claim under `DEBUG_GC` and after every collection under
+  `DEBUG_GC_STRESS`.
+- **`CL_TYPE_DEAD`** (types.h, 0xFF, above `CL_TYPE_MAX`) tags every hole,
+  cursor remainder, filler, truncated or split tail, finalized corpse and
+  the compactor's sub-header gaps (and, after a compaction, its pin gaps).
+  The conservative JIT scan refuses such a block outright, the finalizers
+  ignore it (so a corpse is finalized exactly once), and the `DEBUG_GC`
+  plausibility guards keep aborting on a precise reference to one.
+
+The sense flip is as designed (`gc_hdr_xor`, `GCB_HDR_*` in gc_backend.h;
+`tests/test_gc_mark_macros.sh` is the grep lint), with the one consumer
+the audit above under-estimated: a corpse that shares a line with a live
+object keeps its header for as long as the neighbour lives and reads
+*unmarked* on every other cycle, so a stale JIT spill naming it would
+have its garbage slots traced.  The conservative scan therefore runs
+after the precise trace has drained, and the pushes of the trace it
+starts — and of the overflow rescan — are validated as object starts
+through the block-start index (`GCB_PUSH_REJECT`; `tests/test_jit_gc_scan.c`,
+"scan_traces_a_corpse_without_marking_interiors").  The compactor
+normalises every bit before its trace only when a cycle has run since the
+last normalisation (`gcb_marks_exact`), so the gc-stress regime pays no
+extra walk.  The finalizable list is exactly the design's; a note that
+cannot be made schedules a compaction, whose slide finalizes everything.
+
+Policy, pending Phase 3 tuning: a cycle when no hole fits; after it, the
+compactor when the holes hold under half of the true free space or under
+a sixteenth of the arena while the live set is under 7/8 of it, and as
+the last resort before a storage error (once per cycle, gated like
+classic by the forwarding-table latch).  Measured on the host (8 MB heap,
+200k iterations of a 50-cons churn): 33 cycles of ~1 ms, 0 compactions.
+
+`make test-gc-stress GC=immix` runs the stress suite with the compaction
+before every allocation as before, then the regression script once more
+with `CLAMIGA_GC_STRESS_IMMIX=8`: of every 8 stressed allocations one
+compacts and seven run a line-sweep cycle, so the claims, the finalizers
+and the sense flip get the same per-allocation treatment.  That mixed
+regime also sees a class of bug the classic regime is blind to: a
+`CL_Obj` C local held unprotected across an allocating call *after* the
+object was allocated.  Under compaction-per-allocation such an object is
+the newest thing on a dense heap and never moves; under the mixed regime
+the cycles scatter fresh objects into holes below the front, and the next
+compaction moves them.  Its first run found two (both fixed with it):
+`(setf gethash)` returned its `value` unrooted across the bucket-vector
+rehash, and `%ffi-stub-info` passed its plist in the same argument list as
+a keyword intern (the argument-order lint now also knows `*intern*` and
+`*_keyword` helpers).  On a `[GC-BADMARK]`, the stress build prints the
+claims that formatted the offending address and the stressed-allocation
+index, so `CLAMIGA_GC_STRESS_AT=<index>` names the code at the compaction.
 
 ### Optional Phase 4 — opportunistic evacuation
 

@@ -234,7 +234,7 @@ static void gc_compute_forwarding(void)
 
     gc_walk_begin(&w);
     while (gc_walk_next(&w, &off, &size, &type)) {
-        if (CL_HDR_MARKED(cl_heap.arena + off)) {
+        if (GCB_HDR_MARKED(cl_heap.arena + off)) {
             uint32_t new_off;
 
             /* Pages whose first byte lies in the dead run before this
@@ -577,7 +577,7 @@ static void gc_update_all_references(void)
     gc_walk_begin(&w);
     while (gc_walk_next(&w, &off, &size, &type)) {
         uint8_t *ptr = cl_heap.arena + off;
-        if (CL_HDR_MARKED(ptr))
+        if (GCB_HDR_MARKED(ptr))
             gc_update_children(ptr, type);
     }
 }
@@ -616,12 +616,16 @@ static void gc_make_free_gap(uint32_t offset, uint32_t total)
         uint32_t chunk = gc_free_gap_chunk(total, CL_ALIGN);
         if (chunk < (uint32_t)sizeof(CL_FreeBlock)) {
             /* Degenerate sub-header gap (caller invariant broken — total
-             * itself smaller than a CL_FreeBlock).  Write a bare size-only
-             * header so the linear arena walk stays in sync, but leave the
-             * block off the free list: there is no room for the
-             * next_offset link, and writing one would smash the following
-             * object.  The space is reclaimed by the next compaction. */
-            ((CL_Header *)(cl_heap.arena + offset))->header = chunk;
+             * itself smaller than a CL_FreeBlock).  Write a bare header so
+             * the linear arena walk stays in sync, but leave the block off
+             * the free list: there is no room for the next_offset link,
+             * and writing one would smash the following object.  Tagged
+             * CL_TYPE_DEAD so that nothing — not a conservative JIT-stack
+             * candidate, not the overflow rescan — can read it as a cons
+             * whose car is the next object's header word.  The space is
+             * reclaimed by the next compaction. */
+            ((CL_Header *)(cl_heap.arena + offset))->header =
+                (CL_TYPE_DEAD << CL_HDR_TYPE_SHIFT) | chunk;
             if (GC_HDR_CROSSES(offset, chunk))
                 gc_hdr_note(offset, chunk);
             return;
@@ -680,7 +684,7 @@ static void gc_slide(void)
     while (gc_walk_next(&w, &old_offset, &size, &type)) {
         uint8_t *ptr = cl_heap.arena + old_offset;
 
-        if (CL_HDR_MARKED(ptr)) {
+        if (GCB_HDR_MARKED(ptr)) {
             uint32_t new_offset = gc_place(&pl, old_offset, size, 0);
 #if defined(DEBUG_GC) || defined(DEBUG_GC_STRESS)
             /* The lookup pass 3 used must agree with the placement the
@@ -703,7 +707,7 @@ static void gc_slide(void)
                 gen_cross_note(new_offset);
             else
 #endif
-                CL_HDR_CLR_MARK(ptr);
+                GCB_HDR_CLR_MARK(ptr);
 
             /* Gap before this object's new position (only at pins) → free. */
             if (new_offset > fill)

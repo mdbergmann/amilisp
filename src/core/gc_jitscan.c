@@ -130,6 +130,32 @@ static uint32_t gc_hdr_walk_start(uint32_t page)
     return gc_hdr_page[page];
 }
 
+#ifdef CL_GC_IMMIX
+/* The same for the page holding arena offset `off`; CL_ALIGN when the
+ * index is absent (the caller then walks the whole chain).  Immix only:
+ * its hole claims walk the chain from here (gc_immix.c). */
+uint32_t gc_hdr_walk_start_at(uint32_t off)
+{
+    if (!gc_hdr_page) return CL_ALIGN;
+    return gc_hdr_walk_start(off >> GC_HDR_PAGE_SHIFT);
+}
+
+/* Re-point the entries of pages [first, last] (clipped to the index) that
+ * name a header inside (lo, hi) — headers a hole claim is about to erase
+ * (gc_immix.c) — at `to` (GC_HDR_NONE defers to the nearest lower page). */
+void gc_hdr_repoint(uint32_t first, uint32_t last, uint32_t lo, uint32_t hi,
+                    uint32_t to)
+{
+    if (!gc_hdr_page) return;
+    if (last >= gc_hdr_npages) last = gc_hdr_npages - 1;
+    for (; first <= last; first++) {
+        uint32_t e = gc_hdr_page[first];
+        if (e != GC_HDR_NONE && e > lo && e < hi)
+            gc_hdr_page[first] = to;
+    }
+}
+#endif /* CL_GC_IMMIX */
+
 /* Walk cursor for gc_hdr_is_block_start: [blk, nxt) is the block found by
  * the previous call.  Ascending queries within one block or the next few
  * continue from it instead of re-entering through the index. */
@@ -163,6 +189,46 @@ static int gc_hdr_is_block_start(uint32_t offset, GC_HdrCursor *cur)
     cur->nxt = b + size;
     return b == offset;
 }
+
+#ifdef CL_GC_IMMIX
+/* Is `off` the start of an OBJECT below the bump front — a block start
+ * that is not a dead block?  The backend's push validation (Immix:
+ * GCB_PUSH_REJECT) asks this for every child a trace from a conservative
+ * or rescanned root pushes.  Bounded by the index like the scan's own
+ * check; without an index it walks the chain from the start.  The cursor
+ * persists across calls: a trace's pushes are mostly ascending within a
+ * few blocks, and a descending query re-enters through the index. */
+static GC_HdrCursor gc_obj_start_cur;
+
+/* Forget the cursor: the chain may have changed since the last trace. */
+void gc_hdr_object_start_begin(void)
+{
+    gc_obj_start_cur.blk = gc_obj_start_cur.nxt = 0;
+}
+
+int gc_hdr_object_start_p(uint32_t off)
+{
+    GC_HdrCursor *cur = &gc_obj_start_cur;
+    if (off < CL_ALIGN || off >= cl_heap.bump || (off & (CL_ALIGN - 1)))
+        return 0;
+    if (gc_hdr_page) {
+        if (!gc_hdr_is_block_start(off, cur))
+            return 0;
+    } else {
+        GcWalk w;
+        uint32_t o, size;
+        uint8_t type;
+        int found = 0;
+        gc_walk_begin(&w);
+        while (gc_walk_next(&w, &o, &size, &type)) {
+            if (o == off) { found = 1; break; }
+            if (o > off) break;
+        }
+        if (!found) return 0;
+    }
+    return CL_HDR_TYPE(cl_heap.arena + off) != CL_TYPE_DEAD;
+}
+#endif /* CL_GC_IMMIX */
 
 /* Persistent JIT-stack scan candidate buffer — defined here so
  * cl_mem_shutdown can free it; helpers and full doc live with
@@ -468,6 +534,7 @@ void gc_scan_jit_native_stack(CL_Thread *t)
                 if (i > 0 && offset == candidates[i - 1]) continue;
                 if (!gc_hdr_is_block_start(offset, &cur)) continue;
                 if (gc_offset_is_free_block(offset)) continue;
+                if (GCB_SCAN_REJECT(offset)) continue;   /* a dead block */
                 gc_mark_obj((CL_Obj)offset);
                 /* Pin it: the compactor must not move an object reachable
                  * only through a conservative (offset-valued) C-stack
@@ -492,7 +559,8 @@ void gc_scan_jit_native_stack(CL_Thread *t)
             gc_walk_begin(&w);
             while (gc_walk_next(&w, &offset, &size, &type)) {
                 if (cand_bsearch(candidates, n_cand, offset) &&
-                    !gc_offset_is_free_block(offset)) {
+                    !gc_offset_is_free_block(offset) &&
+                    !GCB_SCAN_REJECT(offset)) {
                     gc_mark_obj((CL_Obj)offset);
                     jit_pin_record(offset);
                 }

@@ -168,6 +168,7 @@ make test-plus     # Fast tier + host-cold-test (sento cold-load smoke test)
 make test-extra    # Heavyweight trunk integration scripts
 make test-gc-stress  # Test suite with a compacting GC on every allocation
 make test-memleak  # Off-heap allocation tracer: assert nothing leaks at exit
+make host GC=immix # The Immix-style collector instead (build/host-immix/); same gates with GC=immix
 make fasl          # Regenerate the bundled lib/boot.fasl and lib/clos.fasl
 make image         # Save + verify a bare-boot clamiga.img (build/host/image/) for `make install`
 make guide         # Build the AmigaGuide documentation into build/guide/
@@ -1499,6 +1500,22 @@ generational machinery needs an MMU and is compiled out there.
 See `tests/test_gengc.c` and `tests/test_gengc_watch.c` for the behavioral
 contract, and `specs/generational-gc.md` for the design.
 
+The collector is chosen at build time, one per binary.  `make host GC=immix`
+builds a second host binary (`build/host-immix/clamiga`) with an
+**Immix-style mark-region collector** instead: the heap is viewed as 128-byte
+lines, a collection marks the live objects and the lines they touch and then
+sweeps only the line map, and allocation is always a bump into the next run
+of free lines.  Nothing in a cycle is proportional to the amount of garbage,
+which is what the classic sweep and its free-list probing cost on a 68020 —
+it is the collector being prepared for the AmigaOS and MorphOS builds, and
+the host build of it is the development and A/B vehicle (`make test
+GC=immix`, `make test-gc-stress GC=immix`, `make test-memleak GC=immix` run
+the gates against it).  It needs no write barrier, so it fits a machine
+without an MMU; the sliding compactor is still there as the rare
+defragmentation, and `(ext:gc)`, `(ext:gc-compact)`, heap images and the
+telemetry above work unchanged.  See `tests/test_gc_immix.c` for the
+behavioral contract and `specs/gc-backend-immix.md` for the design.
+
 ### Memory outside the heap
 
 Not everything CL-Amiga allocates lives in the GC arena, so not everything
@@ -2440,7 +2457,9 @@ src/
     peephole.c        Bytecode peephole pass and superinstructions
     mem.c             Arena, allocation fast path, object constructors, roots
     gc_trace.c        GC mark phase (shared by every collector)
+    gc_backend.h      The collector seam: one backend per binary (GC=classic|immix)
     gc_classic.c      Classic collector: sweep, free list, generational mode
+    gc_immix.c        Immix-style mark-region collector (line map, hole allocator)
     gc_compact.c      Sliding compactor (defragmentation, image save)
     gc_jitscan.c      Conservative JIT-stack scan and its block-start index
     gc_verify.c       Heap verifiers and audits (ext:%heap-verify)

@@ -171,7 +171,8 @@ static inline int gc_walk_next(GcWalk *w, uint32_t *off, uint32_t *size,
     s = hdr & CL_HDR_SIZE_MASK;
 #if defined(DEBUG_GC) || defined(DEBUG_GC_STRESS)
     if (s == 0 || (s & (CL_ALIGN - 1)) != 0 || w->off + s > w->end ||
-        ((hdr >> CL_HDR_TYPE_SHIFT) & 0xFF) > CL_TYPE_MAX) {
+        (((hdr >> CL_HDR_TYPE_SHIFT) & 0xFF) > CL_TYPE_MAX &&
+         ((hdr >> CL_HDR_TYPE_SHIFT) & 0xFF) != CL_TYPE_DEAD)) {
 #else
     if (s == 0) {
 #endif
@@ -512,7 +513,8 @@ void cl_gc_stw_stats(uint32_t *stops, uint64_t *max_us, uint32_t *epoch_skips);
 /* Free-list shape (classic collector): block count, total free bytes on the
  * list, largest block.  Walks the list under alloc_mutex when threads are
  * live — a diagnostic (ext:%heap-stats), not a hot path.  All zero in gen
- * mode, where the free list is unused.  Any out-param may be NULL. */
+ * mode and under the Immix backend, where the free list is unused.  Any
+ * out-param may be NULL. */
 void cl_heap_free_list_stats(uint32_t *blocks, uint32_t *bytes,
                              uint32_t *largest);
 

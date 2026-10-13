@@ -94,18 +94,55 @@ void gcb_compact_done(void);
 /* Backend lines of cl_mem_stats (ext:room). */
 void gcb_stats_report(void);
 
+/* The collection cl_gc_verify_heap runs before it checks the arena: one
+ * after which every block that is not free is live and the marks are in
+ * the state the verifier expects (classic: a sweep; Immix: a compaction,
+ * which normalises the mark sense and drops every corpse). */
+void gcb_verify_collect(void);
+
+/* Are the header mark bits exact right now — marked == live after the
+ * last trace, unmarked == dead, for EVERY block on the chain?  Classic:
+ * always (the sweep clears what it finds).  Immix: only after a
+ * compaction or an image adoption, until the next line-sweep cycle leaves
+ * stale-marked corpses behind (gc_backend.h, "Marks without a clearing
+ * pass").  The DEBUG_GC walk-based verifiers run only when this is 1. */
+int gcb_marks_exact(void);
+
 /* ---- Hot hooks, per backend ------------------------------------------ */
 
 #ifdef CL_GC_CLASSIC
 
 /* Mark bits: the classic backend reads the header bit as is (the Immix
- * backend flips the bit's sense every cycle, specs/gc-backend-immix.md
- * "Marks without a clearing pass").  Only the collector's own files use
- * these so far; the raw CL_HDR_* forms outside gc_*.c move over with the
- * backend that needs it (Part 2, with a grep lint). */
+ * backend flips the bit's sense every cycle, see below).  Every mark-bit
+ * access outside the backend file goes through these three — the raw
+ * CL_HDR_MARKED / CL_HDR_SET_MARK / CL_HDR_CLR_MARK / CL_HDR_MARK_BIT
+ * forms are reserved for types.h, this header and src/core/gc_*.c
+ * (tests/test_gc_mark_macros.sh is the lint). */
 #define GCB_HDR_MARKED(p)    CL_HDR_MARKED(p)
 #define GCB_HDR_SET_MARK(p)  CL_HDR_SET_MARK(p)
 #define GCB_HDR_CLR_MARK(p)  CL_HDR_CLR_MARK(p)
+
+/* The header word of a freshly allocated object (cl_alloc): born
+ * unmarked, which for the classic bit is the plain header. */
+#define GCB_MAKE_HDR(type, size)  CL_MAKE_HDR(type, size)
+
+/* The conservative JIT-stack scan validated `off` as a block start that
+ * is not on the free list.  A backend may still refuse it (Immix: a dead
+ * block carries CL_TYPE_DEAD); classic accepts every block start. */
+#define GCB_SCAN_REJECT(off)  0
+
+/* gc_mark_push is about to push `obj` (an in-arena, non-immediate word).
+ * Immix validates it as an object start while the trace runs from the
+ * conservative JIT roots or the overflow rescan — those can start at a
+ * stale-marked corpse whose slots are garbage; classic never needs to. */
+#define GCB_PUSH_REJECT(obj)  0
+#define GCB_MARK_VALIDATE(on) ((void)0)
+
+/* The collection DEBUG_GC_STRESS forces before an allocation (cl_alloc):
+ * the moving compaction, which is what makes an unprotected CL_Obj local
+ * deterministic (Immix adds a second knob that mixes in its own cycles). */
+#define GCB_STRESS_COLLECT()  cl_gc_compact()
+#define GCB_BADMARK_REPORT(off)  ((void)0)
 
 /* One object has just been marked (gc_mark_obj, exactly once per object
  * per cycle).  Classic: in a generational minor cycle, record every live
@@ -301,7 +338,151 @@ CL_ALWAYS_INLINE void *gcb_alloc_fast(uint32_t *sizep, int multi,
 #endif /* CL_GC_CLASSIC */
 
 #ifdef CL_GC_IMMIX
-#error "GC=immix: the Immix backend (gc_immix.c) is Part 2 of specs/gc-backend-immix.md and has not landed"
+
+/* ---- The Immix-style mark-region backend (gc_immix.c) ----------------
+ *
+ * The arena is viewed as LINES of 1 << CL_GC_LINE_SHIFT bytes (128 by
+ * default); the side table im_line_map holds one byte per line.  A line
+ * is UNAVAILABLE when its byte equals the current epoch im_epoch — it was
+ * touched by a live object in the last trace, or claimed by an allocation
+ * cursor since — and available otherwise.  The trace stamps every line of
+ * every marked object (GCB_ON_MARK, exact, the size is in the header),
+ * the line sweep zeroes what the trace did not stamp, and the allocator
+ * claims runs of available lines (holes) as chunk cursors.  Nothing in a
+ * cycle walks the arena; see specs/gc-backend-immix.md, Part 2, and the
+ * header comment of gc_immix.c for the chain and index invariants.
+ *
+ * Marks without a clearing pass: the meaning of the header mark bit flips
+ * every cycle.  marked(p) == ((CL_HDR(p) ^ gc_hdr_xor) & CL_HDR_MARK_BIT);
+ * gc_hdr_xor is 0 or CL_HDR_MARK_BIT, and a completed cycle toggles it,
+ * so every survivor reads unmarked for the next trace at zero cost.  The
+ * consequences (a corpse not yet overwritten reads marked or unmarked by
+ * the parity of the cycle it died in) are confined to code that finds
+ * objects by WALKING the chain: the compactor normalises every bit before
+ * its trace, the conservative JIT scan and the overflow rescan validate
+ * what they push (GCB_PUSH_REJECT), finalized corpses and holes carry
+ * CL_TYPE_DEAD and are refused outright (GCB_SCAN_REJECT), and the
+ * DEBUG_GC verifiers run only while the marks are exact. */
+
+#ifndef CL_GC_LINE_SHIFT
+#define CL_GC_LINE_SHIFT 7
 #endif
+#define CL_GC_LINE_SIZE  (1u << CL_GC_LINE_SHIFT)
+
+extern uint32_t gc_hdr_xor;        /* 0 or CL_HDR_MARK_BIT: the mark sense */
+extern uint8_t *im_line_map;       /* one byte per line, see above */
+extern uint8_t  im_epoch;          /* 1..255, never 0 (0 = available) */
+extern uint32_t im_marked_bytes;   /* live bytes found by the last trace */
+extern int      gc_mark_validating;/* gc_mark_push validates object starts */
+
+#define GCB_HDR_MARKED(p) \
+    ((CL_HDR(p) ^ gc_hdr_xor) & CL_HDR_MARK_BIT)
+#define GCB_HDR_SET_MARK(p) \
+    (CL_HDR(p) = (CL_HDR(p) & ~CL_HDR_MARK_BIT) | (CL_HDR_MARK_BIT ^ gc_hdr_xor))
+#define GCB_HDR_CLR_MARK(p) \
+    (CL_HDR(p) = (CL_HDR(p) & ~CL_HDR_MARK_BIT) | gc_hdr_xor)
+#define GCB_MAKE_HDR(type, size)  (CL_MAKE_HDR(type, size) | gc_hdr_xor)
+
+/* One object has just been marked: stamp its lines, count its bytes. */
+CL_ALWAYS_INLINE void im_on_mark(uint32_t off, uint32_t size)
+{
+    uint32_t l = off >> CL_GC_LINE_SHIFT;
+    uint32_t last = (off + size - 1) >> CL_GC_LINE_SHIFT;
+    uint8_t e = im_epoch;
+    im_marked_bytes += size;
+    do {
+        im_line_map[l] = e;
+    } while (++l <= last);
+}
+#define GCB_ON_MARK(off, ptr)  im_on_mark((off), CL_HDR_SIZE(ptr))
+
+/* Finalizable objects are listed at allocation (one site), so a cycle
+ * finalizes the dead ones without walking dead space. */
+int  im_type_finalizable(uint8_t type);
+void im_fin_note(uint32_t off, int need_lock);
+#define GCB_ON_ALLOC_FINALIZABLE(off, type, multi) \
+    do { if (im_type_finalizable(type)) im_fin_note((off), (multi)); } while (0)
+
+#define GCB_SCAN_REJECT(off) \
+    (CL_HDR_TYPE(cl_heap.arena + (off)) == CL_TYPE_DEAD)
+
+int  gc_hdr_object_start_p(uint32_t off);     /* gc_jitscan.c */
+void gc_hdr_object_start_begin(void);         /* reset its walk cursor */
+#define GCB_PUSH_REJECT(obj) \
+    (gc_mark_validating && !gc_hdr_object_start_p(obj))
+#define GCB_MARK_VALIDATE(on) \
+    (gc_mark_validating = (on), gc_hdr_object_start_begin())
+
+#ifdef DEBUG_GC_STRESS
+void im_stress_collect(void);
+#define GCB_STRESS_COLLECT()  im_stress_collect()
+#else
+#define GCB_STRESS_COLLECT()  cl_gc_compact()
+#endif
+
+/* A [GC-BADMARK] report names `off`: the backend adds what it knows (the
+ * claims that formatted that address, the header they found there). */
+#if defined(DEBUG_GC) || defined(DEBUG_GC_STRESS)
+void im_debug_badmark(uint32_t off);
+#define GCB_BADMARK_REPORT(off)  im_debug_badmark(off)
+#endif
+
+/* ---- The Immix allocation cursor (cl_alloc's fast path) ----
+ *
+ * One cursor shape in both regimes: the thread's chunk [alloc_cur,
+ * alloc_lim) (thread.h), a hole the backend claimed for it in
+ * gcb_alloc_slow.  Single-threaded the chunk is the main thread's, found
+ * through cl_main_thread_ptr (no TLS load), and no lock is taken anywhere;
+ * multi-threaded the claim takes alloc_mutex and the cut does not.  The
+ * invariants of the classic chunk hold unchanged (the remainder is always
+ * a formatted block, never under CL_MIN_ALLOC_SIZE, every cursor dropped
+ * under stop-the-world), with one difference: a hole or remainder is
+ * formatted with CL_TYPE_DEAD, not as a raw-size free block, so no walk
+ * and no conservative scan can mistake it for a cons. */
+
+/* Format [off, off+len) as one dead block (len >= CL_ALIGN, aligned,
+ * <= CL_HDR_SIZE_MASK).  Its mark bit is irrelevant: nothing marks or
+ * traces a dead block. */
+CL_ALWAYS_INLINE void gcb_format_dead(uint32_t off, uint32_t len)
+{
+    CL_HDR(cl_heap.arena + off) = (CL_TYPE_DEAD << CL_HDR_TYPE_SHIFT) | len;
+}
+
+/* Cut *sizep bytes from t's chunk (rem = alloc_lim - alloc_cur >= size);
+ * may grow *sizep by an absorbed undersized tail.  Owner-only, lock-free. */
+CL_ALWAYS_INLINE void *gcb_cursor_cut(CL_Thread *t, uint32_t *sizep,
+                                      uint32_t rem)
+{
+    uint32_t size = *sizep;
+    uint32_t cur = t->alloc_cur;
+    void *ptr = cl_heap.arena + cur;
+
+    if (rem - size < CL_MIN_ALLOC_SIZE) {
+        size = rem;
+        *sizep = size;
+    }
+    cur += size;
+    if (cur == t->alloc_lim)
+        t->alloc_cur = t->alloc_lim = 0;
+    else {
+        t->alloc_cur = cur;
+        gcb_format_dead(cur, t->alloc_lim - cur);
+    }
+    t->alloc_consed += size;
+    return ptr;
+}
+
+CL_ALWAYS_INLINE void *gcb_alloc_fast(uint32_t *sizep, int multi,
+                                      CL_Thread **tp)
+{
+    CL_Thread *t = multi ? (CL_Thread *)platform_tls_get() : cl_main_thread_ptr;
+    uint32_t rem = t->alloc_lim - t->alloc_cur;
+    *tp = t;
+    if (*sizep <= rem)
+        return gcb_cursor_cut(t, sizep, rem);
+    return NULL;
+}
+
+#endif /* CL_GC_IMMIX */
 
 #endif /* CL_GC_BACKEND_H */

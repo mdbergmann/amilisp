@@ -221,6 +221,13 @@ void gc_hdr_note_bump(uint32_t old, uint32_t size);
 void gc_hdr_index_clear(void);
 void gc_hdr_index_release(void);
 void gc_hdr_index_init(void);
+#ifdef CL_GC_IMMIX
+/* The Immix backend's hole claims (gc_immix.c): a walk start for the
+ * chain at an offset, and the re-pointing of entries a claim erases. */
+uint32_t gc_hdr_walk_start_at(uint32_t off);
+void gc_hdr_repoint(uint32_t first, uint32_t last, uint32_t lo, uint32_t hi,
+                    uint32_t to);
+#endif
 #if defined(DEBUG_GC) || defined(DEBUG_GC_STRESS)
 void gc_hdr_index_selfcheck(void);
 #endif

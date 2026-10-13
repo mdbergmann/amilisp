@@ -137,6 +137,7 @@ TEST(walk_covers_fresh_allocations)
 /* --- After a sweep: free blocks are blocks too, and the accounting
  *     (live + free list) is exactly what the walk sees. --- */
 
+#ifdef CL_GC_CLASSIC   /* the free list and the sweep's coalescing are classic */
 TEST(walk_sees_free_blocks_after_sweep)
 {
     CL_Obj keep = CL_NIL;
@@ -248,6 +249,8 @@ TEST(walk_steps_over_a_bare_gap_header)
 
 /* --- After a compaction the chain is dense: no free blocks, every
  *     block live, and the walk's total is the live total. --- */
+
+#endif /* CL_GC_CLASSIC */
 
 TEST(walk_after_compaction_is_dense)
 {
@@ -369,8 +372,10 @@ int main(void)
     setup();
 
     RUN(walk_covers_fresh_allocations);
+#ifdef CL_GC_CLASSIC
     RUN(walk_sees_free_blocks_after_sweep);
     RUN(walk_steps_over_a_bare_gap_header);
+#endif
     RUN(walk_after_compaction_is_dense);
     RUN(walk_seek_continues_at_the_given_block);
 #if !defined(DEBUG_GC) && !defined(DEBUG_GC_STRESS)

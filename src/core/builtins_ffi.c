@@ -1357,13 +1357,19 @@ static CL_Obj bi_ffi_stub_info(CL_Obj *args, int nargs)
     CL_GC_PROTECT(name);
     CL_GC_PROTECT(aux);
     CL_GC_PROTECT(plist);
-    /* built back to front so the plist reads (:kind ... :name ... ...) */
+    /* built back to front so the plist reads (:kind ... :name ... ...).
+     * Every keyword is interned into a local BEFORE the push: the intern
+     * allocates, and `plist` passed in the same argument list would be
+     * read before it — a stale offset once the collection inside moved
+     * the list (found by the Immix stress regime, 2026-10-13; see
+     * tests/test_gc_arg_order.sh for the rule). */
     if (kind == CL_STUB_LIBCALL) {
         int rk = CL_AMIGA_RES_KIND(a);
+        CL_Obj kw;
         plist = stub_info_push(plist, "NPARAMS", CL_MAKE_FIXNUM((int32_t)ctype));
-        plist = stub_info_push(plist, "RESULT",
-                               rk <= CL_AMIGA_RES_KIND_MAX
-                               ? stub_info_keyword(stub_res_names[rk]) : CL_NIL);
+        kw = rk <= CL_AMIGA_RES_KIND_MAX
+             ? stub_info_keyword(stub_res_names[rk]) : CL_NIL;
+        plist = stub_info_push(plist, "RESULT", kw);
         plist = stub_info_push(plist, "REGSPEC",
                                CL_MAKE_FIXNUM((int32_t)CL_AMIGA_REGSPEC_NIBBLES(a)));
         plist = stub_info_push(plist, "LVO", CL_MAKE_FIXNUM((int32_t)b));
@@ -1376,13 +1382,17 @@ static CL_Obj bi_ffi_stub_info(CL_Obj *args, int nargs)
         } else {
             plist = stub_info_push(plist, "OFFSET", CL_MAKE_FIXNUM((int32_t)a));
         }
-        if (kind != CL_STUB_FIELD_PTR)
-            plist = stub_info_push(plist, "CTYPE",
-                                   ctype <= CL_STUB_CT_MAX
-                                   ? stub_info_keyword(stub_ct_names[ctype]) : CL_NIL);
+        if (kind != CL_STUB_FIELD_PTR) {
+            CL_Obj kw = ctype <= CL_STUB_CT_MAX
+                        ? stub_info_keyword(stub_ct_names[ctype]) : CL_NIL;
+            plist = stub_info_push(plist, "CTYPE", kw);
+        }
     }
     plist = stub_info_push(plist, "NAME", name);
-    plist = stub_info_push(plist, "KIND", stub_info_keyword(stub_kind_names[kind]));
+    {
+        CL_Obj kw = stub_info_keyword(stub_kind_names[kind]);
+        plist = stub_info_push(plist, "KIND", kw);
+    }
     CL_GC_UNPROTECT(3);
     return plist;
 }

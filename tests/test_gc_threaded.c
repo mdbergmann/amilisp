@@ -297,6 +297,7 @@ static void reinit_default(void)
     cl_mem_init(4 * 1024 * 1024);
 }
 
+#ifdef CL_GC_CLASSIC   /* cl_gc_if_stale is the classic backend's entry point */
 TEST(gc_if_stale_single_thread_always_collects)
 {
     uint32_t before = cl_heap.gc_count;
@@ -310,6 +311,7 @@ TEST(gc_if_stale_single_thread_always_collects)
     ASSERT_EQ_INT(cl_gc_if_stale(before), 1);
     ASSERT_EQ_INT((int)(cl_heap.gc_count - before), 2);
 }
+#endif /* CL_GC_CLASSIC */
 
 /* Peer that parks inside a GC safe region until released, making the
  * process multi-threaded (cl_thread_count > 1) without ever touching the
@@ -334,6 +336,7 @@ static void *safe_region_parker(void *arg)
     return NULL;
 }
 
+#ifdef CL_GC_CLASSIC
 TEST(gc_if_stale_skips_when_epoch_advanced)
 {
     SafeParkCtx ctx;
@@ -380,6 +383,7 @@ TEST(gc_if_stale_skips_when_epoch_advanced)
  * event each run, and stay put otherwise (e.g. compact_us must not move
  * on a plain sweep GC).
  * ================================================================ */
+#endif /* CL_GC_CLASSIC */
 
 TEST(gc_time_stats_and_stw_stats_accumulate)
 {
@@ -1733,8 +1737,10 @@ int main(void)
     /* GC-epoch dedup of redundant allocation-triggered collections and
      * the phase timers — classic-collector semantics (see reinit_classic) */
     reinit_classic();
+#ifdef CL_GC_CLASSIC
     RUN(gc_if_stale_single_thread_always_collects);
     RUN(gc_if_stale_skips_when_epoch_advanced);
+#endif
     RUN(gc_time_stats_and_stw_stats_accumulate);
     reinit_default();
 

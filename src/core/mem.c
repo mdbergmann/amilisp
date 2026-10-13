@@ -678,7 +678,7 @@ void *cl_alloc(uint8_t type, uint32_t size)
 #endif
                     fflush(stderr);
                 }
-                cl_gc_compact();
+                GCB_STRESS_COLLECT();
             }
         }
         cl_gc_stress_active = 0;
@@ -714,7 +714,7 @@ void *cl_alloc(uint8_t type, uint32_t size)
      * misinterpreted by GC (e.g. closure padding read as upvalue slots)
      * or FASL serializer (traverses object graph by following CL_Obj fields). */
     alloc_zero(ptr, size);
-    ((CL_Header *)ptr)->header = CL_MAKE_HDR(type, size);
+    ((CL_Header *)ptr)->header = GCB_MAKE_HDR(type, size);   /* born unmarked */
 
     GCB_ON_ALLOC_FINALIZABLE((uint32_t)((uint8_t *)ptr - cl_heap.arena),
                              type, multi);

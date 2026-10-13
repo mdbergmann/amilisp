@@ -61,10 +61,14 @@ GC ?= classic
 ifeq ($(GC),classic)
 GC_DEF  := -DCL_GC_CLASSIC
 GC_SRC   = $(SRCDIR)/core/gc_classic.c
+GC_DIR_SUFFIX :=
 else ifeq ($(GC),immix)
 GC_DEF  := -DCL_GC_IMMIX
 GC_SRC   = $(SRCDIR)/core/gc_immix.c
 BUILDDIR = build/host-immix
+# The dedicated debug builds below (gc-stress, memleak, race) get their own
+# directories too: their objects carry the backend define.
+GC_DIR_SUFFIX := -immix
 else
 $(error GC=$(GC): unknown GC backend (classic or immix))
 endif
@@ -305,7 +309,8 @@ test_batch test_repl_values test_repl_paste test_boot_log test_mx_error_context 
 # one keeps function-cell writes inside the call-generation setter.
 SHELL_TESTS_NOARG = test_cross_wide_knob test_test_extra test_aminet_upload \
                     test_ascii_messages test_icons test_gc_arg_order \
-                    test_release_clamacs_modules test_symfn_funnel
+                    test_release_clamacs_modules test_symfn_funnel \
+                    test_gc_mark_macros
 
 test-fast: $(TEST_BINS) host
 	@echo "=== Running tests (fast tier: skips sento/host-cold-test) ==="
@@ -370,13 +375,17 @@ test-jit-eager:
 # suite against it.  Kept out of the fast tier because it needs a separate,
 # slow build; run it after touching GC, the FASL reader/writer, the compiler,
 # or any C builtin that holds CL_Obj values across allocating calls.
-GC_STRESS_BUILDDIR = build/host-gcstress
+GC_STRESS_BUILDDIR = build/host-gcstress$(GC_DIR_SUFFIX)
 test-gc-stress:
 	@$(MAKE) --no-print-directory host \
 		BUILDDIR=$(GC_STRESS_BUILDDIR) \
 		DEBUG_FLAGS="-DDEBUG_GC_STRESS"
 	@echo "--- test_gc_stress_regression ---"
 	@$(TEST_TMPDIR_ENV) sh $(TEST_SRCDIR)/test_gc_stress_regression.sh $(GC_STRESS_BUILDDIR)/clamiga$(EXE)
+ifeq ($(GC),immix)
+	@echo "--- test_gc_stress_regression (CLAMIGA_GC_STRESS_IMMIX=8: line-sweep cycles between the compactions) ---"
+	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS_IMMIX=8 sh $(TEST_SRCDIR)/test_gc_stress_regression.sh $(GC_STRESS_BUILDDIR)/clamiga$(EXE)
+endif
 	@echo "--- test_mt_intern_stw (CLAMIGA_GC_STRESS=1) ---"
 	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_mt_intern_stw.sh $(GC_STRESS_BUILDDIR)/clamiga$(EXE)
 	@echo "--- test_mt_thread_death_hook (CLAMIGA_GC_STRESS=1) ---"
@@ -436,7 +445,7 @@ test-gc-stress:
 # every launch.  Kept out of the fast tier because it needs a separate build;
 # run it after touching any shutdown path, the compiler pool, the FASL reader,
 # or anything that holds platform_alloc'd memory in a static.
-MEMTRACK_BUILDDIR = build/host-memtrack
+MEMTRACK_BUILDDIR = build/host-memtrack$(GC_DIR_SUFFIX)
 test-memleak:
 	@$(MAKE) --no-print-directory host \
 		BUILDDIR=$(MEMTRACK_BUILDDIR) \
@@ -451,7 +460,7 @@ test-memleak:
 # scheduler timing to hit it.  Kept out of the fast tier because it needs a
 # separate build; run it after touching thread registration, safepoints, or
 # stop-the-world coordination in thread.c.
-RACE_BUILDDIR = build/host-race
+RACE_BUILDDIR = build/host-race$(GC_DIR_SUFFIX)
 test-mt-thread-exit-race: host
 	@$(MAKE) --no-print-directory host \
 		BUILDDIR=$(RACE_BUILDDIR) \

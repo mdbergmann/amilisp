@@ -1,6 +1,7 @@
 #include "test.h"
 #include "core/types.h"
 #include "core/mem.h"
+#include "core/gc_backend.h"
 #include "core/error.h"
 #include "core/package.h"
 #include "core/symbol.h"
@@ -346,6 +347,7 @@ TEST(unpinned_obj_moves)
     teardown();
 }
 
+#ifdef CL_GC_CLASSIC   /* the free list is classic machinery */
 /* Is `offset` the start of a block on the heap's free list? */
 static int test_free_list_contains(uint32_t offset)
 {
@@ -421,6 +423,73 @@ TEST(scan_skips_free_list_blocks)
     CT->jit_stack_top = NULL;
     teardown();
 }
+#endif /* CL_GC_CLASSIC */
+
+#ifdef CL_GC_IMMIX
+/* --- A stale spill naming a CORPSE.  The Immix backend never walks dead
+ * space: a dead cons that shares a line with live neighbours keeps its
+ * header until the line is reclaimed, and every other cycle it reads
+ * UNMARKED (the mark sense flips), so the conservative scan accepts it
+ * and traces it.  Its slots are garbage by then — here an offset INSIDE
+ * a live cons.  The trace from a conservative root must validate every
+ * push as a real object start; otherwise it stamps a mark bit into the
+ * live cons's cdr (observed as the fixnum 4 turning into 0x400004). --- */
+
+TEST(scan_traces_a_corpse_without_marking_interiors)
+{
+    volatile CL_Obj buf[4];
+    CL_Obj l1, l2, victim;
+    uint32_t v_off, interior;
+    int cycle;
+
+    setup();
+    zero_scratch_stack();
+
+    l1 = cl_cons(CL_MAKE_FIXNUM(1), CL_NIL);
+    victim = cl_cons(CL_MAKE_FIXNUM(2), CL_NIL);
+    l2 = cl_cons(CL_MAKE_FIXNUM(3), CL_MAKE_FIXNUM(4));
+    CL_GC_PROTECT(l1);
+    CL_GC_PROTECT(l2);
+    v_off = (uint32_t)victim;
+    victim = CL_NIL;
+
+    /* The victim dies; its header survives in the live neighbours' line. */
+    cl_gc();
+    ASSERT_EQ_INT(CL_HDR_TYPE(cl_arena_base + v_off), TYPE_CONS);
+    ASSERT_EQ_INT((int)(v_off >> CL_GC_LINE_SHIFT), (int)(l2 >> CL_GC_LINE_SHIFT));
+
+    /* Garbage in the corpse: its car now names the inside of l2 (the cdr
+     * word on a 64-bit host, the car word on the Amiga — an interior word
+     * either way). */
+    interior = (uint32_t)l2 + CL_ALIGN;
+    ((CL_Cons *)(cl_arena_base + v_off))->car = (CL_Obj)interior;
+
+    buf[0] = 0;
+    buf[1] = (CL_Obj)v_off;
+    buf[2] = 0;
+    buf[3] = 0;
+    CT->jit_stack_top = (void *)((char *)&buf[3] + sizeof(buf[0]) + 16);
+    CT->jit_depth = 1;
+    cl_jit_active_threads = 1;
+
+    /* Three cycles cover both parities of the corpse's stale mark. */
+    for (cycle = 0; cycle < 3; cycle++) {
+        cl_gc();
+        ASSERT(CL_CONS_P(l1));
+        ASSERT(CL_CONS_P(l2));
+        ASSERT_EQ_INT(CL_FIXNUM_VAL(cl_car(l2)), 3);
+        ASSERT_EQ_INT(CL_FIXNUM_VAL(cl_cdr(l2)), 4);   /* no bit stamped into it */
+        ASSERT_EQ_INT(CL_FIXNUM_VAL(cl_car(l1)), 1);
+    }
+
+    CL_GC_UNPROTECT(2);
+    (void)buf;
+    cl_jit_active_threads = 0;
+    CT->jit_depth = 0;
+    CT->jit_stack_top = NULL;
+    teardown();
+}
+#endif /* CL_GC_IMMIX */
 
 /* --- cl_error_unwind resets jit_depth and the global counter when
  * unwinding past a simulated JIT frame. --- */
@@ -458,7 +527,12 @@ int main(void)
     RUN(compaction_runs_even_when_jit_active);
     RUN(pinned_obj_does_not_move);
     RUN(unpinned_obj_moves);
+#ifdef CL_GC_CLASSIC
     RUN(scan_skips_free_list_blocks);
+#endif
+#ifdef CL_GC_IMMIX
+    RUN(scan_traces_a_corpse_without_marking_interiors);
+#endif
     RUN(unwind_resets_jit_active_count);
     REPORT();
 }

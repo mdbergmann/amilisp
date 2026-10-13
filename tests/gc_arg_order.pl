@@ -32,7 +32,7 @@ my $ALLOC = qr/\b(?:cl_cons|cl_list\w*|cl_make_\w+|cl_intern\w*|cl_alloc\w*|
                   cl_vm_apply|cl_funcall\w*|cl_copy\w*|cl_n?reverse|cl_append\w*|
                   cl_bignum_\w+|cl_arith_\w+|cl_build_\w+|cl_macroexpand\w*|
                   cl_eval\w*|cl_gensym\w*|cl_setf_store_symbol|
-                  make_\w+|build_\w+)\s*\(/x;
+                  make_\w+|build_\w+|\w*intern\w*|\w+_keyword)\s*\(/x;
 my $CONST = qr/^\s*(?:CL_NIL|CL_T|CL_UNBOUND|CL_MAKE_FIXNUM\s*\(.*\)|
                   CL_MAKE_CHAR\s*\(.*\)|-?\d+[uUlL]*|0x[0-9a-fA-F]+)\s*$/xs;
 my $PARENS = qr/(\((?:[^()]++|(?-1))*+\))/;

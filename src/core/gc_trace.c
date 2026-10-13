@@ -147,9 +147,16 @@ static void gc_mark_push(CL_Obj obj)
     if (obj >= cl_heap.arena_size)
         return;
 
+    /* A trace running from the conservative JIT roots or the overflow
+     * rescan may have started at a corpse whose slots are garbage: the
+     * backend then validates every push as a real object start (Immix;
+     * compiles out under classic, whose sweep leaves no corpse behind). */
+    if (GCB_PUSH_REJECT(obj))
+        return;
+
     /* Skip already-marked objects — avoids duplicate pushes and makes
      * overflow re-scan efficient (only pushes truly unmarked children) */
-    if (CL_HDR_MARKED(CL_OBJ_TO_PTR(obj)))
+    if (GCB_HDR_MARKED(CL_OBJ_TO_PTR(obj)))
         return;
 
 #if defined(DEBUG_GC) || defined(DEBUG_GC_STRESS)
@@ -175,6 +182,7 @@ static void gc_mark_push(CL_Obj obj)
             } else {
                 fprintf(stderr, "  parent: (root set - no parent object)\n");
             }
+            GCB_BADMARK_REPORT(obj);
             cl_capture_backtrace();
             fprintf(stderr, "%s", cl_backtrace_buf);
             fflush(stderr);
@@ -233,7 +241,7 @@ void gc_mark_obj(CL_Obj obj)
 
     ptr = CL_OBJ_TO_PTR(obj);
 
-    if (CL_HDR_MARKED(ptr)) return;
+    if (GCB_HDR_MARKED(ptr)) return;
 #if defined(DEBUG_GC) || defined(DEBUG_GC_STRESS)
     /* Plausibility guard: marking an offset that is not a real object start
      * ORs CL_HDR_MARK_BIT into arbitrary object interiors (observed: a
@@ -260,13 +268,14 @@ void gc_mark_obj(CL_Obj obj)
                     CT->gc_root_files[gc_dbg_root_idx],
                     CT->gc_root_lines[gc_dbg_root_idx]);
 #endif
+        GCB_BADMARK_REPORT(obj);
         cl_capture_backtrace();
         fprintf(stderr, "%s", cl_backtrace_buf);
         fflush(stderr);
         abort();
     }
 #endif
-    CL_HDR_SET_MARK(ptr);
+    GCB_HDR_SET_MARK(ptr);
     /* The backend's per-object hook (gc_backend.h) — the marked-check
      * above guarantees exactly one call per object per cycle. */
     GCB_ON_MARK(obj, ptr);
@@ -657,14 +666,11 @@ void gc_mark(void)
      * the last cycle; the first JIT-stack scan this cycle re-collects it. */
     jit_scan_free_valid = 0;
 
-    /* Per-thread roots for ALL registered threads, plus the conservative
-     * scan of a thread's JIT native stack (no-op unless it is parked inside
-     * JIT'd code).  During STW GC all other threads are stopped, so the
-     * thread list is stable — no lock needed for iteration. */
-    for (t = cl_thread_list; t; t = t->next) {
+    /* Per-thread roots for ALL registered threads.  During STW GC all
+     * other threads are stopped, so the thread list is stable — no lock
+     * needed for iteration. */
+    for (t = cl_thread_list; t; t = t->next)
         gc_visit_thread_roots(t, gc_mark_slot);
-        gc_scan_jit_native_stack(t);
-    }
     gc_visit_registered_roots(gc_mark_slot);
     gc_visit_shared_roots(gc_mark_slot);
 
@@ -676,12 +682,33 @@ void gc_mark(void)
         gc_mark_obj(obj);
     }
 
+    /* The conservative scan of each thread's JIT native stack (no-op
+     * unless it is parked inside JIT'd code), AFTER the precise trace has
+     * drained: a candidate the precise roots reach is already marked and
+     * only gets pinned, and the few that are not — an object held only in
+     * a spilled JIT operand, or a stale spill naming a corpse — are traced
+     * with the backend's push validation on (Immix: every child must be a
+     * real object start, so a corpse's garbage slots retain at most real
+     * objects for a cycle and never set a bit inside one; classic has no
+     * corpses and the hook compiles out).  Marking order does not change
+     * the mark set, so the classic result is the same as before the
+     * reordering. */
+    GCB_MARK_VALIDATE(1);
+    for (t = cl_thread_list; t; t = t->next)
+        gc_scan_jit_native_stack(t);
+    while (gc_mark_top > 0) {
+        CL_Obj obj = gc_mark_stack[--gc_mark_top];
+        gc_mark_obj(obj);
+    }
+
     /* Handle mark stack overflow: re-scan heap for marked objects whose
      * children may not have been pushed.  Repeat until no overflow.
      * Only reachable when gc_mark_stack_grow failed (cap/OOM) — each pass
      * is O(arena) and recovers at most ~one-stack-full of dropped children,
      * so this is the quadratic last resort, not the normal path.  The pass
-     * counter feeds ext:%gc-mark-stats so the fallback is observable. */
+     * counter feeds ext:%gc-mark-stats so the fallback is observable.
+     * Validation stays on: a stale-marked corpse (Immix) on the chain
+     * would otherwise push its garbage slots. */
     while (gc_mark_overflow) {
         GcWalk w;
         uint32_t off, size;
@@ -692,7 +719,7 @@ void gc_mark(void)
         gc_walk_begin(&w);
         while (gc_walk_next(&w, &off, &size, &type)) {
             uint8_t *ptr = cl_heap.arena + off;
-            if (CL_HDR_MARKED(ptr)) {
+            if (type != CL_TYPE_DEAD && GCB_HDR_MARKED(ptr)) {
                 /* Re-push children — gc_mark_obj will skip already-marked ones */
                 gc_mark_children(ptr, type);
             }
@@ -703,6 +730,7 @@ void gc_mark(void)
             gc_mark_obj(obj);
         }
     }
+    GCB_MARK_VALIDATE(0);
 }
 
 /* --- Sweep Phase --- */
@@ -726,7 +754,7 @@ void gc_srcloc_invalidate_dead(void)
     for (i = 0; i < CL_SRCLOC_SIZE; i++) {
         CL_Obj k = cl_srcloc_table[i].cons_obj;
         if (CL_NULL_P(k) || CL_FIXNUM_P(k) || CL_CHAR_P(k)) continue;
-        if (k >= cl_heap.bump || !CL_HDR_MARKED(CL_OBJ_TO_PTR(k)))
+        if (k >= cl_heap.bump || !GCB_HDR_MARKED(CL_OBJ_TO_PTR(k)))
             cl_srcloc_table[i].cons_obj = CL_NIL;
     }
 }

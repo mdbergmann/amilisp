@@ -3127,8 +3127,12 @@ static CL_Obj bi_boot_trace_clos(CL_Obj *args, int n)
 
 static CL_Obj bi_get_bytes_consed(CL_Obj *args, int n)
 {
+    /* The chunk cursor defers its consed bytes until the next refill or
+     * collection (thread.h alloc_consed): add this thread's pending count
+     * so TIME sees the cons it just did. */
+    uint32_t consed = cl_heap.total_consed + CT->alloc_consed;
     CL_UNUSED(args); CL_UNUSED(n);
-    return CL_MAKE_FIXNUM((int32_t)(cl_heap.total_consed & CL_FIXNUM_MAX));
+    return CL_MAKE_FIXNUM((int32_t)(consed & CL_FIXNUM_MAX));
 }
 
 static CL_Obj bi_get_gc_count(CL_Obj *args, int n)
@@ -3346,6 +3350,30 @@ static CL_Obj bi_ext_gc_minor(CL_Obj *args, int n)
 {
     CL_UNUSED(args); CL_UNUSED(n);
     return cl_gc_minor(cl_heap.gc_count) ? CL_T : CL_NIL;
+}
+#else
+/* Without the generational mode (CL_NO_GENGC, the Amiga builds, the Immix
+ * backend) both builtins exist with their documented "not enabled"
+ * answers, so a script written against the host keeps running. */
+static CL_Obj bi_ext_gengc_stats(CL_Obj *args, int n)
+{
+    CL_Obj result = CL_NIL, f;
+    CL_UNUSED(args); CL_UNUSED(n);
+    CL_GC_PROTECT(result);
+    result = cl_cons(CL_MAKE_FIXNUM(0), result);
+    result = cl_cons(CL_MAKE_FIXNUM(0), result);
+    result = cl_cons(CL_MAKE_FIXNUM(0), result);
+    f = cl_make_double_float(0.0);
+    result = cl_cons(f, result);
+    result = cl_cons(CL_MAKE_FIXNUM(0), result);
+    result = cl_cons(CL_NIL, result);
+    CL_GC_UNPROTECT(1);
+    return result;
+}
+static CL_Obj bi_ext_gc_minor(CL_Obj *args, int n)
+{
+    CL_UNUSED(args); CL_UNUSED(n);
+    return CL_NIL;
 }
 #endif /* CL_GENGC */
 
@@ -5287,10 +5315,8 @@ void cl_builtins_io_init(void)
     extfun("%COMPILER-POOL-STATS", bi_ext_compiler_pool_stats, 0, 0);
     extfun("%GC-TIME-STATS", bi_ext_gc_time_stats, 0, 0);
     extfun("%HEAP-STATS", bi_ext_heap_stats, 0, 0);
-#ifdef CL_GENGC
     extfun("%GENGC-STATS", bi_ext_gengc_stats, 0, 0);
     extfun("%GC-MINOR", bi_ext_gc_minor, 0, 0);
-#endif
     extfun("%STREAM-OUTBUF-STATS", bi_ext_stream_outbuf_stats, 0, 0);
     extfun("%GC-AUDIT-ROOTS", bi_ext_gc_audit_roots, 0, 0);
     extfun("%GC-AUDIT-HDR-INDEX", bi_ext_gc_audit_hdr_index, 0, 0);

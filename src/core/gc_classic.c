@@ -1364,6 +1364,16 @@ void gcb_compact_done(void)
 #endif
 }
 
+void gcb_verify_collect(void)
+{
+    cl_gc();
+}
+
+int gcb_marks_exact(void)
+{
+    return 1;
+}
+
 void gcb_stats_report(void)
 {
 #ifdef CL_TLAB

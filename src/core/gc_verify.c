@@ -141,7 +141,7 @@ void gc_dump_roots_dbg(void)
             CL_Obj val = *t->gc_roots[i];
             int is_heap = (!CL_NULL_P(val) && !CL_FIXNUM_P(val) && !CL_CHAR_P(val)
                            && val != CL_UNBOUND && val < cl_heap.arena_size);
-            int marked  = (is_heap && CL_HDR_MARKED(CL_OBJ_TO_PTR(val)));
+            int marked  = (is_heap && GCB_HDR_MARKED(CL_OBJ_TO_PTR(val)));
 
             snprintf(buf, sizeof(buf),
                      "  root[%d] val=0x%08x %s  @ %s:%d\n",
@@ -172,7 +172,7 @@ static void gc_verify_check_ref(CL_Obj parent_offset, const char *field,
         return;
     }
     child_ptr = CL_OBJ_TO_PTR(child);
-    if (!CL_HDR_MARKED(child_ptr)) {
+    if (!GCB_HDR_MARKED(child_ptr)) {
         char buf[256];
         snprintf(buf, sizeof(buf),
                  "GC VERIFY: marked @0x%08x.%s -> unmarked @0x%08x (type %u)\n",
@@ -190,11 +190,16 @@ void gc_verify_marked(void)
     uint8_t type;
     gc_verify_errors = 0;
 
+    /* A stale-marked corpse on the chain (Immix between compactions)
+     * would report its garbage slots as unmarked children. */
+    if (!gcb_marks_exact())
+        return;
+
     gc_walk_begin(&w);
     while (gc_walk_next(&w, &off, &size, &type)) {
         uint8_t *ptr = cl_heap.arena + off;
 
-        if (CL_HDR_MARKED(ptr)) {
+        if (type != CL_TYPE_DEAD && GCB_HDR_MARKED(ptr)) {
             CL_Obj parent_off = (CL_Obj)off;
 
             switch (type) {
@@ -569,6 +574,7 @@ static const char *hv_ref_fault(CL_Obj ref)
     if ((ref & (CL_ALIGN - 1)) != 0) return "unaligned";
     if (HV_BIT_GET(hv_free, ref)) return "a free block";
     if (!HV_BIT_GET(hv_starts, ref)) return "inside an object (no header there)";
+    if (CL_HDR_TYPE(CL_OBJ_TO_PTR(ref)) == CL_TYPE_DEAD) return "a dead block";
     if (CL_HDR_TYPE(CL_OBJ_TO_PTR(ref)) > CL_TYPE_MAX) return "an impossible type tag";
     return NULL;
 }
@@ -599,8 +605,9 @@ int cl_gc_verify_heap(void)
     hv_cut = 0;
     hv_faults = 0;
 
-    /* Everything that is not free is live after this. */
-    cl_gc();
+    /* Everything that is not free is live after this (the backend picks
+     * the collection that makes it so and leaves the marks exact). */
+    gcb_verify_collect();
 
     units = cl_heap.bump / CL_ALIGN + 1;
     bytes = (units + 7) / 8;
@@ -633,15 +640,20 @@ int cl_gc_verify_heap(void)
             walk_end = off;
             break;
         }
-        if (type > CL_TYPE_MAX) {
+        if (type == CL_TYPE_DEAD) {
+            /* A dead block (an Immix hole or finalized corpse, a sub-header
+             * gap): no object, no references, like a free-list block. */
+            HV_BIT_SET(hv_free, off);
+            n_free++;
+        } else if (type > CL_TYPE_MAX) {
             hv_faults++;
             hv_say("block @0x%08lx: impossible type tag %u (size %lu)\n",
                    (unsigned long)off, (unsigned)type, (unsigned long)size);
         }
 #ifdef CL_GENGC
-        if (!gen_enabled && CL_HDR_MARKED(hp)) {   /* old space keeps its mark under GENGC */
+        if (!gen_enabled && type != CL_TYPE_DEAD && GCB_HDR_MARKED(hp)) {   /* old space keeps its mark under GENGC */
 #else
-        if (CL_HDR_MARKED(hp)) {
+        if (type != CL_TYPE_DEAD && GCB_HDR_MARKED(hp)) {
 #endif
             hv_faults++;
             hv_say("block @0x%08lx: mark bit still set after the collection (type %u)\n",

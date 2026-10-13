@@ -211,6 +211,17 @@ enum CL_ObjType {
 #define CL_TYPE_MAX TYPE_FFI_STUB
 #endif
 
+/* A header tag for a block that is NOT an object and never will be read
+ * as one: a hole the Immix backend formatted for its allocation cursor, a
+ * finalized corpse it neutralised, a sub-header gap the compactor could
+ * not link.  Outside the enum (and above CL_TYPE_MAX) on purpose: a
+ * dead block reached through a precise reference is heap corruption, and
+ * the DEBUG_GC plausibility guards keep aborting on it; the arena walk,
+ * the conservative JIT-stack scan and the finalizers know the tag and
+ * step over it.  The classic backend's free blocks keep their raw-size
+ * (type 0) header; see specs/gc-backend-immix.md. */
+#define CL_TYPE_DEAD 0xFFu
+
 /* Header access macros */
 #define CL_HDR(ptr)         (((CL_Header *)(ptr))->header)
 #define CL_HDR_TYPE(ptr)    ((CL_HDR(ptr) >> CL_HDR_TYPE_SHIFT) & 0xFF)
