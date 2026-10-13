@@ -30,7 +30,7 @@
  */
 
 extern volatile int cl_jit_active_threads;  /* mem.c */
-extern int gc_compact_pending;              /* mem.c */
+extern int gc_compact_pending;              /* gc_compact.c */
 
 /* Replicate the static gc_is_freed predicate from mem.c — checks the
  * 0xDE poison pattern gc_sweep writes at offset 8 of freed blocks. */

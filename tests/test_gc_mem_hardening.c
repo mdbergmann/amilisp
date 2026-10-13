@@ -63,7 +63,7 @@
 
 /* Non-static mem.c internals under test (not part of the public API). */
 extern int cl_bump_fits(uint32_t bump, uint32_t size, uint32_t arena_size);
-extern int gc_compact_pending;
+extern int gc_compact_pending;   /* gc_compact.c */
 
 /* Non-static builtins_array.c internals under test (not part of the
  * public API) — see the M11 comment above. */

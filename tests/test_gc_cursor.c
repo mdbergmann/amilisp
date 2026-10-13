@@ -10,8 +10,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* The classic backend's cursor shapes (the live bump front single-
+ * threaded, the chunk multi-threaded): trivial pass under another
+ * backend, whose cursor has its own suite. */
+#ifdef CL_GC_CLASSIC
+
 /*
- * Tests for the allocation cursor (mem.c, "Allocation cursor"): the
+ * Tests for the allocation cursor (gc_backend.h, "The classic allocation
+ * cursor"; the shared drop/retire paths in mem.c): the
  * region cl_alloc's fast path cuts objects from without locking, and the
  * backend's refill of it (gcb_alloc_slow).
  *
@@ -495,3 +501,10 @@ int main(void)
     teardown();
     REPORT();
 }
+
+#else /* !CL_GC_CLASSIC */
+
+TEST(classic_backend_not_built) { ASSERT(1); }
+int main(void) { test_init(); RUN(classic_backend_not_built); REPORT(); }
+
+#endif /* CL_GC_CLASSIC */

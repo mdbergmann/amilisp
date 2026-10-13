@@ -3,8 +3,8 @@
 Status: IN PROGRESS.  Phase 0 measured 2026-10-08:
 `docs/gc-phase0-results.md` (gate passed for the churn and allocation
 cases; the idle-heap pause is the mark and needs its own work).  Phase 1
-step 1 (the mechanical split of `mem.c`) landed 2026-10-08; steps 2–5
-open.
+(the seam) landed in five steps 2026-10-08 … 2026-10-13, classic only;
+Phase 2 (the Immix backend) is next.
 Companion: `specs/generational-gc.md` (the host collector this leaves alone).
 
 ## Why
@@ -318,6 +318,69 @@ call: classic uses it as today; Immix uses it as its rare full
 defragmentation and before an image save.  It is written against the
 iterator and the visitor, so it needs no backend knowledge beyond
 `gcb_walk_clip`.
+
+*Done 2026-10-13 (step 5).*  `src/core/gc_backend.h` is the seam, included
+by `gc_internal.h` and by any runtime file that needs a hook (image.c);
+`mem.h` selects the backend (`CL_GC_CLASSIC` / `CL_GC_IMMIX`, exclusive,
+classic the default when neither is defined — so the cross and MorphOS
+makefiles need no change until Phase 3) and makes `CL_GENGC` a mode *of*
+classic (`#if defined(CL_GC_CLASSIC) && …`).  The interface as landed
+differs from the table above where the code said so:
+
+- `gcb_arena_alloc(size)` / `gcb_arena_free(arena, size)` — the backend
+  places the arena, because gen mode needs page-aligned, write-watched
+  pages; `gcb_init()` (after `cl_heap` describes the arena; self-resetting,
+  the stale-static rule) and `gcb_shutdown()` (before the off-heap release
+  walk, so it must leave the arena readable) bracket the side tables.
+- `gcb_alloc_fast(sizep, multi, &t)` (`CL_ALWAYS_INLINE`) joins
+  `gcb_alloc_slow(t, sizep, multi)`: the cursor *shape* is the backend's
+  (classic: front/chunk, Immix: one hole-shaped chunk in both regimes), so
+  the fast path lives in the header next to the cuts it instantiates, and
+  the chunk refill in `gc_classic.c` uses the same inlines.  `mem.c` keeps
+  the per-thread chunk fields' drop/retire paths (`gc_cursor_drop`,
+  `gc_cursor_drop_all`, `cl_cursor_retire`) — shared by construction.
+- `gcb_collect(why)` takes only `GCB_WHY_EXPLICIT` (`cl_gc`) and
+  `GCB_WHY_RECLAIM_YOUNG` (`cl_gc_reclaim_young`); allocation-driven
+  collection is inside `gcb_alloc_slow`, and an explicit compaction is the
+  shared `cl_gc_compact`.  `cl_gc` / `cl_gc_reclaim_young` are
+  backend-neutral wrappers in `mem.c`; `gc_stop_world_timed` moved there
+  too (every backend's cycle enters through it).
+- The compactor got three hooks instead of a `gcb_before_image_save`-only
+  contract: `gcb_compact_begin()` (gen: unprotect + clear the sticky
+  marks), `gcb_compact_fallback(outcome)` (the non-moving cycle when the
+  pin or forwarding table cannot be had — classic: `gc_sweep` + gen
+  stand-down + counter reset) and `gcb_compact_done()` (classic: the
+  sweep-forever counter; gen: new old space and dirty era).  What stays
+  `#ifdef CL_GENGC` inside `gc_compact.c` / `gc_trace.c` — `gc_forward`'s
+  survivor-list leg, the crossing-map notes in the forwarding and slide
+  passes — is gen's dense-old-space bookkeeping, compiled out whenever
+  `CL_GC_CLASSIC` is not defined.  `gc_compact_pending` and
+  `gc_last_compact_cycle` are the compactor's own (safe-point flag and
+  once-per-cycle gate); `gc_sweeps_since_compact` is classic policy.
+- `gcb_adopt_image_begin()` / `gcb_adopt_image_finish()` (two phases, as
+  `cl_mem_adopt_image_*` always had), `gcb_before_image_save()` (classic:
+  full GC then compaction, as the writer did inline), `gcb_stats_report()`.
+- Hot macros: `GCB_ON_MARK(off, ptr)` is called in `gc_mark_obj` (classic:
+  the gen survivor note, `(void)0` without gen); `GCB_ON_ALLOC_FINALIZABLE`
+  in `cl_alloc` (classic: `gen_fin_note`); `GCB_HDR_MARKED/SET/CLR` are
+  defined but the raw `CL_HDR_*` call sites are not converted yet — that
+  conversion, the grep lint, and the iterator's `GCB_WALK_CLIP` hook land
+  with the backend that needs them (Part 2), so step 5 adds no token to
+  `gc_walk_next`.
+- `cl_gengc_enabled()` is declared unconditionally (0 without `CL_GENGC`),
+  which also un-breaks the `CL_NO_GENGC` build of `test_mem` and
+  `test_alloc_freelist_perf`; `cl_gc_if_stale` stays public under
+  `CL_GC_CLASSIC` for `test_gc_threaded`'s dedup tests.
+- `make host GC=classic|immix`: `GC_DEF` goes into both `CFLAGS_HOST` and
+  `CFLAGS_TEST`, `GC_SRC` picks the backend file, `GC=immix` builds into
+  `build/host-immix` (the two-binary A/B, like `FPU=1`) and currently
+  stops at the header's `#error` because `gc_immix.c` does not exist.
+- Tagged `#ifdef CL_GC_CLASSIC` (trivial pass otherwise):
+  `test_gc_fwd_bitmap`, `test_gc_hdr_index`, `test_alloc_sweep_escape`,
+  `test_gc_root_dedup`, `test_alloc_freelist_perf`, `test_gc_cursor`;
+  `test_gengc*` were already gated on `CL_GENGC`.  Everything else must
+  pass under either backend.  `test_gc_roots_visit.c` from the list below
+  is `tests/test_gc_roots.c` (landed with step 2).
 
 ### Tests for Part 1
 

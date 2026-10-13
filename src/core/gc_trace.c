@@ -267,14 +267,9 @@ void gc_mark_obj(CL_Obj obj)
     }
 #endif
     CL_HDR_SET_MARK(ptr);
-#ifdef CL_GENGC
-    /* Minor cycles: record every live nursery object as it is discovered —
-     * the survivor list is what lets the rest of the minor never touch
-     * dead nursery space.  gc_mark_obj's marked-check above guarantees
-     * exactly one note per object. */
-    if (gen_minor_active && obj >= gen_old_top)
-        gen_live_note(obj);
-#endif
+    /* The backend's per-object hook (gc_backend.h) — the marked-check
+     * above guarantees exactly one call per object per cycle. */
+    GCB_ON_MARK(obj, ptr);
     gc_mark_children(ptr, CL_HDR_TYPE(ptr));
 }
 

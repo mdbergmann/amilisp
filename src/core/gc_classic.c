@@ -1,9 +1,17 @@
-/* gc_classic.c — the classic collector: gc_sweep (free-list
- * rebuild), cl_gc and its stop-the-world wrappers, and the
- * generational mode (CL_GENGC, host only: nursery, dirty pages,
- * minor collections).  State: gc_internal.h.
+/* gc_classic.c — the classic backend behind gc_backend.h: bump +
+ * free-list allocation (gcb_alloc_slow and the chunk refill), gc_sweep
+ * (free-list rebuild), the sweep-then-compact policy, the collection
+ * entry points, image adoption, and the generational mode (CL_GENGC,
+ * host only: nursery, dirty pages, minor collections).  Shared state:
+ * gc_internal.h; the cursor cuts it refills: gc_backend.h.
  */
 #include "gc_internal.h"
+
+#ifndef CL_GC_CLASSIC
+#error "gc_classic.c is the CL_GC_CLASSIC backend; build it only with GC=classic"
+#endif
+
+static void classic_gc(void);
 
 
 #ifdef CL_GENGC
@@ -137,6 +145,11 @@ void gen_fin_note(uint32_t off, int need_lock)
 }
 
 int cl_gengc_enabled(void) { return gen_enabled; }
+
+/* Bytes of protectable pages behind cl_heap.arena while gen_arena_pages:
+ * gen_reset() zeroes gen_npages/gen_page, so the release needs its own
+ * record of what was mapped. */
+static uint32_t gen_arena_bytes = 0;
 
 /* Protect [0, gen_old_top) read-only (page-truncated).  The straddling
  * page (old tail + nursery head) stays writable — mark it dirty so the
@@ -273,7 +286,371 @@ void gen_reset(void)
     gen_promoted_bytes = 0;
     gen_dirty_last = 0;
 }
+#else
+int cl_gengc_enabled(void) { return 0; }
 #endif /* CL_GENGC */
+
+/* ================================================================
+ * Allocation: the classic refill behind cl_alloc's cursor cut
+ * (gcb_alloc_fast, gc_backend.h) — the bump front, then a bounded
+ * first-fit probe of the free list, then collection and compaction
+ * as the policy below dictates.
+ * ================================================================ */
+
+/* Fast-path bound on the first-fit free-list walk.  alloc_from_free_list is
+ * O(list length); under a fragmented heap (many small blocks interspersed with
+ * live objects) an allocation-heavy workload would degrade to O(n) per
+ * allocation — O(n^2) overall — which manifests as a 100% CPU hang (e.g. the
+ * bignum-heavy power-of-ten table built at FASL load time by jzon's
+ * eisel-lemire).  The slow path probes only this many blocks; if no fit
+ * turns up it compacts (which resets the bump pointer and clears
+ * fragmentation, restoring the O(1) bump path) rather than walking the whole
+ * list.  A full unbounded walk is still used as the last resort before
+ * declaring the heap exhausted, so a fit deep in the list is never missed.
+ * See tests/test_alloc_freelist_perf.c for the regression test. */
+#ifndef CL_FREELIST_PROBE_LIMIT
+#define CL_FREELIST_PROBE_LIMIT 32
+#endif
+
+/* Number of sweep-only GCs run since the last compaction.  A sweep never
+ * resets the bump pointer, so once the bump is exhausted a run of sweeps
+ * makes no lasting progress: each just re-coalesces the free list and the
+ * next allocation sweeps again.  When this counter crosses
+ * GC_SWEEPS_BEFORE_COMPACT (and the heap is not genuinely near-full) the
+ * slow path forces a compaction, which resets the bump pointer and
+ * defragments — escaping the "sweep-forever" regime.  Reset to 0 by the
+ * compactor (gcb_compact_done / gcb_compact_fallback). */
+uint32_t gc_sweeps_since_compact = 0;
+
+#ifdef CL_TLAB
+/* Chunk size: configured once per heap in gcb_init (0 = disabled).
+ * CLAMIGA_TLAB_CHUNK=<bytes> overrides; scaled down on small heaps so
+ * N threads' chunks can't consume a test-sized arena. */
+#ifndef CL_TLAB_CHUNK
+#define CL_TLAB_CHUNK (32u * 1024u)
+#endif
+#define CL_TLAB_MIN_CHUNK 4096u
+static uint32_t tlab_chunk_size = 0;
+static uint32_t tlab_max_obj    = 0;   /* larger objects never REFILL a chunk */
+#endif
+
+static void *alloc_from_bump(uint32_t size)
+{
+    if (cl_bump_fits(cl_heap.bump, size, cl_heap.arena_size)) {
+        uint32_t old = cl_heap.bump;
+        void *ptr = cl_heap.arena + old;
+        cl_heap.bump = old + size;
+        /* Block-start index: one compare per bump allocation; the slow
+         * path runs once per 4 KB of bump-allocated data. */
+        if (cl_heap.bump > gc_hdr_bump_watch)
+            gc_hdr_note_bump(old, size);
+        return ptr;
+    }
+    return NULL;
+}
+
+/* First-fit allocation from the free list.  Walks at most max_steps blocks
+ * (0 == unbounded); returns NULL if no fit is found within the bound. */
+static void *alloc_from_free_list(uint32_t *sizep, uint32_t max_steps)
+{
+    uint32_t size = *sizep;
+    uint32_t *prev_off = &cl_heap.free_list;
+    uint32_t cur_off = cl_heap.free_list;
+    uint32_t steps = 0;
+
+    while (cur_off) {
+        CL_FreeBlock *block = (CL_FreeBlock *)(cl_heap.arena + cur_off);
+        cl_heap.freelist_steps++;
+        if (max_steps && ++steps > max_steps)
+            return NULL;
+        if (block->size >= size) {
+            uint32_t remainder = block->size - size;
+            if (remainder >= CL_MIN_ALLOC_SIZE) {
+                /* Split block */
+                uint32_t new_off = cur_off + size;
+                CL_FreeBlock *new_free = (CL_FreeBlock *)(cl_heap.arena + new_off);
+                new_free->size = remainder;
+                new_free->next_offset = block->next_offset;
+                *prev_off = new_off;
+                /* Block-start index: the front piece keeps the block's
+                 * header, so the index stays valid without this; noting
+                 * both pieces keeps the scan's walk short after a large
+                 * free block has been carved into many objects. */
+                if (GC_HDR_CROSSES(cur_off, size))
+                    gc_hdr_note(cur_off, size);
+                if (GC_HDR_CROSSES(new_off, remainder))
+                    gc_hdr_note(new_off, remainder);
+            } else {
+                /* Use entire block — report actual size so header matches */
+                size = block->size;
+                *sizep = size;
+                *prev_off = block->next_offset;
+            }
+            memset(block, 0, size);
+            return block;
+        }
+        prev_off = &block->next_offset;
+        cur_off = block->next_offset;
+    }
+    return NULL;
+}
+
+#ifdef CL_TLAB
+/* Carve a fresh chunk for t and cut the first object from it.  Caller
+ * MUST hold alloc_mutex.  Any abandoned remainder of the previous chunk
+ * stays behind as a formatted hole (< tlab_max_obj bytes; the next sweep
+ * reclaims it).  Falls back to the bounded free-list probe when the bump
+ * front is exhausted, so chunks stay effective in the sweep-only regime
+ * between compactions.  Returns NULL when neither source can supply a
+ * chunk — the caller degrades to the shared slow path. */
+static void *cursor_refill_chunk(CL_Thread *t, uint32_t *sizep)
+{
+    void    *chunk;
+    uint32_t chunk_size = tlab_chunk_size;
+    uint32_t chunk_off;
+
+    if (!chunk_size)
+        return NULL;
+    chunk = alloc_from_bump(chunk_size);
+    if (!chunk) {
+        /* May return a larger block (use-entire-block path) — honor it. */
+        chunk = alloc_from_free_list(&chunk_size, CL_FREELIST_PROBE_LIMIT);
+    }
+    if (!chunk)
+        return NULL;
+    chunk_off = (uint32_t)((uint8_t *)chunk - cl_heap.arena);
+
+    gc_cursor_drop(t);   /* flush the previous chunk's accounting */
+    /* Chunk-granular: counts the whole chunk as allocated up front; the
+     * next sweep recomputes the exact figure.  Errs toward "heap fuller
+     * than it is", which only makes the compaction heuristics fire
+     * earlier, never later. */
+    cl_heap.total_allocated += chunk_size;
+    cl_heap.tlab_refills++;
+
+    gcb_cursor_format_hole(chunk_off, chunk_size);
+    t->alloc_cur = chunk_off;
+    t->alloc_lim = chunk_off + chunk_size;
+    return gcb_cursor_cut_chunk(t, sizep, chunk_size);
+}
+#endif /* CL_TLAB */
+
+/* The slow path (contract: gc_backend.h).  Multi-threaded, refill the
+ * chunk (CL_TLAB) and cut; otherwise allocate directly — the front, then
+ * the free list, collecting and compacting as the policy below dictates.
+ * Accounts the block itself (cl_heap.total_allocated / total_consed,
+ * under alloc_mutex when multi-threaded).  Out of line so cl_alloc's fast
+ * path keeps its registers. */
+CL_NOINLINE void *gcb_alloc_slow(CL_Thread *t, uint32_t *sizep, int multi)
+{
+    uint32_t size = *sizep;
+    void *ptr = NULL;
+
+    if (multi) platform_mutex_lock(alloc_mutex);
+
+    if (!multi) {
+        /* A chunk left over from the multi-threaded regime is never cut
+         * again: flush its accounting now (its remainder stays a hole). */
+        if (t->alloc_lim || t->alloc_consed)
+            gc_cursor_drop(t);
+    }
+#ifdef CL_TLAB
+    else if (size <= tlab_max_obj) {
+        /* Objects above tlab_max_obj never refill: a large vector would
+         * waste most of a chunk.  They are still CUT from a chunk with
+         * room (the fast path), and otherwise allocated directly. */
+        ptr = cursor_refill_chunk(t, sizep);
+        if (ptr) {
+            platform_mutex_unlock(alloc_mutex);
+            return ptr;
+        }
+    }
+#endif
+
+    /* Direct allocation: the bump front (single-threaded it is exhausted,
+     * the fast path just missed it; multi-threaded it is still worth a
+     * try after a chunk refill found no room for a whole chunk), then a
+     * *bounded* first-fit free-list probe.  The bound keeps a single
+     * allocation cheap (O(CL_FREELIST_PROBE_LIMIT)) even when the free
+     * list is long; if no fit turns up quickly we fall through to
+     * GC/compaction below rather than walking the whole list. */
+    ptr = alloc_from_bump(size);
+    if (!ptr) {
+        /* Try free list (may update size if using entire oversized block) */
+        ptr = alloc_from_free_list(&size, CL_FREELIST_PROBE_LIMIT);
+    }
+#ifdef CL_GENGC
+    if (!ptr && gen_enabled) {
+        /* Nursery exhausted: minor collection first (traces only the live
+         * young set + dirty pages, slides survivors onto the watermark and
+         * resets the bump), escalating to a full compaction when the minor
+         * is refused, is deduped away without freeing enough, or old space
+         * has grown to the point that nursery headroom is gone (< 1/8 of
+         * the arena — reclaim the floating old garbage instead of minor-
+         * thrashing a sliver of nursery). */
+        uint32_t seen_gc_count = cl_heap.gc_count;
+        int minor_ok;
+        if (multi) platform_mutex_unlock(alloc_mutex);
+        minor_ok = cl_gc_minor(seen_gc_count);
+        if (multi) platform_mutex_lock(alloc_mutex);
+        if (minor_ok &&
+            cl_heap.arena_size - gen_old_top >= cl_heap.arena_size / 8)
+            ptr = alloc_from_bump(size);
+        if (!ptr) {
+            if (multi) platform_mutex_unlock(alloc_mutex);
+            cl_gc_compact();
+            if (multi) platform_mutex_lock(alloc_mutex);
+            ptr = alloc_from_bump(size);
+            if (!ptr && !gen_enabled) {
+                /* The compaction degraded to a classic sweep (fallback
+                 * paths disable gen mode) — the space is on the free
+                 * list now. */
+                ptr = alloc_from_free_list(&size, 0 /* unbounded */);
+            }
+        }
+        if (!ptr) {
+            if (multi) platform_mutex_unlock(alloc_mutex);
+            cl_storage_error("Heap exhausted (requested %u bytes)",
+                             (unsigned)size);
+        }
+    }
+#endif /* CL_GENGC */
+    if (!ptr) {
+        /* Bump exhausted and the bounded free-list probe missed.  Sweep first:
+         * it is cheaper than compaction, may itself free a fit, AND recomputes
+         * the live-set size (cl_heap.total_allocated) so the compaction decision
+         * below uses a FRESH measurement — not a stale high-water that an
+         * earlier transient peak could pin near the arena size.  Release
+         * alloc_mutex first so other threads can reach safepoints during STW.
+         *
+         * cl_gc_if_stale dedups the redundant-GC burst: if a peer
+         * thread collected while we raced for stop-the-world initiator-ship,
+         * it skips (returns 0) and we first retry the allocation against the
+         * peer's fresh sweep; only if that retry ALSO misses do we run our
+         * own full collection. */
+        uint32_t seen_gc_count = cl_heap.gc_count;
+        int collected;
+        if (multi) platform_mutex_unlock(alloc_mutex);
+        collected = cl_gc_if_stale(seen_gc_count);
+        if (multi) platform_mutex_lock(alloc_mutex);
+        if (!collected) {
+            ptr = alloc_from_bump(size);
+            if (!ptr)
+                ptr = alloc_from_free_list(&size, CL_FREELIST_PROBE_LIMIT);
+            if (!ptr) {
+                /* The peer's cycle left no fit for us — collect for real. */
+                if (multi) platform_mutex_unlock(alloc_mutex);
+                classic_gc();
+                if (multi) platform_mutex_lock(alloc_mutex);
+                collected = 1;
+            }
+        }
+        if (collected) {
+        gc_sweeps_since_compact++;
+        ptr = alloc_from_bump(size);
+        if (!ptr) {
+            /* Guard: skip the free-list probe when Trigger 2 would compact
+             * immediately afterward.  alloc_from_free_list zeroes the block it
+             * extracts (memset in the return path); a zeroed block has a zero
+             * size field, which stops every compaction pass's arena scan at that
+             * slot, leaving live objects above it without forwarding addresses —
+             * the next bump allocation then silently overwrites them.  Skipping
+             * the probe keeps the arena intact so cl_gc_compact() can walk it
+             * cleanly; ptr stays NULL and the compaction block below fires via
+             * Trigger 1 (!ptr), satisfying this allocation after compaction. */
+            uint32_t probe_live_hwm = cl_heap.arena_size - (cl_heap.arena_size >> 3);
+            int will_compact_t2 = (gc_last_compact_cycle != cl_heap.gc_count) &&
+                                  (cl_heap.total_allocated < probe_live_hwm) &&
+                                  (gc_sweeps_since_compact >= GC_SWEEPS_BEFORE_COMPACT) &&
+                                  !(gc_fwd_fail_bump &&
+                                    cl_heap.bump >= gc_fwd_fail_bump);
+            if (!will_compact_t2)
+                ptr = alloc_from_free_list(&size, CL_FREELIST_PROBE_LIMIT);
+        }
+
+        /* Now decide whether to ALSO compact (which resets the bump pointer and
+         * defragments).  Gated to once per GC cycle.  Two triggers:
+         *
+         *   1. The sweep + bounded probe STILL found no fit — compaction is the
+         *      only remaining way to satisfy this allocation (the long-standing
+         *      last-resort path).
+         *
+         *   2. We have swept GC_SWEEPS_BEFORE_COMPACT times since the last
+         *      compaction AND the heap is not near-full.  A sweep-only cl_gc()
+         *      never resets the bump pointer, so when a fragmented free list
+         *      defeats the bounded probe we can keep "succeeding" via a buried
+         *      free block while running a full mark-sweep on nearly every
+         *      allocation — the "sweep-forever" pathology (acutely heap-size
+         *      sensitive: hundreds to thousands of GCs cold-compiling a large
+         *      system, while a nearby heap size needs ~15).  Compaction frees a
+         *      large contiguous run of bump space, escaping the loop.
+         *      "Not near-full" uses the FRESH live-set size from the sweep just
+         *      done, so a heap that is mostly reclaimable garbage (compaction
+         *      frees >= 1/8 of the arena — worthwhile) is distinguished from one
+         *      genuinely packed with live data (compaction would only thrash, so
+         *      we stay on the sweep + free-list-reuse path).
+         *
+         * NOTE: compaction is a moving GC.  All CL_Obj C locals live across an
+         * allocating call MUST be GC-protected, and raw pointers derived from
+         * CL_Obj re-derived afterwards.  (This site already compacted before —
+         * no new requirement.)  Safe while JIT'd code is on the m68k stack:
+         * gc_scan_jit_native_stack offset-validates each conservative root. */
+        if (gc_last_compact_cycle != cl_heap.gc_count) {
+            uint32_t live_hwm =
+                cl_heap.arena_size - (cl_heap.arena_size >> 3);   /* 7/8 arena */
+            int compaction_worthwhile = (cl_heap.total_allocated < live_hwm);
+            /* Trigger 2 is additionally gated on the forwarding-table OOM
+             * latch (gc_fwd_fail_bump): re-attempting at the same bump
+             * level would fail the same platform_alloc again after a full
+             * (wasted) mark pass.  Trigger 1 (!ptr) is exempt — when
+             * compaction is the ONLY way to satisfy the allocation it
+             * must be attempted regardless. */
+            int fwd_blocked = (gc_fwd_fail_bump != 0 &&
+                               cl_heap.bump >= gc_fwd_fail_bump);
+            /* Trigger 1 while the latch is set would run the whole mark
+             * phase only to fail the same allocation again — first walk
+             * the entire free list, which the bounded probe above may
+             * have cut short.  A hit means no compaction (so the zeroed
+             * block cannot break an arena walk, see the probe guard
+             * above); a miss leaves the arena untouched for the attempt. */
+            if (!ptr && fwd_blocked)
+                ptr = alloc_from_free_list(&size, 0 /* unbounded */);
+            if (!ptr ||
+                (compaction_worthwhile && !fwd_blocked &&
+                 gc_sweeps_since_compact >= GC_SWEEPS_BEFORE_COMPACT)) {
+                gc_compact_pending = 1;
+                gc_last_compact_cycle = cl_heap.gc_count;
+                if (multi) platform_mutex_unlock(alloc_mutex);
+                cl_gc_compact();   /* resets bump + gc_sweeps_since_compact */
+                gc_compact_pending = 0;
+                if (multi) platform_mutex_lock(alloc_mutex);
+                ptr = alloc_from_bump(size);
+            }
+        }
+        }  /* if (collected) — skipped when a peer's GC already satisfied us */
+    }
+    if (!ptr) {
+        /* Last resort before declaring the heap exhausted: the fit may be
+         * deeper in the free list than the bounded probe reached.  Walk the
+         * whole list once so a genuine fit is never missed. */
+        ptr = alloc_from_free_list(&size, 0 /* unbounded */);
+    }
+    if (!ptr) {
+        if (multi) platform_mutex_unlock(alloc_mutex);
+        cl_storage_error("Heap exhausted (requested %u bytes)", (unsigned)size);
+    }
+
+    /* (The header-size guard runs at cl_alloc's entry, BEFORE any bump
+     * advance.  alloc_from_free_list can only ever shrink-fit or return
+     * the exact block, never grow size past the mask.) */
+    *sizep = size;
+    cl_heap.total_allocated += size;
+    cl_heap.total_consed += size;
+
+    if (multi) platform_mutex_unlock(alloc_mutex);
+
+    return ptr;
+}
 
 void gc_sweep(void)
 {
@@ -654,32 +1031,8 @@ static void cl_gc_stopped(uint64_t t0)
 #endif
 }
 
-/* Stop the world (multi-threaded), accounting the wait into the STW phase
- * timers, and return the timestamp at which the world was stopped. */
-uint64_t gc_stop_world_timed(int multithread)
-{
-    uint64_t t0, t1;
-    /* Every collection enters here, and every one invalidates all JIT call
-     * sites: a site's cached callee is neither a root nor relocated, so the
-     * bump is what keeps compaction (stale offsets) and sweep-then-reuse
-     * (ABA) from ever reaching a hit.  Bumped with the world stopped, so no
-     * peer can fill a site from pre-collection offsets after it. */
-    if (!multithread) {
-        cl_call_gen_bump("gc");
-        return platform_time_us();
-    }
-    t0 = platform_time_us();
-    cl_gc_stop_the_world();
-    cl_call_gen_bump("gc");
-    t1 = platform_time_us();
-    gc_time_stw_us += t1 - t0;
-    gc_stw_stops++;
-    if (t1 - t0 > gc_time_stw_max_us)
-        gc_time_stw_max_us = t1 - t0;
-    return t1;
-}
-
-void cl_gc(void)
+/* The full (sweep) collection: what cl_gc() is under the classic backend. */
+static void classic_gc(void)
 {
     int multithread;
     uint64_t t0;
@@ -704,19 +1057,7 @@ void cl_gc(void)
         cl_gc_resume_the_world();
 }
 
-void cl_gc_reclaim_young(void)
-{
-#ifdef CL_GENGC
-    if (gen_enabled) {
-        /* A refused minor is fine here — the caller escalates to a full
-         * cl_gc() when its retry still finds no free slot. */
-        (void)cl_gc_minor(cl_heap.gc_count);
-        return;
-    }
-#endif
-    cl_gc();
-}
-
+/* Allocation-triggered GC with redundant-cycle dedup (contract: mem.h). */
 int cl_gc_if_stale(uint32_t seen_gc_count)
 {
     int multithread;
@@ -741,8 +1082,8 @@ int cl_gc_if_stale(uint32_t seen_gc_count)
      * the GC epoch advanced between the caller observing exhaustion (under
      * alloc_mutex) and this thread winning initiator-ship, the heap state
      * that motivated this call is gone: skip, and let the caller retry its
-     * allocation against the peer's sweep (it falls back to a real cl_gc
-     * if the retry still finds no fit). */
+     * allocation against the peer's sweep (it falls back to a real
+     * collection if the retry still finds no fit). */
     if (multithread && cl_heap.gc_count != seen_gc_count) {
         gc_epoch_skips++;
         cl_gc_resume_the_world();
@@ -754,4 +1095,282 @@ int cl_gc_if_stale(uint32_t seen_gc_count)
     if (multithread)
         cl_gc_resume_the_world();
     return 1;
+}
+
+/* ================================================================
+ * The backend interface (gc_backend.h)
+ * ================================================================ */
+
+uint8_t *gcb_arena_alloc(uint32_t size)
+{
+#ifdef CL_GENGC
+    uint8_t *arena;
+    const char *env;
+    int want_gen;
+
+    /* Reset any previous heap's generational state FIRST: protection must
+     * be dropped and the fault handler detached before anything else
+     * happens (a handler pointing at freed watch state would turn the
+     * next unrelated crash into chaos).  Documented stale-static bug
+     * class: every gen_* variable is re-derived for the new arena. */
+    gen_reset();
+
+    /* Page-aligned arena so old space can be mprotect-ed.  Fall back to
+     * the plain allocator (and classic GC) if mmap is unavailable. */
+    env = getenv("CLAMIGA_GENGC");
+    want_gen = !(env && env[0] == '0' && env[1] == '\0');
+    arena = NULL;
+    if (want_gen) {
+        /* Round the watch region up to whole pages; the arena itself
+         * keeps the requested byte size. */
+        gen_page = platform_page_size();
+        gen_npages = (size + gen_page - 1) / gen_page;
+        arena = (uint8_t *)platform_alloc_pages(gen_npages * gen_page);
+        if (arena) {
+            gen_dirty = (volatile uint8_t *)
+                platform_alloc((gen_npages + 7) / 8);
+            gen_cross = (uint32_t *)
+                platform_alloc(gen_npages * sizeof(uint32_t));
+            if (gen_dirty && gen_cross &&
+                platform_write_watch_install(arena, gen_npages * gen_page,
+                                             gen_dirty) == 0) {
+                uint32_t i;
+                for (i = 0; i < gen_npages; i++)
+                    gen_cross[i] = GEN_CROSS_NONE;
+                gen_arena_pages = 1;
+                gen_arena_bytes = gen_npages * gen_page;
+                gen_enabled = 1;
+            } else {
+                /* Partial setup failed — release and fall back. */
+                if (gen_dirty) { platform_free((void *)gen_dirty); gen_dirty = NULL; }
+                if (gen_cross) { platform_free(gen_cross); gen_cross = NULL; }
+                platform_free_pages(arena, gen_npages * gen_page);
+                arena = NULL;
+                platform_write_string(
+                    "clamiga: generational GC unavailable "
+                    "(mmap/write-watch setup failed) - classic GC\n");
+            }
+        }
+    }
+    if (!arena) {
+        gen_arena_pages = 0;
+        gen_arena_bytes = 0;
+        arena = (uint8_t *)platform_alloc(size);
+    }
+    return arena;
+#else
+    return (uint8_t *)platform_alloc(size);
+#endif
+}
+
+void gcb_arena_free(uint8_t *arena, uint32_t size)
+{
+#ifdef CL_GENGC
+    if (gen_arena_pages) {
+        platform_free_pages(arena, gen_arena_bytes);
+        gen_arena_pages = 0;
+        gen_arena_bytes = 0;
+        return;
+    }
+#endif
+    (void)size;
+    platform_free(arena);
+}
+
+void gcb_init(void)
+{
+    gc_sweeps_since_compact = 0;
+
+    /* Block-start index for the JIT native-stack scan — the generational
+     * mode keeps none (old space is dense, the crossing map serves).
+     * Re-derived for every new arena. */
+#ifdef CL_GENGC
+    if (gen_enabled)
+        gc_hdr_index_release();
+    else
+#endif
+        gc_hdr_index_init();
+
+#ifdef CL_TLAB
+    /* TLAB chunk size for this heap.  CLAMIGA_TLAB_CHUNK=<bytes> overrides
+     * (0 disables); otherwise CL_TLAB_CHUNK, scaled down so per-thread
+     * chunks can't dominate a small (test-sized) arena, and disabled
+     * entirely when even the minimum chunk would be outsized. */
+    {
+        uint32_t chunk = CL_TLAB_CHUNK;
+        const char *e = getenv("CLAMIGA_TLAB_CHUNK");
+        if (e)
+            chunk = (uint32_t)atol(e);
+        if (chunk) {
+            uint32_t cap = cl_heap.arena_size / 64u;
+            if (chunk > cap) chunk = cap;
+            chunk &= ~(uint32_t)(CL_ALIGN - 1);
+            if (chunk < CL_TLAB_MIN_CHUNK)
+                chunk = 0;
+        }
+        tlab_chunk_size = chunk;
+        tlab_max_obj = chunk / 8u;
+    }
+#endif /* CL_TLAB */
+}
+
+void gcb_shutdown(void)
+{
+#ifdef CL_GENGC
+    gen_reset();   /* unprotect + detach handler before anyone touches a page */
+#endif
+    gc_hdr_index_release();
+}
+
+void gcb_collect(int why)
+{
+#ifdef CL_GENGC
+    if (why == GCB_WHY_RECLAIM_YOUNG && gen_enabled) {
+        /* A refused minor is fine here — the caller escalates to a full
+         * cl_gc() when its retry still finds no free slot. */
+        (void)cl_gc_minor(cl_heap.gc_count);
+        return;
+    }
+#endif
+    (void)why;
+    classic_gc();
+}
+
+void gcb_adopt_image_begin(void)
+{
+    gc_sweeps_since_compact = 0;
+    /* Block-start index: the payload replaces whatever the arena held;
+     * gcb_adopt_image_finish's classic walk re-notes it. */
+    if (gc_hdr_page)
+        gc_hdr_index_clear();
+    gc_hdr_bump_reset();
+}
+
+void gcb_adopt_image_finish(void)
+{
+    GcWalk w;
+    uint32_t off, size;
+    uint8_t type;
+
+    gc_walk_begin(&w);
+#ifdef CL_GENGC
+    if (gen_enabled) {
+        /* The whole payload becomes OLD space: sticky marks set (a minor
+         * trace terminates at marked old objects), crossing map rebuilt
+         * (page -> first object start), watermark moved to bump, dirty
+         * bits cleared, old-space protection re-armed.  The survivor/
+         * finalizable/rehash side lists are empty by construction (fresh
+         * init, no nursery allocation has happened yet). */
+        while (gc_walk_next(&w, &off, &size, &type)) {
+            CL_HDR_SET_MARK(cl_heap.arena + off);
+            gen_cross_note(off);
+        }
+        gen_old_top = cl_heap.bump;
+        gen_live_count = 0;
+        gen_fin_count = 0;
+        gen_ht_count = 0;
+        if (gen_dirty)
+            memset((void *)gen_dirty, 0, (gen_npages + 7) / 8);
+        gen_protect_old();
+        return;
+    }
+#endif
+    /* Classic collector: the saving process may have run generational
+     * (sticky marks SET on every old object) — normalize to the all-clear
+     * state gc_mark assumes at cycle start.  Also covers a classic-mode
+     * save, where the pre-dump compaction already left marks clear.
+     * The same walk rebuilds the block-start index for the payload. */
+    while (gc_walk_next(&w, &off, &size, &type)) {
+        CL_HDR_CLR_MARK(cl_heap.arena + off);
+        if (GC_HDR_CROSSES(off, size))
+            gc_hdr_note(off, size);
+    }
+}
+
+void gcb_before_image_save(void)
+{
+    /* Full GC, then compaction: guarantees free_list == 0 and a dense
+     * [CL_ALIGN, bump) payload (under gen mode both are compactions). */
+    classic_gc();
+    cl_gc_compact();
+}
+
+void gcb_compact_begin(void)
+{
+#ifdef CL_GENGC
+    if (gen_enabled) {
+        GcWalk w;
+        uint32_t off, size;
+        uint8_t type;
+        /* The compactor's passes write mark bits and slide objects
+         * everywhere — drop old-space protection for the duration. */
+        gen_unprotect_all();
+        /* Sticky marks would prune the FULL trace at the roots (gc_mark_obj
+         * skips marked objects) — clear every mark bit first so this
+         * collection sees the true live set.  One linear walk. */
+        gc_walk_begin(&w);
+        while (gc_walk_next(&w, &off, &size, &type))
+            CL_HDR_CLR_MARK(cl_heap.arena + off);
+    }
+#endif
+}
+
+void gcb_compact_fallback(int outcome)
+{
+    /* The mark phase is complete and nothing has moved: a sweep rebuilds
+     * the free list from it, exactly the non-moving cycle. */
+    gc_sweep();
+#ifdef CL_GENGC
+    /* The sweep just rebuilt a free list and cleared survivor marks —
+     * exactly the classic collector's state, and incompatible with the
+     * generational invariants (dense old space, sticky marks).  Drop to
+     * classic mode for the rest of the session. */
+    if (gen_enabled) {
+        gen_enabled = 0;
+        platform_write_string(outcome == GCB_COMPACT_FALLBACK_FWD
+                              ? "clamiga: generational GC disabled "
+                                "(forwarding-table OOM) - classic GC\n"
+                              : "clamiga: generational GC disabled "
+                                "(compaction fallback) - classic GC\n");
+    }
+#else
+    (void)outcome;
+#endif
+    /* Don't let the sweep-forever escape immediately re-attempt a doomed
+     * compaction on every following allocation (the forwarding-OOM latch
+     * in gc_compact.c gates the retries by bump level). */
+    gc_sweeps_since_compact = 0;
+}
+
+void gcb_compact_done(void)
+{
+    /* The bump pointer was just reset to the end of the surviving objects,
+     * so the sweep-forever escape counter starts fresh. */
+    gc_sweeps_since_compact = 0;
+
+#ifdef CL_GENGC
+    if (gen_enabled) {
+        /* Everything live is now dense below the bump front and (per the
+         * gen-mode gc_slide) still mark-bitted: it becomes the new old
+         * space.  Start a fresh dirty era over it.  The young-finalizable
+         * list is invalidated wholesale: its offsets predate the slide,
+         * dead entries were finalized by the slide, and survivors are old
+         * now (the next major's full walk owns them). */
+        gen_fin_count = 0;
+        gen_old_top = cl_heap.bump;
+        memset((void *)gen_dirty, 0, (gen_npages + 7) / 8);
+        gen_protect_old();
+    }
+#endif
+}
+
+void gcb_stats_report(void)
+{
+#ifdef CL_TLAB
+    char buf[128];
+    sprintf(buf, "TLAB: %lu-byte chunks, %lu refills\n",
+            (unsigned long)tlab_chunk_size,
+            (unsigned long)cl_heap.tlab_refills);
+    platform_write_string(buf);
+#endif
 }

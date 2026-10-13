@@ -16,6 +16,7 @@
 
 #include "image.h"
 #include "mem.h"
+#include "gc_backend.h"   /* gcb_before_image_save */
 #include "error.h"
 #include "symbol.h"
 #include "package.h"
@@ -1012,10 +1013,10 @@ int cl_image_save_run_if_pending(void)
         }
     }
 
-    /* 3. Dump the minimal, hole-free heap: full GC, then compaction
-     * (guarantees free_list == 0 and a dense [CL_ALIGN, bump) payload). */
-    cl_gc();
-    cl_gc_compact();
+    /* 3. Dump the minimal, hole-free heap: the backend makes the arena
+     * dense and normal (free_list == 0, a dense [CL_ALIGN, bump) payload,
+     * marks as the loader expects). */
+    gcb_before_image_save();
 
     /* 4. Offset-keyed reader diagnostics are stale by definition in the
      * next process (also cleared at restore — belt and braces). */

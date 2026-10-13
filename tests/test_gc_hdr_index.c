@@ -10,9 +10,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* The index is shared (gc_jitscan.c), but these tests drive it through
+ * the classic backend's free-list splits and sweeps: trivial pass under
+ * another backend. */
+#ifdef CL_GC_CLASSIC
+
 /*
  * Tests for the block-start index behind the conservative JIT
- * native-stack scan (mem.c, gc_hdr_page[] / gc_hdr_is_block_start).
+ * native-stack scan (gc_jitscan.c, gc_hdr_page[] / gc_hdr_is_block_start).
  *
  * The scan must decide, for every word on the m68k stack that looks
  * like an arena offset, whether it is the START of a block.  Before the
@@ -399,3 +404,10 @@ int main(void)
     RUN(index_rederived_on_heap_reinit);
     REPORT();
 }
+
+#else /* !CL_GC_CLASSIC */
+
+TEST(classic_backend_not_built) { ASSERT(1); }
+int main(void) { test_init(); RUN(classic_backend_not_built); REPORT(); }
+
+#endif /* CL_GC_CLASSIC */

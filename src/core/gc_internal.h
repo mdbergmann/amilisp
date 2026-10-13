@@ -6,10 +6,13 @@
  * (mem.c, gc_trace.c, gc_classic.c, gc_compact.c, gc_jitscan.c,
  * gc_verify.c).  Everything here was file-static in the one-file mem.c
  * and is still internal to the runtime: nothing outside src/core/gc_*.c
- * and mem.c may include this header.
+ * and mem.c may include this header.  The backend seam itself — what the
+ * heap core and the shared facilities may ask of the collector — is
+ * gc_backend.h; a section below is CL_GC_CLASSIC-only state.
  */
 
 #include "mem.h"
+#include "gc_backend.h"
 #include "error.h"
 #include "float.h"
 #include "vm.h"
@@ -67,9 +70,11 @@ extern uint32_t gc_epoch_skips;
 int  gc_diag_on(void);
 void gc_diag_report(const char *kind, uint64_t pause_us);
 
-extern uint32_t gc_last_compact_cycle;
-extern uint32_t gc_sweeps_since_compact;
-extern int gc_compact_pending;
+/* Stop the world (multi-threaded), accounting the wait into the STW
+ * timers, bump the call generation, and return the timestamp at which
+ * the world was stopped.  Every collection of every backend enters
+ * through it. */
+uint64_t gc_stop_world_timed(int multithread);
 
 /* Registered global roots (mem.c). */
 extern CL_Obj *global_roots[CL_MAX_GLOBAL_ROOTS];
@@ -79,9 +84,13 @@ extern const char *global_root_files[CL_MAX_GLOBAL_ROOTS];
 extern int         global_root_lines[CL_MAX_GLOBAL_ROOTS];
 #endif
 
-/* Drop every thread's allocation cursor (mem.c).  Every collection calls
- * it first thing after stopping the world: the passes below rebuild the
- * free list and move the bump front under the cursors. */
+/* Drop one thread's chunk cursor (flush its deferred accounting; the
+ * remainder is already a formatted hole), and every registered thread's
+ * (mem.c).  Every collection calls the latter first thing after stopping
+ * the world: the passes below rebuild the free list and move the bump
+ * front under the cursors.  The caller of gc_cursor_drop serializes
+ * against the owner: stop-the-world, thread retirement, or the owner. */
+void gc_cursor_drop(CL_Thread *t);
 void gc_cursor_drop_all(void);
 int  cl_bump_fits(uint32_t bump, uint32_t size, uint32_t arena_size);
 
@@ -124,10 +133,17 @@ void gc_srcloc_forward(void);
 uint32_t bytecode_release_offheap(CL_Bytecode *bc);
 void gc_finalize_dead(uint8_t *ptr);
 
-/* --- gc_classic.c ----------------------------------------------------- */
+/* --- gc_classic.c (CL_GC_CLASSIC only) -------------------------------- */
 
+#ifdef CL_GC_CLASSIC
+/* Free-list rebuild from the mark bits (the classic non-moving cycle). */
 void  gc_sweep(void);
-uint64_t gc_stop_world_timed(int multithread);
+
+/* Number of sweep-only collections since the last compaction — the
+ * sweep-forever escape (GC_SWEEPS_BEFORE_COMPACT, mem.h); reset by the
+ * compactor through gcb_compact_done / gcb_compact_fallback. */
+extern uint32_t gc_sweeps_since_compact;
+#endif
 
 #ifdef CL_GENGC
 #define GEN_CROSS_NONE 0xFFFFFFFFu
@@ -165,6 +181,14 @@ void gen_reset(void);
 #endif /* CL_GENGC */
 
 /* --- gc_compact.c ----------------------------------------------------- */
+
+/* The compactor's once-per-cycle gate: the GC epoch (cl_heap.gc_count) at
+ * which a compaction was last scheduled, and the "a safe point should
+ * compact" flag the VM dispatch loop polls (cl_gc_compact_if_pending).
+ * The classic allocation policy reads the gate to compact at most once per
+ * collection; a backend with no such policy leaves it alone. */
+extern uint32_t gc_last_compact_cycle;
+extern int gc_compact_pending;
 
 extern uint32_t gc_fwd_fail_bump;
 extern CL_Obj **gc_root_slot_buf;

@@ -52,7 +52,24 @@ JIT_A64 := 1
 JIT_DEF := -DJIT_A64
 endif
 
-CFLAGS_HOST = -std=c99 -D_GNU_SOURCE -Wall -Wextra -Wpedantic -g -O3 -flto $(PLATFORM_DEF) $(JIT_DEF) -DCL_WIDE_STRINGS $(PTHREAD_FLAGS) $(FFI_CFLAGS) $(DEBUG_FLAGS)
+# GC backend (specs/gc-backend-immix.md): compile time, exactly one per
+# binary.  `make host GC=classic` (the default: mark-sweep-compact with the
+# generational mode on POSIX hosts) or `make host GC=immix` (the mark-region
+# backend, Part 2 — not landed yet).  An immix build goes to its own
+# BUILDDIR so the host A/B is two binaries, like the FPU=1 cross variant.
+GC ?= classic
+ifeq ($(GC),classic)
+GC_DEF  := -DCL_GC_CLASSIC
+GC_SRC   = $(SRCDIR)/core/gc_classic.c
+else ifeq ($(GC),immix)
+GC_DEF  := -DCL_GC_IMMIX
+GC_SRC   = $(SRCDIR)/core/gc_immix.c
+BUILDDIR = build/host-immix
+else
+$(error GC=$(GC): unknown GC backend (classic or immix))
+endif
+
+CFLAGS_HOST = -std=c99 -D_GNU_SOURCE -Wall -Wextra -Wpedantic -g -O3 -flto $(PLATFORM_DEF) $(JIT_DEF) $(GC_DEF) -DCL_WIDE_STRINGS $(PTHREAD_FLAGS) $(FFI_CFLAGS) $(DEBUG_FLAGS)
 HOST_LIBS   = -lm $(PTHREAD_FLAGS) $(FFI_LIBS) $(PLATFORM_LIBS)
 
 # Test builds deliberately drop -flto and use -O1 instead of -O3.  The shipped
@@ -63,10 +80,10 @@ HOST_LIBS   = -lm $(PTHREAD_FLAGS) $(FFI_LIBS) $(PLATFORM_LIBS)
 # fast enough for the suite (gc-stress, which needs the optimized binary, builds
 # its own -O3 clamiga separately and is unaffected).  Test objects live in their
 # own tree so they never clash with the -O3 -flto objects linked into clamiga.
-CFLAGS_TEST = -std=c99 -D_GNU_SOURCE -Wall -Wextra -Wpedantic -g -O1 $(PLATFORM_DEF) $(JIT_DEF) -DCL_WIDE_STRINGS $(PTHREAD_FLAGS) $(FFI_CFLAGS) $(DEBUG_FLAGS)
+CFLAGS_TEST = -std=c99 -D_GNU_SOURCE -Wall -Wextra -Wpedantic -g -O1 $(PLATFORM_DEF) $(JIT_DEF) $(GC_DEF) -DCL_WIDE_STRINGS $(PTHREAD_FLAGS) $(FFI_CFLAGS) $(DEBUG_FLAGS)
 
 SRCDIR   = src
-BUILDDIR = build/host
+BUILDDIR ?= build/host
 # The linker appends .exe on Windows; name the target the same way so make
 # sees that it was built (and so the shell test scripts find it).
 HOST_BIN = $(BUILDDIR)/clamiga$(EXE)
@@ -78,7 +95,7 @@ PLATFORM_SRC = $(PLATFORM_IMPL) \
 CORE_SRC     = $(SRCDIR)/core/types.c \
                $(SRCDIR)/core/mem.c \
                $(SRCDIR)/core/gc_trace.c \
-               $(SRCDIR)/core/gc_classic.c \
+               $(GC_SRC) \
                $(SRCDIR)/core/gc_compact.c \
                $(SRCDIR)/core/gc_jitscan.c \
                $(SRCDIR)/core/gc_verify.c \

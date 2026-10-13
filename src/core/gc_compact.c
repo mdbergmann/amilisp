@@ -1000,6 +1000,14 @@ void gc_rehash_tlv_tables(void)
         cl_tlv_rehash(t);
 }
 
+/* The once-per-cycle gate and the safe-point flag (see gc_internal.h).
+ * gc_compact_pending is set by the classic allocation policy when it
+ * detects fragmentation and cleared when compaction runs at a safe point;
+ * the VM dispatch loop polls it.  gc_last_compact_cycle prevents infinite
+ * loops when the heap is genuinely full (no fragmentation to reclaim). */
+int gc_compact_pending = 0;
+uint32_t gc_last_compact_cycle = 0xFFFFFFFF;
+
 /* Run compaction if pending (called from safe points). */
 void cl_gc_compact_if_pending(void)
 {
@@ -1022,22 +1030,10 @@ void cl_gc_compact(void)
      * parse them as dead regions. */
     gc_cursor_drop_all();
 
-#ifdef CL_GENGC
-    if (gen_enabled) {
-        GcWalk w;
-        uint32_t off, size;
-        uint8_t type;
-        /* The passes below write mark bits and slide objects everywhere —
-         * drop old-space protection for the duration. */
-        gen_unprotect_all();
-        /* Sticky marks would prune the FULL trace at the roots (gc_mark_obj
-         * skips marked objects) — clear every mark bit first so this
-         * collection sees the true live set.  One linear walk. */
-        gc_walk_begin(&w);
-        while (gc_walk_next(&w, &off, &size, &type))
-            CL_HDR_CLR_MARK(cl_heap.arena + off);
-    }
-#endif
+    /* The backend normalises its view first (gen mode: drop old-space
+     * protection, clear the sticky marks so the full trace sees the true
+     * live set). */
+    gcb_compact_begin();
 
 #ifdef DEBUG_GC
     platform_write_string("GC: compaction starting...\n");
@@ -1071,22 +1067,10 @@ void cl_gc_compact(void)
         platform_write_string("GC: compact suppressed (JIT pin-table OOM), "
                               "falling back to sweep\n");
 #endif
-        gc_sweep();
-#ifdef CL_GENGC
-        /* The sweep just rebuilt a free list and cleared survivor marks —
-         * exactly the classic collector's state, and incompatible with the
-         * generational invariants (dense old space, sticky marks).  Drop
-         * to classic mode for the rest of the session. */
-        if (gen_enabled) {
-            gen_enabled = 0;
-            platform_write_string("clamiga: generational GC disabled "
-                                  "(compaction fallback) - classic GC\n");
-        }
-#endif
+        /* The backend's non-moving cycle takes over from the completed
+         * mark (classic: a sweep; gen mode stands down to classic). */
+        gcb_compact_fallback(GCB_COMPACT_FALLBACK_PIN);
         cl_heap.gc_count++;
-        /* Don't let the sweep-forever escape immediately re-attempt a
-         * doomed compaction on every following allocation. */
-        gc_sweeps_since_compact = 0;
         gc_time_compact_us += platform_time_us() - t0;
         if (gc_diag_on())
             gc_diag_report("compact-fallback", platform_time_us() - t0);
@@ -1107,26 +1091,16 @@ void cl_gc_compact(void)
                     (unsigned long)cl_gc_fwd_bytes());
             platform_write_string(msg);
         }
-        gc_sweep();
-#ifdef CL_GENGC
-        /* See the pin-OOM fallback above: post-sweep heap state is
-         * classic, so gen mode must stand down. */
-        if (gen_enabled) {
-            gen_enabled = 0;
-            platform_write_string("clamiga: generational GC disabled "
-                                  "(forwarding-table OOM) - classic GC\n");
-        }
-#endif
+        /* See the pin-OOM fallback above. */
+        gcb_compact_fallback(GCB_COMPACT_FALLBACK_FWD);
         cl_heap.gc_count++;
-        /* Reset the sweep-forever escape counter and remember the bump
-         * level that failed: without this, gc_sweeps_since_compact stays
-         * >= GC_SWEEPS_BEFORE_COMPACT, so EVERY following bump-exhausted
-         * allocation re-runs a doomed full mark (+ failed table alloc +
-         * sweep) — a permanent 100%-CPU GC-thrash regime.  cl_alloc's
-         * trigger 2 skips re-attempts until the bump front is below the
-         * recorded failure level (the table size is proportional to it);
-         * trigger 1 (compaction as last resort) still always tries. */
-        gc_sweeps_since_compact = 0;
+        /* Remember the bump level that failed: without this latch, the
+         * classic policy's sweep-forever escape would re-run a doomed full
+         * mark (+ failed table alloc + sweep) on EVERY following bump-
+         * exhausted allocation — a permanent 100%-CPU GC-thrash regime.
+         * Its trigger 2 skips re-attempts until the bump front is below
+         * the recorded failure level (the table size is proportional to
+         * it); trigger 1 (compaction as last resort) still always tries. */
         gc_fwd_fail_bump = cl_heap.bump;
         gc_time_compact_us += platform_time_us() - t0;
         if (gc_diag_on())
@@ -1174,25 +1148,12 @@ void cl_gc_compact(void)
     gc_hdr_index_selfcheck();
 #endif
 
-    /* The bump pointer was just reset to the end of the surviving objects, so
-     * the sweep-forever escape counter starts fresh — see gc_sweeps_since_compact. */
-    gc_sweeps_since_compact = 0;
     gc_fwd_fail_bump = 0;   /* table allocation succeeded at this size */
 
-#ifdef CL_GENGC
-    if (gen_enabled) {
-        /* Everything live is now dense below the bump front and (per the
-         * gen-mode gc_slide) still mark-bitted: it becomes the new old
-         * space.  Start a fresh dirty era over it.  The young-finalizable
-         * list is invalidated wholesale: its offsets predate the slide,
-         * dead entries were finalized by the slide, and survivors are old
-         * now (the next major's full walk owns them). */
-        gen_fin_count = 0;
-        gen_old_top = cl_heap.bump;
-        memset((void *)gen_dirty, 0, (gen_npages + 7) / 8);
-        gen_protect_old();
-    }
-#endif
+    /* The arena is dense below the bump front, every survivor still
+     * mark-bitted: the backend re-derives its state (classic: the
+     * sweep-forever counter; gen mode: a fresh old space and dirty era). */
+    gcb_compact_done();
 
 #ifdef DEBUG_GC
     /* Post-compaction verification: check all live objects have valid refs */

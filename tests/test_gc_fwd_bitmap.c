@@ -44,6 +44,10 @@
 #include <unistd.h>     /* dup/dup2 — capture what the runtime writes to stdout */
 #endif
 
+/* Classic-backend mechanics (the forwarding table's size and OOM
+ * fallback, the sweep-forever latch): trivial pass under another backend. */
+#ifdef CL_GC_CLASSIC
+
 #define TEST_HEAP_SIZE (8 * 1024 * 1024)
 
 static void setup(void)
@@ -356,3 +360,10 @@ int main(void)
     teardown();
     REPORT();
 }
+
+#else /* !CL_GC_CLASSIC */
+
+TEST(classic_backend_not_built) { ASSERT(1); }
+int main(void) { test_init(); RUN(classic_backend_not_built); REPORT(); }
+
+#endif /* CL_GC_CLASSIC */

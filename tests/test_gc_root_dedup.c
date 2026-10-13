@@ -40,6 +40,10 @@
 #include "core/thread.h"
 #include "platform/platform.h"
 
+/* Drives the registered-root dedup through the classic backend's
+ * compactions and free-list reuse: trivial pass under another backend. */
+#ifdef CL_GC_CLASSIC
+
 static void setup(void)
 {
     platform_init();
@@ -267,3 +271,10 @@ int main(void)
     teardown();
     REPORT();
 }
+
+#else /* !CL_GC_CLASSIC */
+
+TEST(classic_backend_not_built) { ASSERT(1); }
+int main(void) { test_init(); RUN(classic_backend_not_built); REPORT(); }
+
+#endif /* CL_GC_CLASSIC */

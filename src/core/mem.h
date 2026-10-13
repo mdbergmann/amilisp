@@ -13,6 +13,19 @@
 
 #define CL_DEFAULT_HEAP_SIZE  (4 * 1024 * 1024)  /* 4MB */
 
+/* GC backend selection — compile time, exactly one per binary (`make host
+ * GC=classic|immix`, specs/gc-backend-immix.md).  The heap core (mem.c:
+ * arena, cl_alloc's cursor cut, constructors, roots) is shared; the
+ * collector behind it is the one file that implements gc_backend.h.
+ * CL_GC_CLASSIC is the default everywhere until the m68k default is
+ * decided on measurements (Phase 3). */
+#if defined(CL_GC_CLASSIC) && defined(CL_GC_IMMIX)
+#error "CL_GC_CLASSIC and CL_GC_IMMIX are exclusive: one GC backend per binary"
+#endif
+#if !defined(CL_GC_CLASSIC) && !defined(CL_GC_IMMIX)
+#define CL_GC_CLASSIC 1
+#endif
+
 /* Per-thread allocation chunks (TLABs — the multi-threaded kind of the
  * allocation cursor, see mem.c) — host-only by default.  On the 8MB/68020
  * Amiga target, multi-threaded allocation rates never amortize the extra
@@ -24,12 +37,15 @@
 #define CL_TLAB 1
 #endif
 /* Generational GC (sliding nursery + hardware dirty-page tracking) — see
- * specs/generational-gc.md.  Requires page protection (mprotect), so it is
- * POSIX-only; the AmigaOS target (no MMU assumed) compiles it out entirely
- * and keeps the classic mark-sweep-compact collector.  CL_NO_GENGC
- * disables it at build time on hosts; CLAMIGA_GENGC=0 disables at runtime
- * (classic mode, for A/B benchmarking and as a field escape hatch). */
-#if (defined(PLATFORM_POSIX) || defined(PLATFORM_WIN32)) && !defined(CL_NO_GENGC)
+ * specs/generational-gc.md.  A mode OF the classic backend (sticky marks
+ * on the same sweep/compactor), so it exists only under CL_GC_CLASSIC.
+ * Requires page protection (mprotect), so it is POSIX-only; the AmigaOS
+ * target (no MMU assumed) compiles it out entirely and keeps the classic
+ * mark-sweep-compact collector.  CL_NO_GENGC disables it at build time on
+ * hosts; CLAMIGA_GENGC=0 disables at runtime (classic mode, for A/B
+ * benchmarking and as a field escape hatch). */
+#if defined(CL_GC_CLASSIC) && \
+    (defined(PLATFORM_POSIX) || defined(PLATFORM_WIN32)) && !defined(CL_NO_GENGC)
 #define CL_GENGC 1
 #endif
 
@@ -403,13 +419,16 @@ void cl_symbol_set_function(CL_Obj sym, CL_Obj fn);
  * second miss. */
 void cl_gc_reclaim_young(void);
 
-/* Allocation-triggered GC with redundant-cycle dedup: collects only if the
- * GC epoch (cl_heap.gc_count) still equals seen_gc_count once this thread
- * has stopped the world — i.e. no peer collected in the meantime.  Returns
- * 1 if a collection ran, 0 if it was skipped as redundant (the caller
- * should retry its allocation and fall back to cl_gc() on a miss).
- * Single-threaded it always collects. */
+#ifdef CL_GC_CLASSIC
+/* The classic backend's allocation-triggered GC with redundant-cycle
+ * dedup: collects only if the GC epoch (cl_heap.gc_count) still equals
+ * seen_gc_count once this thread has stopped the world — i.e. no peer
+ * collected in the meantime.  Returns 1 if a collection ran, 0 if it was
+ * skipped as redundant (the caller retries its allocation and falls back
+ * to cl_gc() on a miss).  Single-threaded it always collects.  Public for
+ * tests/test_gc_threaded.c; gcb_alloc_slow is its one runtime caller. */
 int cl_gc_if_stale(uint32_t seen_gc_count);
+#endif
 
 /* Compacting GC — slides live objects to eliminate fragmentation.
  * MUST be called at a safe point where no C locals hold CL_Obj values.
@@ -427,17 +446,20 @@ extern uint32_t cl_gc_fwd_fail_over;
 /* Run pending compaction if needed.  Call at safe points (REPL, top-level). */
 void cl_gc_compact_if_pending(void);
 
+/* Is the generational collector active this session?  Always 0 on a build
+ * without CL_GENGC (classic-only hosts, every Amiga build, the Immix
+ * backend), so call sites and tests stay unconditional. */
+int cl_gengc_enabled(void);
+
 #ifdef CL_GENGC
 /* Minor (nursery) collection: trace live young objects from roots + dirty
  * old pages, slide survivors down onto the old-space watermark, reset the
- * nursery bump.  seen_gc_count enables the same redundant-cycle dedup as
- * cl_gc_if_stale.  Returns 1 if a minor cycle ran (or was deduped — either
- * way the caller should retry its allocation), 0 if minor collection is
- * unavailable/refused (caller escalates to cl_gc_compact). */
+ * nursery bump.  seen_gc_count enables the classic backend's redundant-
+ * cycle dedup (a peer collected first: skip, let the caller retry).
+ * Returns 1 if a minor cycle ran (or was deduped — either way the caller
+ * should retry its allocation), 0 if minor collection is unavailable/
+ * refused (caller escalates to cl_gc_compact). */
 int cl_gc_minor(uint32_t seen_gc_count);
-
-/* Is the generational collector active this session? */
-int cl_gengc_enabled(void);
 
 /* Pre-touch a heap range a SYSCALL is about to write into (file read,
  * socket recv, ...).  A userspace store to a protected old-space page
