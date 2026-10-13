@@ -9,6 +9,7 @@
 #include "symbol.h"
 #include "package.h"
 #include "mem.h"
+#include "gc_backend.h"
 #include "error.h"
 #include "printer.h"
 #include "stream.h"
@@ -955,6 +956,9 @@ static CL_Obj bi_room(CL_Obj *args, int n)
                 (unsigned long)ms_rescans);
         cl_write_cstring_to_stdout(buf);
     }
+    /* The collector's own lines (gc_backend.h): the classic free list's
+     * shape and probe count, or the Immix line map and hole statistics. */
+    gcb_stats_report(cl_write_cstring_to_stdout);
 
     cl_mv_count = 0;
     return CL_NIL;

@@ -276,12 +276,22 @@ build.  The released binaries stay narrow (8-bit) to keep the 68020/8MB
 baseline lean — build with `WIDE=1` on big-RAM machines (Vampire, PiStorm)
 if you want the Quicklisp HTTP stack.
 
+The m68k binaries use the Immix-style collector (see
+[Garbage collection](#garbage-collection)); adding `GC=classic` builds
+one with the classic mark-sweep collector instead (to
+`build/cross-classic/`, composing with `FPU=1` and `WIDE=1` the same
+way).  `make -f Makefile.cross test-amiga GC=classic` runs the suite
+against it, and `verify/realamiga/run-gc-phase0.sh BINDIR` measures a
+collection cycle of either binary on the emulated machine
+(`docs/gc-phase0-results.md` has the numbers for both collectors).
+
 ### MorphOS (native PPC build)
 
 The MorphOS binary is built natively *under* MorphOS with the MorphOS SDK's GCC:
 
 ```
 make -f Makefile.mos                # build build/morphos/clamiga
+make -f Makefile.mos GC=immix       # the same with the Immix collector (build/morphos-immix/)
 make -f Makefile.mos image          # save + verify build/morphos/clamiga.img (bare-boot heap image)
 make -f Makefile.mos clean
 ```
@@ -1474,8 +1484,9 @@ allocation is a lock-free bump in a nursery region, and most collections are
 cheap minor cycles that only trace the young objects (old→young references
 are tracked by hardware page protection, so there is no write-barrier cost
 in compiled code).  Full compacting collections still run when old space
-fills.  On AmigaOS the classic mark-sweep-compact collector is used — the
-generational machinery needs an MMU and is compiled out there.
+fills.  The generational machinery needs an MMU and is compiled out on
+AmigaOS: the m68k binaries run the Immix-style collector described
+below, the MorphOS binary the classic mark-sweep-compact one.
 
 - `CLAMIGA_GENGC=0` (environment) selects the classic collector on the host
   (useful for A/B measurements; behavior is identical, only pause costs
@@ -1495,26 +1506,35 @@ generational machinery needs an MMU and is compiled out there.
   (per-phase times, minor counts, promoted bytes, dirty-page counts);
   `(ext:%heap-stats)` the allocator's side (bump front, live bytes,
   free-list probe steps and free-list shape).  `trunk/gc-phase0.lisp`
-  reads all three to profile a collection cycle on a given machine.
+  reads all three to profile a collection cycle on a given machine
+  (`verify/realamiga/run-gc-phase0.sh` runs it in FS-UAE).
+- `(room)` ends with the collector's own lines: the free list's shape and
+  probe count for the classic collector, the line map, holes claimed,
+  cycles and policy compactions for Immix.
 
 See `tests/test_gengc.c` and `tests/test_gengc_watch.c` for the behavioral
 contract, and `specs/generational-gc.md` for the design.
 
-The collector is chosen at build time, one per binary.  `make host GC=immix`
-builds a second host binary (`build/host-immix/clamiga`) with an
-**Immix-style mark-region collector** instead: the heap is viewed as 128-byte
-lines, a collection marks the live objects and the lines they touch and then
-sweeps only the line map, and allocation is always a bump into the next run
-of free lines.  Nothing in a cycle is proportional to the amount of garbage,
-which is what the classic sweep and its free-list probing cost on a 68020 —
-it is the collector being prepared for the AmigaOS and MorphOS builds, and
-the host build of it is the development and A/B vehicle (`make test
-GC=immix`, `make test-gc-stress GC=immix`, `make test-memleak GC=immix` run
-the gates against it).  It needs no write barrier, so it fits a machine
-without an MMU; the sliding compactor is still there as the rare
+The collector is chosen at build time, one per binary.  The m68k AmigaOS
+binaries run an **Immix-style mark-region collector**: the heap is viewed
+as 128-byte lines, a collection marks the live objects and the lines they
+touch and then sweeps only the line map, and allocation is always a bump
+into the next run of free lines.  Nothing in a cycle is proportional to
+the amount of garbage, which is what the classic sweep and its free-list
+probing cost on a 68020: measured in FS-UAE, the same allocation-heavy
+program runs 3–4× faster on a 68040 and a 68020 than with the classic
+collector, with the collection pauses unchanged or shorter
+(`docs/gc-phase0-results.md`).  It needs no write barrier, so it fits a
+machine without an MMU; the sliding compactor is still there as the rare
 defragmentation, and `(ext:gc)`, `(ext:gc-compact)`, heap images and the
-telemetry above work unchanged.  See `tests/test_gc_immix.c` for the
-behavioral contract and `specs/gc-backend-immix.md` for the design.
+telemetry above work unchanged.  `make -f Makefile.cross amiga GC=classic`
+builds the classic collector instead; on the host, `make host GC=immix`
+builds a second binary (`build/host-immix/clamiga`) that is the
+development and A/B vehicle (`make test GC=immix`, `make test-gc-stress
+GC=immix`, `make test-memleak GC=immix` run the gates against it), and
+`make -f Makefile.mos GC=immix` is the MorphOS build of it (not the
+MorphOS default yet).  See `tests/test_gc_immix.c` for the behavioral
+contract and `specs/gc-backend-immix.md` for the design.
 
 ### Memory outside the heap
 

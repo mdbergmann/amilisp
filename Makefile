@@ -55,8 +55,9 @@ endif
 # GC backend (specs/gc-backend-immix.md): compile time, exactly one per
 # binary.  `make host GC=classic` (the default: mark-sweep-compact with the
 # generational mode on POSIX hosts) or `make host GC=immix` (the mark-region
-# backend, Part 2 — not landed yet).  An immix build goes to its own
-# BUILDDIR so the host A/B is two binaries, like the FPU=1 cross variant.
+# backend, gc_immix.c).  An immix build goes to its own BUILDDIR so the host
+# A/B is two binaries, like the FPU=1 cross variant; Makefile.cross and
+# Makefile.mos take the same knob.
 GC ?= classic
 ifeq ($(GC),classic)
 GC_DEF  := -DCL_GC_CLASSIC

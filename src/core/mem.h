@@ -17,8 +17,11 @@
  * GC=classic|immix`, specs/gc-backend-immix.md).  The heap core (mem.c:
  * arena, cl_alloc's cursor cut, constructors, roots) is shared; the
  * collector behind it is the one file that implements gc_backend.h.
- * CL_GC_CLASSIC is the default everywhere until the m68k default is
- * decided on measurements (Phase 3). */
+ * The makefiles always pass one of the two; a build that passes neither
+ * gets CL_GC_CLASSIC.  Defaults by target (Phase 3, 2026-10-13,
+ * docs/gc-phase0-results.md): the m68k cross build is Immix, the host
+ * and the MorphOS build are classic (the host runs its generational
+ * mode; MorphOS until a native run). */
 #if defined(CL_GC_CLASSIC) && defined(CL_GC_IMMIX)
 #error "CL_GC_CLASSIC and CL_GC_IMMIX are exclusive: one GC backend per binary"
 #endif

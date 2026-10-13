@@ -7,8 +7,10 @@
 ;;; Optional, before loading: (defparameter cl-user::*phase0-load* "path")
 ;;; -- a file to LOAD first (e.g. lib/clamacs/load.lisp) so the live set is
 ;;; the one the editor carries; the sections then run twice, bare and with
-;;; that live set.  Host: CLAMIGA_GENGC=0 selects the classic collector the
-;;; m68k/MorphOS builds always run (gen mode reports no sweep phase at all).
+;;; that live set.  Host: CLAMIGA_GENGC=0 selects the classic collector
+;;; (gen mode reports no sweep phase at all); a GC=immix build reports its
+;;; line sweep in the sweep column and no free-list steps at all.  On the
+;;; Amiga, verify/realamiga/run-gc-phase0.sh runs both legs in FS-UAE.
 ;;;
 ;;; Everything comes from the runtime's own counters: (ext:%gc-time-stats)
 ;;; for the phase timers, (ext:%heap-stats) for the free-list probe steps
@@ -127,7 +129,13 @@ as the allocator saw it (free-list probing between cycles included)."
   (section-explicit tag)
   (section-churn tag)
   (section-compact tag)
-  (section-explicit (format nil "~A-after-compact" tag)))
+  (section-explicit (format nil "~A-after-compact" tag))
+  ;; The collector's own view (ROOM's backend lines: the classic free
+  ;; list's shape, or the Immix line map, holes claimed, cycles and
+  ;; policy compactions) -- the counters above are backend-neutral.
+  (say "--- ~A: room" tag)
+  (room)
+  (finish-output))
 
 ;;; ---- main ---------------------------------------------------------------
 

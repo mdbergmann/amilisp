@@ -174,3 +174,149 @@ nothing left, then pays the whole arena's sweep at once.
 Order of work this suggests: Part 1 (seam) → Part 2 (Immix) for the
 churn/allocation tax → mark-loop pass on the 68k (bench via the seam)
 → bytecode-buffer pool for the loader storm.
+
+# Phase 3 — the same measurement, Immix against classic (2026-10-13)
+
+The same script on the same emulated machines, now with both m68k
+binaries from the `gc/seam` branch built the same afternoon (the two
+`GC=` variants of `make -f Makefile.cross amiga`, run through
+`verify/realamiga/run-gc-phase0.sh BINDIR [CONFIG]`).  The
+classic rows below are that day's re-run, not the 2026-10-08 ones above
+(they agree within the 20 ms timer quantum).  The "sweep" column is the
+Immix line sweep on the Immix rows; "free-list steps" is a classic-only
+quantity (Immix allocates by bump into holes and never probes).  The
+real hardware (the Vampire and the MorphOS box) was off that day — those
+rows are still open.
+
+## FS-UAE 68040 (JIT, `verify.fs-uae`)
+
+| | mark | sweep | compact | wall / cycle | free-list steps / cycle |
+|---|--:|--:|--:|--:|--:|
+| **classic** bare explicit (432 K live) | 20–40 ms | 0–40 ms | — | 40–80 ms | 0 |
+| **immix** bare explicit (433 K live) | 20–40 | 0–60 | — | 40–100 | — |
+| **classic** bare churn, cycle 1 (bump phase) | 120 | 120 | — | 2.3 s | 5.6 K |
+| **classic** bare churn, cycles 2–6 (free-list phase) | 100–120 | 120–140 | — | **5.7–8.6 s** | 331 K |
+| **immix** bare churn, cycles 1–6 | 160 | 0–20 | — | **1.9–2.3 s** | — |
+| **classic** bare `(ext:gc-compact)` | — | — | 280 | | |
+| **immix** bare `(ext:gc-compact)` | — | — | **1140** | | |
+| **classic** loaded, 1st gc after the Clamacs load (bump 8.1 M) | 100 | **540** | — | 640 ms | 0 |
+| **immix** loaded, the one gc inside the Clamacs load | 120 | 380 | — | 500 ms | — |
+| **classic** loaded explicit, 2nd–4th (1.86 M live) | 140–160 | 20–40 | — | 160–180 ms | 0 |
+| **immix** loaded explicit (1.86 M live) | 120–140 | 0–20 | — | 120–140 ms | — |
+| **classic** loaded churn, cycles 1–3 (one policy compaction) | 140 avg | 27 avg | 1140 | 2.5 s / 3 cycles | 63 K |
+| **classic** loaded churn, cycles 4 and 6 (free-list phase) | 160 | 120 | — | **8.5–8.8 s** | 276 K |
+| **immix** loaded churn, cycles 1–6 | 220–240 | 0–20 | — | **1.5–2.1 s** | — |
+| **classic** loaded `(ext:gc-compact)` | — | — | 640 | | |
+| **immix** loaded `(ext:gc-compact)` | — | — | **1440** | | |
+| **classic** loaded explicit after compaction | 80–100 | 0–20 | — | 100 ms | 0 |
+| **immix** loaded explicit after compaction | 120 | 0–20 | — | 120–140 ms | — |
+
+Churn totals, the number that matters:
+
+| | steps | wall | collector | mutator µs/step |
+|---|--:|--:|--:|--:|
+| classic bare | 37,400 | 36.5 s | 1.5 s (4.1 %) | **936** |
+| immix bare | 37,400 | 11.9 s | 1.0 s (8.2 %) | **293** |
+| classic loaded | 12,200 | 20.7 s | 2.4 s (11.6 %) | **1,503** |
+| immix loaded | 25,000 | 10.1 s | 1.4 s (14.3 %) | **346** |
+
+What the rows say:
+
+1. **The allocation tax is gone.**  The same churn runs 3.1× faster bare
+   and 4.3× faster with the editor loaded, and the per-cycle wall is flat
+   (1.5–2.3 s) instead of tripling once the classic allocator leaves the
+   bump front.  The collector's share of wall *rises* (8–14 %) only
+   because the mutator got so much cheaper; in absolute terms the
+   collector does less (sweep 0–20 ms instead of 120–140).
+2. **The sweep is out of the pause.**  Line sweep: 0–20 ms per cycle
+   against 120–140 ms, on a heap of the same size and shape.  The mark
+   is unchanged (160 ms bare, 220–240 ms loaded — the mark stays the
+   Phase 0 mark, 80 ms per live MB).
+3. **The idle-editor pause is the same**, as predicted: 120–140 ms
+   against 160–180, all of it mark.  The mark loop remains the next
+   lever for that case.
+4. **The first collection after a FASL load** shrinks from 640 to 500 ms;
+   what stays is the finalization storm, which is off-heap work and not a
+   collector cost (§Vampire 4 above).
+5. **Compaction is 4–5× more expensive under Immix** (1140/1440 ms against
+   280/640): the sliding compactor walks every dead header, and a heap
+   the line sweep has been recycling carries its garbage as hundreds of
+   thousands of un-coalesced corpses, where the classic sweep had already
+   merged them into 1,700 free blocks.  It is also the rare path — the
+   policy asked for **no** compaction in either churn (classic needed one
+   in the loaded churn), so the Phase 4 question ("does the compactor run
+   often enough to matter?") answers itself for this workload: it ran
+   only when the script asked for it explicitly.  A corpse-coalescing
+   walk, or evacuation, would be the fix if a workload ever makes it
+   matter.
+6. **Heap use**: Immix left the bump front at 8 MB throughout (holes are
+   recycled in place, the front only moves at a compaction) and kept the
+   same live set (1.86 M loaded) with 0.8 % of the heap in its line map.
+   The Clamacs load itself ran one collection under Immix (the hole
+   allocator asks for a cycle when no hole fits) where classic filled the
+   heap to 8.1 M without one; both loads took 30–32 s.
+
+## FS-UAE 68020 (`verify-lowend.fs-uae`, cycle-exact, no JIT, 8 MB Fast)
+
+The classic rows are the 2026-10-08 ones from the first table (same
+config, same binary up to the seam, which was neutral); the Immix rows
+are the 2026-10-13 run.  Clamacs loaded from the FASL cache both times.
+
+| | mark | sweep | compact | wall / cycle | free-list steps / cycle |
+|---|--:|--:|--:|--:|--:|
+| **classic** bare explicit, 2nd–4th (432 K live) | 1120 ms | 160–180 ms | — | 1.3 s | 0 |
+| **immix** bare explicit, 2nd–4th (432 K live) | 1240 | 200 | — | 1.5 s | — |
+| **classic** bare churn, cycle 1 (bump phase) | 4600 | 4780 | — | 83 s | 10 K |
+| **classic** bare churn, cycles 2–6 (free-list phase) | 4600 | 4780–4800 | — | **168–323 s** | 331 K |
+| **immix** bare churn, cycles 1–6 | 6020–6120 | 200–220 | — | **63–74 s** | — |
+| **classic** bare `(ext:gc-compact)` | — | — | (not taken bare) | | |
+| **immix** bare `(ext:gc-compact)` (bump 8 M, 1.9 M live) | — | — | **38.2 s** | | |
+| **classic** loaded explicit, 1st after load (bump 8.1 M) | 3140 | **7900** | — | 11.1 s | 0 |
+| **immix** loaded explicit, 1st after load (bump 8.1 M) | 4420 | 5960 | — | 10.4 s | — |
+| **classic** loaded explicit, 2nd–4th (1.8 M live) | 3580–3600 | 520 | — | 4.1 s | 0 |
+| **immix** loaded explicit, 2nd–4th (1.86 M live) | 4400 | 240 | — | 4.7 s | — |
+| **classic** loaded churn, cycle 1 (bump phase) | 6460 | 4080 | — | 71 s | 8 K |
+| **classic** loaded churn, cycles 2–6 (free-list phase) | 6460 | 4080–4100 | — | **118–206 s** | 254 K |
+| **immix** loaded churn, cycles 1–6 | 8300–8480 | 240–260 | — | **53–69 s** | — |
+| **immix** loaded `(ext:gc-compact)` (bump 8 M, 3.1 M live; classic 14.7 s) | — | — | **48.0 s** | | |
+
+Churn totals:
+
+| | steps | wall | collector | mutator per step |
+|---|--:|--:|--:|--:|
+| classic bare | 37,400 | 1,200 s | 56 s (4.7 %) | **30.6 ms** |
+| immix bare | 37,600 | 390 s | 38 s (9.6 %) | **9.4 ms** |
+| classic loaded | 28,800 | 822 s | 63 s (7.7 %) | **26.3 ms** |
+| immix loaded | 25,200 | 339 s | 52 s (15.2 %) | **11.4 ms** |
+
+What the rows say, with the 68040's numbers as the reference:
+
+1. **The same 3× on the mutator** (30.6 → 9.4 ms per step bare, 26.3 →
+   11.4 loaded), and the same flat cycle: 63–74 s against 83 s once and
+   168–323 s thereafter bare, 53–69 s against 71 then 118–206 s loaded.
+   For a 68020 user this is the difference between a program that
+   allocates and one that crawls after its first collection.
+2. **The sweep goes from 4.8 s to 0.2 s per cycle.**  The line sweep is
+   O(lines), 65,536 bytes to walk, and it shows: 200–240 ms whatever the
+   heap holds.
+3. **The mark is 10–30 % slower under Immix here** (1240 vs 1120 ms on
+   the quiet heap, 6.0–6.1 s vs 4.6 s under churn, 8.3–8.5 vs 6.5 s
+   loaded).  On a cycle-exact 68020 there is no locality to lose, so this
+   is work: the per-object line stamp (`GCB_ON_MARK`: line index from the
+   offset, a `memset` of one or two bytes) on top of a ~55 µs object.  A
+   single-line fast path in the stamp is the obvious first cut; it is the
+   mark-loop pass Phase 0 already named, now with a second reason.
+4. **The quiet-heap pause is unchanged in kind**: 4.1 → 4.7 s with the
+   editor resident, 95 % of it mark.  Immix was never going to fix that
+   one; item 3 is where it goes next.
+5. **Compaction**: 38 s for an 8 MB Immix heap carrying 1.9 M live, 48 s
+   carrying 3.1 M (classic: 14.7 s loaded), for the reason given under
+   the 68040 — every corpse is walked.  No churn run asked for one.
+6. **The first Immix run wedged in the loaded churn's third cycle**: the
+   log stopped mid-line after cycle 2 and nothing followed for 15
+   minutes, so the watchdog ended it.  That is the shape of the known
+   FS-UAE wedge (`verify/realamiga`, a log line cut mid-write), and the
+   re-run of the whole script with the same binary went through to the
+   end: the loaded rows above are the re-run's, its cycles 1–2 match the
+   wedged run's (68.6/54.7 s against 68.4/54.5 s), and cycles 3–6 sit at
+   53–55 s with the same mark and sweep.

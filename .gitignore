@@ -19,6 +19,7 @@ verify/realamiga/*
 !verify/realamiga/run-examples.sh
 !verify/realamiga/make-image.sh
 !verify/realamiga/make-editor-image.sh
+!verify/realamiga/run-gc-phase0.sh
 !verify/realamiga/wbrun.c
 !verify/realamiga/regtest.c
 !verify/realamiga/stackprobe.c

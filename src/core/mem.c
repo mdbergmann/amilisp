@@ -191,15 +191,23 @@ static uint32_t align_up(uint32_t size)
  * performs.  The cutoff stays at the minimum block size on purpose: a
  * tuned memset beats a scalar word loop from surprisingly few bytes up
  * (measured on this host at 32 bytes and above), so widening this is a
- * pessimization, not an improvement.  SIZE is CL_ALIGN-aligned here. */
+ * pessimization, not an improvement.  SIZE is CL_ALIGN-aligned here.
+ *
+ * The header word is NOT zeroed.  It holds the cursor's own header for
+ * the bytes being cut (the chunk remainder's, or a hole's placeholder)
+ * until cl_alloc stores the object's, so a walk that reaches this block
+ * from another thread always finds a header whose size covers it — the
+ * Immix claim walks the chain on a live heap (gc_immix.c im_claim, under
+ * alloc_mutex only), and a zero header there would end the walk, or lead
+ * it into the next cut's stale bytes. */
 static inline void alloc_zero(void *ptr, uint32_t size)
 {
+    uint32_t *p = (uint32_t *)ptr + 1;
     if (size == CL_MIN_ALLOC_SIZE) {
-        uint32_t *p = (uint32_t *)ptr;
-        uint32_t n = CL_MIN_ALLOC_SIZE / 4;
+        uint32_t n = CL_MIN_ALLOC_SIZE / 4 - 1;
         while (n--) *p++ = 0;
     } else {
-        memset(ptr, 0, size);
+        memset(p, 0, size - 4);
     }
 }
 
@@ -1569,5 +1577,5 @@ void cl_mem_stats(void)
             (unsigned long)gc_mark_stack_grows,
             (unsigned long)gc_mark_rescan_passes);
     platform_write_string(buf);
-    gcb_stats_report();
+    gcb_stats_report(platform_write_string);
 }

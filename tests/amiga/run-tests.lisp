@@ -10820,7 +10820,11 @@ y" 1))
 (handler-case
   (let ((s (with-output-to-string (*standard-output*) (room))))
     (check "room captured by *standard-output*" t
-           (and (search "Heap:" s) (search "GC:" s) t)))
+           (and (search "Heap:" s) (search "GC:" s) t))
+    ;; The collector's own lines are part of ROOM and go through the Lisp
+    ;; stream too (classic: the free list; immix: the line map).
+    (check "room reports the gc backend" t
+           (and (or (search "Classic: free list" s) (search "Immix: " s)) t)))
   (error (e)
     (setq *fail-count* (+ *fail-count* 1))
     (format t "FAIL: room test - ~A~%" e)))

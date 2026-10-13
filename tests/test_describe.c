@@ -205,6 +205,26 @@ TEST(room_writes_to_standard_output)
     ASSERT(strstr(out, "GC:") != NULL);
 }
 
+/* The collector's own lines (gcb_stats_report) are part of ROOM's output
+ * and go through *standard-output* like the rest of it -- a backend that
+ * wrote them to the raw console would leave the captured string without
+ * them. */
+TEST(room_reports_the_gc_backend)
+{
+    const char *out = eval_str(
+        "(with-output-to-string (*standard-output*) (room))");
+#ifdef CL_GC_IMMIX
+    ASSERT(strstr(out, "Immix: ") != NULL);
+    ASSERT(strstr(out, " lines of ") != NULL);
+    ASSERT(strstr(out, "policy compactions") != NULL);
+    ASSERT(strstr(out, "Classic: ") == NULL);
+#else
+    ASSERT(strstr(out, "Classic: free list") != NULL);
+    ASSERT(strstr(out, "probe steps") != NULL);
+    ASSERT(strstr(out, "Immix: ") == NULL);
+#endif
+}
+
 int main(void)
 {
     test_init();
@@ -228,6 +248,7 @@ int main(void)
     RUN(describe_returns_nil);
     RUN(room_no_error);
     RUN(room_writes_to_standard_output);
+    RUN(room_reports_the_gc_backend);
 
     teardown();
     REPORT();

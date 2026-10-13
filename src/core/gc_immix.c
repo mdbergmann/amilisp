@@ -472,7 +472,7 @@ static uint32_t im_claim(uint32_t l, uint32_t n)
  * place a request larger than a chunk in a run of its own.  NULL when no
  * run of available lines fits (the caller collects).  Caller holds
  * alloc_mutex when multi-threaded. */
-static void *im_refill(CL_Thread *t, uint32_t *sizep)
+static void *im_refill(CL_Thread *t, uint32_t *sizep, int multi)
 {
     uint32_t size = *sizep;
     uint32_t need = (size + IM_LINE - 1) >> IM_LINE_SHIFT;
@@ -519,7 +519,7 @@ static void *im_refill(CL_Thread *t, uint32_t *sizep)
     end = (l + len) << IM_LINE_SHIFT;
     t->alloc_cur = start;
     t->alloc_lim = end;
-    return gcb_cursor_cut(t, sizep, end - start);
+    return gcb_cursor_cut(t, sizep, end - start, multi);
 }
 
 static int im_collect(uint32_t seen_gc_count);
@@ -546,7 +546,7 @@ CL_NOINLINE void *gcb_alloc_slow(CL_Thread *t, uint32_t *sizep, int multi)
 
     if (multi) platform_mutex_lock(alloc_mutex);
     for (;;) {
-        ptr = im_refill(t, sizep);
+        ptr = im_refill(t, sizep, multi);
         if (ptr)
             break;
         if (stage == 0) {
@@ -558,7 +558,7 @@ CL_NOINLINE void *gcb_alloc_slow(CL_Thread *t, uint32_t *sizep, int multi)
             if (multi) platform_mutex_unlock(alloc_mutex);
             if (!im_collect(seen)) {
                 if (multi) platform_mutex_lock(alloc_mutex);
-                ptr = im_refill(t, sizep);
+                ptr = im_refill(t, sizep, multi);
                 if (ptr) break;
                 if (multi) platform_mutex_unlock(alloc_mutex);
                 im_collect(cl_heap.gc_count);
@@ -899,7 +899,7 @@ void im_stress_collect(void)
 }
 #endif
 
-void gcb_stats_report(void)
+void gcb_stats_report(void (*out)(const char *))
 {
     char buf[256];
     sprintf(buf, "Immix: %lu lines of %u bytes; after the last cycle %lu live, "
@@ -907,11 +907,11 @@ void gcb_stats_report(void)
             (unsigned long)im_nlines, (unsigned)IM_LINE,
             (unsigned long)im_live_lines, (unsigned long)im_free_lines,
             (unsigned long)im_largest_run);
-    platform_write_string(buf);
+    out(buf);
     sprintf(buf, "Immix: %lu holes claimed (chunks of up to %lu lines), %lu cycles, "
             "%lu policy compactions, %lu finalizable objects listed\n",
             (unsigned long)im_holes_claimed, (unsigned long)im_chunk_lines,
             (unsigned long)im_cycles, (unsigned long)im_policy_compactions,
             (unsigned long)im_fin_count);
-    platform_write_string(buf);
+    out(buf);
 }

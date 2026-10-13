@@ -1374,13 +1374,20 @@ int gcb_marks_exact(void)
     return 1;
 }
 
-void gcb_stats_report(void)
+void gcb_stats_report(void (*out)(const char *))
 {
+    char buf[160];
+    uint32_t blocks, bytes, largest;
+    cl_heap_free_list_stats(&blocks, &bytes, &largest);
+    sprintf(buf, "Classic: free list %lu blocks, %lu bytes (largest %lu), "
+            "%lu probe steps\n",
+            (unsigned long)blocks, (unsigned long)bytes, (unsigned long)largest,
+            (unsigned long)cl_heap.freelist_steps);
+    out(buf);
 #ifdef CL_TLAB
-    char buf[128];
     sprintf(buf, "TLAB: %lu-byte chunks, %lu refills\n",
             (unsigned long)tlab_chunk_size,
             (unsigned long)cl_heap.tlab_refills);
-    platform_write_string(buf);
+    out(buf);
 #endif
 }

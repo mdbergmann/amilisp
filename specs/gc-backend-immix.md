@@ -6,7 +6,9 @@ cases; the idle-heap pause is the mark and needs its own work).  Phase 1
 (the seam) landed in five steps 2026-10-08 … 2026-10-13, classic only.
 Phase 2 (the Immix backend on the host, `make host GC=immix`) landed
 2026-10-13 — see "As landed" under Part 2 for where it departs from the
-design text below.  Phase 3 (the m68k/MorphOS builds) is next.
+design text below.  Phase 3 (the m68k/MorphOS builds) landed 2026-10-13:
+Immix is the m68k default — see "As landed (Phase 3)" for the numbers,
+the one multi-threading bug it surfaced, and what stays open.
 Companion: `specs/generational-gc.md` (the host collector this leaves alone).
 
 ## Why
@@ -89,8 +91,9 @@ one:
 
 ### Selection: compile time, one backend per binary
 
-`make host GC=immix` / `make -f Makefile.cross amiga GC=immix`; default
-`GC=classic` everywhere until Phase 3 proves the m68k default.  Rationale:
+`make host GC=immix` / `make -f Makefile.cross amiga GC=classic`; the
+default is `GC=classic` on the host and MorphOS and `GC=immix` on the
+m68k cross build (Phase 3 decided it on the numbers).  Rationale:
 the backend's hooks sit on the per-object mark path (line marking) and on
 the allocation fast path, where a function pointer or a runtime flag is
 measurable on the 68020 and `vm.o`-sensitive on host; and the Amiga
@@ -635,6 +638,76 @@ a keyword intern (the argument-order lint now also knows `*intern*` and
 `*_keyword` helpers).  On a `[GC-BADMARK]`, the stress build prints the
 claims that formatted the offending address and the stressed-allocation
 index, so `CLAMIGA_GC_STRESS_AT=<index>` names the code at the compaction.
+
+### As landed (Phase 3, 2026-10-13)
+
+`Makefile.cross` and `Makefile.mos` take the host's `GC=` knob.  The m68k
+cross build defaults to **Immix** (`build/cross/`; `GC=classic` goes to
+`build/cross-classic/`, composing with `FPU=1`/`WIDE=1` as
+`cross-fpu-classic` and so on); the MorphOS build keeps classic as its
+default (`GC=immix` builds to `build/morphos-immix/`) until it has run
+there — the box was off.  The object dir suffix names the *non-default*
+backend so `scripts/make-binary-release.sh` and every helper that knows
+`build/cross` keep working; make does not track `CFLAGS`, so the switch
+of a default needs a `make -f Makefile.cross clean` once.
+
+The numbers behind the default (`docs/gc-phase0-results.md`, "Phase 3",
+both binaries built the same afternoon, `verify/realamiga/run-gc-phase0.sh`):
+on the emulated 68040 the churn workload's mutator goes from 936 to 293
+µs/step bare and from 1,503 to 346 loaded (3.1×/4.3×), on the cycle-exact
+68020 from 30.6 to 9.4 ms/step bare and 26.3 to 11.4 loaded (3.3×/2.3×);
+the per-cycle wall is flat (no
+free-list phase) and the sweep is 0–20 ms (040) / 200–240 ms (020) per
+cycle against 120–140 / 4,800.  The mark is the Phase 0 mark, 10–40 %
+*slower* under Immix on a scattered heap (the per-object line stamp, and
+on the emulated 040 the locality) — the mark-loop pass remains the next
+lever for the idle-editor pause, which Immix leaves where it was.  The
+sliding compactor is 4–5× slower on an Immix heap (it walks every
+un-coalesced corpse: 1.1–1.4 s on the 040, 38–48 s on the 020) but the
+policy asked for none in any churn run; it is the explicit
+`(ext:gc-compact)` and the image-save path.  Binary: +3.4 KB over
+classic (895,088 vs 891,716 bytes, soft-float).  `test-amiga` (68040)
+under Immix is identical to classic, both binaries rebuilt from the
+final tree: fresh 5284/5285 (the one failure is the FS-UAE audio flake),
+restored 5275/5275, every image / executable / stack / Workbench leg.
+`test-amiga-lowend` cannot finish inside its 30-minute hard timeout for
+either backend; the Immix run was at 2,712 passes and no failure when
+the watchdog stopped it.  The first 68020 Immix measurement wedged in
+the loaded churn (the FS-UAE log-cut-mid-line shape); the re-run with
+the same binary finished and its numbers are the ones recorded.
+
+`ROOM` ends with the backend's lines (`gcb_stats_report` takes a writer
+so `WITH-OUTPUT-TO-STRING` captures them): the free list's shape and
+probe count for classic, the line map, holes claimed, cycles and policy
+compactions for Immix; `trunk/gc-phase0.lisp` prints them after each
+section.
+
+**One multi-threading bug, found by `test_mt_dispatch_addmethod_race`
+under `make test GC=immix` on the host (crashes and "CDR: argument is not
+of type LIST" in two runs of six; never under classic).**  A claim walks
+the header chain on the *live* heap — under `alloc_mutex`, but a hole's
+neighbour can be another thread's chunk, whose owner rewrites its headers
+lock-free on every cut — and `cl_alloc` zeroed the whole block, header
+word included, before storing the object's header.  A claim walking
+through a peer's chunk could read a zero header, or on a weakly-ordered
+host the new object header followed by the stale bytes where the
+remainder header had not landed yet, follow a garbage size, and truncate
+a header inside the peer's live objects.  The fix keeps a covering header
+in the slot at all times (`alloc_zero` skips the header word) and orders
+remainder-header-before-object-header with a barrier when threads are
+live (the Immix `gcb_cursor_cut` takes `multi`; a compiler barrier on the
+single-core m68k).  `tests/test_gc_threaded.c`
+"claims_vs_concurrent_cuts" fails every run without either half of the
+fix and passes with it; the classic chunk never had the exposure because
+nothing walks its chain outside stop-the-world.  (A lesson about that
+test file: a worker-initiated stop-the-world hangs if the main thread
+sits in `pthread_join` outside a safe region — the existing MT tests
+either never collect or let the main thread drive the collections.)
+
+Open after Phase 3: the real hardware (Vampire 68080, the MorphOS box)
+has not run Immix; the Clamacs typing-latency spike was not taken.  The
+policy constants were not tuned — no churn run asked for a compaction,
+so there was nothing to tune against.
 
 ### Optional Phase 4 — opportunistic evacuation
 

@@ -1607,6 +1607,163 @@ TEST(tlab_mixed_sizes_vs_concurrent_compaction)
     cl_mem_init(4 * 1024 * 1024);
 }
 
+/* Regression (Immix, 2026-10-13): a chunk claim walks the header chain
+ * on the LIVE heap — under alloc_mutex, but the neighbouring region can be
+ * another thread's chunk, whose owner rewrites its headers lock-free on
+ * every cut.  cl_alloc used to zero the whole block, header word
+ * included, before storing the object's header, so a claim walking
+ * through a peer's chunk could read a zero header (walk ends) or — on a
+ * weakly-ordered host — the new object header followed by the stale
+ * bytes where the remainder header had not yet landed, follow a garbage
+ * size, and truncate a header inside the peer's live objects.  Seen as
+ * crashes and "CDR: argument is not of type LIST" in
+ * test_mt_dispatch_addmethod_race under GC=immix, never under classic.
+ * The fix keeps a covering header in the slot at all times (alloc_zero
+ * skips the header word) and orders remainder-header-before-object-header
+ * with a barrier when threads are live (gcb_cursor_cut, gc_backend.h).
+ *
+ * The scenario: four workers cut conses and strings from their chunks
+ * (claims every few KB on a 1 MB heap, so claim walks constantly cross
+ * peers' chunks) and every so often take a vector larger than a chunk
+ * (the direct claim path, whose placeholder header cl_alloc overwrites
+ * after the lock is dropped).  Each worker validates a rotating window of
+ * its own objects; the main thread verifies the whole heap afterwards.
+ * Runs on both backends (classic never walks the live chain, so there it
+ * is a plain MT allocation hammer). */
+typedef struct {
+    CL_Thread     thread;
+    int           iters;
+    int           result_ok;
+    uint32_t      bad_at;
+} ClaimCutCtx;
+
+#define CLAIMCUT_WINDOW 8
+
+static void *claim_cut_worker(void *arg)
+{
+    ClaimCutCtx *ctx = (ClaimCutCtx *)arg;
+    CL_Thread *t = &ctx->thread;
+    CL_Obj window[CLAIMCUT_WINDOW];
+    CL_Obj strtmp = CL_NIL;     /* rooted below the window slots */
+    int i, j, w;
+
+    platform_tls_set(t);
+    cl_thread_register(t);
+    for (w = 0; w < CLAIMCUT_WINDOW; w++) {
+        window[w] = CL_NIL;
+        t->gc_roots[w] = &window[w];
+    }
+    t->gc_roots[CLAIMCUT_WINDOW] = &strtmp;
+    t->gc_root_count = CLAIMCUT_WINDOW + 1;
+    ctx->result_ok = 1;
+
+    for (i = 0; i < ctx->iters && ctx->result_ok; i++) {
+        /* A small object graph: a list of 8 conses whose car is the
+         * iteration tagged with the slot, plus a short string; every 700th
+         * iteration a vector larger than any chunk (9000 slots = 36 KB). */
+        /* Build straight into the rooted slots: a plain C local would be
+         * invisible to (and stale after) a collection among the workers. */
+        w = i % CLAIMCUT_WINDOW;
+        window[w] = CL_NIL;
+        if (i % 700 == 0) {
+            CL_Vector *v;
+            window[w] = cl_make_vector(9000);
+            v = (CL_Vector *)CL_OBJ_TO_PTR(window[w]);
+            for (j = 0; j < 9000; j++)
+                v->data[j] = CL_MAKE_FIXNUM(i + j);
+        } else {
+            for (j = 0; j < 8; j++)
+                window[w] = cl_cons(CL_MAKE_FIXNUM(i * 8 + j), window[w]);
+            strtmp = cl_make_string("claim-cut", 9);
+            window[w] = cl_cons(strtmp, window[w]);
+        }
+
+        /* Validate the whole window (the slots filled in the last 8
+         * iterations) against what was stored. */
+        for (j = 0; j < CLAIMCUT_WINDOW && i >= j; j++) {
+            int k = i - j;
+            CL_Obj o = window[k % CLAIMCUT_WINDOW];
+            if (k % 700 == 0) {
+                CL_Vector *v;
+                int m;
+                if (!CL_VECTOR_P(o)) { ctx->result_ok = 0; ctx->bad_at = (uint32_t)k; break; }
+                v = (CL_Vector *)CL_OBJ_TO_PTR(o);
+                for (m = 0; m < 9000; m += 997)
+                    if (v->data[m] != CL_MAKE_FIXNUM(k + m)) {
+                        ctx->result_ok = 0; ctx->bad_at = (uint32_t)k; break;
+                    }
+            } else {
+                int m;
+                if (!CL_CONS_P(o) || !CL_STRING_P(cl_car(o))) {
+                    ctx->result_ok = 0; ctx->bad_at = (uint32_t)k; break;
+                }
+                o = cl_cdr(o);
+                for (m = 7; m >= 0; m--) {
+                    if (!CL_CONS_P(o) ||
+                        cl_car(o) != CL_MAKE_FIXNUM(k * 8 + m)) {
+                        ctx->result_ok = 0; ctx->bad_at = (uint32_t)k; break;
+                    }
+                    o = cl_cdr(o);
+                }
+                if (ctx->result_ok && !CL_NULL_P(o)) {
+                    ctx->result_ok = 0; ctx->bad_at = (uint32_t)k;
+                }
+            }
+        }
+    }
+
+    t->gc_root_count = 0;
+    cl_thread_unregister(t);
+    return NULL;
+}
+
+TEST(claims_vs_concurrent_cuts)
+{
+    void *handles[4];
+    ClaimCutCtx ctxs[4];
+    int i;
+
+    cl_mem_shutdown();
+    cl_mem_init(1024 * 1024);
+
+    for (i = 0; i < 4; i++) {
+        memset(&ctxs[i], 0, sizeof(ClaimCutCtx));
+        ctxs[i].thread.id = (uint32_t)(i + 1);
+        ctxs[i].thread.status = 1;
+        ctxs[i].thread.mv_count = 1;
+        ctxs[i].iters = 60000;
+    }
+    for (i = 0; i < 4; i++)
+        platform_thread_create(&handles[i], claim_cut_worker, &ctxs[i], 0);
+    /* The workers collect among themselves; a main thread parked in
+     * pthread_join outside a safe region would be the straggler every one
+     * of their stop-the-world requests waits for. */
+    cl_gc_enter_safe_region();
+    for (i = 0; i < 4; i++)
+        platform_thread_join(handles[i], NULL);
+    cl_gc_leave_safe_region();
+
+    for (i = 0; i < 4; i++) {
+        if (!ctxs[i].result_ok)
+            printf("    worker %d: object from iteration %lu corrupted\n",
+                   i, (unsigned long)ctxs[i].bad_at);
+        ASSERT_EQ_INT(ctxs[i].result_ok, 1);
+    }
+    /* The chain and the block-start index must still be exact: a claim
+     * that truncated a header inside a peer's chunk leaves a block whose
+     * size no longer reaches the next header. */
+    {
+        int faults = cl_gc_verify_heap();
+        if (faults > 0)
+            printf("    heap verify: %s\n", cl_gc_verify_heap_report());
+        ASSERT_EQ_INT(faults, 0);
+    }
+    ASSERT(cl_gc_audit_hdr_index() <= 0);
+
+    cl_mem_shutdown();
+    cl_mem_init(4 * 1024 * 1024);
+}
+
 /* Multi→single transition: workers leave abandoned (retired) chunks
  * behind as formatted holes; after they exit, single-threaded sweep AND
  * compaction must parse those holes, reclaim them, and keep main-thread
@@ -1777,6 +1934,7 @@ int main(void)
      * mixed sizes, multi→single leftovers) */
     RUN(tlab_concurrent_refills_and_gc);
     RUN(tlab_mixed_sizes_vs_concurrent_compaction);
+    RUN(claims_vs_concurrent_cuts);
     RUN(tlab_leftover_holes_reclaimed_after_threads_exit);
 #endif
 

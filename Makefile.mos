@@ -4,6 +4,7 @@
 # Run from a MorphOS shell (or a MorphOS GCC environment):
 #
 #     make -f Makefile.mos              # build build/morphos/clamiga
+#     make -f Makefile.mos GC=immix     # the Immix collector, build/morphos-immix/
 #     make -f Makefile.mos clean
 #
 # Notes / design:
@@ -67,6 +68,22 @@ LDLIBS  ?= -lm
 SRCDIR   = src
 BUILDDIR = build/morphos
 
+# GC=classic|immix selects the collector (specs/gc-backend-immix.md), the
+# same knob as the host and cross Makefiles: one backend per binary.  An
+# immix build gets its own object dir so the two never mix.
+GC ?= classic
+ifeq ($(GC),classic)
+GC_DEF = -DCL_GC_CLASSIC
+GC_SRC = $(SRCDIR)/core/gc_classic.c
+else ifeq ($(GC),immix)
+GC_DEF = -DCL_GC_IMMIX
+GC_SRC = $(SRCDIR)/core/gc_immix.c
+BUILDDIR := $(BUILDDIR)-immix
+else
+$(error GC=$(GC): unknown GC backend (classic or immix))
+endif
+CFLAGS += $(GC_DEF)
+
 # --- Source files -----------------------------------------------------------
 # Mirrors the modern source list in Makefile.cross, minus the m68k JIT
 # codegen/asm and the m68k FFI trampoline.
@@ -78,7 +95,7 @@ PLATFORM_SRC = $(SRCDIR)/platform/platform_amiga.c \
 CORE_SRC     = $(SRCDIR)/core/types.c \
                $(SRCDIR)/core/mem.c \
                $(SRCDIR)/core/gc_trace.c \
-               $(SRCDIR)/core/gc_classic.c \
+               $(GC_SRC) \
                $(SRCDIR)/core/gc_compact.c \
                $(SRCDIR)/core/gc_jitscan.c \
                $(SRCDIR)/core/gc_verify.c \

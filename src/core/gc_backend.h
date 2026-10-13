@@ -91,8 +91,11 @@ void gcb_compact_begin(void);
 void gcb_compact_fallback(int outcome);
 void gcb_compact_done(void);
 
-/* Backend lines of cl_mem_stats (ext:room). */
-void gcb_stats_report(void);
+/* Backend lines of cl_mem_stats and ROOM, one "\n"-terminated line per
+ * call of `out` (platform_write_string for the raw console report,
+ * cl_write_cstring_to_stdout for ROOM, whose output a test may capture
+ * with WITH-OUTPUT-TO-STRING). */
+void gcb_stats_report(void (*out)(const char *));
 
 /* The collection cl_gc_verify_heap runs before it checks the arena: one
  * after which every block that is not free is live and the marks are in
@@ -449,9 +452,22 @@ CL_ALWAYS_INLINE void gcb_format_dead(uint32_t off, uint32_t len)
 }
 
 /* Cut *sizep bytes from t's chunk (rem = alloc_lim - alloc_cur >= size);
- * may grow *sizep by an absorbed undersized tail.  Owner-only, lock-free. */
+ * may grow *sizep by an absorbed undersized tail.  Owner-only, lock-free.
+ *
+ * Unlike the classic chunk, this one is READ by other threads while it is
+ * being cut: a claim (im_claim) walks the chain on the live heap, under
+ * alloc_mutex only, to find the block covering the byte before its hole,
+ * the one covering its end, and the headers it re-points the index at —
+ * and a neighbouring region can be another thread's chunk.  The walk
+ * stays consistent as long as every header it can reach covers what
+ * follows: the remainder header is stored BEFORE cl_alloc stores the
+ * object header over the old one (which, until then, still covers both),
+ * the object header's slot is never zeroed (alloc_zero, mem.c), and
+ * `multi` orders the two stores on a weakly-ordered host, where the
+ * walker could otherwise see the object header and stale bytes behind it
+ * (a compiler barrier on the single-core m68k). */
 CL_ALWAYS_INLINE void *gcb_cursor_cut(CL_Thread *t, uint32_t *sizep,
-                                      uint32_t rem)
+                                      uint32_t rem, int multi)
 {
     uint32_t size = *sizep;
     uint32_t cur = t->alloc_cur;
@@ -467,6 +483,7 @@ CL_ALWAYS_INLINE void *gcb_cursor_cut(CL_Thread *t, uint32_t *sizep,
     else {
         t->alloc_cur = cur;
         gcb_format_dead(cur, t->alloc_lim - cur);
+        if (multi) platform_memory_barrier();
     }
     t->alloc_consed += size;
     return ptr;
@@ -479,7 +496,7 @@ CL_ALWAYS_INLINE void *gcb_alloc_fast(uint32_t *sizep, int multi,
     uint32_t rem = t->alloc_lim - t->alloc_cur;
     *tp = t;
     if (*sizep <= rem)
-        return gcb_cursor_cut(t, sizep, rem);
+        return gcb_cursor_cut(t, sizep, rem, multi);
     return NULL;
 }
 

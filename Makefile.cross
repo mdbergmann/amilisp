@@ -3,6 +3,7 @@
 # Run: make -f Makefile.cross [amiga|test-amiga|image-amiga|clean]
 #      make -f Makefile.cross amiga FPU=1   (hard-float variant, see below)
 #      make -f Makefile.cross amiga WIDE=1  (wide-string variant, see below)
+#      make -f Makefile.cross amiga GC=classic (the classic collector, see below)
 #      make -f Makefile.cross image-amiga   (bare-boot clamiga.img beside the
 #                                            binary, saved + verified in FS-UAE)
 
@@ -64,12 +65,37 @@ else
 WIDEFLAGS =
 endif
 
+# GC=immix|classic selects the collector (specs/gc-backend-immix.md): one
+# backend per binary, the same knob as the host Makefile.  immix — the
+# m68k default since 2026-10-13 (docs/gc-phase0-results.md, "Phase 3":
+# the same allocation churn runs 3–4x faster on the 68040 and 68020
+# because allocation is always a bump into line-granular holes and no
+# cycle sweeps the arena) — is the mark-region backend; classic is the
+# mark-sweep-compact collector the m68k builds ran before.  Composes with
+# FPU=1 / WIDE=1; the non-default backend gets its own object dir
+# (build/cross-classic, build/cross-fpu-classic, ...) so the two never mix
+# and the A/B on FS-UAE or real hardware is two binaries side by side.
+# After changing the default, `make -f Makefile.cross clean`: make does
+# not track CFLAGS, so a build/cross/ full of the other backend's objects
+# would be linked as is.
+GC ?= immix
+ifeq ($(GC),immix)
+GC_DEF = -DCL_GC_IMMIX
+GC_SRC = $(SRCDIR)/core/gc_immix.c
+else ifeq ($(GC),classic)
+GC_DEF = -DCL_GC_CLASSIC
+GC_SRC = $(SRCDIR)/core/gc_classic.c
+BUILDDIR := $(BUILDDIR)-classic
+else
+$(error GC=$(GC): unknown GC backend (immix or classic))
+endif
+
 # -fomit-frame-pointer: this gcc keeps a5 frames even at -Os (~2000 link/unlk
 # pairs); dropping them saved 8.4 KB of code in the 0.8 binary and frees a5 as
 # a general register.  Functions using __builtin_frame_address(0)
 # (CL_CAPTURE_SP) still get a real frame.  Measured 2026-09-01, both variants
 # suite-verified in FS-UAE 2026-09-02.
-CFLAGS    = -noixemul -mcpu=68020 $(FLOATFLAGS) $(WIDEFLAGS) -std=c99 -Wall -Os -fomit-frame-pointer -fno-tree-switch-conversion -DPLATFORM_AMIGA -DJIT_M68K $(DEBUG_FLAGS)
+CFLAGS    = -noixemul -mcpu=68020 $(FLOATFLAGS) $(WIDEFLAGS) $(GC_DEF) -std=c99 -Wall -Os -fomit-frame-pointer -fno-tree-switch-conversion -DPLATFORM_AMIGA -DJIT_M68K $(DEBUG_FLAGS)
 
 # STRIP=1 (default) links with -s, dropping the HUNK_SYMBOL blocks — ~40 KB
 # of the 0.8 binary that nothing at runtime reads.  STRIP=0 keeps them so
@@ -106,7 +132,7 @@ PLATFORM_ASM = $(SRCDIR)/platform/ffi_dispatch_m68k.s \
 CORE_SRC     = $(SRCDIR)/core/types.c \
                $(SRCDIR)/core/mem.c \
                $(SRCDIR)/core/gc_trace.c \
-               $(SRCDIR)/core/gc_classic.c \
+               $(GC_SRC) \
                $(SRCDIR)/core/gc_compact.c \
                $(SRCDIR)/core/gc_jitscan.c \
                $(SRCDIR)/core/gc_verify.c \
