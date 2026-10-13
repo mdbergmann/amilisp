@@ -384,25 +384,28 @@ typedef struct CL_Thread_s {
     /* ---- Thread-Local Value (TLV) table ---- */
     uint32_t    tlv_entry_count;  /* number of active TLV entries — 0 = skip probes */
 
-#ifdef CL_TLAB
-    /* ---- Per-thread allocation buffer (TLAB) ----
-     * Arena OFFSETS bounding this thread's private bump chunk; 0/0 = no
-     * chunk.  Only meaningful while cl_thread_count > 1 (cl_alloc's fast
-     * path); carved from the shared bump front / free list under
-     * alloc_mutex, then cut without any locking by the owning thread.
-     * The uncut remainder [tlab_cur, tlab_end) is kept formatted as a
-     * CL_FreeBlock hole at ALL times so every linear arena walk (sweep,
-     * forwarding, slide, conservative JIT scan) parses it.  Every GC
-     * cycle clears all threads' TLABs during stop-the-world (mandatory:
-     * gc_sweep rebuilds the free list and would otherwise hand an active
-     * tail to another thread).  Owner-written; a peer touches these only
-     * during STW (gc_tlab_reset_all) or after the thread finished
-     * (cl_tlab_retire from unregister). */
-    uint32_t tlab_cur;
-    uint32_t tlab_end;
-    uint32_t tlab_consed;   /* object bytes cut since the last flush to
+    /* ---- Allocation cursor (multi-threaded kind) ----
+     * Arena OFFSETS bounding the private CHUNK cl_alloc's fast path cuts
+     * objects from without any locking while cl_thread_count > 1:
+     * [alloc_cur, alloc_lim), 0/0 = none (see "Allocation cursor" in
+     * mem.c).  Carved from the shared bump front or the free list under
+     * alloc_mutex (CL_TLAB; compiled out on Amiga, where multi-threaded
+     * allocation takes the locked slow path).  The uncut remainder is kept
+     * formatted as a CL_FreeBlock hole at ALL times so every linear arena
+     * walk (sweep, forwarding, slide, conservative JIT scan) parses it.
+     * Single-threaded, the cursor is the heap's bump front itself
+     * (cl_heap.bump / arena_size) and these fields are not consulted: a
+     * chunk left over from the multi-threaded regime is simply never cut
+     * again and is dropped by the next collection or slow-path entry.
+     * Every GC cycle drops ALL threads' chunks during stop-the-world
+     * (mandatory: gc_sweep rebuilds the free list and would otherwise hand
+     * an active tail to another thread).  Owner-written; a peer touches
+     * these only during STW (gc_cursor_drop_all) or after the thread
+     * finished (cl_cursor_retire from unregister). */
+    uint32_t alloc_cur;
+    uint32_t alloc_lim;
+    uint32_t alloc_consed;  /* object bytes cut since the last flush to
                              * cl_heap.total_consed (refill/GC/retire) */
-#endif /* CL_TLAB */
 
     /* ---- GC coordination ---- */
     volatile uint8_t gc_requested;

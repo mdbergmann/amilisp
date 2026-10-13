@@ -79,7 +79,10 @@ extern const char *global_root_files[CL_MAX_GLOBAL_ROOTS];
 extern int         global_root_lines[CL_MAX_GLOBAL_ROOTS];
 #endif
 
-void gc_tlab_reset_all(void);
+/* Drop every thread's allocation cursor (mem.c).  Every collection calls
+ * it first thing after stopping the world: the passes below rebuild the
+ * free list and move the bump front under the cursors. */
+void gc_cursor_drop_all(void);
 int  cl_bump_fits(uint32_t bump, uint32_t size, uint32_t arena_size);
 
 /* --- gc_trace.c ------------------------------------------------------- */

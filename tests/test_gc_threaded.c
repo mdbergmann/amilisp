@@ -1367,11 +1367,13 @@ TEST(shared_tables_reset_on_heap_reinit)
 /* ================================================================
  * TLAB — per-thread allocation buffers (multi-threaded fast path)
  *
- * These tests force the TLAB machinery through its full lifecycle:
- * refills (chunk exhaustion), STW GC clearing all TLABs mid-allocation
- * (gc_tlab_reset_all), compaction sliding objects allocated from TLAB
- * chunks, mixed TLAB/shared-path sizes, and the multi→single-thread
- * transition leaving formatted holes for the next sweep to reclaim.
+ * These tests force the chunk kind of the allocation cursor (mem.c)
+ * through its full lifecycle: refills (chunk exhaustion), STW GC dropping
+ * all cursors mid-allocation (gc_cursor_drop_all), compaction sliding
+ * objects allocated from chunks, mixed chunk/direct-path sizes, and the
+ * multi→single-thread transition leaving formatted holes for the next
+ * sweep to reclaim.  The single-threaded (front) kind and the regime
+ * transitions are covered by tests/test_gc_cursor.c.
  * Heaps are sized small so chunks are small (heap/64) and every worker
  * refills many times through real GC cycles.
  * ================================================================ */
@@ -1581,7 +1583,7 @@ TEST(tlab_mixed_sizes_vs_concurrent_compaction)
             platform_sleep_ms(1);
 
     /* Hammer moving compactions while both workers cut from TLABs; every
-     * cycle clears their chunks (gc_tlab_reset_all) and slides survivors
+     * cycle drops their chunks (gc_cursor_drop_all) and slides survivors
      * across the formatted holes.  Spin cap = hang safety net. */
     spins = 0;
     while ((!ctxs[0].done || !ctxs[1].done) && spins < 1000000) {
@@ -1604,7 +1606,7 @@ TEST(tlab_mixed_sizes_vs_concurrent_compaction)
 /* Multi→single transition: workers leave abandoned (retired) chunks
  * behind as formatted holes; after they exit, single-threaded sweep AND
  * compaction must parse those holes, reclaim them, and keep main-thread
- * data intact.  Exercises cl_tlab_retire via cl_thread_unregister. */
+ * data intact.  Exercises cl_cursor_retire via cl_thread_unregister. */
 TEST(tlab_leftover_holes_reclaimed_after_threads_exit)
 {
     void *handles[3];

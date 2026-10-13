@@ -77,7 +77,7 @@ one:
 - Stop-the-world coordination lives in `thread.c` and is backend-neutral.
 - The external API stays: `cl_alloc`, `cl_gc`, `cl_gc_compact`,
   `cl_gc_compact_if_pending`, `cl_gc_reclaim_young`, `cl_gc_if_stale`,
-  `cl_tlab_retire`, `cl_mem_adopt_image_*`, the stats functions and the
+  `cl_cursor_retire`, `cl_mem_adopt_image_*`, the stats functions and the
   `ext:%gc-*` builtins that expose them.
 - `CL_FASL_VERSION` and `CL_IMAGE_VERSION` are **not** touched by any of
   this: nothing changes on disk.  An image stays a dense arena (the
@@ -250,6 +250,46 @@ Amiga too.  The TLAB invariants (remainder always a formatted
 `CL_FreeBlock`; no remainder under `CL_MIN_ALLOC_SIZE`; all cursors
 dropped under STW) become cursor invariants and hold for every backend.
 
+*Done 2026-10-13.*  `cl_alloc` is the cursor cut and nothing else:
+`cursor_cut_front` / `cursor_cut_chunk` (`CL_ALWAYS_INLINE`, mem.c) cut
+the regime's cursor lock-free, and `gcb_alloc_slow` (mem.c, `CL_NOINLINE`,
+the classic backend's half of the seam until step 5 moves it) refills
+the chunk and cuts, or allocates directly under the unchanged classic
+policy, and owns the accounting.  The classic backend's two cursors,
+chosen by `multi` (which `cl_alloc` computes anyway): single-threaded
+the **live bump front** `[cl_heap.bump, arena_size)` — a cut is the bump
+allocation, exact for every reader with nothing to flush, and on m68k
+`-Os` it is now inline where the old `alloc_from_bump` was being
+*called* on every cons; multi-threaded the **chunk** of the former TLAB
+(`alloc_cur` / `alloc_lim` / `alloc_consed` in thread.h, all builds;
+`CL_TLAB` carves them, remainder a formatted hole, consed bytes
+deferred).  "Cursor = the whole remaining bump region" was first
+implemented literally — a per-thread snapshot `[bump, arena_size)` with
+a kind flag — and measured: the thread-pointer load plus the dependent
+cursor loads cost +2 ms on `alloc.cons-churn` (22–23 → 24–25, every
+run) and +2 ms on `alloc.mixed-churn` on the host, and the snapshot
+needs a kind check on every cut to survive a thread-count change (a
+front snapshot cut after a second thread registered hands out bytes a
+peer's chunk is carving; a chunk cut single-threaded would move the
+front backwards).  The live front has neither cost nor hazard: a chunk
+left over after the count dropped to one is simply never cut again
+and is dropped by the next collection or slow-path entry.  The
+parent-registers-newborn order (builtins_thread.c) means the thread
+flipping the count to two is the sole thread; a thread registering
+itself concurrently with another thread's allocations was never
+allowed by the unlocked bump allocator either.  `gc_cursor_drop_all`
+(was `gc_tlab_reset_all`, now unconditional) runs at every collection's
+entry, on heap re-init and in `cl_mem_adopt_image_begin`;
+`cl_cursor_retire` (was `cl_tlab_retire`) at thread exit.
+`tests/test_gc_cursor.c`: front == bump after every cut with exact
+accounting, the arena tail absorbed so the front lands on `arena_size`,
+sweep / compaction / retire / image adoption leave the front consistent,
+both regime transitions with a registered newborn (the leftover chunk
+never cut, a walkable hole throughout, its accounting flushed), chunk
+accounting flushed by a collection.  The Immix backend has one cursor
+shape in both regimes — a hole, private by construction — so for it the
+single-threaded cut is the chunk cut with the main thread's fields.
+
 ### The interface
 
 ```c
@@ -337,8 +377,10 @@ table exists only for the allocator.
   chunks are today), objects are cut from its front, and the block-start
   index is noted — the walk through a hole is exact by construction.
 - Multi-threaded (host): block/hole acquisition under `alloc_mutex`,
-  cutting lock-free, as the TLAB today.  Single-threaded (Amiga): the same
-  code with the main thread's cursor.
+  cutting lock-free, as the chunk cursor today.  Single-threaded (Amiga):
+  the same code with the main thread's cursor — one kind in both regimes
+  (the classic backend's front/chunk distinction, Unification C, exists
+  only because its single-threaded cursor is the shared bump front).
 
 The free list and its probe are gone; `cl_heap.freelist_steps` reads 0.
 `cl_heap.bump` keeps its meaning as the walk bound: the end of the highest

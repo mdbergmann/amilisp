@@ -36,6 +36,17 @@
 #define CL_NOINLINE
 #endif
 
+/* The opposite: a helper that MUST dissolve into its caller.  Used for the
+ * cursor cuts of cl_alloc's fast path, which are written once and
+ * instantiated in the fast path and in the refills — the m68k build is -Os
+ * without LTO, where a plain `static inline` with several callers is not
+ * reliably inlined, and a call there would be a call on every cons. */
+#if defined(__GNUC__) || defined(__clang__)
+#define CL_ALWAYS_INLINE static inline __attribute__((always_inline))
+#else
+#define CL_ALWAYS_INLINE static
+#endif
+
 /* Memory */
 void *platform_alloc(unsigned long size);
 void  platform_free(void *ptr);

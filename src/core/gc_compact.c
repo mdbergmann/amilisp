@@ -1016,10 +1016,11 @@ void cl_gc_compact(void)
     int multithread = (cl_thread_count > 1);
     uint64_t t0 = gc_stop_world_timed(multithread);
 
-    /* Same invariant as cl_gc: no thread may keep cutting from a chunk the
-     * passes below reclaim or slide.  Remainders are formatted holes, so
-     * forwarding/slide parse them as dead regions. */
-    gc_tlab_reset_all();
+    /* Same invariant as cl_gc: no thread may keep cutting from a region the
+     * passes below reclaim or slide — a chunk, or the bump front the slide
+     * resets.  Chunk remainders are formatted holes, so forwarding/slide
+     * parse them as dead regions. */
+    gc_cursor_drop_all();
 
 #ifdef CL_GENGC
     if (gen_enabled) {

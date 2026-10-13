@@ -89,13 +89,12 @@ void cl_thread_register_newborn(CL_Thread *t)
 void cl_thread_unregister(CL_Thread *t)
 {
     CL_Thread **pp;
-#ifdef CL_TLAB
-    /* Drop the exiting thread's TLAB before it leaves the registry: once
-     * off the list, gc_tlab_reset_all can no longer flush it.  The uncut
-     * remainder is already a formatted hole; the next sweep reclaims it.
-     * Must run BEFORE taking the list lock (retire takes alloc_mutex). */
-    cl_tlab_retire(t);
-#endif
+    /* Drop the exiting thread's allocation cursor before it leaves the
+     * registry: once off the list, gc_cursor_drop_all can no longer flush
+     * it.  A chunk's uncut remainder is already a formatted hole; the next
+     * sweep reclaims it.  Must run BEFORE taking the list lock (retire
+     * takes alloc_mutex). */
+    cl_cursor_retire(t);
     /* Null-guard: a worker that exits during process teardown can arrive
      * here after cl_thread_shutdown tore the registry lock down (only
      * possible in the count<=1 shutdown path; with workers left the lock

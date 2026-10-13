@@ -236,39 +236,120 @@ static inline void alloc_zero(void *ptr, uint32_t size)
     }
 }
 
-#ifdef CL_TLAB
 /* ================================================================
- * TLAB — per-thread allocation buffers (multi-threaded fast path)
+ * Allocation cursor — the lock-free fast path of cl_alloc
  *
- * With >1 thread registered, every cl_alloc used to serialize on
- * alloc_mutex — at actor-workload allocation rates the mutex (and its
- * cache-line ping-pong) dominates the per-message cost.  Instead, each
- * thread carves a private CHUNK from the shared bump front (or, when the
- * bump is exhausted, the free list) once per ~chunk of allocation, and
- * cuts objects from it with NO locking.
+ * cl_alloc cuts objects from a cursor — a region [cur, lim) the current
+ * thread owns outright — with no locking at all, and the backend refills
+ * it in gcb_alloc_slow when a cut does not fit.  The classic backend has
+ * two cursors, chosen by the regime:
+ *
+ *  Single-threaded: the bump front itself, [cl_heap.bump, arena_size).
+ *    A cut IS the bump allocation; the front stays exact for every reader
+ *    (the arena walks, the block-start index, the statistics, the image
+ *    writer) and the accounting is per cut, as the bump allocator always
+ *    did.  Deliberately NOT mirrored into the thread: a snapshot of the
+ *    front in CL_Thread fields costs the thread-pointer load plus the
+ *    dependent cursor loads on every allocation — measured at +8 % on
+ *    alloc.cons-churn (bench-opt, host) — and reintroduces the two
+ *    thread-count-transition hazards the live front does not have (a
+ *    snapshot cut after a second thread registered hands out bytes a
+ *    peer's chunk is carving; a stale chunk cut single-threaded would
+ *    move the front backwards).  The one regime check is `multi`, which
+ *    cl_alloc computes anyway.
+ *
+ *  Multi-threaded (CL_TLAB): a private CHUNK [alloc_cur, alloc_lim)
+ *    (thread.h) carved from the front or the free list under alloc_mutex
+ *    — the former TLAB.  With more than one thread registered every
+ *    cl_alloc used to serialize on alloc_mutex; at actor-workload
+ *    allocation rates the mutex (and its cache-line ping-pong) dominated
+ *    the per-message cost.  Accounting is chunk-granular (the whole chunk
+ *    counts as allocated when carved) with the consed bytes flushed at
+ *    the next refill/drop, so a cut touches no shared counter.  Without
+ *    CL_TLAB (Amiga) multi-threaded allocation takes the locked slow
+ *    path directly.
  *
  * Invariants (all load-bearing — see gc_sweep/gc_compute_forwarding):
- *  - The uncut remainder [tlab_cur, tlab_end) is formatted as a
+ *  - A chunk's uncut remainder [alloc_cur, alloc_lim) is formatted as a
  *    CL_FreeBlock at ALL times (size = remainder, not linked into the
  *    free list), so every linear arena walk parses the chunk.  A cut
  *    rewrites the remainder header BEFORE the object header/memset
  *    touches disjoint bytes below it.
  *  - Cuts never leave a remainder smaller than CL_MIN_ALLOC_SIZE: an
  *    undersized tail is absorbed into the object (same precedent as
- *    alloc_from_free_list's use-entire-block path).
- *  - Every GC cycle clears ALL threads' TLABs during stop-the-world
- *    (gc_tlab_reset_all).  Mandatory, not an optimization: gc_sweep
- *    rebuilds the free list from unmarked regions, so an active tail
- *    would be handed to another thread while the owner keeps cutting.
- *    Threads refill on their next allocation.
+ *    alloc_from_free_list's use-entire-block path) — at the arena's end
+ *    too, so the front lands exactly on arena_size.
+ *  - A chunk is only ever cut while multi-threaded.  Left over after the
+ *    thread count dropped to one it is simply never cut again (the front
+ *    is used), and the next collection or slow-path entry drops it; its
+ *    remainder is already a hole.  The parent registers the newborn
+ *    (builtins_thread.c), so the thread that flips the count to two is
+ *    the sole thread; a thread that registers ITSELF while another runs
+ *    must not do so concurrently with that thread's allocations — the
+ *    rule the unlocked bump allocator always had.
+ *  - Every GC cycle drops ALL threads' chunks during stop-the-world
+ *    (gc_cursor_drop_all).  Mandatory, not an optimization: gc_sweep
+ *    rebuilds the free list from unmarked regions, so an active chunk
+ *    tail would be handed to another thread while the owner keeps
+ *    cutting.  Threads refill on their next allocation.
  *  - There is no safepoint between a cut and its header write, so a
  *    stop-the-world initiator can never walk a headerless cut (STW
  *    waits for this thread to park; it parks only at safepoints).
  *
- * Single-threaded execution (including the whole DEBUG_GC_STRESS suite)
- * never takes this path: cl_alloc gates it on `multi`.
+ * The Immix backend (specs/gc-backend-immix.md) has one cursor shape in
+ * both regimes — a hole, private by construction — so for it the
+ * single-threaded cut is the chunk cut with the main thread's fields.
+ * The DEBUG_GC_STRESS suite is single-threaded and never cuts a chunk;
+ * tests/test_gc_threaded.c's TLAB section covers chunks under
+ * concurrent compaction.
  * ================================================================ */
 
+/* Format [off, off+len) as a dead, walkable region (len >= 8, aligned).
+ * Not linked into the free list — the next sweep reclaims/coalesces it. */
+static void cursor_format_hole(uint32_t off, uint32_t len)
+{
+    CL_FreeBlock *fb = (CL_FreeBlock *)(cl_heap.arena + off);
+    fb->size = len;
+    fb->next_offset = 0;
+}
+
+/* Drop t's chunk and flush its deferred accounting.  The remainder is
+ * already a formatted hole, so nothing in the arena changes.  The caller
+ * serializes against the owner: stop-the-world, thread retirement, or the
+ * owner itself. */
+static void cursor_drop(CL_Thread *t)
+{
+    t->alloc_cur = t->alloc_lim = 0;
+    cl_heap.total_consed += t->alloc_consed;
+    t->alloc_consed = 0;
+}
+
+/* Cut *sizep bytes from the bump front (the single-threaded cursor).  The
+ * caller checked that it fits (`rem` = arena_size - bump >= size).  May
+ * grow *sizep by up to CL_MIN_ALLOC_SIZE-CL_ALIGN (absorbed tail).
+ * Accounts the object; single-threaded by construction, no lock. */
+CL_ALWAYS_INLINE void *cursor_cut_front(uint32_t *sizep, uint32_t rem)
+{
+    uint32_t size = *sizep;
+    uint32_t cur = cl_heap.bump;
+    void *ptr = cl_heap.arena + cur;
+
+    if (rem - size < CL_MIN_ALLOC_SIZE) {
+        size = rem;                 /* absorb undersized tail */
+        *sizep = size;
+    }
+    cur += size;
+    cl_heap.bump = cur;
+    cl_heap.total_allocated += size;
+    cl_heap.total_consed += size;
+    /* Block-start index: one compare per bump allocation; the slow path
+     * runs once per 4 KB of bump-allocated data. */
+    if (cur > gc_hdr_bump_watch)
+        gc_hdr_note_bump(cur - size, size);
+    return ptr;
+}
+
+#ifdef CL_TLAB
 /* Chunk size: configured once per heap in cl_mem_init (0 = disabled).
  * CLAMIGA_TLAB_CHUNK=<bytes> overrides; scaled down on small heaps so
  * N threads' chunks can't consume a test-sized arena. */
@@ -277,42 +358,30 @@ static inline void alloc_zero(void *ptr, uint32_t size)
 #endif
 #define CL_TLAB_MIN_CHUNK 4096u
 static uint32_t tlab_chunk_size = 0;
-static uint32_t tlab_max_obj    = 0;   /* larger objects go the shared path */
+static uint32_t tlab_max_obj    = 0;   /* larger objects never REFILL a chunk */
 
-/* Format [off, off+len) as a dead, walkable region (len >= 8, aligned).
- * Not linked into the free list — the next sweep reclaims/coalesces it. */
-static void tlab_format_hole(uint32_t off, uint32_t len)
-{
-    CL_FreeBlock *fb = (CL_FreeBlock *)(cl_heap.arena + off);
-    fb->size = len;
-    fb->next_offset = 0;
-}
-
-/* Owner-only, lock-free: cut `*sizep` bytes from t's chunk.  May grow
- * *sizep by up to CL_MIN_ALLOC_SIZE-CL_ALIGN (absorbed tail).  Returns
- * NULL when no chunk or it doesn't fit (caller refills). */
-static void *tlab_cut(CL_Thread *t, uint32_t *sizep)
+/* Cut *sizep bytes from t's CHUNK cursor; same contract as the front cut.
+ * Owner-only, lock-free: the remainder is re-formatted as a hole, the
+ * consed bytes are deferred to the next refill/drop. */
+CL_ALWAYS_INLINE void *cursor_cut_chunk(CL_Thread *t, uint32_t *sizep,
+                                        uint32_t rem)
 {
     uint32_t size = *sizep;
-    uint32_t rem;
-    void *ptr;
+    uint32_t cur = t->alloc_cur;
+    void *ptr = cl_heap.arena + cur;
 
-    if (!t->tlab_end)
-        return NULL;
-    rem = t->tlab_end - t->tlab_cur;
-    if (size > rem)
-        return NULL;
     if (rem - size < CL_MIN_ALLOC_SIZE) {
         size = rem;                 /* absorb undersized tail */
         *sizep = size;
     }
-    ptr = cl_heap.arena + t->tlab_cur;
-    t->tlab_cur += size;
-    if (t->tlab_cur == t->tlab_end)
-        t->tlab_cur = t->tlab_end = 0;
-    else
-        tlab_format_hole(t->tlab_cur, t->tlab_end - t->tlab_cur);
-    t->tlab_consed += size;
+    cur += size;
+    if (cur == t->alloc_lim)
+        t->alloc_cur = t->alloc_lim = 0;
+    else {
+        t->alloc_cur = cur;
+        cursor_format_hole(cur, t->alloc_lim - cur);
+    }
+    t->alloc_consed += size;
     return ptr;
 }
 
@@ -320,10 +389,10 @@ static void *tlab_cut(CL_Thread *t, uint32_t *sizep)
  * MUST hold alloc_mutex.  Any abandoned remainder of the previous chunk
  * stays behind as a formatted hole (< tlab_max_obj bytes; the next sweep
  * reclaims it).  Falls back to the bounded free-list probe when the bump
- * front is exhausted, so TLABs stay effective in the sweep-only regime
+ * front is exhausted, so chunks stay effective in the sweep-only regime
  * between compactions.  Returns NULL when neither source can supply a
  * chunk — the caller degrades to the shared slow path. */
-static void *tlab_refill_cut(CL_Thread *t, uint32_t *sizep)
+static void *cursor_refill_chunk(CL_Thread *t, uint32_t *sizep)
 {
     void    *chunk;
     uint32_t chunk_size = tlab_chunk_size;
@@ -340,8 +409,7 @@ static void *tlab_refill_cut(CL_Thread *t, uint32_t *sizep)
         return NULL;
     chunk_off = (uint32_t)((uint8_t *)chunk - cl_heap.arena);
 
-    cl_heap.total_consed += t->tlab_consed;
-    t->tlab_consed = 0;
+    cursor_drop(t);   /* flush the previous chunk's accounting */
     /* Chunk-granular: counts the whole chunk as allocated up front; the
      * next sweep recomputes the exact figure.  Errs toward "heap fuller
      * than it is", which only makes the compaction heuristics fire
@@ -349,44 +417,36 @@ static void *tlab_refill_cut(CL_Thread *t, uint32_t *sizep)
     cl_heap.total_allocated += chunk_size;
     cl_heap.tlab_refills++;
 
-    tlab_format_hole(chunk_off, chunk_size);
-    t->tlab_cur = chunk_off;
-    t->tlab_end = chunk_off + chunk_size;
-    return tlab_cut(t, sizep);
+    cursor_format_hole(chunk_off, chunk_size);
+    t->alloc_cur = chunk_off;
+    t->alloc_lim = chunk_off + chunk_size;
+    return cursor_cut_chunk(t, sizep, chunk_size);
 }
+#endif /* CL_TLAB */
 
-/* Clear every registered thread's TLAB.  Called with the world stopped
- * (or single-threaded) at the top of each GC cycle, and on heap re-init.
- * Remainders are already formatted holes — the sweep/compaction that
- * follows reclaims them; owners refill on their next allocation. */
-void gc_tlab_reset_all(void)
+/* Drop every registered thread's chunk.  Called with the world stopped
+ * (or single-threaded) at the top of each GC cycle, on heap re-init and
+ * on image adoption.  Remainders are already formatted holes — the
+ * sweep/compaction that follows reclaims them; owners refill on their
+ * next allocation. */
+void gc_cursor_drop_all(void)
 {
     CL_Thread *t;
-    for (t = cl_thread_list; t; t = t->next) {
-        t->tlab_cur = t->tlab_end = 0;
-        cl_heap.total_consed += t->tlab_consed;
-        t->tlab_consed = 0;
-    }
+    for (t = cl_thread_list; t; t = t->next)
+        cursor_drop(t);
 }
 
 /* Thread-exit retirement (see mem.h).  Runs on a live heap, so the
  * counter flush needs alloc_mutex; the remainder hole needs nothing. */
-void cl_tlab_retire(CL_Thread *t)
+void cl_cursor_retire(CL_Thread *t)
 {
     int multi = (cl_thread_count > 1);
-    if (!t->tlab_end && !t->tlab_consed)
+    if (!t->alloc_lim && !t->alloc_consed)
         return;
     if (multi && alloc_mutex) platform_mutex_lock(alloc_mutex);
-    t->tlab_cur = t->tlab_end = 0;
-    cl_heap.total_consed += t->tlab_consed;
-    t->tlab_consed = 0;
+    cursor_drop(t);
     if (multi && alloc_mutex) platform_mutex_unlock(alloc_mutex);
 }
-#else /* !CL_TLAB */
-/* Feature compiled out (Amiga binary-size gate — see mem.h).  Keep the
- * GC-entry hook as a no-op so call sites stay unconditional. */
-void gc_tlab_reset_all(void) {}
-#endif /* CL_TLAB */
 
 /* CLAMIGA_MEM_DIAG=1 — report at shutdown how much off-heap object payload
  * was handed back (gc_release_all_offheap).  On AmigaOS, where unreturned
@@ -515,17 +575,19 @@ int cl_mem_try_init(uint32_t heap_size)
         tlab_chunk_size = chunk;
         tlab_max_obj = chunk / 8u;
     }
+#endif /* CL_TLAB */
 
-    /* Clear stale TLABs on every registered thread: their offsets point
-     * into the PREVIOUS arena (unit tests re-init with fresh heaps). */
+    /* Clear the allocation chunk of every registered thread: the offsets
+     * point into the PREVIOUS arena (unit tests re-init with fresh heaps),
+     * and a flush of its consed count into the fresh heap's counter would
+     * be wrong — zero the counts outright instead of gc_cursor_drop_all. */
     {
         CL_Thread *t;
         for (t = cl_thread_list; t; t = t->next) {
-            t->tlab_cur = t->tlab_end = 0;
-            t->tlab_consed = 0;
+            t->alloc_cur = t->alloc_lim = 0;
+            t->alloc_consed = 0;
         }
     }
-#endif /* CL_TLAB */
 
     /* Reset EVERY registered thread's Lisp-heap references (root stacks,
      * mv_values, pending/handler/restart/reader/printer/TLV state, ...)
@@ -626,6 +688,10 @@ void cl_mem_init(uint32_t heap_size)
 
 void cl_mem_adopt_image_begin(uint32_t bump)
 {
+    /* The payload replaces the arena under every chunk cursor (a thread
+     * that allocated multi-threaded before the adoption would otherwise
+     * keep cutting inside the restored objects). */
+    gc_cursor_drop_all();
     cl_heap.bump = bump;
     cl_heap.free_list = 0;
     /* The restored payload is dense (the writer compacts before dumping):
@@ -938,9 +1004,13 @@ void cl_storage_error(const char *fmt, ...)
     exit(1);
 }
 
+static CL_NOINLINE void *gcb_alloc_slow(CL_Thread *t, uint32_t *sizep,
+                                        int multi);
+
 void *cl_alloc(uint8_t type, uint32_t size)
 {
     void *ptr;
+    CL_Thread *t;
     int multi = (cl_thread_count > 1);
 
     /* GC safepoint before allocation — if another thread initiated GC,
@@ -953,12 +1023,14 @@ void *cl_alloc(uint8_t type, uint32_t size)
      * corrupted (relocated out from under the stale local).  Single-thread
      * only; gated behind a build flag — compiles to nothing normally.
      *
-     * NOTE: the `!multi` gate means the TLAB fast path below (CL_TLAB,
-     * multi-threaded only) never runs under gc-stress — the two are
-     * mutually exclusive by construction.  TLAB coverage instead comes
-     * from tlab_mixed_sizes_vs_concurrent_compaction in
+     * NOTE: the `!multi` gate means the chunk cursor (CL_TLAB, multi-
+     * threaded only) never runs under gc-stress — the two are mutually
+     * exclusive by construction.  Chunk coverage instead comes from
+     * tlab_mixed_sizes_vs_concurrent_compaction in
      * tests/test_gc_threaded.c, which hammers concurrent compaction
-     * against live TLAB cutting without the per-alloc stress hook. */
+     * against live chunk cutting without the per-alloc stress hook.  The
+     * front cursor IS covered: every forced compaction drops it, so each
+     * stressed allocation refills and cuts it afresh. */
     if (!multi && cl_gc_stress_ready && !cl_gc_stress_active) {
         cl_gc_stress_active = 1;
         {
@@ -1019,43 +1091,94 @@ void *cl_alloc(uint8_t type, uint32_t size)
         cl_storage_error("Allocation too large for header: %u bytes (max %u)",
                          (unsigned)size, (unsigned)CL_HDR_SIZE_MASK);
 
+    /* Fast path: cut from the regime's cursor — no lock, no call (see the
+     * cursor section above): the bump front when single-threaded, this
+     * thread's chunk when multi-threaded.  A miss (the cursor is spent,
+     * or there is no chunk) goes to the backend, which refills. */
+    ptr = NULL;
+    if (!multi) {
+        uint32_t rem = cl_heap.arena_size - cl_heap.bump;
+        if (size <= rem)
+            ptr = cursor_cut_front(&size, rem);
+        t = cl_main_thread_ptr;
+    } else {
+        /* (cl_get_current_thread's multi-threaded leg by hand: `multi` is
+         * already in a register, and the m68k build at -Os would CALL the
+         * inline helper here.) */
+        t = (CL_Thread *)platform_tls_get();
 #ifdef CL_TLAB
-    /* TLAB fast path (multi-threaded only): cut from this thread's private
-     * chunk without touching alloc_mutex; refill under the mutex when the
-     * chunk is spent.  Objects above tlab_max_obj take the shared path so
-     * a large vector doesn't waste most of a chunk.  When even a refill
-     * fails (bump front AND bounded free-list probe exhausted), fall
-     * through to the shared slow path below, which GCs/compacts. */
-    if (multi && size <= tlab_max_obj) {
-        CL_Thread *t = cl_get_current_thread();
-        ptr = tlab_cut(t, &size);
-        if (!ptr) {
-            platform_mutex_lock(alloc_mutex);
-            ptr = tlab_refill_cut(t, &size);
-            platform_mutex_unlock(alloc_mutex);
+        {
+            uint32_t rem = t->alloc_lim - t->alloc_cur;
+            if (size <= rem)
+                ptr = cursor_cut_chunk(t, &size, rem);
         }
-        if (ptr) {
-            alloc_zero(ptr, size);
-            ((CL_Header *)ptr)->header = CL_MAKE_HDR(type, size);
-#ifdef CL_GENGC
-            /* Young finalizable objects are tracked so a minor GC can
-             * release their external resources without walking dead
-             * nursery space.  Rare types — the note takes alloc_mutex
-             * itself (we are on the lock-free path here). */
-            if (gen_enabled && gen_type_finalizable(type))
-                gen_fin_note((uint32_t)((uint8_t *)ptr - cl_heap.arena), 1);
 #endif
-            return ptr;
-        }
     }
-#endif /* CL_TLAB */
+    if (!ptr)
+        ptr = gcb_alloc_slow(t, &size, multi);
+
+    /* Initialize: zero entire block, then set header.
+     * Zeroing prevents stale data in padding/trailing bytes from being
+     * misinterpreted by GC (e.g. closure padding read as upvalue slots)
+     * or FASL serializer (traverses object graph by following CL_Obj fields). */
+    alloc_zero(ptr, size);
+    ((CL_Header *)ptr)->header = CL_MAKE_HDR(type, size);
+
+#ifdef CL_GENGC
+    /* Young finalizable objects are tracked so a minor GC can release
+     * their external resources without walking dead nursery space.  Rare
+     * types — no lock is held here, so the note takes alloc_mutex itself
+     * when there is anyone to contend with. */
+    if (gen_enabled && gen_type_finalizable(type))
+        gen_fin_note((uint32_t)((uint8_t *)ptr - cl_heap.arena), multi);
+#endif
+
+    return ptr;
+}
+
+/* Backend slow path: the cursor could not serve `*sizep` bytes.  Multi-
+ * threaded, refill the chunk (CL_TLAB) and cut; otherwise allocate
+ * directly — the front, then the free list, collecting and compacting as
+ * the classic policy below dictates.  Accounts the block itself
+ * (cl_heap.total_allocated / total_consed, under alloc_mutex when multi-
+ * threaded) and returns with no lock held, or raises a storage error.
+ * *sizep may grow (absorbed tail, entire free block).  Out of line so
+ * cl_alloc's fast path keeps its registers; this is the classic backend's
+ * half of the allocation seam (specs/gc-backend-immix.md, Unification C). */
+static CL_NOINLINE void *gcb_alloc_slow(CL_Thread *t, uint32_t *sizep,
+                                        int multi)
+{
+    uint32_t size = *sizep;
+    void *ptr = NULL;
 
     if (multi) platform_mutex_lock(alloc_mutex);
 
-    /* Fast path: bump allocator, then a *bounded* first-fit free-list probe.
-     * The bound keeps a single allocation cheap (O(CL_FREELIST_PROBE_LIMIT))
-     * even when the free list is long; if no fit turns up quickly we fall
-     * through to GC/compaction below rather than walking the whole list. */
+    if (!multi) {
+        /* A chunk left over from the multi-threaded regime is never cut
+         * again: flush its accounting now (its remainder stays a hole). */
+        if (t->alloc_lim || t->alloc_consed)
+            cursor_drop(t);
+    }
+#ifdef CL_TLAB
+    else if (size <= tlab_max_obj) {
+        /* Objects above tlab_max_obj never refill: a large vector would
+         * waste most of a chunk.  They are still CUT from a chunk with
+         * room (the fast path), and otherwise allocated directly. */
+        ptr = cursor_refill_chunk(t, sizep);
+        if (ptr) {
+            platform_mutex_unlock(alloc_mutex);
+            return ptr;
+        }
+    }
+#endif
+
+    /* Direct allocation: the bump front (single-threaded it is exhausted,
+     * the fast path just missed it; multi-threaded it is still worth a
+     * try after a chunk refill found no room for a whole chunk), then a
+     * *bounded* first-fit free-list probe.  The bound keeps a single
+     * allocation cheap (O(CL_FREELIST_PROBE_LIMIT)) even when the free
+     * list is long; if no fit turns up quickly we fall through to
+     * GC/compaction below rather than walking the whole list. */
     ptr = alloc_from_bump(size);
     if (!ptr) {
         /* Try free list (may update size if using entire oversized block) */
@@ -1222,25 +1345,12 @@ void *cl_alloc(uint8_t type, uint32_t size)
         cl_storage_error("Heap exhausted (requested %u bytes)", (unsigned)size);
     }
 
-    /* (The header-size guard runs at function entry, BEFORE any bump
-     * advance — see above.  alloc_from_free_list can only ever shrink-fit
-     * or return the exact block, never grow size past the mask.) */
-
-    /* Initialize: zero entire block, then set header.
-     * Zeroing prevents stale data in padding/trailing bytes from being
-     * misinterpreted by GC (e.g. closure padding read as upvalue slots)
-     * or FASL serializer (traverses object graph by following CL_Obj fields). */
-    alloc_zero(ptr, size);
-    ((CL_Header *)ptr)->header = CL_MAKE_HDR(type, size);
+    /* (The header-size guard runs at cl_alloc's entry, BEFORE any bump
+     * advance.  alloc_from_free_list can only ever shrink-fit or return
+     * the exact block, never grow size past the mask.) */
+    *sizep = size;
     cl_heap.total_allocated += size;
     cl_heap.total_consed += size;
-
-#ifdef CL_GENGC
-    /* See the TLAB-path twin above; here alloc_mutex is already held
-     * (or the process is single-threaded) — no extra locking. */
-    if (gen_enabled && gen_type_finalizable(type))
-        gen_fin_note((uint32_t)((uint8_t *)ptr - cl_heap.arena), 0);
-#endif
 
     if (multi) platform_mutex_unlock(alloc_mutex);
 

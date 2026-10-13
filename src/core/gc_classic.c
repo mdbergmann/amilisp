@@ -422,7 +422,7 @@ int cl_gc_minor(uint32_t seen_gc_count)
         return 1;
     }
 
-    gc_tlab_reset_all();
+    gc_cursor_drop_all();
 
     /* GC passes write mark bits / slide within the nursery and read+write
      * old space (rehash) — drop protection for the duration. */
@@ -550,12 +550,13 @@ static void cl_gc_stopped(uint64_t t0)
     uint64_t t1;
     uint64_t diag_t_begin = t0;   /* CLAMIGA_GC_DIAG: pause = whole collection */
 
-    /* Drop every thread's TLAB before any pass runs: gc_sweep rebuilds the
-     * free list from unmarked regions, so an active chunk tail (already a
-     * formatted hole) would otherwise be handed out twice — once by the
-     * free list, once by the owning thread's next cut.  Runs even when
-     * single-threaded to reclaim leftovers after thread-count dropped. */
-    gc_tlab_reset_all();
+    /* Drop every thread's allocation cursor before any pass runs: gc_sweep
+     * rebuilds the free list from unmarked regions, so an active chunk tail
+     * (already a formatted hole) would otherwise be handed out twice — once
+     * by the free list, once by the owning thread's next cut.  Runs even
+     * when single-threaded: the front cursor must refill at the post-sweep
+     * bump too, and chunk leftovers after a thread-count drop get flushed. */
+    gc_cursor_drop_all();
 
 #ifdef DEBUG_GC
     {

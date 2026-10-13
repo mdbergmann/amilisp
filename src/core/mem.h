@@ -13,11 +13,13 @@
 
 #define CL_DEFAULT_HEAP_SIZE  (4 * 1024 * 1024)  /* 4MB */
 
-/* Per-thread allocation buffers (TLABs) — host-only by default.  On the
- * 8MB/68020 Amiga target, multi-threaded allocation rates never amortize
- * the extra code and per-thread chunk footprint, and binary size matters
- * there; the feature compiles out entirely.  Define CL_FORCE_TLAB to
- * enable it on Amiga anyway (experiments), CL_NO_TLAB to disable on host. */
+/* Per-thread allocation chunks (TLABs — the multi-threaded kind of the
+ * allocation cursor, see mem.c) — host-only by default.  On the 8MB/68020
+ * Amiga target, multi-threaded allocation rates never amortize the extra
+ * code and per-thread chunk footprint, and binary size matters there; the
+ * feature compiles out entirely and multi-threaded allocation takes the
+ * locked slow path.  Define CL_FORCE_TLAB to enable it on Amiga anyway
+ * (experiments), CL_NO_TLAB to disable on host. */
 #if (!defined(PLATFORM_AMIGA) || defined(CL_FORCE_TLAB)) && !defined(CL_NO_TLAB)
 #define CL_TLAB 1
 #endif
@@ -362,13 +364,12 @@ int cl_gc_verify_heap(void);
 const char *cl_gc_verify_heap_report(void);
 
 
-/* Retire a thread's TLAB (flush cons accounting, drop the chunk).  The
- * uncut remainder is already formatted as a walkable hole; the next sweep
- * reclaims it.  Called by cl_thread_unregister; safe for a finished thread. */
-#ifdef CL_TLAB
+/* Retire a thread's allocation cursor (flush cons accounting, drop the
+ * region — see the cursor section in mem.c).  A chunk's uncut remainder is
+ * already formatted as a walkable hole; the next sweep reclaims it.  Called
+ * by cl_thread_unregister; safe for a finished thread. */
 struct CL_Thread_s;
-void cl_tlab_retire(struct CL_Thread_s *t);
-#endif
+void cl_cursor_retire(struct CL_Thread_s *t);
 
 /* Manually trigger GC */
 void cl_gc(void);

@@ -22,11 +22,12 @@
  * nearest lower page's entry (ultimately CL_ALIGN) serves.  A header, once
  * written, stays a header at that offset until the next sweep or slide,
  * because between collections blocks are only ever SPLIT from the front
- * (alloc_from_free_list, tlab_cut) — the front header survives at its
- * offset and the remainder gets a fresh one.  So the index is rebuilt by
- * the two passes that rewrite headers (gc_sweep coalesces, gc_slide moves)
- * and extended by the paths that create a header on virgin bytes
- * (alloc_from_bump, and the split remainder for good measure).  The image
+ * (alloc_from_free_list, cursor_cut_chunk) — the front header survives at
+ * its offset and the remainder gets a fresh one.  So the index is rebuilt
+ * by the two passes that rewrite headers (gc_sweep coalesces, gc_slide
+ * moves) and extended by the paths that create a header on virgin bytes
+ * (alloc_from_bump and the front cursor's cuts, and the split remainder
+ * for good measure).  The image
  * loader's classic walk re-notes the adopted payload.
  *
  * Classic collector only: gen mode (host) has no free list, moves young
