@@ -14,10 +14,10 @@
 #
 # Run: sh tests/test_reader_label_gc.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/amilisp}"
-case "$CLAMIGA" in
+AMILISP="${1:-build/host/amilisp}"
+case "$AMILISP" in
     /*|[A-Za-z]:/*) ;;
-    *) CLAMIGA="$(cd "$(dirname "$CLAMIGA")" && pwd)/$(basename "$CLAMIGA")" ;;
+    *) AMILISP="$(cd "$(dirname "$AMILISP")" && pwd)/$(basename "$AMILISP")" ;;
 esac
 
 passed=0
@@ -62,7 +62,7 @@ cat > "$TMP/run.lisp" <<'EOF'
 (ext:gc)
 (format t "ALIVE ~S~%" (length (make-list 1000)))
 EOF
-out=$(cd "$TMP" && "$CLAMIGA" --no-userinit --non-interactive --no-fasl-cache \
+out=$(cd "$TMP" && "$AMILISP" --no-userinit --non-interactive --no-fasl-cache \
       --load run.lisp </dev/null 2>&1)
 check "gc_inside_shared_and_circular_labels" "$(has '^STRING ((A B C) T (X Y T))')"
 check "gc_inside_nested_labels"              "$(has '^NESTED (T T R)')"

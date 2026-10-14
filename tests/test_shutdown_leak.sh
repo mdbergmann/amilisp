@@ -24,17 +24,17 @@
 # The strong form of this test (every byte accounted for) needs the leak
 # tracer: `make test-memleak`.  What runs here works in an ordinary build.
 #
-# Also runs under the gc-stress binary (make test-gc-stress, CLAMIGA_GC_STRESS=1)
+# Also runs under the gc-stress binary (make test-gc-stress, AMILISP_GC_STRESS=1)
 # so the churn scenario's coalesce/finalize interaction (bytecode_release_offheap
 # invoked from gc_finalize_dead) is exercised under forced compaction, not just
 # whatever compaction pattern an ordinary run happens to trigger.
 #
 # Run: sh tests/test_shutdown_leak.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
-case "$CLAMIGA" in
+AMILISP="${1:-build/host/amilisp}"
+case "$AMILISP" in
   /*) ;;
-  *) CLAMIGA="$(pwd)/$CLAMIGA" ;;
+  *) AMILISP="$(pwd)/$AMILISP" ;;
 esac
 passed=0
 failed=0
@@ -77,7 +77,7 @@ cat > "$WORK/churn.lisp" <<'LISPEOF'
 (quit)
 LISPEOF
 
-out=$("$CLAMIGA" --no-userinit --load "$WORK/churn.lisp" </dev/null 2>&1)
+out=$("$AMILISP" --no-userinit --load "$WORK/churn.lisp" </dev/null 2>&1)
 
 case "$out" in
   *"CHURN-VERDICT PASS"*) chk "gc_reclaims_dead_bytecode_offheap_payload" yes ;;
@@ -92,14 +92,14 @@ cat > "$WORK/count.lisp" <<'LISPEOF'
 (format t "COUNT ~a~%" (second (ext:%bytecode-offheap-stats)))
 (quit)
 LISPEOF
-out=$("$CLAMIGA" --no-userinit --load "$WORK/count.lisp" </dev/null 2>&1)
+out=$("$AMILISP" --no-userinit --load "$WORK/count.lisp" </dev/null 2>&1)
 n=$(echo "$out" | sed -n 's/^COUNT \([0-9][0-9]*\)$/\1/p' | tail -1)
 if [ -n "$n" ] && [ "$n" -gt 100 ]; then chk "offheap_stats_reports_object_count" yes
 else chk "offheap_stats_reports_object_count" no; echo "$out" | tail -5; fi
 
 # --- 2. Shutdown must release what is still live ---------------------------
 #
-# CLAMIGA_MEM_DIAG=1 makes the shutdown paths report what they hand back.
+# AMILISP_MEM_DIAG=1 makes the shutdown paths report what they hand back.
 # A trivial program still has the whole boot image live, so both figures
 # below must be substantial.
 
@@ -107,7 +107,7 @@ cat > "$WORK/nul.lisp" <<'LISPEOF'
 (quit)
 LISPEOF
 
-out=$(CLAMIGA_MEM_DIAG=1 "$CLAMIGA" --no-userinit --load "$WORK/nul.lisp" </dev/null 2>&1)
+out=$(AMILISP_MEM_DIAG=1 "$AMILISP" --no-userinit --load "$WORK/nul.lisp" </dev/null 2>&1)
 
 case "$out" in
   *"[mem] compiler pool:"*"released"*) chk "shutdown_releases_compiler_pool" yes ;;
@@ -169,7 +169,7 @@ cat > "$WORK/srccheck.lisp" <<LISPEOF
 (quit)
 LISPEOF
 
-out=$("$CLAMIGA" --no-userinit --load "$WORK/srccheck.lisp" </dev/null 2>&1)
+out=$("$AMILISP" --no-userinit --load "$WORK/srccheck.lisp" </dev/null 2>&1)
 case "$out" in
   *"SRC HAVE SAME SAME"*) chk "fasl_loaded_functions_keep_source_path" yes ;;
   *) chk "fasl_loaded_functions_keep_source_path" no

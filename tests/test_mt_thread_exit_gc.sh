@@ -36,7 +36,7 @@
 #
 # Run: sh tests/test_mt_thread_exit_gc.sh build/host/amilisp [race-hook-clamiga]
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 RACE_CLAMIGA="$2"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
@@ -45,8 +45,8 @@ if [ -z "$TIMEOUT" ]; then
     exit 0
 fi
 
-if [ ! -x "$CLAMIGA" ]; then
-    echo "SKIP test_mt_thread_exit_gc: no binary at $CLAMIGA"
+if [ ! -x "$AMILISP" ]; then
+    echo "SKIP test_mt_thread_exit_gc: no binary at $AMILISP"
     exit 0
 fi
 
@@ -85,7 +85,7 @@ cat > "$WORK/exit-gc.lisp" <<'EOF'
 (format t "ROOT-AUDIT:~d~%" (ext:%gc-audit-roots))
 EOF
 
-out=$("$TIMEOUT" 90 "$CLAMIGA" --no-userinit --heap 32M --non-interactive \
+out=$("$TIMEOUT" 90 "$AMILISP" --no-userinit --heap 32M --non-interactive \
       --load "$WORK/exit-gc.lisp" 2>&1)
 status=$?
 

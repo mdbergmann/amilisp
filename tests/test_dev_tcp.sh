@@ -9,13 +9,13 @@
 # :host names one address, a token always, drawn from the OS or given --
 # and the REPL's way back over a `tcp:HOST:PORT/TOKEN' name.
 #
-# Also run by the gc-stress suite (`make test-gc-stress', CLAMIGA_GC_STRESS=1):
+# Also run by the gc-stress suite (`make test-gc-stress', AMILISP_GC_STRESS=1):
 # there only the compact "allocating paths" section runs, since the others
 # lean on wall-clock timeouts that a compaction on every allocation stretches.
 #
 # Run: sh tests/test_dev_tcp.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0
@@ -58,7 +58,7 @@ finish() {
 # A Lisp script in a fresh image (a file, not a heredoc inside $( ): the
 # shell re-parses quotes there and an apostrophe breaks it).
 run_script() {
-    TEST_TMPD="$TMPD" TEST_LAN="$LAN_ADDR" "$CLAMIGA" --no-userinit --batch < "$1" 2>&1 | grep -v '^; Loading'
+    TEST_TMPD="$TMPD" TEST_LAN="$LAN_ADDR" "$AMILISP" --no-userinit --batch < "$1" 2>&1 | grep -v '^; Loading'
 }
 
 # The machine's non-loopback address, if it has one: the bind rule's leg.
@@ -78,7 +78,7 @@ EOF
 # The allocating paths, small: frame building, a server, a client, the REPL's
 # way back over a tcp: name, and the two builtins the port stands on
 # (EXT:SOCKET-LISTEN with an address string, EXT:EXECUTABLE-PATH).  Under
-# CLAMIGA_GC_STRESS=1 every allocation compacts, so a CL_Obj a builtin holds
+# AMILISP_GC_STRESS=1 every allocation compacts, so a CL_Obj a builtin holds
 # across one, or a stale offset in the threads' hand-offs, shows up here.
 # ===========================================================================
 
@@ -148,8 +148,8 @@ check "SEND asks the editor's port directly"       '<<SEND (0 PONG)>>' "$stress_
 check "both servers stop and the client connections are dropped" '<<STOP T T NIL 0>>' "$stress_out"
 check_not "no corruption or error escaped the stress script" 'corrupted\|type 0\|BADMARK\|badmark\|SIGSEGV\|Unbound\|^ERROR:\|^Backtrace:' "$stress_out"
 
-if [ "${CLAMIGA_GC_STRESS:-0}" = "1" ]; then
-    echo "  skip  the timing-based sections (CLAMIGA_GC_STRESS=1: the allocating paths only)"
+if [ "${AMILISP_GC_STRESS:-0}" = "1" ]; then
+    echo "  skip  the timing-based sections (AMILISP_GC_STRESS=1: the allocating paths only)"
     finish
 fi
 

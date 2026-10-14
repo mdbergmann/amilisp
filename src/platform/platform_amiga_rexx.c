@@ -5,7 +5,7 @@
  * protocol, so an editor macro can drive the running Lisp:
  *
  *     OPTIONS RESULTS
- *     ADDRESS CLAMIGA 'LOAD Work:src/foo.lisp'
+ *     ADDRESS AMILISP 'LOAD Work:src/foo.lisp'
  *     SAY RESULT
  *
  * This file is transport ONLY — it moves command strings in and reply

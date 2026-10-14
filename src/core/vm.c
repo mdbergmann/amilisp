@@ -150,7 +150,7 @@ static void dbg_check_watch_impl(const char *where) {
 
 /* Opcode-frequency profiler — build with -DPROFILE_OPCODES.
  * Counters and reset/dump are always defined (no-op when disabled)
- * so the (clamiga::%op-counts-*) builtins are present unconditionally
+ * so the (amilisp::%op-counts-*) builtins are present unconditionally
  * and Lisp profiling scripts stay portable. */
 #ifdef PROFILE_OPCODES
 static uint32_t cl_op_counts_arr[256];
@@ -4119,7 +4119,7 @@ static CL_Obj cl_vm_run(int base_fp, int base_nlx)
         }
 
         VM_CASE(OP_HANDLER_CASE_PUSH): {
-            /* (clamiga::%handler-case form (type (var) . body)...):
+            /* (amilisp::%handler-case form (type (var) . body)...):
              * u16 = constant index of the clause TYPE list, i32 = offset of
              * the landing, a table of one OP_JMP (5 bytes) per clause.  One
              * NLX frame for the form and one handler binding per clause,

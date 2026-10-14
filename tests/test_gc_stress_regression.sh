@@ -3,7 +3,7 @@
 #
 # Each case reproduces a compaction-corruption bug that only fires when a
 # moving GC runs *during* an allocating call.  Run against a binary built with
-# -DDEBUG_GC_STRESS and with CLAMIGA_GC_STRESS=1, which forces a compacting GC
+# -DDEBUG_GC_STRESS and with AMILISP_GC_STRESS=1, which forces a compacting GC
 # before every allocation so the bug is deterministic (see CLAUDE.md "GC
 # Safety" and the [GC-stress debug flag] memory note).
 #
@@ -12,7 +12,7 @@
 #
 # The binary MUST be a DEBUG_GC_STRESS build — the env var is a no-op otherwise.
 
-CLAMIGA="${1:-build/host-gcstress/amilisp}"
+AMILISP="${1:-build/host-gcstress/amilisp}"
 
 # macOS has no `timeout`; coreutils installs it as `gtimeout` (same detection
 # as the other shell tests).
@@ -31,8 +31,8 @@ WORK="$TMPDIR/clamiga_gcstress_$$"
 mkdir -p "$WORK"
 trap 'rm -rf "$WORK"' EXIT
 
-if [ ! -x "$CLAMIGA" ]; then
-    echo "  SKIP  GC-stress regression: no stress binary at $CLAMIGA"
+if [ ! -x "$AMILISP" ]; then
+    echo "  SKIP  GC-stress regression: no stress binary at $AMILISP"
     echo "0 passed, 0 failed, 0 total"
     exit 0
 fi
@@ -40,10 +40,10 @@ fi
 # Compile a source file to a FASL with a CLEAN (non-stress) run, so each case
 # exercises the *load* path under stress against a known-good FASL.  The env
 # var must be fully UNSET (the runtime checks presence, not value — an empty
-# CLAMIGA_GC_STRESS= still enables stress and would corrupt the FASL itself).
+# AMILISP_GC_STRESS= still enables stress and would corrupt the FASL itself).
 compile_fasl() {
     src="$1"; fasl="$2"
-    env -u CLAMIGA_GC_STRESS "$TIMEOUT" 60 "$CLAMIGA" --no-userinit --heap 64M \
+    env -u AMILISP_GC_STRESS "$TIMEOUT" 60 "$AMILISP" --no-userinit --heap 64M \
         --non-interactive \
         --eval "(progn (compile-file \"$src\" :output-file \"$fasl\") (format t \"COMPILED~%\"))" \
         2>/dev/null | grep -q COMPILED
@@ -51,7 +51,7 @@ compile_fasl() {
 
 # Run under GC stress, capture stdout+stderr.
 run_stress() {
-    CLAMIGA_GC_STRESS=1 "$TIMEOUT" 90 "$CLAMIGA" --no-userinit --heap 48M \
+    AMILISP_GC_STRESS=1 "$TIMEOUT" 90 "$AMILISP" --no-userinit --heap 48M \
         --non-interactive --load "$1" 2>&1
 }
 
@@ -955,7 +955,7 @@ cat > "$WORK/ffi.lisp" <<'EOF'
                  (lambda (a b) (declare (ignore a b)) (make-list 4)
                    (error "hookstress ~A" (make-string 3 :initial-element #\q))))))
       (loop for v in '(9 2 7 1 5) for i from 0 do (ffi:poke-i32 arr v (* i 4)))
-      (let ((clamiga::*print-object-hook*
+      (let ((amilisp::*print-object-hook*
               (lambda (c) (declare (ignore c))
                 (format nil "HOOKED-~A" (make-string 4 :initial-element #\y)))))
         (ffi:call-foreign qsort* :void '(:pointer :uint64 :uint64 :pointer)
@@ -1195,7 +1195,7 @@ check_contains "copy-seq/subseq/make-sequence preserve SINGLE-FLOAT under stress
 check_absent   "no element-type corruption from seq fns under stress" \
                "Unbound variable\|type 0\|corrupted\|Undefined" "$out"
 
-# --- Case: CLAMIGA::%TYPE-EXPANDER-driven TYPEXPAND under GC stress ----------
+# --- Case: AMILISP::%TYPE-EXPANDER-driven TYPEXPAND under GC stress ----------
 # %type-expander returns the deftype expander closure; a portable typexpand
 # applies it to the compound type's args.  That apply runs user code that
 # conses the expansion, so a compaction can land mid-expand.  Exercise the
@@ -1207,7 +1207,7 @@ cat > "$WORK/type-expander.lisp" <<'EOF'
   (multiple-value-bind (head args)
       (if (consp type) (values (car type) (cdr type)) (values type nil))
     (if (symbolp head)
-        (let ((ex (clamiga::%type-expander head)))
+        (let ((ex (amilisp::%type-expander head)))
           (if ex (values (apply ex args) t) (values type nil)))
         (values type nil))))
 (defun tx (type)
@@ -1218,8 +1218,8 @@ cat > "$WORK/type-expander.lisp" <<'EOF'
 (let ((a nil) (b nil) (c nil))
   (dotimes (i 30)
     (setq a (tx 'tx-disj))
-    (setq b (funcall (clamiga::%type-expander 'tx-range) i (+ i 1)))
-    (setq c (clamiga::%type-expander 'list)))
+    (setq b (funcall (amilisp::%type-expander 'tx-range) i (+ i 1)))
+    (setq c (amilisp::%type-expander 'list)))
   (format t "TX-DISJ:~a~%" a)
   (format t "TX-RANGE:~a~%" b)
   (format t "TX-BUILTIN:~a~%" c))
@@ -1381,7 +1381,7 @@ check_absent   "no unbound-variable from :report symbol under stress"     "Unbou
 # --- Case: long-form DEFSETF under GC stress --------------------------------
 # Regression for the compile_defsetf long-form fix (was the hunchentoot
 # "threaded type=0" misdiagnosis): the C compiler delegates the long form to
-# clamiga::%defsetf-long, which builds a define-setf-expander.  Exercise that
+# amilisp::%defsetf-long, which builds a define-setf-expander.  Exercise that
 # expansion + the (setf (place ...) v) compilation path under compaction so a
 # stale form/lambda-list offset in the long-form expansion would surface.
 #
@@ -1688,18 +1688,18 @@ check_contains "global symbol-macro expands (compiled under stress)" "SYMMAC:(EX
 check_absent   "no unbound-var from stale symbol-macro indicator"    "Unbound variable" "$out"
 
 # --- Case: IEEE float-bits builtins under stress ---------------------------
-# clamiga:double-float-bits returns a 4-limb bignum (allocates) and
+# amilisp:double-float-bits returns a 4-limb bignum (allocates) and
 # bits-double-float rebuilds the double; compaction before every allocation
 # would expose any stale CL_Obj in the conversion helpers.  These back
 # float-features' :cl-amiga branch (jzon float serialisation).
 cat > "$WORK/fbits.lisp" <<'EOF'
 (let ((ok t))
   (dotimes (i 60)
-    (let ((b (clamiga:double-float-bits 25.5d0)))
+    (let ((b (amilisp:double-float-bits 25.5d0)))
       (unless (and (= b 4627870829588250624)
-                   (= 25.5d0 (clamiga:bits-double-float b)))
+                   (= 25.5d0 (amilisp:bits-double-float b)))
         (setf ok nil)))
-    (unless (eql -2.5 (clamiga:bits-single-float (clamiga:single-float-bits -2.5)))
+    (unless (eql -2.5 (amilisp:bits-single-float (amilisp:single-float-bits -2.5)))
       (setf ok nil)))
   (format t "FBITS:~a~%" (if ok "ok" "CORRUPT")))
 EOF
@@ -1946,7 +1946,7 @@ check_absent   "store-value/use-value did not return NIL post-compact" "SV:(NIL\
 # --- Case: MAKE-LOAD-FORM reconstruction under GC stress ---------------------
 # The FASL MAKE-LOAD-FORM path has two GC-sensitive halves:
 #   (writer) cl_fasl_mlf_prepass walks the constant graph and calls the user
-#     MAKE-LOAD-FORM method (clamiga::%FASL-LOAD-FORM) per literal object — that
+#     MAKE-LOAD-FORM method (amilisp::%FASL-LOAD-FORM) per literal object — that
 #     runs arbitrary Lisp and compacts.  Its worklist/seen arrays and the
 #     (creation . init) result cache hold raw CL_Obj offsets that must be
 #     GC-rooted+forwarded (cl_fasl_gc_mark_mlf / cl_fasl_gc_update_mlf).
@@ -2000,7 +2000,7 @@ if echo "$out" | grep -q "MLF-COMPILED"; then
 (load "$WORK/mlf-s.fasl")
 (format t "MLF-SLOAD:~a~%" (gcstress-mlf::mlf-probe))
 EOF
-    out2=$(env -u CLAMIGA_GC_STRESS "$TIMEOUT" 60 "$CLAMIGA" --no-userinit --heap 48M \
+    out2=$(env -u AMILISP_GC_STRESS "$TIMEOUT" 60 "$AMILISP" --no-userinit --heap 48M \
                --non-interactive --load "$WORK/mlf-s-load.lisp" 2>&1)
     check_contains "FASL written under GC-stress compile reconstructs correctly" "MLF-SLOAD:(hi 7 T)" "$out2"
     check_absent   "no corruption in FASL written by pre-pass under stress"      "Undefined\|Unbound\|type 0\|corrupted" "$out2"
@@ -3141,7 +3141,7 @@ cat > "$WORK/tier3-pkgbits.lisp" <<'LISPEOF'
         (use-package :t3s-a pu)
         (chk "use-pkg" (and (member (find-package :t3s-a)
                                     (package-use-list pu)) t) t)
-        (clamiga::add-package-local-nickname (format nil "N~d" i) :t3s-a pu)
+        (amilisp::add-package-local-nickname (format nil "N~d" i) :t3s-a pu)
         (delete-package pu))
       (shadow (format nil "T3SHADOW~d" i) :t3s-b)
       ;; (setf get) with a NEW indicator prepends two conses to the plist
@@ -4029,7 +4029,7 @@ cat > "$WORK/structidx.lisp" <<'EOF'
 ;; Bury the type behind later registrations (registry is prepended), so
 ;; a rebuild that drops or misorders entries would resolve wrongly.
 (dotimes (i 40)
-  (clamiga::%register-struct-type
+  (amilisp::%register-struct-type
    (make-symbol (format nil "SIDX-FILLER-~D" i)) 1 nil '((f nil))))
 (let ((s (make-sidx-node)) (acc 0))
   (dotimes (i 200)
@@ -4126,7 +4126,7 @@ cat > "$WORK/readergf.lisp" <<'EOF'
                    (u :reader rg-u)))                ; stays unbound
 (defclass rg-b () ((pad :initform 0) (x :initform 30 :reader rg-x)))
 (defclass rg-c (rg-a) ((z :initform 100)))           ; inherits RG-X
-(format t "RG-PROMOTED:~a~%" (and (gethash #'rg-x clamiga:*reader-gfs*) t))
+(format t "RG-PROMOTED:~a~%" (and (gethash #'rg-x amilisp:*reader-gfs*) t))
 (let ((a (make-instance 'rg-a))
       (b (make-instance 'rg-b))
       (c (make-instance 'rg-c))
@@ -4215,7 +4215,7 @@ cat > "$WORK/writergf.lisp" <<'EOF'
 (defclass wg-a () ((x :initform 0 :accessor wg-x)
                    (guard :initform :g)))            ; neighbour must survive
 (defclass wg-b () ((pad :initform 0) (x :initform 0 :accessor wg-x)))
-(format t "WG-PROMOTED:~a~%" (and (gethash #'(setf wg-x) clamiga:*writer-gfs*) t))
+(format t "WG-PROMOTED:~a~%" (and (gethash #'(setf wg-x) amilisp:*writer-gfs*) t))
 ;; polymorphic store loop: each iteration conses to force compaction between
 ;; stores, alternating two classes whose X sits at DIFFERENT indices
 (let ((a (make-instance 'wg-a))
@@ -4553,7 +4553,7 @@ EOF
     fi
 fi
 
-# --- Case: slow-lock-wait diagnostic (CLAMIGA_LOCK_DIAG) under GC stress ----
+# --- Case: slow-lock-wait diagnostic (AMILISP_LOCK_DIAG) under GC stress ----
 # Bug-shaped path (src/core/builtins_thread.c, lock_wait_report): the waiter
 # parks inside a GC safe region while the HOLDER allocates — under stress
 # every one of those allocations compacts the heap and relocates the lock
@@ -4570,7 +4570,7 @@ cat > "$WORK/lockdiag.lisp" <<'EOF'
               (mp:acquire-lock lk)
               (setf *held* t)
               ;; Churn allocations while holding the lock: under
-              ;; CLAMIGA_GC_STRESS=1 each one forces a compaction while
+              ;; AMILISP_GC_STRESS=1 each one forces a compaction while
               ;; the main thread is parked in its acquire wait.
               (dotimes (i 200) (make-list 20))
               (sleep 0.3)
@@ -4582,7 +4582,7 @@ cat > "$WORK/lockdiag.lisp" <<'EOF'
   (mp:join-thread th)
   (format t "LOCKDIAG-STRESS-OK~%"))
 EOF
-out=$(CLAMIGA_GC_STRESS=1 CLAMIGA_LOCK_DIAG=50 "$TIMEOUT" 90 "$CLAMIGA" \
+out=$(AMILISP_GC_STRESS=1 AMILISP_LOCK_DIAG=50 "$TIMEOUT" 90 "$AMILISP" \
       --no-userinit --heap 48M --non-interactive \
       --load "$WORK/lockdiag.lisp" </dev/null 2>&1)
 check_contains "contended acquire completes under stress with diag enabled" \
@@ -5263,7 +5263,7 @@ EOF
 if compile_fasl "$WORK/bt.lisp" "$WORK/bt.fasl"; then
     cat > "$WORK/bt-load.lisp" <<EOF
 (load "$WORK/bt.fasl")
-(format t "BT-INFO:~a~%" (getf (clamiga::%binding-table-info "GCSTRESS-BT") :entries))
+(format t "BT-INFO:~a~%" (getf (amilisp::%binding-table-info "GCSTRESS-BT") :entries))
 (format t "BT-VALUES:~a~%" (list gcstress-bt:+k+ gcstress-bt:+big+ gcstress-bt:+neg+ gcstress-bt:*v* gcstress-bt:*pt-size*))
 (format t "BT-OPEN:~a~%" (list (eq 'gcstress-bt:open 'cl:open) (getf (ffi::%ffi-stub-info #'gcstress-bt:open) :lvo)))
 (let ((m (ffi:alloc-foreign 24)))
@@ -5273,9 +5273,9 @@ if compile_fasl "$WORK/bt.lisp" "$WORK/bt.fasl"; then
   (ffi:free-foreign m))
 (format t "BT-SETTER:~a~%" (nth-value 1 (find-symbol "%SET-PT-X" "GCSTRESS-BT")))
 (format t "BT-LATE:~a~%" (gcstress-bt:late 1))
-(format t "BT-ROWS:~a~%" (length (clamiga::%binding-table-entries "GCSTRESS-BT")))
+(format t "BT-ROWS:~a~%" (length (amilisp::%binding-table-entries "GCSTRESS-BT")))
 (let ((n 0)) (do-symbols (s "GCSTRESS-BT") (when (eq (symbol-package s) (find-package "GCSTRESS-BT")) (incf n)))
-  (format t "BT-FLIP:~a~%" (list (> n 12) (clamiga::%binding-table-info "GCSTRESS-BT") gcstress-bt:+k+)))
+  (format t "BT-FLIP:~a~%" (list (> n 12) (amilisp::%binding-table-info "GCSTRESS-BT") gcstress-bt:+k+)))
 ;; fresh table + materialisation under the storm, from source
 (defpackage :gcstress-bt2 (:use :cl))
 (amiga.ffi:define-binding-table "GCSTRESS-BT2" () (:const "+A+" 1) (:struct "Q" 8 ("A" :u8 0) ("B" (:array :i8 4) 4)))
@@ -5301,40 +5301,40 @@ if compile_fasl "$WORK/bt.lisp" "$WORK/bt.fasl"; then
 (defpackage :gcstress-bt7 (:use :cl))
 (amiga.ffi:define-binding-table "GCSTRESS-BT7" (:base gcstress-bt:*bt-base*) (:const "+A+" 1) (:fn "FOO" -30 (:a0) :pointer))
 
-(format t "BT-UNINTERN-BEFORE:~a~%" (not (null (clamiga::%binding-table-info "GCSTRESS-BT3"))))
+(format t "BT-UNINTERN-BEFORE:~a~%" (not (null (amilisp::%binding-table-info "GCSTRESS-BT3"))))
 (unintern 'gcstress-bt3:foo "GCSTRESS-BT3")
 (format t "BT-UNINTERN-AFTER:~a~%"
-  (list (clamiga::%binding-table-info "GCSTRESS-BT3")
+  (list (amilisp::%binding-table-info "GCSTRESS-BT3")
         (multiple-value-list (find-symbol "FOO" "GCSTRESS-BT3"))))
 
-(format t "BT-UNEXPORT-BEFORE:~a~%" (not (null (clamiga::%binding-table-info "GCSTRESS-BT4"))))
+(format t "BT-UNEXPORT-BEFORE:~a~%" (not (null (amilisp::%binding-table-info "GCSTRESS-BT4"))))
 (unexport 'gcstress-bt4:foo "GCSTRESS-BT4")
 (format t "BT-UNEXPORT-AFTER:~a~%"
-  (list (clamiga::%binding-table-info "GCSTRESS-BT4")
+  (list (amilisp::%binding-table-info "GCSTRESS-BT4")
         (nth-value 1 (find-symbol "FOO" "GCSTRESS-BT4"))
         (fboundp 'gcstress-bt4::foo)))
 
 (defvar *bt5-foreign* (make-symbol "FOREIGN"))
-(format t "BT-IMPORT-BEFORE:~a~%" (not (null (clamiga::%binding-table-info "GCSTRESS-BT5"))))
+(format t "BT-IMPORT-BEFORE:~a~%" (not (null (amilisp::%binding-table-info "GCSTRESS-BT5"))))
 (import *bt5-foreign* "GCSTRESS-BT5")
 (format t "BT-IMPORT-AFTER:~a~%"
-  (list (clamiga::%binding-table-info "GCSTRESS-BT5")
+  (list (amilisp::%binding-table-info "GCSTRESS-BT5")
         (eq (find-symbol "FOREIGN" "GCSTRESS-BT5") *bt5-foreign*)
         (fboundp 'gcstress-bt5::foo)))
 
 (defvar *bt6-foreign* (make-symbol "FOO"))
-(format t "BT-SHADOW-BEFORE:~a~%" (not (null (clamiga::%binding-table-info "GCSTRESS-BT6"))))
+(format t "BT-SHADOW-BEFORE:~a~%" (not (null (amilisp::%binding-table-info "GCSTRESS-BT6"))))
 (shadowing-import *bt6-foreign* "GCSTRESS-BT6")
 (format t "BT-SHADOW-AFTER:~a~%"
-  (list (clamiga::%binding-table-info "GCSTRESS-BT6")
+  (list (amilisp::%binding-table-info "GCSTRESS-BT6")
         (eq (find-symbol "FOO" "GCSTRESS-BT6") *bt6-foreign*)
         (and (member *bt6-foreign* (package-shadowing-symbols "GCSTRESS-BT6")) t)))
 
 (defvar *bt7-foreign* (make-symbol "FOREIGN"))
-(format t "BT-EXPORT-BEFORE:~a~%" (not (null (clamiga::%binding-table-info "GCSTRESS-BT7"))))
+(format t "BT-EXPORT-BEFORE:~a~%" (not (null (amilisp::%binding-table-info "GCSTRESS-BT7"))))
 (export *bt7-foreign* "GCSTRESS-BT7")
 (format t "BT-EXPORT-AFTER:~a~%"
-  (list (clamiga::%binding-table-info "GCSTRESS-BT7")
+  (list (amilisp::%binding-table-info "GCSTRESS-BT7")
         (eq (find-symbol "FOREIGN" "GCSTRESS-BT7") *bt7-foreign*)
         (fboundp 'gcstress-bt7::foo)))
 
@@ -5349,27 +5349,27 @@ if compile_fasl "$WORK/bt.lisp" "$WORK/bt.fasl"; then
   (:fn "FOO" -30 (:a0) :pointer) (:struct "PT" 8 ("X" :i16 0)))
 (defvar *bt8-a* 'gcstress-bt8:+a+)
 (defvar *bt8-foo* (fboundp 'gcstress-bt8:foo))
-(format t "BT-SHED-BYTES:~a~%" (> (clamiga::%shed-binding-tables "GCSTRESS-BT8") 60))
+(format t "BT-SHED-BYTES:~a~%" (> (amilisp::%shed-binding-tables "GCSTRESS-BT8") 60))
 (dotimes (i 300) (make-string 64))
 (ext:gc)
 (format t "BT-SHED:~a~%"
-  (list (getf (clamiga::%binding-table-info "GCSTRESS-BT8") :shed)
+  (list (getf (amilisp::%binding-table-info "GCSTRESS-BT8") :shed)
         (eq *bt8-a* 'gcstress-bt8:+a+)
         gcstress-bt8:+a+
         (getf (ffi::%ffi-stub-info #'gcstress-bt8:foo) :lvo)
         (multiple-value-list (find-symbol "+B+" "GCSTRESS-BT8"))))
 ;; the eager flip must be a no-op on a shed package, not a NIL-blob read
-(clamiga::%binding-table-materialize-all "GCSTRESS-BT8")
+(amilisp::%binding-table-materialize-all "GCSTRESS-BT8")
 (dotimes (i 300) (make-string 64))
 (format t "BT-SHED-FLIP:~a~%"
-  (list (getf (clamiga::%binding-table-info "GCSTRESS-BT8") :shed)
+  (list (getf (amilisp::%binding-table-info "GCSTRESS-BT8") :shed)
         (multiple-value-list (find-symbol "PT-X" "GCSTRESS-BT8"))))
 ;; re-registering over a shed package brings the names back
 (amiga.ffi:define-binding-table "GCSTRESS-BT8" (:base gcstress-bt:*bt-base*)
   (:const "+A+" 1) (:const "+B+" 2))
 (format t "BT-SHED-RELOAD:~a~%"
   (list (eq *bt8-a* 'gcstress-bt8:+a+) gcstress-bt8:+b+
-        (getf (clamiga::%binding-table-info "GCSTRESS-BT8") :shed)))
+        (getf (amilisp::%binding-table-info "GCSTRESS-BT8") :shed)))
 
 ;; The reader's shed hint (reader.c) inspects the PACKAGE *after* a lookup
 ;; that can materialise an INHERITED name — an allocation, i.e. a compaction
@@ -5386,7 +5386,7 @@ if compile_fasl "$WORK/bt.lisp" "$WORK/bt.fasl"; then
 (amiga.ffi:define-binding-table "GCSTRESS-BT9" () (:const "+INHERITED+" 5))
 (defpackage :gcstress-bt10 (:use :cl :gcstress-bt9))
 (amiga.ffi:define-binding-table "GCSTRESS-BT10" () (:const "+OWN+" 6))
-(clamiga::%shed-binding-tables "GCSTRESS-BT10")
+(amilisp::%shed-binding-tables "GCSTRESS-BT10")
 (format t "BT-SHED-INHERIT:~a~%"
   (handler-case (progn (read-from-string "gcstress-bt10:+inherited+") :no-error)
     (error (c) (let ((m (format nil "~a" c)))
@@ -5441,7 +5441,7 @@ fi
 # shows up here as a wrong or garbled echo.  Driven through the BATCH REPL
 # (not --load) because that is the loop that owns the echo.
 repl_stress() {
-    printf '%s\n' "$1" | CLAMIGA_GC_STRESS=1 "$TIMEOUT" 120 "$CLAMIGA" \
+    printf '%s\n' "$1" | AMILISP_GC_STRESS=1 "$TIMEOUT" 120 "$AMILISP" \
         --no-userinit --heap 48M --batch 2>&1
 }
 
@@ -5574,7 +5574,7 @@ cat > "$WORK/bindtab.lisp" <<'EOF'
                                  (constantp '+class+) (fboundp 'node-type) (fboundp 'call-me))))
 (let ((n 0))
   (do-symbols (s "GCS-BT") (when (eq (symbol-package s) (find-package "GCS-BT")) (incf n)))
-  (format t "BT-FLIP:~a~%" (list (>= n 9) (null (clamiga::%binding-table-info "GCS-BT")) +class+ *node-size*)))
+  (format t "BT-FLIP:~a~%" (list (>= n 9) (null (amilisp::%binding-table-info "GCS-BT")) +class+ *node-size*)))
 EOF
 out=$(run_stress "$WORK/bindtab.lisp")
 check_contains "binding table materialises every value kind under stress" \
@@ -5748,7 +5748,7 @@ cat > "$WORK/parked.lisp" <<'EOF'
                         (mp:release-lock lk)
                         (mp:with-lock-held (gate) (incf woken))))))
   (sleep 0.3)                                   ; lock waiters parked
-  ;; Every allocation here is a compaction under CLAMIGA_GC_STRESS=1,
+  ;; Every allocation here is a compaction under AMILISP_GC_STRESS=1,
   ;; moving both objects while six threads are parked on them.
   (dotimes (i 300) (make-list 10))
   (setf go t)
@@ -5759,7 +5759,7 @@ cat > "$WORK/parked.lisp" <<'EOF'
   (format t "PARKED-STRESS woken=~a waiters=~a held=~a~%"
           woken (mp::%condvar-waiters cv) (mp::%lock-held-p lk)))
 EOF
-out=$(CLAMIGA_GC_STRESS=1 "$TIMEOUT" 120 "$CLAMIGA" \
+out=$(AMILISP_GC_STRESS=1 "$TIMEOUT" 120 "$AMILISP" \
       --no-userinit --heap 48M --non-interactive \
       --load "$WORK/parked.lisp" </dev/null 2>&1)
 check_contains "threads parked on a lock and a condvar survive compactions" \
@@ -5896,11 +5896,11 @@ cat > "$WORK/deps/run.lisp" <<EOF
 (let ((e (gd-mk)))
   (gd-set e (append (gd-docs e) '(d2)))
   (format t "GCDEPS ~S ~S ~S ~S~%" (gd-docs e) (gd-ed-name e) (gd-child-tag e)
-          (clamiga::%struct-slot-count 'gd-child)))
+          (amilisp::%struct-slot-count 'gd-child)))
 (format t "GCDEPS-DONE~%")
 EOF
 deps_stress() {
-    CLAMIGA_FASL_CACHE_DIR="$WORK/deps/cache" run_stress "$WORK/deps/run.lisp"
+    AMILISP_FASL_CACHE_DIR="$WORK/deps/cache" run_stress "$WORK/deps/run.lisp"
 }
 out=$(deps_stress)
 check_contains "deps: compiled under stress, correct" 'GCDEPS (D1 D2) "n" :T1 3' "$out"
@@ -5951,7 +5951,7 @@ cat > "$WORK/rdlabel/run.lisp" <<EOF
 (format t "RL-FASL ~S~%" (rl-shape *rl-file*))
 (format t "RL-DONE~%")
 EOF
-out=$(CLAMIGA_FASL_CACHE_DIR="$WORK/rdlabel/cache" run_stress "$WORK/rdlabel/run.lisp")
+out=$(AMILISP_FASL_CACHE_DIR="$WORK/rdlabel/cache" run_stress "$WORK/rdlabel/run.lisp")
 check_contains "read-label: shared, nested and circular labels by READ-FROM-STRING" "RL-STRING (T T T T (F1 F2 F3))" "$out"
 check_contains "read-label: a collection forced inside the labelled object" "RL-DOT ((A B C) T (X Y T))" "$out"
 check_contains "read-label: labels inside a vector" 'RL-VEC (T T (V1 V2) "str")' "$out"
@@ -5989,7 +5989,7 @@ cat > "$WORK/litident/run.lisp" <<EOF
 (format t "GL-FASL ~S~%" (gl-shape))
 (format t "GL-DONE~%")
 EOF
-out=$(CLAMIGA_FASL_CACHE_DIR="$WORK/litident/cache" run_stress "$WORK/litident/run.lisp")
+out=$(AMILISP_FASL_CACHE_DIR="$WORK/litident/cache" run_stress "$WORK/litident/run.lisp")
 check_contains "literal identity: from source" 'GL-SRC (T T T T T "s" "t")' "$out"
 check_contains "literal identity: from LOAD's cached FASL" 'GL-CACHE (T T T T T "s" "t")' "$out"
 check_contains "literal identity: through COMPILE-FILE" 'GL-FASL (T T T T T "s" "t")' "$out"
@@ -6014,7 +6014,7 @@ cat > "$WORK/deepload/run.lisp" <<EOF
 (format t "GD-DEEP ~S ~S~%" *gd-depth* *gd-back*)
 (format t "GD-AFTER ~S~%" (ext:%fasl-registry-stats))
 EOF
-out=$(CLAMIGA_FASL_CACHE_DIR="$WORK/deepload/cache" run_stress "$WORK/deepload/run.lisp")
+out=$(AMILISP_FASL_CACHE_DIR="$WORK/deepload/cache" run_stress "$WORK/deepload/run.lisp")
 check_contains "deep load: twelve nested LOADs, twelve live cache writers" 'GD-DEEP (:BOTTOM (0 12)) (1 2 3 4 5 6 7 8 9 10 11)' "$out"
 check_contains "deep load: registries empty afterwards" 'GD-AFTER (0 0)' "$out"
 
@@ -6091,7 +6091,7 @@ cat > "$WORK/cbuf/run.lisp" <<EOF
 (format t "GCB-FN ~S~%" (gcb-fn))
 (format t "GCB-DONE~%")
 EOF
-out=$(CLAMIGA_FASL_CACHE_DIR="$WORK/cbuf/cache" run_stress "$WORK/cbuf/run.lisp")
+out=$(AMILISP_FASL_CACHE_DIR="$WORK/cbuf/cache" run_stress "$WORK/cbuf/run.lisp")
 check_contains "cbuf: twelve abandoned LOADs inside a live LOAD" "GCB 12 12 (:STILL :READING :THE :OUTER :FILE)" "$out"
 check_contains "cbuf: COMPILE-FILE and LOAD work afterwards" "GCB-FN :COMPILED" "$out"
 check_contains "cbuf case finished" "GCB-DONE" "$out"
@@ -6129,7 +6129,7 @@ cat > "$WORK/nlxwriter/run.lisp" <<EOF
 (gc)
 (format t "WGN-DONE~%")
 EOF
-out=$(CLAMIGA_FASL_CACHE_DIR="$WORK/nlxwriter/cache" run_stress "$WORK/nlxwriter/run.lisp")
+out=$(AMILISP_FASL_CACHE_DIR="$WORK/nlxwriter/cache" run_stress "$WORK/nlxwriter/run.lisp")
 check_contains "nlx-writer: HANDLER-CASE out of a source load, then allocate" "WGN-HC :CAUGHT 200" "$out"
 check_contains "nlx-writer: RETURN-FROM out of a source load, then allocate" "WGN-RF :RETURNED 200" "$out"
 check_contains "nlx-writer: THROW out of a source load, then allocate" "WGN-TH :THROWN 200" "$out"
@@ -6158,7 +6158,7 @@ cat > "$WORK/flet-inline/run.lisp" <<'EOF'
 (format t "FLI ~S ~S ~S ~S ~S ~S~%" *fli-1* *fli-2* +fli-3+ (length *fli-4*) (fli-fn) *fli-5*)
 (format t "FLI-DONE~%")
 EOF
-out=$(CLAMIGA_FASL_CACHE_DIR="$WORK/flet-inline/cache" run_stress "$WORK/flet-inline/run.lisp")
+out=$(AMILISP_FASL_CACHE_DIR="$WORK/flet-inline/cache" run_stress "$WORK/flet-inline/run.lisp")
 check_contains "flet-inline: inlined local functions as DEFVAR/DEFPARAMETER/DEFCONSTANT values" \
     "FLI 1 ((1 2) (3 4)) 42 3 10 (:POS :NEG)" "$out"
 check_contains "flet-inline case finished" "FLI-DONE" "$out"
@@ -6195,7 +6195,7 @@ cat > "$WORK/srcloc/run.lisp" <<EOF
         (second (ext:function-source-location *srl-lambda*)))
 (format t "SRL-DONE~%")
 EOF
-out=$(CLAMIGA_FASL_CACHE_DIR="$WORK/srcloc/cache" run_stress "$WORK/srcloc/run.lisp")
+out=$(AMILISP_FASL_CACHE_DIR="$WORK/srcloc/cache" run_stress "$WORK/srcloc/run.lisp")
 check_contains "srcloc: a defun, its nested lambda and a DEFPARAMETER lambda keep their lines" \
     "SRL 4 7 11" "$out"
 check_contains "srcloc case finished" "SRL-DONE" "$out"

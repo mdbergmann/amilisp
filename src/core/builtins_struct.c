@@ -27,7 +27,7 @@
 CL_Obj struct_table = CL_NIL;
 
 /* Sentinel symbols matched by compile_call to emit OP_STRUCT_REF /
- * OP_STRUCT_SET — interned in cl_package_clamiga during init.  Same
+ * OP_STRUCT_SET — interned in cl_package_amilisp during init.  Same
  * pattern as cl_amiga_ffi_call_sym: external (.h) so the compiler can
  * reference them without depending on this file's internals. */
 CL_Obj cl_struct_ref_sym = CL_NIL;
@@ -711,8 +711,8 @@ static CL_Obj bi_note_struct_use(CL_Obj *args, int n)
     return CL_NIL;
 }
 
-/* (%struct-acc-form name idx obj)     => (clamiga::%struct-ref obj idx)
- * (%struct-acc-form name idx obj val) => (clamiga::%struct-set obj idx val)
+/* (%struct-acc-form name idx obj)     => (amilisp::%struct-ref obj idx)
+ * (%struct-acc-form name idx obj val) => (amilisp::%struct-set obj idx val)
  * The body of every DEFSTRUCT accessor's compiler macro: builds the inline
  * access form AND records that the code being compiled depends on NAME's
  * layout, in one call, so the accessor macros stay as small as they were. */
@@ -1612,36 +1612,36 @@ void cl_builtins_struct_init(void)
     struct_index.dirty = 0;
     struct_index.disabled = 0;
 
-    cl_register_builtin("%REGISTER-STRUCT-TYPE", bi_register_struct_type, 4, 4, cl_package_clamiga);
-    cl_register_builtin("%MAKE-STRUCT", bi_make_struct, 1, -1, cl_package_clamiga);
+    cl_register_builtin("%REGISTER-STRUCT-TYPE", bi_register_struct_type, 4, 4, cl_package_amilisp);
+    cl_register_builtin("%MAKE-STRUCT", bi_make_struct, 1, -1, cl_package_amilisp);
     cl_register_builtin("%REGISTER-FUNCALLABLE-GF-TYPE",
-                        bi_register_funcallable_gf_type, 1, 1, cl_package_clamiga);
-    cl_register_builtin("%STRUCT-REF", bi_struct_ref, 2, 2, cl_package_clamiga);
-    cl_register_builtin("%STRUCT-SET", bi_struct_set, 3, 3, cl_package_clamiga);
-    cl_register_builtin("%COPY-STRUCT", bi_copy_struct, 1, 1, cl_package_clamiga);
+                        bi_register_funcallable_gf_type, 1, 1, cl_package_amilisp);
+    cl_register_builtin("%STRUCT-REF", bi_struct_ref, 2, 2, cl_package_amilisp);
+    cl_register_builtin("%STRUCT-SET", bi_struct_set, 3, 3, cl_package_amilisp);
+    cl_register_builtin("%COPY-STRUCT", bi_copy_struct, 1, 1, cl_package_amilisp);
     defun("COPY-STRUCTURE", bi_copy_struct, 1, 1);
-    cl_register_builtin("%STRUCT-TYPE-NAME", bi_struct_type_name, 1, 1, cl_package_clamiga);
-    /* STRUCTUREP — implementation predicate in CLAMIGA.
-     * CL :uses CLAMIGA so existing internal code sees it as a bare symbol.
-     * User packages that only (:use :common-lisp) must add (:use :clamiga)
+    cl_register_builtin("%STRUCT-TYPE-NAME", bi_struct_type_name, 1, 1, cl_package_amilisp);
+    /* STRUCTUREP — implementation predicate in AMILISP.
+     * CL :uses AMILISP so existing internal code sees it as a bare symbol.
+     * User packages that only (:use :common-lisp) must add (:use :amilisp)
      * or qualify with the CLAMIGA: prefix. */
-    cl_register_builtin("STRUCTUREP", bi_structurep, 1, 1, cl_package_clamiga);
-    cl_register_builtin("%STRUCT-SLOT-NAMES", bi_struct_slot_names, 1, 1, cl_package_clamiga);
-    cl_register_builtin("%STRUCT-SLOT-SPECS", bi_struct_slot_specs, 1, 1, cl_package_clamiga);
-    cl_register_builtin("%STRUCT-SLOT-INDEX", bi_struct_slot_index, 2, 2, cl_package_clamiga);
-    cl_register_builtin("%STRUCT-SLOT-VALUE", bi_struct_slot_value, 3, 3, cl_package_clamiga);
-    cl_register_builtin("%STRUCT-SLOT-STORE", bi_struct_slot_store, 3, 3, cl_package_clamiga);
-    cl_register_builtin("%STRUCT-SLOT-COUNT", bi_struct_slot_count, 1, 1, cl_package_clamiga);
-    cl_register_builtin("%CLASS-OF", bi_class_of, 1, 1, cl_package_clamiga);
-    cl_register_builtin("%GF-IC-EMF", bi_gf_ic_emf, 2, 3, cl_package_clamiga);
-    cl_register_builtin("%GF-READER-IC", bi_gf_reader_ic, 3, 3, cl_package_clamiga);
-    cl_register_builtin("%GF-WRITER-IC", bi_gf_writer_ic, 4, 4, cl_package_clamiga);
+    cl_register_builtin("STRUCTUREP", bi_structurep, 1, 1, cl_package_amilisp);
+    cl_register_builtin("%STRUCT-SLOT-NAMES", bi_struct_slot_names, 1, 1, cl_package_amilisp);
+    cl_register_builtin("%STRUCT-SLOT-SPECS", bi_struct_slot_specs, 1, 1, cl_package_amilisp);
+    cl_register_builtin("%STRUCT-SLOT-INDEX", bi_struct_slot_index, 2, 2, cl_package_amilisp);
+    cl_register_builtin("%STRUCT-SLOT-VALUE", bi_struct_slot_value, 3, 3, cl_package_amilisp);
+    cl_register_builtin("%STRUCT-SLOT-STORE", bi_struct_slot_store, 3, 3, cl_package_amilisp);
+    cl_register_builtin("%STRUCT-SLOT-COUNT", bi_struct_slot_count, 1, 1, cl_package_amilisp);
+    cl_register_builtin("%CLASS-OF", bi_class_of, 1, 1, cl_package_amilisp);
+    cl_register_builtin("%GF-IC-EMF", bi_gf_ic_emf, 2, 3, cl_package_amilisp);
+    cl_register_builtin("%GF-READER-IC", bi_gf_reader_ic, 3, 3, cl_package_amilisp);
+    cl_register_builtin("%GF-WRITER-IC", bi_gf_writer_ic, 4, 4, cl_package_amilisp);
     cl_register_builtin("%SET-SLOT-UNBOUND-MARKER", bi_set_slot_unbound_marker,
-                        1, 1, cl_package_clamiga);
-    cl_register_builtin("%SET-CLOS-CLASS-TABLE", bi_set_clos_class_table, 1, 1, cl_package_clamiga);
-    cl_register_builtin("%STRUCT-CHANGE-CLASS", bi_struct_change_class, 3, 3, cl_package_clamiga);
-    cl_register_builtin("%NOTE-STRUCT-USE", bi_note_struct_use, 1, 1, cl_package_clamiga);
-    cl_register_builtin("%STRUCT-ACC-FORM", bi_struct_acc_form, 3, 4, cl_package_clamiga);
+                        1, 1, cl_package_amilisp);
+    cl_register_builtin("%SET-CLOS-CLASS-TABLE", bi_set_clos_class_table, 1, 1, cl_package_amilisp);
+    cl_register_builtin("%STRUCT-CHANGE-CLASS", bi_struct_change_class, 3, 3, cl_package_amilisp);
+    cl_register_builtin("%NOTE-STRUCT-USE", bi_note_struct_use, 1, 1, cl_package_amilisp);
+    cl_register_builtin("%STRUCT-ACC-FORM", bi_struct_acc_form, 3, 4, cl_package_amilisp);
 
     /* Cache the symbols compile_call matches against to emit dedicated
      * struct-access bytecodes.  The %STRUCT-REF / %STRUCT-SET builtins
@@ -1650,15 +1650,15 @@ void cl_builtins_struct_init(void)
     /* Built-in class-name symbols for %CLASS-OF / the GF inline cache. */
     class_name_init();
 
-    cl_struct_ref_sym = cl_intern_in("%STRUCT-REF", 11, cl_package_clamiga);
-    cl_struct_set_sym = cl_intern_in("%STRUCT-SET", 11, cl_package_clamiga);
+    cl_struct_ref_sym = cl_intern_in("%STRUCT-REF", 11, cl_package_amilisp);
+    cl_struct_set_sym = cl_intern_in("%STRUCT-SET", 11, cl_package_amilisp);
     cl_gc_register_root(&cl_struct_ref_sym);
     cl_gc_register_root(&cl_struct_set_sym);
     cl_gc_register_root(&cl_slot_unbound_marker);
 
     /* *STRUCT-LAYOUT-DEPS*: global value T = not recording (see "Layout
      * dependencies of compiled code" above). */
-    cl_struct_deps_sym = cl_intern_in("*STRUCT-LAYOUT-DEPS*", 20, cl_package_clamiga);
+    cl_struct_deps_sym = cl_intern_in("*STRUCT-LAYOUT-DEPS*", 20, cl_package_amilisp);
     {
         CL_Symbol *s = (CL_Symbol *)CL_OBJ_TO_PTR(cl_struct_deps_sym);
         s->flags |= CL_SYM_SPECIAL;

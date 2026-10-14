@@ -36,7 +36,7 @@ static void setup(void)
 {
     /* Classic collector: the free list and the sweep's coalescing are
      * classic-mode machinery; the iterator itself does not care. */
-    setenv("CLAMIGA_GENGC", "0", 1);
+    setenv("AMILISP_GENGC", "0", 1);
     platform_init();
     cl_thread_init();
     cl_error_init();

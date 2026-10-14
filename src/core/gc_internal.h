@@ -24,7 +24,7 @@
 #include "../platform/platform.h"
 #include "../platform/platform_thread.h"
 #include <stdarg.h>
-#include <stdio.h>    /* CLAMIGA_GC_DIAG per-collection trace (fprintf/stderr) */
+#include <stdio.h>    /* AMILISP_GC_DIAG per-collection trace (fprintf/stderr) */
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>

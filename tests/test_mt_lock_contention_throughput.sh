@@ -29,7 +29,7 @@
 #
 # Run: sh tests/test_mt_lock_contention_throughput.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then
@@ -91,7 +91,7 @@ cat > "$tmp" <<'EOF'
 (quit)
 EOF
 
-out=$("$TIMEOUT" 120 "$CLAMIGA" --load "$tmp" </dev/null 2>&1)
+out=$("$TIMEOUT" 120 "$AMILISP" --load "$tmp" </dev/null 2>&1)
 status=$?
 
 if [ $status -ne 0 ]; then

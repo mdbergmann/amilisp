@@ -41,21 +41,21 @@ uint32_t gc_stw_stops = 0;        /* stop-the-world events */
 uint32_t gc_epoch_skips = 0;      /* redundant GCs deduped (see
                                           * cl_gc_if_stale) */
 
-/* ---- Per-collection trace (CLAMIGA_GC_DIAG) ----
- * One stderr line per collection when the CLAMIGA_GC_DIAG environment
+/* ---- Per-collection trace (AMILISP_GC_DIAG) ----
+ * One stderr line per collection when the AMILISP_GC_DIAG environment
  * variable is set: wall clock, cycle number, collection kind, pause, and
  * heap occupancy.  Lets a hang be classified from amilisp's own output —
  * an endless stream of lines is a GC storm, silence means the time is
  * going somewhere else.  Runtime diagnostic, not DEBUG-flag
  * instrumentation: always compiled, zero cost when the env var is unset
- * (same pattern as CLAMIGA_STW_DIAG / CLAMIGA_SOCK_DIAG). */
+ * (same pattern as AMILISP_STW_DIAG / AMILISP_SOCK_DIAG). */
 static int32_t gc_diag_cached = -2;   /* -2 = env not read; 0 = off; 1 = on */
 
 int gc_diag_on(void)
 {
     if (gc_diag_cached == -2) {
         char envbuf[16];
-        const char *s = platform_getenv("CLAMIGA_GC_DIAG", envbuf,
+        const char *s = platform_getenv("AMILISP_GC_DIAG", envbuf,
                                         (int)sizeof(envbuf));
         gc_diag_cached = (s && *s) ? 1 : 0;
     }
@@ -260,7 +260,7 @@ void cl_cursor_retire(CL_Thread *t)
     if (multi && alloc_mutex) platform_mutex_unlock(alloc_mutex);
 }
 
-/* CLAMIGA_MEM_DIAG=1 — report at shutdown how much off-heap object payload
+/* AMILISP_MEM_DIAG=1 — report at shutdown how much off-heap object payload
  * was handed back (gc_release_all_offheap).  On AmigaOS, where unreturned
  * memory is lost to the system until reboot, this is the number to watch:
  * pair it with `Avail` before and after a run to account for every byte. */
@@ -269,7 +269,7 @@ int cl_mem_diag = 0;
 void cl_mem_diag_from_env(void)
 {
     char dbuf[8];
-    const char *d = platform_getenv("CLAMIGA_MEM_DIAG", dbuf,
+    const char *d = platform_getenv("AMILISP_MEM_DIAG", dbuf,
                                     (int)sizeof(dbuf));
     cl_mem_diag = (d && d[0] && !(d[0] == '0' && d[1] == '\0'));
 }
@@ -653,17 +653,20 @@ void *cl_alloc(uint8_t type, uint32_t size)
         cl_gc_stress_active = 1;
         {
             /* Bisection controls (read once):
-             *   CLAMIGA_GC_STRESS_SKIP=N — only compact on alloc index > N
+             *   AMILISP_GC_STRESS_SKIP=N — only compact on alloc index > N
              *     (suffix mode; binary-search the corrupting alloc).
-             *   CLAMIGA_GC_STRESS_AT=N   — compact ONLY at alloc index N and
+             *   AMILISP_GC_STRESS_AT=N   — compact ONLY at alloc index N and
              *     dump a C backtrace there (pin the exact corrupting site). */
             static long s_skip = -2, s_at = -2;
             static long s_count = 0;
             int do_compact;
             if (s_skip == -2) {
-                const char *e1 = getenv("CLAMIGA_GC_STRESS_SKIP");
-                const char *e2 = getenv("CLAMIGA_GC_STRESS_AT");
+                /* platform_getenv_s shares one buffer: convert before
+                 * the next read. */
+                const char *e1 = platform_getenv_s("AMILISP_GC_STRESS_SKIP");
+                const char *e2;
                 s_skip = e1 ? atol(e1) : -1;
+                e2 = platform_getenv_s("AMILISP_GC_STRESS_AT");
                 s_at   = e2 ? atol(e2) : -1;
             }
             s_count++;

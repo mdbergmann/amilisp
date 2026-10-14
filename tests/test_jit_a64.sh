@@ -8,10 +8,10 @@
 #
 # A host without the backend (x86-64, Linux, Windows, `make host JIT=0`)
 # returns NIL from %JIT-COMPILE-STUB; the test then checks only that and
-# passes.  Also run by `make test-gc-stress` (CLAMIGA_GC_STRESS=1).
+# passes.  Also run by `make test-gc-stress` (AMILISP_GC_STRESS=1).
 # Run: sh tests/test_jit_a64.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0
@@ -40,50 +40,50 @@ trap 'rm -rf "$WORK"' EXIT
 cat > "$WORK/stub.lisp" <<'EOF'
 ;; The default hot threshold, also under `make test-jit-eager`: a function
 ;; redefined below must still carry no native code right after its DEFUN.
-(clamiga::%jit-set-hot-threshold 8)
+(amilisp::%jit-set-hot-threshold 8)
 (defun stubbed-0 () 42)
 (defun stubbed-2 (a b) (+ a b))
-(format t "BACKEND ~A~%" (if (clamiga::%jit-compile-stub #'stubbed-0) "A64" "NONE"))
-(when (clamiga::%jit-dump-bytes #'stubbed-0)
-  (let ((c0 (clamiga::%jit-invoke-count))
-        (b0 (clamiga::%jit-native-bytes)))
+(format t "BACKEND ~A~%" (if (amilisp::%jit-compile-stub #'stubbed-0) "A64" "NONE"))
+(when (amilisp::%jit-dump-bytes #'stubbed-0)
+  (let ((c0 (amilisp::%jit-invoke-count))
+        (b0 (amilisp::%jit-native-bytes)))
     ;; The stub runs instead of the body, once per call, and leaves the
     ;; operand stack as the interpreter expects it.
     (format t "STUB-0 ~S~%" (list (stubbed-0) (stubbed-0)))
-    (format t "INVOKES ~S~%" (- (clamiga::%jit-invoke-count) c0))
-    (clamiga::%jit-compile-stub #'stubbed-2)
-    (format t "BYTES-ADDED ~S~%" (- (clamiga::%jit-native-bytes) b0))
+    (format t "INVOKES ~S~%" (- (amilisp::%jit-invoke-count) c0))
+    (amilisp::%jit-compile-stub #'stubbed-2)
+    (format t "BYTES-ADDED ~S~%" (- (amilisp::%jit-native-bytes) b0))
     (format t "STUB-2 ~S~%" (list (stubbed-2 1 2) (+ 10 (or (stubbed-2 3 4) 5))))
     (format t "STACK-INTACT ~S~%" (list 1 (stubbed-2 5 6) 3 (stubbed-0) 5))
     ;; The words: movz w0, #0 ; ret, little-endian.
-    (format t "WORDS ~S~%" (clamiga::%jit-dump-bytes #'stubbed-0))
+    (format t "WORDS ~S~%" (amilisp::%jit-dump-bytes #'stubbed-0))
     ;; From another thread: the entry takes the caller's own thread.
     (format t "THREADS ~S~%"
             (mapcar #'mp:join-thread
                     (loop repeat 4
                           collect (mp:make-thread (lambda () (list (stubbed-0) (stubbed-2 1 1)))))))
     ;; With shadow frames on, cl_jit_invoke pushes and pops a VM frame.
-    (clamiga::%jit-set-frames t)
+    (amilisp::%jit-set-frames t)
     (format t "FRAMES ~S~%" (list (stubbed-0) (stubbed-2 1 1)))
-    (clamiga::%jit-set-frames nil)
+    (amilisp::%jit-set-frames nil)
     ;; Replacing the stub frees the old block; a redefinition drops the code.
-    (clamiga::%jit-compile-stub #'stubbed-0)
+    (amilisp::%jit-compile-stub #'stubbed-0)
     (format t "RESTUB ~S~%" (stubbed-0))
     (defun stubbed-0 () 43)
-    (format t "REDEFINED ~S ~S~%" (stubbed-0) (clamiga::%jit-dump-bytes #'stubbed-0))
+    (format t "REDEFINED ~S ~S~%" (stubbed-0) (amilisp::%jit-dump-bytes #'stubbed-0))
     ;; Many dead stubbed functions: the sweep hands their blocks back
     ;; (cl_jit_free_native); nothing may crash or run freed code.
     (dotimes (i 200)
       (let ((f (compile nil `(lambda () ,i))))
-        (clamiga::%jit-compile-stub f)
+        (amilisp::%jit-compile-stub f)
         (unless (null (funcall f)) (format t "STUB-WRONG ~D~%" i))))
     (ext:gc)
     (format t "SWEEP-OK ~S~%" (stubbed-2 7 8))))
-(clamiga::%jit-disassemble #'stubbed-2)
+(amilisp::%jit-disassemble #'stubbed-2)
 (format t "DONE~%")
 EOF
 
-out=$("$CLAMIGA" --no-userinit --non-interactive --load "$WORK/stub.lisp" </dev/null 2>&1)
+out=$("$AMILISP" --no-userinit --non-interactive --load "$WORK/stub.lisp" </dev/null 2>&1)
 check_contains "the script ran to the end" "DONE" "$out"
 
 case "$out" in

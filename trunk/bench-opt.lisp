@@ -75,14 +75,14 @@ benchmarks compare digests, not lists."
 
 (defun %bo-time-call (thunk)
   "Run THUNK once; return (values result elapsed-ms bytes-consed gc-cycles)."
-  (let ((t0 (clamiga::%get-internal-time))
-        (b0 (clamiga::%get-bytes-consed))
-        (g0 (clamiga::%get-gc-count)))
+  (let ((t0 (amilisp::%get-internal-time))
+        (b0 (amilisp::%get-bytes-consed))
+        (g0 (amilisp::%get-gc-count)))
     (let ((r (funcall thunk)))
       (values r
-              (- (clamiga::%get-internal-time) t0)
-              (- (clamiga::%get-bytes-consed) b0)
-              (- (clamiga::%get-gc-count) g0)))))
+              (- (amilisp::%get-internal-time) t0)
+              (- (amilisp::%get-bytes-consed) b0)
+              (- (amilisp::%get-gc-count) g0)))))
 
 (defun %bo-fmt-check (v)
   (if (consp v)
@@ -116,8 +116,8 @@ Verify the (deterministic) result against EXPECTED."
 ;; Compile everything below as pure bytecode; restore the JIT setting at
 ;; the end of the file.
 
-(defvar *bo-prior-jit* (clamiga::%jit-active-p))
-(clamiga::%jit-set-active nil)
+(defvar *bo-prior-jit* (amilisp::%jit-active-p))
+(amilisp::%jit-set-active nil)
 
 (format t "~%BENCH-META platform=~A scale=~A set-size=~D runs=~D engine=bytecode~%"
         #+amigaos "amiga" #-amigaos "host"
@@ -550,7 +550,7 @@ Verify the (deterministic) result against EXPECTED."
 
 (let ((filler-specs '((f1 nil) (f2 nil))))
   (dotimes (i 256)
-    (clamiga::%register-struct-type
+    (amilisp::%register-struct-type
      (make-symbol (format nil "%BO-FILLER-~D" i)) 2 nil filler-specs)))
 
 (let ((n 10000) (reps (%bo-scaled 10))
@@ -694,7 +694,7 @@ of ~2N conses (N-element spine, one pair per element)."
 
 ;; ---------------------------------------------------------------------
 
-(clamiga::%jit-set-active *bo-prior-jit*)
+(amilisp::%jit-set-active *bo-prior-jit*)
 
 (format t "BENCH-TOTAL ms=~D fails=~D~%" *bo-total-ms* *bo-fails*)
 (format t "done.~%")

@@ -115,9 +115,9 @@ make host DEBUG_FLAGS=-DPROFILE_OPCODES
 From Lisp (in any build — dumps "not compiled in" when the flag is off):
 
 ```lisp
-(clamiga::%op-counts-reset)
+(amilisp::%op-counts-reset)
 ;; ... do work ...
-(clamiga::%op-counts-dump)   ; prints to stdout, sorted by count
+(amilisp::%op-counts-dump)   ; prints to stdout, sorted by count
 ```
 
 Implementation: `cl_op_counts_arr[256]` in `src/core/vm.c`, ticked once
@@ -450,7 +450,7 @@ validation** in `mem.c::gc_scan_jit_native_stack`.
    allocation; the free-list split notes both pieces to keep walks
    short).  Gen mode (host) has no index — no free list, minors move
    young objects, and the JIT never runs there — and falls back to the
-   full walk, as does `CLAMIGA_HDR_INDEX=0` (the A/B switch).
+   full walk, as does `AMILISP_HDR_INDEX=0` (the A/B switch).
    `ext:%gc-audit-hdr-index` / `cl_gc_audit_hdr_index()` check the
    invariant against the arena (0 = clean); `tests/test_gc_hdr_index.c`
    exercises it through sweeps, splits, pinned compactions and heap
@@ -531,7 +531,7 @@ care whether the JIT is present.
 
 ### Runtime opt-in
 
-A command-line flag — `amilisp --no-jit` or env var `CLAMIGA_JIT=0` —
+A command-line flag — `amilisp --no-jit` or env var `AMILISP_JIT=0` —
 forces bytecode interpretation. Useful for:
 
 - Debugging: compare bytecode vs JIT output of the same function
@@ -808,7 +808,7 @@ at current function sizes).
 
 ### Headline benchmarks (`trunk/bench-jit-loop.lisp`)
 
-A/B variants flipped via `(clamiga::%jit-set-active …)`; identical
+A/B variants flipped via `(amilisp::%jit-set-active …)`; identical
 bodies, dispatch path differs.
 
 | Bench         | Shape                              | N      | Bytecode | JIT     | Speedup |
@@ -1442,11 +1442,11 @@ src/jit/jit.c:
   if (jit_shadow_frames && cl_vm.fp < cl_vm.frame_size) { /* push shadow */ }
 ```
 
-Lisp-visible switch (CLAMIGA package):
+Lisp-visible switch (AMILISP package):
 
-- `(clamiga::%jit-set-frames t|nil)` — enable / disable, returns new state
-- `(clamiga::%jit-frames-p)` — current state
-- `(clamiga::%jit-active-p)` — whether the JIT itself is compiled in + active
+- `(amilisp::%jit-set-frames t|nil)` — enable / disable, returns new state
+- `(amilisp::%jit-frames-p)` — current state
+- `(amilisp::%jit-active-p)` — whether the JIT itself is compiled in + active
 
 A debug session (Sly/SLDB connect, or a developer at the REPL) turns frames
 on while introspecting and off afterwards. The Amiga test suite enables them
@@ -1639,7 +1639,7 @@ Native code now passes arguments in operand-stack order and keeps the
 current `CL_Thread*` in A3.  The asm `cl_jit_enter` sets this up, and an
 inline C-stack floor check keeps runaway recursion reaching the guard.
 
-FS-UAE 040, kill-switch pairs in one boot (`CLAMIGA_JIT_DIRECT=0`), µs per
+FS-UAE 040, kill-switch pairs in one boot (`AMILISP_JIT_DIRECT=0`), µs per
 iteration including the 0.5 µs loop:
 
 | Row                              | JIT, direct off | JIT, direct on |

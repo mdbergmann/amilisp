@@ -55,7 +55,7 @@ void  platform_free(void *ptr);
  *
  * Built only with -DDEBUG_MEM_TRACK, where it redirects every platform_alloc
  * / platform_free to a wrapper that tags each block with its call site, and
- * CLAMIGA_MEM_DIAG=1 then prints what is still outstanding at exit, grouped
+ * AMILISP_MEM_DIAG=1 then prints what is still outstanding at exit, grouped
  * by file:line.  This is the tool for AmigaOS memory loss: nothing there
  * reclaims a process's memory, so a block never freed is Fast RAM the machine
  * loses until reboot, and no arena statistic can see it.
@@ -348,8 +348,16 @@ const char *platform_realpath(const char *path, char *buf, int bufsize);
  * Returns buf if expansion occurred, or the original path if no ~ prefix. */
 const char *platform_expand_home(const char *path, char *buf, int bufsize);
 
-/* Environment */
+/* Environment.  platform_getenv_raw is the platform's own lookup (getenv,
+ * GetVar); platform_getenv (string_utils.c) is what the runtime calls: it
+ * adds the fallback from an AMILISP_* name to its CLAMIGA_* spelling, the
+ * name every variable had before the rename to AmiLisp (0.12), so a user's
+ * environment keeps working.  buf/bufsize hold the value where the platform
+ * has to copy it (AmigaOS); POSIX and Win32 return the process environment's
+ * own string. */
+const char *platform_getenv_raw(const char *name, char *buf, int bufsize);
 const char *platform_getenv(const char *name, char *buf, int bufsize);
+const char *platform_getenv_s(const char *name);   /* static buffer, one-shot reads */
 
 /* Free system memory in bytes, or 0 where the platform has no meaningful
  * answer (POSIX/Windows, where a process's memory is reclaimed at exit and
@@ -359,7 +367,7 @@ const char *platform_getenv(const char *name, char *buf, int bufsize);
  * There is no per-process reclaim there: whatever amilisp does not hand back
  * before it exits is gone until the machine is rebooted.  Sampling this at
  * startup and again at the end of shutdown is the ground truth for "did this
- * run leak?", and is what CLAMIGA_MEM_DIAG=1 reports. */
+ * run leak?", and is what AMILISP_MEM_DIAG=1 reports. */
 unsigned long platform_mem_available(void);
 
 /* Break-request poll (Ctrl-C).  Returns nonzero — and consumes the request —
@@ -380,7 +388,7 @@ const char *platform_executable_prefix(char *buf, int bufsize);
 
 /* The running executable itself, as a path another process can start it
  * by: "/usr/local/bin/amilisp" (symlinks resolved) on POSIX, "C:/.../
- * amilisp.exe" on Windows, "PROGDIR:clamiga" on AmigaOS.  Backs
+ * amilisp.exe" on Windows, "PROGDIR:amilisp" on AmigaOS.  Backs
  * EXT:EXECUTABLE-PATH, which is how the host Clamacs starts a second
  * amilisp on the binary it runs on.  Returns buf, or NULL when the path
  * cannot be determined. */

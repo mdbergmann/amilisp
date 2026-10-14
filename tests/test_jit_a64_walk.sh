@@ -15,7 +15,7 @@
 #      Phase 2: every inline fast path against its slow path -- fixnum
 #      boundaries, other number types, type errors -- with a heap value
 #      held in the register cache while the slow path runs, which under
-#      CLAMIGA_GC_STRESS allocates and moves it.
+#      AMILISP_GC_STRESS allocates and moves it.
 #   3. Phase 3: the NLX frames, dynamic binding, multiple values, closures
 #      and &key functions, each against the interpreter's results (also
 #      under the classic collector), and native frames in the backtrace and
@@ -28,10 +28,10 @@
 #      classic collector.
 #
 # A build without the backend (x86-64, Windows, `make host JIT=0`)
-# skips them all.  Also run by `make test-gc-stress` (CLAMIGA_GC_STRESS=1).
+# skips them all.  Also run by `make test-gc-stress` (AMILISP_GC_STRESS=1).
 # Run: sh tests/test_jit_a64_walk.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0
@@ -59,9 +59,9 @@ WORK="${TMPDIR:-/tmp}/jit_a64_walk_$$"
 mkdir -p "$WORK"
 trap 'rm -rf "$WORK"' EXIT
 
-backend=$("$CLAMIGA" --no-userinit --non-interactive \
+backend=$("$AMILISP" --no-userinit --non-interactive \
     --eval '(defun probe-fn () 1)' \
-    --eval '(format t "BACKEND ~A~%" (if (clamiga::%jit-compile-stub (function probe-fn)) "A64" "NONE"))' \
+    --eval '(format t "BACKEND ~A~%" (if (amilisp::%jit-compile-stub (function probe-fn)) "A64" "NONE"))' \
     </dev/null 2>&1)
 case "$backend" in
 *"BACKEND A64"*) ;;
@@ -77,9 +77,9 @@ esac
 # thread that does dies (MP:*THREAD-DEATH-HOOKS*) instead of signalling.
 run() {
     if [ -n "$TIMEOUT" ]; then
-        "$TIMEOUT" 300 "$CLAMIGA" --heap 32M --no-userinit --non-interactive --load "$1" </dev/null 2>&1
+        "$TIMEOUT" 300 "$AMILISP" --heap 32M --no-userinit --non-interactive --load "$1" </dev/null 2>&1
     else
-        "$CLAMIGA" --heap 32M --no-userinit --non-interactive --load "$1" </dev/null 2>&1
+        "$AMILISP" --heap 32M --no-userinit --non-interactive --load "$1" </dev/null 2>&1
     fi
 }
 
@@ -120,14 +120,14 @@ fi
 
 # --- Part 2: this backend ------------------------------------------------------
 cat > "$WORK/walk.lisp" <<'EOF'
-(clamiga::%jit-set-hot-threshold 0)
-;; Under CLAMIGA_GC_STRESS every allocation compacts: fewer conses give the
+(amilisp::%jit-set-hot-threshold 0)
+;; Under AMILISP_GC_STRESS every allocation compacts: fewer conses give the
 ;; same coverage of the collections the consing loops run into.
-(defparameter *churn-n* (if (ext:getenv "CLAMIGA_GC_STRESS") 300 50000))
+(defparameter *churn-n* (if (ext:getenv "AMILISP_GC_STRESS") 300 50000))
 (defmacro chk (name form)
   `(format t "~A ~S~%" ,name
            (handler-case ,form (error (c) (list :error (princ-to-string c))))))
-(defun native-p (f) (not (null (clamiga::%jit-dump-bytes f))))
+(defun native-p (f) (not (null (amilisp::%jit-dump-bytes f))))
 
 ;; Shapes phase 1 compiles: stack and locals, constants, branches and
 ;; loops, calls, arithmetic, lists, structs, vectors, strings, globals.
@@ -253,8 +253,8 @@ cat > "$WORK/walk.lisp" <<'EOF'
 (defun p2-chr (a b) (if (char= a b) :same :diff))
 (defun p2-car (x l) (list x (car l) x (cdr l) x))
 (defun p2-st (x s v) (list x (p2s-a s) x (setf (p2s-c s) v) x (p2s-c s)))
-(defun p2-sref-bad (s) (clamiga::%struct-ref s 7))
-(defun p2-sset-bad (s v) (clamiga::%struct-set s 7 v))
+(defun p2-sref-bad (s) (amilisp::%struct-ref s 7))
+(defun p2-sset-bad (s v) (amilisp::%struct-set s 7 v))
 (defun p2-gread () *p2-var*)
 (defun p2-gwrite (v) (setq *p2-var* v) *p2-var*)
 (defun p2-gbr () (if *p2-var* :yes :no))
@@ -327,7 +327,7 @@ cat > "$WORK/walk.lisp" <<'EOF'
                                   (setf (svref out k) (p2s-c s))))))))
        (every (lambda (r) (equal r '(1999))) out)))
 
-(chk "DISASM" (with-output-to-string (*standard-output*) (clamiga::%jit-disassemble #'w-add)))
+(chk "DISASM" (with-output-to-string (*standard-output*) (amilisp::%jit-disassemble #'w-add)))
 (format t "DONE~%")
 EOF
 out=$(run "$WORK/walk.lisp")
@@ -404,15 +404,15 @@ check_contains "the disassembler decodes a helper call" "blr x16" "$out"
 # closures, &key, native frames ------------------------------------------------
 # Every shape compiles (P3-NATIVE), and every result is the interpreter's:
 # transfers through native frames in both directions, values held across them
-# (each "k" is fresh, so under CLAMIGA_GC_STRESS every one moves), the errors
+# (each "k" is fresh, so under AMILISP_GC_STRESS every one moves), the errors
 # of the &key prologue and the helpers, and the same on four threads.
 cat > "$WORK/p3.lisp" <<'EOF'
-(clamiga::%jit-set-hot-threshold 0)
+(amilisp::%jit-set-hot-threshold 0)
 (defmacro chk (name form)
   `(format t "~A ~S~%" ,name
            (handler-case ,form (error (c) (list :error (princ-to-string c))))))
-(defun native-p (f) (not (null (clamiga::%jit-dump-bytes f))))
-;; A fresh heap value: under CLAMIGA_GC_STRESS each one moves what is live.
+(defun native-p (f) (not (null (amilisp::%jit-dump-bytes f))))
+;; A fresh heap value: under AMILISP_GC_STRESS each one moves what is live.
 (defun p3-k () (list "k"))
 
 ;; --- BLOCK / RETURN-FROM ---------------------------------------------------
@@ -597,7 +597,7 @@ cat > "$WORK/p3.lisp" <<'EOF'
                                  (list k :inner k) (p3-tb 3))))))
 
 ;; A template compiled just now is young: the closure's allocation moves it
-;; (the classic collector compacts under CLAMIGA_GC_STRESS), so the helper
+;; (the classic collector compacts under AMILISP_GC_STRESS), so the helper
 ;; must read it from the constants after allocating.
 (chk "P3-FRESH-TEMPLATE"
      (let ((r nil))
@@ -659,7 +659,7 @@ check_contains "&key: a missing required argument signals" \
 check_contains "NLX frames on four threads" "P3-THREADS T" "$out"
 check_contains "a closure over a template that moves" "P3-FRESH-TEMPLATE (T T 20)" "$out"
 # The same under the classic collector, which moves old objects too.
-out0=$(CLAMIGA_GENGC=0 run "$WORK/p3.lisp")
+out0=$(AMILISP_GENGC=0 run "$WORK/p3.lisp")
 total=$((total + 1))
 if [ "$out0" = "$out" ]; then
     echo "  ok  the classic collector gives the same results"; passed=$((passed + 1))
@@ -676,13 +676,13 @@ check_contains "FRAME-LOCALS of a native frame" \
 # A native function's frame is the interpreter's: the backtrace names each
 # native frame at the line of the form it is in.
 cat > "$WORK/bt.lisp" <<'EOF'
-(clamiga::%jit-set-hot-threshold 0)
+(amilisp::%jit-set-hot-threshold 0)
 (defun p3-bt-inner (x) (car x))
 (defun p3-bt-outer (y)
   (let ((z (list y)))
     (p3-bt-inner y)
     z))
-(format t "BT-NATIVE ~S~%" (mapcar (lambda (f) (not (null (clamiga::%jit-dump-bytes f))))
+(format t "BT-NATIVE ~S~%" (mapcar (lambda (f) (not (null (amilisp::%jit-dump-bytes f))))
                                    (list #'p3-bt-inner #'p3-bt-outer)))
 (p3-bt-outer 5)
 EOF
@@ -695,17 +695,17 @@ check_contains "a suspended native caller at its call's line" "1: P3-BT-OUTER ($
 # A call site whose cell holds the current call generation and a native callee
 # enters it directly (runtime_vmstack.c, "Direct native-to-native calls").
 # Every value must be the helper path's: the script runs twice, direct calls
-# on and off (CLAMIGA_JIT_DIRECT=0), and every line but the counters (STAT-)
+# on and off (AMILISP_JIT_DIRECT=0), and every line but the counters (STAT-)
 # must agree.  Each check calls its site at least twice: the first call
 # misses and fills, the second hits.
 cat > "$WORK/p4.lisp" <<'EOF'
-(clamiga::%jit-set-hot-threshold 0)
-(defparameter *churn-n* (if (ext:getenv "CLAMIGA_GC_STRESS") 20 2000))
+(amilisp::%jit-set-hot-threshold 0)
+(defparameter *churn-n* (if (ext:getenv "AMILISP_GC_STRESS") 20 2000))
 (defmacro chk (name form)
   `(format t "~A ~S~%" ,name
            (handler-case ,form (error (c) (list :error (princ-to-string c))))))
-(defun native-p (f) (not (null (clamiga::%jit-dump-bytes f))))
-(defun ds (k) (getf (clamiga::%jit-direct-call-stats) k))
+(defun native-p (f) (not (null (amilisp::%jit-dump-bytes f))))
+(defun ds (k) (getf (amilisp::%jit-direct-call-stats) k))
 (defun p4-k () (list "k"))
 
 ;; --- A hit: one fill, then no more misses ---------------------------------
@@ -714,9 +714,9 @@ cat > "$WORK/p4.lisp" <<'EOF'
 (chk "P4-NATIVE" (mapcar #'native-p (list #'p4-leaf #'p4-caller)))
 (chk "P4-HIT" (p4-caller 1000))
 (defun p4-measure ()
-  (let* ((s0 (clamiga::%jit-direct-call-stats))
+  (let* ((s0 (amilisp::%jit-direct-call-stats))
          (r (p4-caller 1000))
-         (s1 (clamiga::%jit-direct-call-stats)))
+         (s1 (amilisp::%jit-direct-call-stats)))
     (list r (- (getf s1 :fills) (getf s0 :fills))
           (- (getf s1 :misses) (getf s0 :misses)))))
 ;; The second run: the p4-caller site hits; only the second stats call -- a
@@ -848,23 +848,23 @@ cat > "$WORK/p4.lisp" <<'EOF'
 ;; --- Frames off: no fills (the hit path pushes a frame), same values -------
 (defun p4-two-leaves () (list (p4-leaf 1 2) (p4-leaf 3 4)))
 (chk "P4-FRAMES-OFF"
-     (progn (clamiga::%jit-set-frames nil)
+     (progn (amilisp::%jit-set-frames nil)
             (prog1 (list (p4-caller 100) (p4-two-leaves) (p4-two-leaves))
-              (clamiga::%jit-set-frames t))))
+              (amilisp::%jit-set-frames t))))
 ;; The kill switch: values identical, no fills.
-(clamiga::%jit-set-direct-calls nil)
+(amilisp::%jit-set-direct-calls nil)
 (let ((f0 (ds :fills)))
   (chk "P4-KILL" (list (p4-caller 100) (p4-fc #'1+ 1) (p4-kw-caller 3)))
   (format t "STAT-KILL-FILLS ~S~%" (- (ds :fills) f0)))
-(clamiga::%jit-set-direct-calls (not (ext:getenv "CLAMIGA_JIT_DIRECT_OFF")))
+(amilisp::%jit-set-direct-calls (not (ext:getenv "AMILISP_JIT_DIRECT_OFF")))
 
 ;; --- Threads: per-thread counters; a collector thread while one calls ------
 (chk "P4-THREAD-STATS"
      ;; The builtin read directly: a call to DS would fill its own site first.
      (mp:join-thread (mp:make-thread
-                      (lambda () (list (getf (clamiga::%jit-direct-call-stats) :fills)
+                      (lambda () (list (getf (amilisp::%jit-direct-call-stats) :fills)
                                        (p4-caller 10))))))
-;; Under CLAMIGA_GC_STRESS the collector thread stops the world without a
+;; Under AMILISP_GC_STRESS the collector thread stops the world without a
 ;; pause and the caller advances only between collections: 200 rounds took
 ;; 13-125 s there (one STW-scheduling lottery, master alike) and crossed the
 ;; 300 s limit in the Linux container.  20 rounds under stress.
@@ -892,7 +892,7 @@ out=$(run "$WORK/p4.lisp")
 check_contains "the direct-call script ran to the end" "DONE" "$out"
 check_contains "caller and callee are native" "P4-NATIVE (T T)" "$out"
 check_contains "a native caller calls a native leaf" "P4-HIT 1000" "$out"
-if [ -n "$CLAMIGA_GC_STRESS" ]; then
+if [ -n "$AMILISP_GC_STRESS" ]; then
     # Every allocation collects and bumps the generation: the first stats
     # call's own plist invalidates both sites on the path (P4-MEASURE's call
     # of P4-CALLER, P4-CALLER's of P4-LEAF), each refilled once -- then the
@@ -936,7 +936,7 @@ check_contains "the counters are the calling thread's" "P4-THREAD-STATS (0 10)" 
 check_contains "a collector thread while direct calls run" "P4-STW (T T)" "$out"
 check_contains "an interrupt reaches a thread looping on direct calls" "P4-INTERRUPT T" "$out"
 # The same script with direct calls off: every line but the counters.
-offout=$(CLAMIGA_JIT_DIRECT=0 CLAMIGA_JIT_DIRECT_OFF=1 run "$WORK/p4.lisp")
+offout=$(AMILISP_JIT_DIRECT=0 AMILISP_JIT_DIRECT_OFF=1 run "$WORK/p4.lisp")
 total=$((total + 1))
 echo "$out" | grep -v '^STAT-' > "$WORK/p4-on.txt"
 echo "$offout" | grep -v '^STAT-' > "$WORK/p4-off.txt"
@@ -956,13 +956,13 @@ fi
 # script also runs interpreted, with direct calls off and under the classic
 # collector, and every line but P5-NATIVE and the counters must agree.
 cat > "$WORK/p5.lisp" <<'EOF'
-(clamiga::%jit-set-hot-threshold 0)
-;; Under CLAMIGA_GC_STRESS every allocation compacts: fewer consing rounds.
-(defparameter *p5-n* (if (ext:getenv "CLAMIGA_GC_STRESS") 20 1000))
+(amilisp::%jit-set-hot-threshold 0)
+;; Under AMILISP_GC_STRESS every allocation compacts: fewer consing rounds.
+(defparameter *p5-n* (if (ext:getenv "AMILISP_GC_STRESS") 20 1000))
 (defmacro chk (name form)
   `(format t "~A ~S~%" ,name
            (handler-case ,form (error (c) (list :error (princ-to-string c))))))
-(defun native-p (f) (not (null (clamiga::%jit-dump-bytes f))))
+(defun native-p (f) (not (null (amilisp::%jit-dump-bytes f))))
 (defun p5-k () (list "k"))
 (defvar *p5-s* :global)
 
@@ -1030,9 +1030,9 @@ cat > "$WORK/p5.lisp" <<'EOF'
 (chk "P5-TOO-FEW" (subseq (princ-to-string (nth-value 1 (ignore-errors (p5-too-few)))) 0 27))
 (chk "P5-CLOSURES" (list (p5-fc (p5-mk 1)) (p5-fc (p5-mk (p5-k)))))
 (defun p5-measure ()
-  (let* ((s0 (clamiga::%jit-direct-call-stats))
+  (let* ((s0 (amilisp::%jit-direct-call-stats))
          (r (p5-call-loop *p5-n*))
-         (s1 (clamiga::%jit-direct-call-stats)))
+         (s1 (amilisp::%jit-direct-call-stats)))
     (list r (- (getf s1 :fills) (getf s0 :fills)) (- (getf s1 :misses) (getf s0 :misses)))))
 (p5-measure)
 (format t "STAT-P5 ~S~%" (p5-measure))
@@ -1089,7 +1089,7 @@ check_contains "too few arguments to an &optional callee" \
     'P5-TOO-FEW "Too few arguments to P5-O ("' "$out"
 check_contains "&optional/&rest closures through one site" \
     'P5-CLOSURES (((1 NIL) (1 NIL) (1 (2 3))) ((("k") NIL) (1 NIL) (1 (2 3))))' "$out"
-if [ -z "$CLAMIGA_GC_STRESS" ]; then
+if [ -z "$AMILISP_GC_STRESS" ]; then
     check_contains "the sites into &optional/&rest callees hit: no fill, no miss" \
         "STAT-P5 (506500 0 1)" "$out"
 fi
@@ -1109,15 +1109,15 @@ p5_same() {
     fi
 }
 if [ -n "$TIMEOUT" ]; then
-    interp=$("$TIMEOUT" 300 "$CLAMIGA" --no-jit --heap 32M --no-userinit --non-interactive \
+    interp=$("$TIMEOUT" 300 "$AMILISP" --no-jit --heap 32M --no-userinit --non-interactive \
                  --load "$WORK/p5.lisp" </dev/null 2>&1)
 else
-    interp=$("$CLAMIGA" --no-jit --heap 32M --no-userinit --non-interactive \
+    interp=$("$AMILISP" --no-jit --heap 32M --no-userinit --non-interactive \
                  --load "$WORK/p5.lisp" </dev/null 2>&1)
 fi
 p5_same "the interpreter gives the same results" "$interp"
-p5_same "direct calls off give the same results" "$(CLAMIGA_JIT_DIRECT=0 run "$WORK/p5.lisp")"
-p5_same "the classic collector gives the same results" "$(CLAMIGA_GENGC=0 run "$WORK/p5.lisp")"
+p5_same "direct calls off give the same results" "$(AMILISP_JIT_DIRECT=0 run "$WORK/p5.lisp")"
+p5_same "the classic collector gives the same results" "$(AMILISP_GENGC=0 run "$WORK/p5.lisp")"
 
 echo "$passed passed, $failed failed, $total total"
 [ "$failed" -eq 0 ]

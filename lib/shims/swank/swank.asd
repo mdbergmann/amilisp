@@ -15,7 +15,7 @@
 ;;;
 ;;; Registered automatically: loading ASDF (lib/asdf.lisp) pushes this
 ;;; directory onto ASDF:*CENTRAL-REGISTRY*, ahead of any package manager's
-;;; searcher.  Opt out with CLAMIGA_NO_SHIMS=1.
+;;; searcher.  Opt out with AMILISP_NO_SHIMS=1.
 
 #-cl-amiga
 (error "The cl-amiga swank shim is only intended for cl-amiga.")

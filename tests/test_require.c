@@ -27,7 +27,7 @@
  *     (require "gray-streams") does not load the module a second time.
  *     PROVIDE's own duplicate check stays exact, so a module may register
  *     both spellings like asdf.lisp does — matching SBCL's *modules*.
- *   - the host $CLAMIGA_HOME fallback lets amilisp find its lib/ when it is
+ *   - the host $AMILISP_HOME fallback lets amilisp find its lib/ when it is
  *     launched from a directory whose cwd-relative "lib/" does not contain the
  *     module — so an editor/Sly session can keep its working directory on the
  *     file buffer instead of pinning it to amilisp's source root.
@@ -147,7 +147,7 @@ TEST(provide_keeps_both_spellings)
         eval_str("(count \"both-mod\" *modules* :test #'string-equal)"));
 }
 
-/* --- $CLAMIGA_HOME fallback --- */
+/* --- $AMILISP_HOME fallback --- */
 
 static int write_home_module(void)
 {
@@ -168,14 +168,14 @@ static int write_home_module(void)
 TEST(require_resolves_via_clamiga_home)
 {
     /* The module does not exist under cwd-relative lib/, so the only way
-       REQUIRE can find it is the $CLAMIGA_HOME/lib/ fallback. */
+       REQUIRE can find it is the $AMILISP_HOME/lib/ fallback. */
     ASSERT(write_home_module());
-    setenv("CLAMIGA_HOME", HOME_DIR, 1);
+    setenv("AMILISP_HOME", HOME_DIR, 1);
 
     eval_str("(require \"cltestrequirehome\")");
     ASSERT_STR_EQ("42", eval_str("*cl-test-require-home-ran*"));
 
-    unsetenv("CLAMIGA_HOME");
+    unsetenv("AMILISP_HOME");
     remove(HOME_MOD);
     rmdir(HOME_LIB);
     rmdir(HOME_DIR);
@@ -184,7 +184,7 @@ TEST(require_resolves_via_clamiga_home)
 TEST(require_clamiga_home_tolerates_trailing_slash)
 {
     ASSERT(write_home_module());
-    setenv("CLAMIGA_HOME", HOME_DIR "/", 1);
+    setenv("AMILISP_HOME", HOME_DIR "/", 1);
 
     /* Fresh symbol so the previous test's binding can't mask a failure. */
     eval_str("(makunbound '*cl-test-require-home-ran*)");
@@ -193,7 +193,7 @@ TEST(require_clamiga_home_tolerates_trailing_slash)
     eval_str("(require \"cltestrequirehome\")");
     ASSERT_STR_EQ("42", eval_str("*cl-test-require-home-ran*"));
 
-    unsetenv("CLAMIGA_HOME");
+    unsetenv("AMILISP_HOME");
     remove(HOME_MOD);
     rmdir(HOME_LIB);
     rmdir(HOME_DIR);
@@ -207,7 +207,7 @@ TEST(require_clamiga_home_tolerates_trailing_slash)
 TEST(require_symbol_designator_finds_lowercase_file)
 {
     ASSERT(write_home_module());
-    setenv("CLAMIGA_HOME", HOME_DIR, 1);
+    setenv("AMILISP_HOME", HOME_DIR, 1);
 
     eval_str("(makunbound '*cl-test-require-home-ran*)");
     eval_str("(makunbound '*cl-test-require-home-loads*)");
@@ -226,7 +226,7 @@ TEST(require_symbol_designator_finds_lowercase_file)
     ASSERT_STR_EQ("NIL", eval_str("(require \"cltestrequirehome\")"));
     ASSERT_STR_EQ("1", eval_str("*cl-test-require-home-loads*"));
 
-    unsetenv("CLAMIGA_HOME");
+    unsetenv("AMILISP_HOME");
     remove(HOME_MOD);
     rmdir(HOME_LIB);
     rmdir(HOME_DIR);

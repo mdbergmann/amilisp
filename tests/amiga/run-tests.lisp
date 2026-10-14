@@ -52,9 +52,9 @@
 ; STRESS-CHECK is CHECK for the multi-second race/GC hammers (concurrent
 ; compaction, concurrent method installs, ...).  They test the runtime, not
 ; the boot path, so the restored-image pass of call-on-ustartup (which sets
-; CLAMIGA_SUITE_QUICK) skips them -- they ran in the fresh-boot pass of the
+; AMILISP_SUITE_QUICK) skips them -- they ran in the fresh-boot pass of the
 ; same binary minutes earlier, and they are half of a pass's wall time.
-(defvar *suite-quick* (not (null (ext:getenv "CLAMIGA_SUITE_QUICK"))))
+(defvar *suite-quick* (not (null (ext:getenv "AMILISP_SUITE_QUICK"))))
 (defvar *skip-count* 0)
 (defmacro stress-check (name expected actual)
   `(if *suite-quick*
@@ -532,11 +532,11 @@ y" 1))
       (push (make-array 400) live)
       (push (make-array 100) dead))
     (setf dead nil)
-    (let ((g0 (clamiga::%get-gc-count)))
+    (let ((g0 (amilisp::%get-gc-count)))
       ;; Flood: short-lived medium vectors, each discarded immediately, forcing
       ;; the bump-exhausted slow path and repeated moving compactions.
       (dotimes (i 3000) (make-array 1000))
-      (let ((collections (- (clamiga::%get-gc-count) g0)))
+      (let ((collections (- (amilisp::%get-gc-count) g0)))
         ;; Live data uncorrupted by all the moving-GC compactions, AND the GC
         ;; stayed bounded (nowhere near one collection per allocation).
         (and (= (length live) 3500)
@@ -908,13 +908,13 @@ y" 1))
 ; CL_VM_FRAME_SIZE frames per level.  As bytecode the recursion costs one VM
 ; frame per level and no C stack, so the NLX / saved-pending budget is the only
 ; limit these checks can hit.
-(defvar *nlx-jit-was* (clamiga::%jit-active-p))
-(clamiga::%jit-set-active nil)
+(defvar *nlx-jit-was* (amilisp::%jit-active-p))
+(amilisp::%jit-set-active nil)
 (defun nlx-nest-catch (n)
   (if (= n 0) 0 (catch 'nlx-nest (1+ (nlx-nest-catch (1- n))))))
 (defun nlx-nest-uwp (n)
   (if (= n 0) 0 (unwind-protect (1+ (nlx-nest-uwp (1- n))) nil)))
-(clamiga::%jit-set-active *nlx-jit-was*)
+(amilisp::%jit-set-active *nlx-jit-was*)
 (defun nlx-probe (fn n)
   (handler-case (funcall fn n)
     (error (c) (if (search "overflow" (format nil "~A" c)) :overflow c))))
@@ -2793,19 +2793,19 @@ y" 1))
 (check "index non-condition symbol misses cleanly" nil
        (typep 42 '%ix-cond))
 
-; CLAMIGA::%TYPE-EXPANDER exposes the deftype expander table to Lisp so a
+; AMILISP::%TYPE-EXPANDER exposes the deftype expander table to Lisp so a
 ; portable TYPEXPAND can resolve user deftype aliases (introspect-environment
 ; shim → serapeum EXPLODE-TYPE).  A built-in type name has no expander; an
 ; atom alias's expander takes no args; a parameterized alias is applied to
 ; the compound type's args.
-(check "%type-expander builtin is nil" nil (clamiga::%type-expander 'list))
-(check "%type-expander non-symbol is nil" nil (clamiga::%type-expander 42))
+(check "%type-expander builtin is nil" nil (amilisp::%type-expander 'list))
+(check "%type-expander non-symbol is nil" nil (amilisp::%type-expander 42))
 (deftype %tx-disj () '(or string number))
 (check "%type-expander atom alias expands" '(or string number)
-       (funcall (clamiga::%type-expander '%tx-disj)))
+       (funcall (amilisp::%type-expander '%tx-disj)))
 (deftype %tx-range (lo hi) `(integer ,lo ,hi))
 (check "%type-expander parameterized alias expands" '(integer 0 9)
-       (funcall (clamiga::%type-expander '%tx-range) 0 9))
+       (funcall (amilisp::%type-expander '%tx-range) 0 9))
 
 ; Integer subtypes of BIT upgrade to a bit-vector (serapeum RANGE/SBIT regression).
 (check "uaet (integer 0 1)" 'bit (upgraded-array-element-type '(integer 0 1)))
@@ -3704,7 +3704,7 @@ y" 1))
 (check "defstruct accessor y" 20 (dst-point-y (make-dst-point :x 10 :y 20)))
 (check "defstruct predicate t" t (dst-point-p (make-dst-point)))
 (check "defstruct predicate nil" nil (dst-point-p 42))
-; DEFSTRUCT's hidden slot setter is CLAMIGA::%STRUCT-SET-<pkg>::<acc>, not
+; DEFSTRUCT's hidden slot setter is AMILISP::%STRUCT-SET-<pkg>::<acc>, not
 ; %SET-<acc> in the user's package, where it took over a user function of that
 ; name (and its compiler macro rewrote direct calls into a slot write on the
 ; first argument).  tests/test_struct_slot_access.sh section 6.
@@ -3917,13 +3917,13 @@ y" 1))
 (check "decode-float reconstruct" 3.14 (multiple-value-bind (s e g) (decode-float 3.14) (* (scale-float s e) g)))
 
 ; --- IEEE-754 raw bit access (float-features :cl-amiga backend, used by jzon) ---
-(check "double-float-bits 25.5d0" 4627870829588250624 (clamiga:double-float-bits 25.5d0))
-(check "double-float-bits 1.0d0" 4607182418800017408 (clamiga:double-float-bits 1.0d0))
-(check "single-float-bits 1.0" 1065353216 (clamiga:single-float-bits 1.0))
-(check "single-float-bits 25.5" 1103888384 (clamiga:single-float-bits 25.5))
-(check "double-float-bits roundtrip" t (= 25.5d0 (clamiga:bits-double-float (clamiga:double-float-bits 25.5d0))))
-(check "single-float-bits roundtrip" t (eql -2.5 (clamiga:bits-single-float (clamiga:single-float-bits -2.5))))
-(check "double-float-bits -0.0d0 sign bit" 9223372036854775808 (clamiga:double-float-bits -0.0d0))
+(check "double-float-bits 25.5d0" 4627870829588250624 (amilisp:double-float-bits 25.5d0))
+(check "double-float-bits 1.0d0" 4607182418800017408 (amilisp:double-float-bits 1.0d0))
+(check "single-float-bits 1.0" 1065353216 (amilisp:single-float-bits 1.0))
+(check "single-float-bits 25.5" 1103888384 (amilisp:single-float-bits 25.5))
+(check "double-float-bits roundtrip" t (= 25.5d0 (amilisp:bits-double-float (amilisp:double-float-bits 25.5d0))))
+(check "single-float-bits roundtrip" t (eql -2.5 (amilisp:bits-single-float (amilisp:single-float-bits -2.5))))
+(check "double-float-bits -0.0d0 sign bit" 9223372036854775808 (amilisp:double-float-bits -0.0d0))
 
 ; --- Regression: 2-arg LOG of a large double overflowed to infinity ---
 (check "log huge double base2" 1024 (round (log most-positive-double-float 2)))
@@ -4286,7 +4286,7 @@ y" 1))
          (x (copy-seq "xxxxxx")))
     (list (read-sequence x s) x (get-output-stream-string os))))
 (check "echo-stream binary file components" '(((unsigned-byte 8) (2 3 5 7 11 :eof)) (2 3 5 7 11 :eof))
-  (let ((pn "T:clamiga-echo.dat") (pn2 "T:clamiga-echo2.dat")
+  (let ((pn "T:amilisp-echo.dat") (pn2 "T:amilisp-echo2.dat")
         (et '(unsigned-byte 8)))
     (with-open-file (os pn :direction :output :element-type et :if-exists :supersede)
       (dolist (x '(2 3 5 7 11)) (write-byte x os)))
@@ -5035,35 +5035,35 @@ y" 1))
 ; Amigas (Vampire/Apollo) whose FPU divides with ~42 mantissa bits and made
 ; the old strtod-based path misparse pi by 9 ulps.  These check exact bits.
 (check "read 0.1d0 exact bits" 4591870180066957722
-  (clamiga:double-float-bits (read-from-string "0.1d0")))
+  (amilisp:double-float-bits (read-from-string "0.1d0")))
 (check "read pi exact bits" 4614256656552045848
-  (clamiga:double-float-bits (read-from-string "3.141592653589793d0")))
+  (amilisp:double-float-bits (read-from-string "3.141592653589793d0")))
 (check "read 17-digit pi same bits" 4614256656552045848
-  (clamiga:double-float-bits (read-from-string "3.1415926535897931d0")))
+  (amilisp:double-float-bits (read-from-string "3.1415926535897931d0")))
 ; The infamous halfway literal: rounds DOWN to the largest subnormal.
 (check "read subnormal halfway exact bits" 4503599627370495
-  (clamiga:double-float-bits (read-from-string "2.2250738585072011d-308")))
+  (amilisp:double-float-bits (read-from-string "2.2250738585072011d-308")))
 (check "read single pi exact bits" 1078530011
-  (clamiga:single-float-bits (read-from-string "3.14159274")))
+  (amilisp:single-float-bits (read-from-string "3.14159274")))
 ; Singles round decimal -> binary32 directly (no double-rounding through a
 ; double): this literal is the double halfway point just below the single
 ; halfway point, so it must read as exactly 1.0f0.
 (check "read single no double-rounding" 1065353216
-  (clamiga:single-float-bits (read-from-string "1.000000059604644775390625")))
+  (amilisp:single-float-bits (read-from-string "1.000000059604644775390625")))
 ; Min subnormal prints in truly shortest form and reads back bit-exactly.
 (check "print min subnormal shortest" "5d-324"
-  (prin1-to-string (clamiga:bits-double-float 1)))
+  (prin1-to-string (amilisp:bits-double-float 1)))
 (check "read min subnormal exact bits" 1
-  (clamiga:double-float-bits (read-from-string "5d-324")))
+  (amilisp:double-float-bits (read-from-string "5d-324")))
 ; Bit-exact print/read round-trip over boundary patterns: min/max subnormal,
 ; min/max normal, 1.0-eps, 0.1, and a mid-range irrational-looking value.
 (check "float print/read bit round-trip battery" t
   (loop for b in '(1 4503599627370495 4503599627370496
                    4607182418800017407 4591870180066957722
                    9218868437227405311 4614256656552045848)
-        always (= b (clamiga:double-float-bits
+        always (= b (amilisp:double-float-bits
                      (read-from-string
-                      (prin1-to-string (clamiga:bits-double-float b)))))))
+                      (prin1-to-string (amilisp:bits-double-float b)))))))
 
 ; --- File streams / open / with-open-file (Step 8) ---
 ; Use /tmp/ on POSIX, T: on Amiga — both are writable temp directories
@@ -5328,6 +5328,11 @@ y" 1))
 (check "features-has-clamiga" t (if (member :clamiga *features*) t nil))
 (check "feature-conditional-old-and-new" '(1 2 3 4)
        (list #+amilisp 1 #+amicl 2 #+clamiga 3 #+cl-amiga 4))
+
+; the implementation package is AMILISP; CLAMIGA, its old name, is a nickname
+(check "package-old-name-is-a-nickname" t
+       (and (eq (find-package "CLAMIGA") (find-package "AMILISP"))
+            (eq 'clamiga::%struct-setter-name 'amilisp::%struct-setter-name)))
 
 ; :COMMON-LISP is in *features*
 (check "features-has-common-lisp" t (if (member :common-lisp *features*) t nil))
@@ -7295,16 +7300,16 @@ y" 1))
 (defvar *fsv-miss* (make-symbol "MISS"))
 (defstruct fsv-amiga-st (a 10) (b 20))
 (check "fused read hit" 20
-       (clamiga::%struct-slot-value (make-fsv-amiga-st) 'b *fsv-miss*))
+       (amilisp::%struct-slot-value (make-fsv-amiga-st) 'b *fsv-miss*))
 (check "fused read no-such-slot miss" t
-       (eq (clamiga::%struct-slot-value (make-fsv-amiga-st) 'nope *fsv-miss*) *fsv-miss*))
+       (eq (amilisp::%struct-slot-value (make-fsv-amiga-st) 'nope *fsv-miss*) *fsv-miss*))
 (check "fused read non-struct miss" t
-       (eq (clamiga::%struct-slot-value 42 'a *fsv-miss*) *fsv-miss*))
+       (eq (amilisp::%struct-slot-value 42 'a *fsv-miss*) *fsv-miss*))
 (let ((s (make-fsv-amiga-st)))
-  (check "fused store hit" t (clamiga::%struct-slot-store s 'a 99))
+  (check "fused store hit" t (amilisp::%struct-slot-store s 'a 99))
   (check "fused store took effect" 99 (fsv-amiga-st-a s))
-  (check "fused store no-such-slot miss" nil (clamiga::%struct-slot-store s 'nope 1))
-  (check "fused store non-struct miss" nil (clamiga::%struct-slot-store 42 'a 1)))
+  (check "fused store no-such-slot miss" nil (amilisp::%struct-slot-store s 'nope 1))
+  (check "fused store non-struct miss" nil (amilisp::%struct-slot-store 42 'a 1)))
 (defclass fsv-amiga-base ()
   ((x :initarg :x :accessor fsv-amiga-x)
    (u :accessor fsv-amiga-u)
@@ -7338,15 +7343,15 @@ y" 1))
 (defgeneric fsv-amiga-probe (x))
 (defmethod fsv-amiga-probe ((x fsv-amiga-probe-st)) (fsv-amiga-probe-st-v x))
 (check "gf-ic-emf cold cache miss" nil
-       (functionp (clamiga::%gf-ic-emf (gethash 'fsv-amiga-probe *generic-function-table*)
+       (functionp (amilisp::%gf-ic-emf (gethash 'fsv-amiga-probe *generic-function-table*)
                                        (make-fsv-amiga-probe-st))))
 (check "gf dispatch through probe path" 7 (fsv-amiga-probe (make-fsv-amiga-probe-st)))
 (check "gf-ic-emf populated after dispatch" t
-       (functionp (clamiga::%gf-ic-emf (gethash 'fsv-amiga-probe *generic-function-table*)
+       (functionp (amilisp::%gf-ic-emf (gethash 'fsv-amiga-probe *generic-function-table*)
                                        (make-fsv-amiga-probe-st))))
 (check "gf-ic-emf wrong class miss" nil
-       (clamiga::%gf-ic-emf (gethash 'fsv-amiga-probe *generic-function-table*) 42))
-(check "gf-ic-emf non-gf miss" nil (clamiga::%gf-ic-emf 42 42))
+       (amilisp::%gf-ic-emf (gethash 'fsv-amiga-probe *generic-function-table*) 42))
+(check "gf-ic-emf non-gf miss" nil (amilisp::%gf-ic-emf 42 42))
 
 ; --- Reader-GF fast dispatch ---
 ; A GF whose whole method set is DEFCLASS-generated readers for one slot is
@@ -7372,7 +7377,7 @@ y" 1))
                          (u :reader rg-amiga-u)))
 (defclass rg-amiga-b () ((pad :initform 0) (x :initform 30 :reader rg-amiga-x)))
 (defclass rg-amiga-c (rg-amiga-a) ((z :initform 100)))
-(check "reader GF promoted" t (and (gethash #'rg-amiga-x clamiga:*reader-gfs*) t))
+(check "reader GF promoted" t (and (gethash #'rg-amiga-x amilisp:*reader-gfs*) t))
 (check "reader on base" 3 (rg-amiga-x (make-instance 'rg-amiga-a)))
 (check "reader on other class, different index" 30
        (rg-amiga-x (make-instance 'rg-amiga-b)))
@@ -7385,10 +7390,10 @@ y" 1))
 (check "polymorphic IC caches both classes and hits" '(t t)
        (let ((a (make-instance 'rg-amiga-a)) (b (make-instance 'rg-amiga-b)))
          (rg-amiga-x a) (rg-amiga-x b)
-         (let ((ic (clamiga::gf-inline-cache #'rg-amiga-x)))
+         (let ((ic (amilisp::gf-inline-cache #'rg-amiga-x)))
            (dotimes (i 5) (rg-amiga-x a) (rg-amiga-x b))
            (list (>= (length ic) 2)
-                 (eq ic (clamiga::gf-inline-cache #'rg-amiga-x))))))
+                 (eq ic (amilisp::gf-inline-cache #'rg-amiga-x))))))
 ; five receiver classes exceed the 4-entry cap: oldest evicted, values correct
 (defclass rg-amiga-e1 () ((x :initform 1 :reader rg-amiga-ex)))
 (defclass rg-amiga-e2 () ((x :initform 2 :reader rg-amiga-ex)))
@@ -7404,7 +7409,7 @@ y" 1))
            (dolist (o os)
              (push (rg-amiga-ex o) acc)
              (setq maxlen (max maxlen
-                               (length (clamiga::gf-inline-cache #'rg-amiga-ex))))))
+                               (length (amilisp::gf-inline-cache #'rg-amiga-ex))))))
          (list maxlen (nreverse acc))))
 (check "NIL-valued slot is not the unbound marker" nil
        (rg-amiga-n (make-instance 'rg-amiga-a)))
@@ -7441,22 +7446,22 @@ y" 1))
 ; prove the caller genuinely executes as native code where the JIT is active
 ; (vacuous under --no-jit and on host, where the check below is skipped)
 (check "reader-calling defun runs native" t
-       (if (clamiga::%jit-active-p)
-           (let ((before (clamiga::%jit-invoke-count)))
+       (if (amilisp::%jit-active-p)
+           (let ((before (amilisp::%jit-invoke-count)))
              (rg-amiga-mid (make-instance 'rg-amiga-a))
-             (> (clamiga::%jit-invoke-count) before))
+             (> (amilisp::%jit-invoke-count) before))
            t))
 ; a hit never rewrites slot 8: the spine staying EQ across JIT'd-caller,
 ; funcall, and apply calls proves the probes answered them
 (check "trampoline probes hit, spine stays EQ" '(t (3 30))
        (let ((a (make-instance 'rg-amiga-a)) (b (make-instance 'rg-amiga-b)))
          (rg-amiga-x a) (rg-amiga-x b)
-         (let ((ic (clamiga::gf-inline-cache #'rg-amiga-x)) (acc nil))
+         (let ((ic (amilisp::gf-inline-cache #'rg-amiga-x)) (acc nil))
            (dotimes (i 5)
              (rg-amiga-mid a) (rg-amiga-tail b)
              (push (funcall #'rg-amiga-x a) acc)
              (push (apply #'rg-amiga-x (list b)) acc))
-           (list (eq ic (clamiga::gf-inline-cache #'rg-amiga-x))
+           (list (eq ic (amilisp::gf-inline-cache #'rg-amiga-x))
                  (remove-duplicates (nreverse acc))))))
 ; accessor writer round-trip
 (defclass rg-amiga-w () ((x :initform 1 :accessor rg-amiga-wx)))
@@ -7466,7 +7471,7 @@ y" 1))
 (defclass rg-amiga-s () ((x :initform 10 :reader rg-amiga-sx)))
 (check "sx fast before around" 10 (rg-amiga-sx (make-instance 'rg-amiga-s)))
 (defmethod rg-amiga-sx :around ((o rg-amiga-s)) (* 100 (call-next-method)))
-(check "around demotes reader GF" nil (and (gethash #'rg-amiga-sx clamiga:*reader-gfs*) t))
+(check "around demotes reader GF" nil (and (gethash #'rg-amiga-sx amilisp:*reader-gfs*) t))
 (check "around runs" 1000 (rg-amiga-sx (make-instance 'rg-amiga-s)))
 ; demotion must disarm the trampoline probes too
 (check "around runs through funcall" 1000
@@ -7522,7 +7527,7 @@ y" 1))
 (defclass rg-amiga-sfi () ((x :initform 'orig :reader rg-amiga-sfix)))
 (check "sfix fast" 'orig (rg-amiga-sfix (make-instance 'rg-amiga-sfi)))
 (set-funcallable-instance-function #'rg-amiga-sfix (lambda (o) (declare (ignore o)) 'hijacked))
-(check "set-funcallable demotes" nil (and (gethash #'rg-amiga-sfix clamiga:*reader-gfs*) t))
+(check "set-funcallable demotes" nil (and (gethash #'rg-amiga-sfix amilisp:*reader-gfs*) t))
 (check "set-funcallable-instance-function wins" 'hijacked
        (rg-amiga-sfix (make-instance 'rg-amiga-sfi)))
 (check "set-funcallable-instance-function wins via funcall" 'hijacked
@@ -7539,7 +7544,7 @@ y" 1))
 (defclass wg-amiga-a () ((x :initform 0 :accessor wg-amiga-x)
                          (guard :initform :g)))
 (defclass wg-amiga-b () ((pad :initform 0) (x :initform 0 :accessor wg-amiga-x)))
-(check "writer GF promoted" t (and (gethash #'(setf wg-amiga-x) clamiga:*writer-gfs*) t))
+(check "writer GF promoted" t (and (gethash #'(setf wg-amiga-x) amilisp:*writer-gfs*) t))
 (check "writer stores and setf returns value" '(42 42)
        (let ((o (make-instance 'wg-amiga-a)))
          (list (setf (wg-amiga-x o) 42) (wg-amiga-x o))))
@@ -7552,14 +7557,14 @@ y" 1))
 (check "writer polymorphic alternation, spine stays EQ" '(t 4 40)
        (let ((a (make-instance 'wg-amiga-a)) (b (make-instance 'wg-amiga-b)))
          (setf (wg-amiga-x a) 0) (setf (wg-amiga-x b) 0)
-         (let ((ic (clamiga::gf-inline-cache #'(setf wg-amiga-x))))
+         (let ((ic (amilisp::gf-inline-cache #'(setf wg-amiga-x))))
            (dotimes (i 5) (setf (wg-amiga-x a) i) (setf (wg-amiga-x b) (* 10 i)))
-           (list (eq ic (clamiga::gf-inline-cache #'(setf wg-amiga-x)))
+           (list (eq ic (amilisp::gf-inline-cache #'(setf wg-amiga-x)))
                  (wg-amiga-x a) (wg-amiga-x b)))))
 ; :writer option names the GF directly; it takes (VAL OBJ)
 (defclass wg-amiga-wo () ((x :initform 0 :writer wg-amiga-set-x :reader wg-amiga-wox)))
 (check "writer via :writer option promoted" t
-       (and (gethash #'wg-amiga-set-x clamiga:*writer-gfs*) t))
+       (and (gethash #'wg-amiga-set-x amilisp:*writer-gfs*) t))
 (check ":writer stores" '(7 7)
        (let ((o (make-instance 'wg-amiga-wo)))
          (list (wg-amiga-set-x 7 o) (wg-amiga-wox o))))
@@ -7588,10 +7593,10 @@ y" 1))
 (defun wg-amiga-mid (v o) (setf (wg-amiga-x o) v) (wg-amiga-x o))
 (check "JIT'd caller writer" 11 (wg-amiga-mid 11 (make-instance 'wg-amiga-a)))
 (check "writer-calling defun runs native" t
-       (if (clamiga::%jit-active-p)
-           (let ((before (clamiga::%jit-invoke-count)))
+       (if (amilisp::%jit-active-p)
+           (let ((before (amilisp::%jit-invoke-count)))
              (wg-amiga-mid 12 (make-instance 'wg-amiga-a))
-             (> (clamiga::%jit-invoke-count) before))
+             (> (amilisp::%jit-invoke-count) before))
            t))
 ; an :after method on the setter retracts the fast path (a probe hit would
 ; silently skip it) — the sento-actor pattern
@@ -7602,7 +7607,7 @@ y" 1))
 (defmethod (setf wg-amiga-sx) :after (val (o wg-amiga-s))
   (push val (slot-value o 'log)))
 (check "after-method demotes writer GF" nil
-       (and (gethash #'(setf wg-amiga-sx) clamiga:*writer-gfs*) t))
+       (and (gethash #'(setf wg-amiga-sx) amilisp:*writer-gfs*) t))
 (check "after-method runs on write" '(8 (8 7))
        (let ((o (make-instance 'wg-amiga-s)))
          (setf (wg-amiga-sx o) 7)
@@ -7627,7 +7632,7 @@ y" 1))
 (set-funcallable-instance-function
   #'(setf wg-amiga-sfix) (lambda (v o) (declare (ignore v o)) 'hijacked))
 (check "set-funcallable demotes writer" nil
-       (and (gethash #'(setf wg-amiga-sfix) clamiga:*writer-gfs*) t))
+       (and (gethash #'(setf wg-amiga-sfix) amilisp:*writer-gfs*) t))
 (check "set-funcallable wins for writer" 'hijacked
        (funcall #'(setf wg-amiga-sfix) 9 (make-instance 'wg-amiga-sfi)))
 (check "hijacked writer does not store" 0
@@ -7700,9 +7705,9 @@ y" 1))
 (check "protocol flag extended" t *slot-access-protocol-extended-p*)
 ; the latch demotes every promoted reader AND writer GF (see the reader-GF /
 ; writer-GF sections above, which ran while the flag was still NIL)
-(check "latch demoted reader GFs" nil (and (gethash #'rg-amiga-x clamiga:*reader-gfs*) t))
+(check "latch demoted reader GFs" nil (and (gethash #'rg-amiga-x amilisp:*reader-gfs*) t))
 (check "latch demoted writer GFs" nil
-       (and (gethash #'(setf wg-amiga-x) clamiga:*writer-gfs*) t))
+       (and (gethash #'(setf wg-amiga-x) amilisp:*writer-gfs*) t))
 (check "demoted writer still stores" 21
        (let ((o (make-instance 'wg-amiga-a)))
          (setf (wg-amiga-x o) 21) (wg-amiga-x o)))
@@ -7767,12 +7772,12 @@ y" 1))
 ;; the full slot-value protocol and that the index survives compaction.
 (defstruct sidx-amiga (x 3) (y 4))
 (dotimes (i 60)
-  (clamiga::%register-struct-type
+  (amilisp::%register-struct-type
    (make-symbol (format nil "SIDX-AMIGA-FILLER-~D" i)) 1 nil '((f nil))))
-(check "struct-index slot index x" 0 (clamiga::%struct-slot-index 'sidx-amiga 'x))
-(check "struct-index slot index y" 1 (clamiga::%struct-slot-index 'sidx-amiga 'y))
-(check "struct-index missing slot" nil (clamiga::%struct-slot-index 'sidx-amiga 'nope))
-(check "struct-index unknown type" nil (clamiga::%struct-slot-index 'sidx-amiga-no-such 'x))
+(check "struct-index slot index x" 0 (amilisp::%struct-slot-index 'sidx-amiga 'x))
+(check "struct-index slot index y" 1 (amilisp::%struct-slot-index 'sidx-amiga 'y))
+(check "struct-index missing slot" nil (amilisp::%struct-slot-index 'sidx-amiga 'nope))
+(check "struct-index unknown type" nil (amilisp::%struct-slot-index 'sidx-amiga-no-such 'x))
 (let ((s (make-sidx-amiga)))
   (check "struct-index buried slot-value" 7 (+ (slot-value s 'x) (slot-value s 'y)))
   (setf (slot-value s 'y) 40)
@@ -7781,16 +7786,16 @@ y" 1))
   (check "struct-index buried typep" t (typep s 'sidx-amiga)))
 (ext:gc-compact)
 (check "struct-index survives compaction" 1
-       (clamiga::%struct-slot-index 'sidx-amiga 'y))
+       (amilisp::%struct-slot-index 'sidx-amiga 'y))
 (check "struct-index slot-value after compaction" 3
        (slot-value (make-sidx-amiga) 'x))
 ;; Re-registration: the NEWEST entry must win (first-match semantics).
-(clamiga::%register-struct-type 'sidx-amiga-re 1 nil '((a nil)))
-(clamiga::%register-struct-type 'sidx-amiga-re 3 nil '((p nil) (q nil) (r nil)))
+(amilisp::%register-struct-type 'sidx-amiga-re 1 nil '((a nil)))
+(amilisp::%register-struct-type 'sidx-amiga-re 3 nil '((p nil) (q nil) (r nil)))
 (check "struct-index redefinition newest wins" 2
-       (clamiga::%struct-slot-index 'sidx-amiga-re 'r))
+       (amilisp::%struct-slot-index 'sidx-amiga-re 'r))
 (check "struct-index redefinition drops old slot" nil
-       (clamiga::%struct-slot-index 'sidx-amiga-re 'a))
+       (amilisp::%struct-slot-index 'sidx-amiga-re 'a))
 (defclass sv-amiga-unbnd () ((u)))
 (defmethod slot-unbound ((class t) (inst sv-amiga-unbnd) slot-name)
   (declare (ignore class slot-name))
@@ -8276,7 +8281,7 @@ y" 1))
 (check "makunbound unbinds" nil (boundp '*amiga-mak-test*))
 
 ; --- ext:getenv ---
-(check "getenv non-existent returns NIL" nil (ext:getenv "CLAMIGA_NONEXISTENT_VAR_12345"))
+(check "getenv non-existent returns NIL" nil (ext:getenv "AMILISP_NONEXISTENT_VAR_12345"))
 (check "getenv type check" t (handler-case (progn (ext:getenv 42) nil) (error () t)))
 
 ; --- Nested quasiquote ---
@@ -9006,10 +9011,10 @@ y" 1))
 ;; code calling native code through a filled direct-call site
 ;; (specs/jit-direct-calls.md) books no VM frame at all, so a JIT'd one would
 ;; simply finish.
-(defvar *deep-frames-jit-was* (clamiga::%jit-active-p))
-(clamiga::%jit-set-active nil)
+(defvar *deep-frames-jit-was* (amilisp::%jit-active-p))
+(amilisp::%jit-set-active nil)
 (defun deep-frames-r (n) (if (<= n 0) 0 (1+ (funcall #'deep-frames-r (1- n)))))
-(clamiga::%jit-set-active *deep-frames-jit-was*)
+(amilisp::%jit-set-active *deep-frames-jit-was*)
 (check "default worker dies silently past 256 frames" nil
   (mp:join-thread (mp:make-thread (lambda () (deep-frames-r 500)))))
 
@@ -9931,7 +9936,7 @@ y" 1))
 ; JIT'd functions push call frames by default, so EXT:BACKTRACE /
 ; EXT:FRAME-LOCALS see the JIT'd bt-* calls.  Asserted on here in case an
 ; earlier section left them off.  No-op on host / --no-jit.
-(clamiga::%jit-set-frames t)
+(amilisp::%jit-set-frames t)
 (defun bt-c (z) (declare (ignore z)) (ext:backtrace))
 (defun bt-b (y) (let ((r (bt-c (* y 2)))) r))
 (defun bt-a (x) (let ((r (bt-b (+ x 1)))) r))
@@ -9952,7 +9957,7 @@ y" 1))
 ; and are not introspectable; only the argument slots are recoverable there.
 ; In the bytecode interpreter (host, or --no-jit) all locals are visible.
 (check "frame-locals exposes let-bound value" t
-  (or (clamiga::%jit-active-p)
+  (or (amilisp::%jit-active-p)
       (and (member 77 (mapcar #'cdr *amiga-locals*)) t)))
 (check "frame-locals out-of-range index" :not-available
   (ext:frame-locals 9999))
@@ -10052,7 +10057,7 @@ y" 1))
   '(7 "#<CLOSURE BT-SF-OK>") (bt-sf-host))
 
 (check "jit frames stay on after the backtrace section" t
-  (or (clamiga::%jit-frames-p) (not (clamiga::%jit-active-p))))
+  (or (amilisp::%jit-frames-p) (not (amilisp::%jit-active-p))))
 
 ; --- docstrings are recorded by the defining forms ---
 ; The compiler emits a load-time %SET-DOCUMENTATION call per documented
@@ -11011,7 +11016,7 @@ y" 1))
 ; the state the interactive debugger renders `:bt [n|all]` from.
 ; JIT'd functions push call frames by default, so the JIT'd chain is in
 ; these captures (asserted on, as in the EXT:BACKTRACE section above).
-(clamiga::%jit-set-frames t)
+(amilisp::%jit-set-frames t)
 (defparameter *amiga-deep-bt* nil)
 (defparameter *amiga-deep-bt5* nil)
 (handler-case
@@ -11035,7 +11040,7 @@ y" 1))
   (and (member "BT-OVERFLOW-F1" *amiga-deep-names* :test #'equal) t))
 (check "backtrace max-frames caps the window" 5 (length *amiga-deep-bt5*))
 (check "deep backtrace jit frames stay on" t
-  (or (clamiga::%jit-frames-p) (not (clamiga::%jit-active-p))))
+  (or (amilisp::%jit-frames-p) (not (amilisp::%jit-active-p))))
 ; A deep capture must leave the runtime healthy — a buffer grown and then
 ; reused across captures is the path that would corrupt state if mismanaged.
 (check "evaluation still sane after deep backtrace captures" 3 (+ 1 2))
@@ -11976,9 +11981,9 @@ y" 1))
 ; The suite launches amilisp WITHOUT --boot-log, so the boot must have been
 ; quiet: %BOOT-QUIET-P reports T and %BOOT-TRACE-CLOS no-ops (returns NIL
 ; and writes nothing into the results log).
-(check "boot is quiet by default" t (clamiga::%boot-quiet-p))
+(check "boot is quiet by default" t (amilisp::%boot-quiet-p))
 (check "boot trace no-ops when quiet" nil
-  (clamiga::%boot-trace-clos 1 1 "must-not-appear-in-results-log"))
+  (amilisp::%boot-trace-clos 1 1 "must-not-appear-in-results-log"))
 
 ; --- ARexx development port (AmigaOS / MorphOS) ---
 ; Loaded as a separate file on purpose: the tests name symbols in the
@@ -12633,7 +12638,7 @@ y" 1))
 ;; on the host).  The functions above ran already, so the semantics of the
 ;; native code are covered by their checks.
 (defun t4p3-jit-native-p (f)
-  (if (clamiga::%jit-active-p) (not (null (clamiga::%jit-dump-bytes f))) t))
+  (if (amilisp::%jit-active-p) (not (null (amilisp::%jit-dump-bytes f))) t))
 (check "JIT: STORE_POP / LOAD_LOAD / LOAD_CALL_GLOBAL" t (t4p3-jit-native-p #'t4p3-bind))
 (check "JIT: LOAD_STRUCT_REF" t (t4p3-jit-native-p #'t4p3-slot))
 (check "JIT: LOAD_MV_RESET / LOAD_RET" t (and (t4p3-jit-native-p #'t4p3-ret-param)
@@ -12828,7 +12833,7 @@ y" 1))
 (check "call-diag: arity names callee, caller and the arguments" '(t t t)
   (let ((m (cdiag-msg (lambda () (cdiag-caller 42)))))
     (list (and (search "Too few arguments to CDIAG-TWO" m) t)
-          (and (search (if (clamiga::%jit-active-p) "called from " "called from CDIAG-CALLER") m) t)
+          (and (search (if (amilisp::%jit-active-p) "called from " "called from CDIAG-CALLER") m) t)
           (and (search "with (42)" m) t))))
 (check "call-diag: too many lists the arguments" t
   (and (search "got 3, called from" (cdiag-msg (lambda () (cdiag-two 1 2 3)))) t))
@@ -12866,7 +12871,7 @@ y" 1))
 ; also when the session booted from a heap image (the restore re-derives
 ; the feature from THIS process's startup test, not the image's saver).
 ; (tests/test_cpu_selftest.sh is the host leg, where the answer is 0 and
-; CLAMIGA_CPU_CHECK=<n> stands in for a defective CPU.)
+; AMILISP_CPU_CHECK=<n> stands in for a defective CPU.)
 (check "cpu-store-selftest: an integer >= 0 at the default and at 20000 rounds" '(t t)
   (let ((a (ext:%cpu-store-selftest)) (b (ext:%cpu-store-selftest 20000)))
     (list (and (integerp a) (>= a 0)) (and (integerp b) (>= b 0)))))
@@ -12893,7 +12898,7 @@ y" 1))
     (when (> (incf n) 40) (return))
     (format t "~8D  ~A~%" (car s) (cdr s))))
 (when (> *skip-count* 0)
-  (format t "Skipped ~D stress check(s) (CLAMIGA_SUITE_QUICK)~%" *skip-count*))
+  (format t "Skipped ~D stress check(s) (AMILISP_SUITE_QUICK)~%" *skip-count*))
 (format t "Threads still alive: ~D~%" (length (mp:all-threads)))
 
 ; --- JIT benchmark (m68k Amiga only; no native codegen elsewhere) ---

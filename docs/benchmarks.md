@@ -116,7 +116,7 @@ pushing the interpreter's frame inline, instead of going through
 
 **Environment**: Apple M-series, macOS, host build (`make host`), branch
 `feat/a64-direct-calls`.  One binary, direct calls on vs off
-(`CLAMIGA_JIT_DIRECT=0`), three interleaved rounds, medians.
+(`AMILISP_JIT_DIRECT=0`), three interleaved rounds, medians.
 
 `trunk/bench-jit-call.lisp` with `(defparameter cl-user::*bjc-n* 2000000)`,
 ms per 2 M iterations:
@@ -188,11 +188,11 @@ f20f45d2 built in a worktree; phase 2 = branch `feat/a64-jit-p2`.  Three
 interleaved rounds, best of each.
 
 **Command**: `trunk/bench-opt.lisp` forces the JIT off, so a copy with the
-`(clamiga::%jit-set-active nil)` line removed is loaded, eager:
+`(amilisp::%jit-set-active nil)` line removed is loaded, eager:
 
 ```
-sed 's/^(clamiga::%jit-set-active nil)$//' trunk/bench-opt.lisp > /tmp/bo-jit.lisp
-CLAMIGA_JIT_HOT=0 ./build/host/amilisp --heap 64M --no-userinit --non-interactive [--no-jit] --load /tmp/bo-jit.lisp
+sed 's/^(amilisp::%jit-set-active nil)$//' trunk/bench-opt.lisp > /tmp/bo-jit.lisp
+AMILISP_JIT_HOT=0 ./build/host/amilisp --heap 64M --no-userinit --non-interactive [--no-jit] --load /tmp/bo-jit.lisp
 ```
 
 | Row (ms)                 | interpreter | phase 1 | phase 2 | phase 2 vs interp |
@@ -233,7 +233,7 @@ takes the helper as before.
 the cross-built `build/cross/amilisp` of branch `spec/jit-direct-calls`,
 `--no-image --heap 8M`, `stack 128000`.  One boot runs three interleaved
 rounds of the same binary, alternating the default with
-`CLAMIGA_JIT_DIRECT=0` (the kill switch).  Medians, µs per iteration
+`AMILISP_JIT_DIRECT=0` (the kill switch).  Medians, µs per iteration
 including the loop, 200,000 iterations per row.
 
 | Row                              | bytecode | JIT, direct off | JIT, direct on |
@@ -264,7 +264,7 @@ twice, which is why the "off" column also beats the 2026-09-16 numbers.
 
 The Clamacs per-key spike (`clamacs/spike/run-spike.sh 040`: 1,051 keys,
 44 RETs) ran in four boots, on / off / on / off (`SPIKE_SETENV=
-CLAMIGA_JIT_DIRECT=0` for off).  Per key, median / p90: 321 / 385 and
+AMILISP_JIT_DIRECT=0` for off).  Per key, median / p90: 321 / 385 and
 383 / 385 µs on, against 385 / 449 and 392 / 449 µs off.  RET median: 32.9
 and 31.5 ms on, against 32.8 and 33.2 ms off.  The spike's clock ticks in
 about 64 µs steps, so the per-key gain is about one tick at p90.  Explicit
@@ -276,7 +276,7 @@ full GCs are equal.
 boot-override (see `verify/realamiga/call-on-ustartup`).  Per round it
 runs `amilisp --no-userinit --no-image --heap 8M --non-interactive --load
 trunk/bench-jit-call.lisp` twice, once plain and once after `setenv
-CLAMIGA_JIT_DIRECT 0`, with `unsetenv` after it.
+AMILISP_JIT_DIRECT 0`, with `unsetenv` after it.
 
 ---
 
@@ -367,8 +367,8 @@ now call and return (`specs/lazy-jit.md`, "Tail calls from bytecode").
 **Reproduce**: a boot-override script (see `verify/realamiga/make-image.sh`
 for the pattern) running, per policy, `amilisp --no-userinit --no-image
 --heap 8M --non-interactive --boot-log [--jit-eager|--no-jit]` with a
-file that prints `(clamiga::%jit-native-bytes)`,
-`(clamiga::%jit-hot-compile-count)` and the timings.
+file that prints `(amilisp::%jit-native-bytes)`,
+`(amilisp::%jit-hot-compile-count)` and the timings.
 
 ---
 
@@ -577,7 +577,7 @@ remove it.  `trunk/bench-prims.lisp` (min of 5): `lock-acquire-release`
 55 → 52 ns, `lock+condvar-notify` 67 → 62 ns, every other row within a
 nanosecond; `mt.call-x8` / `mt.dynbind-x8` unchanged at 35 / 36 ms.
 
-Reproduce: `CLAMIGA_FASL_CACHE_DIR=<fresh dir> CLAMIGA_FORCE_SPEED=3
+Reproduce: `AMILISP_FASL_CACHE_DIR=<fresh dir> AMILISP_FORCE_SPEED=3
 ./build/host/amilisp --no-userinit --heap 192M --non-interactive --load
 trunk/sento-bench-matrix.lisp`, one leg per binary, sequentially.
 
@@ -629,10 +629,10 @@ compiles natively).  All three at `(optimize (speed 1) (safety 1) (debug
 
 **Environment**: Apple M3 Ultra, macOS 26.6.2, `--heap 64M`; amilisp compiled
 the file from source into a scratch FASL cache each run
-(`CLAMIGA_FASL_CACHE_DIR`).  Each row is the minimum of 5 in-process
+(`AMILISP_FASL_CACHE_DIR`).  Each row is the minimum of 5 in-process
 repetitions, and each implementation ran twice in separate processes, one
 after the other on a quiet machine (the table takes the lower of the two;
-amilisp's runs agree within 2% on every row).  A `CLAMIGA_FORCE_SPEED=3` run
+amilisp's runs agree within 2% on every row).  A `AMILISP_FORCE_SPEED=3` run
 matched speed 1 on every row.
 
 | row | amilisp | ECL | SBCL | ECL/amilisp | SBCL/amilisp |
@@ -731,7 +731,7 @@ optimisation and unboxed double-float arrays.
 
 ```
 ./build/host/amilisp --no-userinit --heap 64M --non-interactive --load trunk/bench-general.lisp
-CLAMIGA_FORCE_SPEED=3 ./build/host/amilisp --no-userinit --heap 64M --non-interactive --load trunk/bench-general.lisp
+AMILISP_FORCE_SPEED=3 ./build/host/amilisp --no-userinit --heap 64M --non-interactive --load trunk/bench-general.lisp
 ecl --norc --eval '(progn (load (compile-file "trunk/bench-general.lisp" :output-file "/tmp/bench-general.fas")) (quit))'
 sbcl --non-interactive --no-userinit --no-sysinit --load trunk/bench-general.lisp
 # Amiga: (defparameter cl-user::*bg-scale* 1/20) before loading
@@ -748,7 +748,7 @@ and gained three rewrites on the way (the dead result-slot store before a
 RET, a JMP whose target is a RET, a RETURN-FROM site returning in place).
 Three binaries measured in the SAME session on a quiet machine: the item-5
 tree (`17a20059`, a `git worktree`), the phase-3 tree with
-`CLAMIGA_NO_FUSE=1` (the pass at speed 1 with its rewrites, no fusion —
+`AMILISP_NO_FUSE=1` (the pass at speed 1 with its rewrites, no fusion —
 "nofuse"), and the phase-3 tree.
 
 **Environment**: Apple M3 Ultra, macOS 26.6.2, `--heap 64M` for the
@@ -757,7 +757,7 @@ file from source (the FASL cache entry was deleted before each run),
 minimum of 5 interleaved runs per binary.
 
 **Which opcode pairs to fuse** came from an adjacent-pair profile
-(`PROFILE_OPCODES` builds count pairs now; `(clamiga::%op-counts-dump)`
+(`PROFILE_OPCODES` builds count pairs now; `(amilisp::%op-counts-dump)`
 prints the top 48), taken on the sento pinned/tell path at one producer,
 4 s, before any fusion: 856.8M dispatches, 1,245 per message.  The top
 fusable pairs — STORE→POP 10.8%, POP→LOAD 8.4%, LOAD→LOAD 5.2%,
@@ -866,11 +866,11 @@ regression case), `make test-memleak`, `make -f Makefile.cross test-amiga` (fres
 /tmp/base && make host)`; per run `find ~/.cache/common-lisp -name
 bench-prims.fasl -delete` then `amilisp --no-userinit --heap 64M
 --non-interactive --load trunk/bench-prims.lisp`, alternating the three
-binaries (`CLAMIGA_NO_FUSE=1` for the middle column), minimum per row;
+binaries (`AMILISP_NO_FUSE=1` for the middle column), minimum per row;
 the sento cells as named above; the pair profile with `make host
 BUILDDIR=build/host-opprof DEBUG_FLAGS=-DPROFILE_OPCODES`, a warm-up
-iteration, `(clamiga::%op-counts-reset)`, one 4 s iteration at one
-producer, `(clamiga::%op-counts-dump)`.
+iteration, `(amilisp::%op-counts-reset)`, one 4 s iteration at one
+producer, `(amilisp::%op-counts-dump)`.
 
 ---
 
@@ -1127,7 +1127,7 @@ call rows are what catches it.
 **Gates**: `make test`, `make test-gc-stress` (516/516), `make test-plus`
 (host-cold-test 585/585), `make test-memleak` (5/5), and
 `tests/test_tier4_phase1.sh` (34 checks, run in the fast tier and again under
-`CLAMIGA_GC_STRESS=1`).
+`AMILISP_GC_STRESS=1`).
 
 **Reproduce**:
 
@@ -1237,12 +1237,12 @@ row beyond noise.
 
 ```
 ./build/host/amilisp --no-userinit --heap 64M --non-interactive --load trunk/bench-prims.lisp
-CLAMIGA_FORCE_SPEED=3 ./build/host/amilisp --no-userinit --heap 64M --non-interactive --load trunk/bench-prims.lisp
+AMILISP_FORCE_SPEED=3 ./build/host/amilisp --no-userinit --heap 64M --non-interactive --load trunk/bench-prims.lisp
 ecl --norc --eval '(progn (load (compile-file "trunk/bench-prims.lisp" :output-file "/tmp/bench-prims.fas")) (quit))'
 # profile: run trunk/profile-sento-bench.lisp in the background, wait for
 #   "BENCH STEADY STATE BEGIN", then: sample <pid> 25 -file out.sample
-# opcode counts: PROFILE_OPCODES build, (clamiga::%op-counts-reset) before and
-#   (clamiga::%op-counts-dump) after one run-benchmark call
+# opcode counts: PROFILE_OPCODES build, (amilisp::%op-counts-reset) before and
+#   (amilisp::%op-counts-dump) after one run-benchmark call
 ```
 
 ---
@@ -1307,7 +1307,7 @@ collection — the dominant GC cost of the ask benchmark).
 **Environment**: Apple M3 Ultra, macOS 26.5.2, `make host`, `--heap 192M`.
 Benchmark: `sento.bench::run-benchmark` (`:num-shared-workers 8,
 :load-threads 8, :duration 5, :num-iterations 6`).  A/B on the SAME binary
-via `CLAMIGA_GENGC=0` (classic collector, incl. the epoch dedup).
+via `AMILISP_GENGC=0` (classic collector, incl. the epoch dedup).
 
 Full 6-cell matrix (single session per collector, cells back-to-back;
 GC share = total collector time / cell wall time from the telemetry):
@@ -1336,7 +1336,7 @@ short-lived garbage a nursery reclaims for free.
 **Reproduce**: load `trunk/load-sento-bench.lisp`, then run
 `sento.bench::run-benchmark` with the config above (per cell:
 `:with-reply-p`/`:async-ask-p`); read `(ext:%gc-time-stats)` /
-`(ext:%gengc-stats)` around the run; A/B with `CLAMIGA_GENGC=0`.
+`(ext:%gengc-stats)` around the run; A/B with `AMILISP_GENGC=0`.
 
 ---
 
@@ -1348,7 +1348,7 @@ TYPEP on a symbol type spec probes the struct registry (indexed since
 spec 3.1), then `cl_is_condition_type` and `cl_get_type_expander` — both
 were linear alist walks, so every symbol TYPEP paid O(registered
 conditions + deftypes) even when the answer was "no".  Real-world impact
-(eta-hab on linux-arm64, diagnosed via `CLAMIGA_LOCK_DIAG` + in-container
+(eta-hab on linux-arm64, diagnosed via `AMILISP_LOCK_DIAG` + in-container
 gdb): the print-object hook runs one TYPEP per printed node, so a single
 log4cl log line printing an actor/queue graph held the serialized appender
 lock for **~60s per appender**, stalling main/watcher/timer threads 1–2
@@ -1383,7 +1383,7 @@ at 30 iterations (`:dispatcher :pinned`, `:with-reply-p nil`,
 `:load-threads 8`, `:duration 10`).
 
 **Environment**: Apple M3 Ultra, macOS 26.5.2, `--heap 192M`,
-`CLAMIGA_FORCE_SPEED=3`.
+`AMILISP_FORCE_SPEED=3`.
 
 | Leg (msg/s AVG)   | barrier | no-barrier |
 | ----------------- | ------: | ---------: |
@@ -1448,7 +1448,7 @@ The reader fast path left writers untouched: `(setf (x obj) v)` was a plain
 method funcall + `%ACCESSOR-WRITER-BODY`'s per-store slot resolution).  This
 entry adds the mirror machinery: a GF whose whole method set is
 DEFCLASS-generated writer methods for one slot is promoted
-(`CLAMIGA:*WRITER-GFS*`), and the same probe sites that answer reader calls
+(`AMILISP:*WRITER-GFS*`), and the same probe sites that answer reader calls
 (`OP_CALL`, `cl_vm_apply` — the m68k-JIT funnel — `bi_funcall`, `bi_apply`,
 the VM's inline `OP_APPLY`) store straight through the cached slot index on
 a 2-arg call.  Writer IC entries reuse the reader's `(TYPE-NAME . FIXNUM)`
@@ -1997,7 +1997,7 @@ test suite (`trunk/bench-jit-loop.lisp`).
 **Branch**: `feat/peephole-speed2`. Host, Apple M3 Ultra, `make host`,
 `--heap 64M`, `trunk/bench-opt.lisp` best-of-3, pure bytecode, `fails=0`
 in both runs. Comparison: default (`speed 1`, pass off) vs
-`CLAMIGA_FORCE_SPEED=3` (pass on for every compile). The vm.* rows are
+`AMILISP_FORCE_SPEED=3` (pass on for every compile). The vm.* rows are
 the pass's target workloads (store/load traffic, call-return around
 tight loops); the set./clos./struct./alloc. rows are dominated by C
 builtins and move little, as expected.
@@ -2015,7 +2015,7 @@ builtins and move little, as expected.
 
 ```
 ./build/host/amilisp --no-userinit --heap 64M --non-interactive --load trunk/bench-opt.lisp
-CLAMIGA_FORCE_SPEED=3 ./build/host/amilisp --no-userinit --heap 64M --non-interactive --load trunk/bench-opt.lisp
+AMILISP_FORCE_SPEED=3 ./build/host/amilisp --no-userinit --heap 64M --non-interactive --load trunk/bench-opt.lisp
 ```
 
 ---
@@ -2026,7 +2026,7 @@ CLAMIGA_FORCE_SPEED=3 ./build/host/amilisp --no-userinit --heap 64M --non-intera
 every `cl_alloc` used to serialize on the global `alloc_mutex`; at actor
 message rates the mutex handoff dominated the per-message cost.  Each
 thread now cuts objects lock-free from a private chunk (TLAB, default
-32K, `CLAMIGA_TLAB_CHUNK` overrides, compiled out on Amiga) refilled
+32K, `AMILISP_TLAB_CHUNK` overrides, compiled out on Amiga) refilled
 from the shared bump front / free list under the mutex once per chunk.
 Uncut chunk remainders stay formatted as walkable free-block holes;
 every GC cycle drops all TLABs during stop-the-world.
@@ -2058,7 +2058,7 @@ matrix as in [sento-bench-results-0.3.md](sento-bench-results-0.3.md)
 
 **Reproduce**: run the 6-cell matrix via
 `sento.bench::run-benchmark` after `(load "trunk/load-sento-bench.lisp")`;
-A/B by setting `CLAMIGA_TLAB_CHUNK=0` (disables TLABs at runtime).
+A/B by setting `AMILISP_TLAB_CHUNK=0` (disables TLABs at runtime).
 
 ## 2026-08-23 — Raw OS binding modules: heap per `require` (host + FS-UAE)
 
@@ -2081,7 +2081,7 @@ FS-UAE (68040/JIT config, `make -f Makefile.cross test-amiga`, the
 `; raw-bindings:` lines of the suite log): 140–160 ms per module from
 FASL; smaller modules (utility 5 KB, layers 8, gadtools 8, timer 2,
 gadgets/button 4, classes/window 6).  Touching 150 intuition names on
-the host adds 14 KB (~95 B per name).  `(clamiga::%binding-table-info
+the host adds 14 KB (~95 B per name).  `(amilisp::%binding-table-info
 "AMIGA.RAW.INTUITION")` → 1485 entries in 47 KB, 23 symbols right after
 load.
 

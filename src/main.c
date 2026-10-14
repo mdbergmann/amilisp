@@ -391,7 +391,7 @@ static void print_usage(void)
         "  --image <file>   Restore a heap image saved with EXT:SAVE-IMAGE\n"
         "  --no-image       Skip auto-discovery of amilisp.img\n"
         "  --no-fasl-cache  LOAD always compiles from source (no implicit FASL cache;\n"
-        "                   also CLAMIGA_FASL_CACHE=0)\n"
+        "                   also AMILISP_FASL_CACHE=0)\n"
         "  --color          Force color output\n"
         "  --no-color       Disable color output\n"
         "  --no-jit         Disable the native JIT (functions stay bytecode-only)\n"
@@ -450,7 +450,7 @@ typedef struct {
 } CLAction;
 
 /* Auto-discover a amilisp.img heap image, mirroring the lib/boot.fasl
- * search in repl.c: cwd, then $CLAMIGA_HOME (host) / PROGDIR: (Amiga),
+ * search in repl.c: cwd, then $AMILISP_HOME (host) / PROGDIR: (Amiga),
  * then executable-relative locations.  Returns 1 when an image was found
  * AND staged successfully.  A candidate that exists but fails
  * verification prints why and aborts discovery (falling back to a normal
@@ -495,7 +495,7 @@ static int discover_image(void)
     }
 #else
     {
-        const char *home = getenv("CLAMIGA_HOME");
+        const char *home = platform_getenv_s("AMILISP_HOME");
         if (home && home[0]) {
             char dir[520];
             size_t hlen = strlen(home);
@@ -531,7 +531,7 @@ static int discover_image(void)
     return 0;
 }
 
-/* Free system memory sampled at startup, for the CLAMIGA_MEM_DIAG report. */
+/* Free system memory sampled at startup, for the AMILISP_MEM_DIAG report. */
 static unsigned long mem_diag_start_avail = 0;
 
 /* Report, at the very end of shutdown, how much system memory this process
@@ -580,14 +580,14 @@ static void mem_diag_report(const char *where)
  * launch -- there is no software fix (the data cache, superscalar mode
  * and the compiler flags make no difference), so the one thing amilisp
  * can do is name the defect instead of failing at random later, and put
- * :CPU-LOST-STORES on *FEATURES* for scripts.  CLAMIGA_CPU_CHECK=0 skips
- * the test (and the feature); CLAMIGA_CPU_CHECK=<n>, n > 0, makes a sound
+ * :CPU-LOST-STORES on *FEATURES* for scripts.  AMILISP_CPU_CHECK=0 skips
+ * the test (and the feature); AMILISP_CPU_CHECK=<n>, n > 0, makes a sound
  * CPU report n lost stores (clamped to the round count) so the warning, the
  * feature and its image-restore handling can be exercised anywhere
  * (tests/test_cpu_selftest.sh). */
 #define CPU_STORE_CHECK_ROUNDS 4096u
 
-/* The n of CLAMIGA_CPU_CHECK=<n>: all decimal digits, at least 1; else 0. */
+/* The n of AMILISP_CPU_CHECK=<n>: all decimal digits, at least 1; else 0. */
 static uint32_t cpu_check_simulated(const char *v)
 {
     uint32_t n = 0;
@@ -606,7 +606,7 @@ static void cpu_store_check(void)
 {
     char envbuf[8];
     char buf[640];
-    const char *v = platform_getenv("CLAMIGA_CPU_CHECK", envbuf, (int)sizeof(envbuf));
+    const char *v = platform_getenv("AMILISP_CPU_CHECK", envbuf, (int)sizeof(envbuf));
     uint32_t lost;
     int simulated = 0;
     if (v && v[0] == '0' && v[1] == '\0')
@@ -621,7 +621,7 @@ static void cpu_store_check(void)
     cl_cpu_lost_stores = lost;
     if (simulated)
         platform_write_string(
-            "*** amilisp: CLAMIGA_CPU_CHECK is set: the CPU test found nothing,\n"
+            "*** amilisp: AMILISP_CPU_CHECK is set: the CPU test found nothing,\n"
             "*** the warning below is SIMULATED.\n");
     snprintf(buf, sizeof(buf),
              "*** amilisp: THIS CPU LOSES MEMORY STORES: %lu of %lu replays of a\n"
@@ -632,7 +632,7 @@ static void cpu_store_check(void)
              "*** :CPU-LOST-STORES is on *FEATURES*; (ext:%%cpu-store-selftest) repeats\n"
              "*** the test.  See verify/realamiga/PROBES.md in the amilisp sources and\n"
              "*** report your core (ApolloControl CORE) to the Apollo team.\n"
-             "*** CLAMIGA_CPU_CHECK=0 skips this test.\n",
+             "*** AMILISP_CPU_CHECK=0 skips this test.\n",
              (unsigned long)lost, (unsigned long)CPU_STORE_CHECK_ROUNDS);
     /* platform_write_string: on AmigaOS this must land in the console or
      * the script's `>file` log, where stderr never does. */
@@ -662,7 +662,7 @@ static void early_exit(int code)
     platform_process_exit(code);
 }
 
-static int clamiga_main(int argc, char *argv[])
+static int amilisp_main(int argc, char *argv[])
 {
     int batch = 0;
     int non_interactive = 0;
@@ -874,7 +874,7 @@ static int clamiga_main(int argc, char *argv[])
     /* Before anything else runs on this CPU: does it keep what is stored? */
     cpu_store_check();
 
-    /* Baseline for the CLAMIGA_MEM_DIAG leak report printed at shutdown.
+    /* Baseline for the AMILISP_MEM_DIAG leak report printed at shutdown.
      * Sampled here, before a single byte of runtime state exists, so the
      * closing sample measures everything this process failed to hand back.
      * Zero on hosts, where the figure is meaningless (see platform.h). */
@@ -943,35 +943,35 @@ static int clamiga_main(int argc, char *argv[])
     cl_printer_init();
     cl_compiler_init();
 
-    /* CLAMIGA_FORCE_SPEED=0..3 pins (optimize (speed N)) for the whole
+    /* AMILISP_FORCE_SPEED=0..3 pins (optimize (speed N)) for the whole
      * process, overriding declaim/declare — the peephole differential
      * harness runs the same corpus at 0 and 3 and compares results. */
     {
         char fsbuf[8];
-        const char *fs = platform_getenv("CLAMIGA_FORCE_SPEED", fsbuf,
+        const char *fs = platform_getenv("AMILISP_FORCE_SPEED", fsbuf,
                                          (int)sizeof(fsbuf));
         if (fs && fs[0] >= '0' && fs[0] <= '3' && fs[1] == '\0') {
             extern int cl_optimize_force_speed;
             cl_optimize_force_speed = fs[0] - '0';
         }
     }
-    /* CLAMIGA_NO_LOCAL_INLINE=1 keeps every FLET/LABELS function a real
+    /* AMILISP_NO_LOCAL_INLINE=1 keeps every FLET/LABELS function a real
      * closure (no call-site inlining) — for A/B measurements and for
      * isolating a suspected inlining bug. */
     {
         char nlbuf[8];
-        const char *nl = platform_getenv("CLAMIGA_NO_LOCAL_INLINE", nlbuf,
+        const char *nl = platform_getenv("AMILISP_NO_LOCAL_INLINE", nlbuf,
                                          (int)sizeof(nlbuf));
         if (nl && nl[0] == '1' && nl[1] == '\0') {
             extern int cl_local_inline_enabled;
             cl_local_inline_enabled = 0;
         }
     }
-    /* CLAMIGA_NO_FUSE=1 leaves the compiler's opcode pairs unfused (no
+    /* AMILISP_NO_FUSE=1 leaves the compiler's opcode pairs unfused (no
      * superinstructions) — the same A/B and bisect purpose. */
     {
         char nfbuf[8];
-        const char *nf = platform_getenv("CLAMIGA_NO_FUSE", nfbuf,
+        const char *nf = platform_getenv("AMILISP_NO_FUSE", nfbuf,
                                          (int)sizeof(nfbuf));
         if (nf && nf[0] == '1' && nf[1] == '\0') {
             extern int cl_peephole_fuse_enabled;
@@ -1027,7 +1027,7 @@ static int clamiga_main(int argc, char *argv[])
     /* Enable per-allocation forced compaction only after boot, so the FASL/
      * boot load runs at normal speed but --load/--eval and the REPL exercise
      * every allocation under a moving GC. */
-    if (getenv("CLAMIGA_GC_STRESS")) {
+    if (platform_getenv_s("AMILISP_GC_STRESS")) {
         extern int cl_gc_stress_ready;
         cl_gc_stress_ready = 1;
     }
@@ -1314,7 +1314,7 @@ shutdown:
      * compiling hangs the process at exit — the same hazard that makes
      * cl_thread_shutdown leak its primitives above.  A run that ends with
      * workers alive skips all of it and _exits, which on AmigaOS does leak;
-     * the CLAMIGA_MEM_DIAG line says so rather than reporting a clean exit. */
+     * the AMILISP_MEM_DIAG line says so rather than reporting a clean exit. */
     cl_compiler_shutdown();
     SHUTDOWN_TRACE("compiler done");
     cl_builtins_shutdown();
@@ -1379,5 +1379,5 @@ int main(int argc, char *argv[])
     /* The runtime's main runs on a C stack of at least
      * PLATFORM_MAIN_STACK_MIN: on m68k AmigaOS the platform layer swaps to
      * one of its own when the Shell's `stack` or the icon gave less. */
-    return platform_run_main(clamiga_main, argc, argv);
+    return platform_run_main(amilisp_main, argc, argv);
 }

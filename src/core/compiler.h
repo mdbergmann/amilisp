@@ -118,17 +118,17 @@ CL_Obj cl_amiga_ffi_call_dispatch(uint32_t base_addr, int16_t offset,
                                   uint32_t regspec, int n_args,
                                   CL_Obj *arg_base);
 
-/* CLAMIGA::%STRUCT-REF and CLAMIGA::%STRUCT-SET — sentinel symbols
+/* AMILISP::%STRUCT-REF and AMILISP::%STRUCT-SET — sentinel symbols
  * matched by compile_call to emit OP_STRUCT_REF / OP_STRUCT_SET.
  * Initialized by cl_builtins_struct_init. */
 extern CL_Obj cl_struct_ref_sym;
-/* CLAMIGA::%HANDLER-CASE — the HANDLER-CASE special form (builtins_condition.c) */
+/* AMILISP::%HANDLER-CASE — the HANDLER-CASE special form (builtins_condition.c) */
 extern CL_Obj cl_handler_case_sym;
 extern CL_Obj cl_struct_set_sym;
 
 /* Structure-layout dependencies of the file being compiled
  * (builtins_struct.c, "Layout dependencies of compiled code").
- * CLAMIGA::*STRUCT-LAYOUT-DEPS* is bound to NIL per file by LOAD and
+ * AMILISP::*STRUCT-LAYOUT-DEPS* is bound to NIL per file by LOAD and
  * COMPILE-FILE and collects the names DEFSTRUCT's compiler macros report;
  * cl_struct_layout_hash is what the FASL's DEPS trailer stores per name
  * (returns 0 when the type is not registered). */
@@ -164,7 +164,7 @@ CL_Obj cl_get_type_expander(CL_Obj name);
 void cl_register_setf_function(CL_Obj accessor, CL_Obj setf_fn_sym);
 /* Resolve the (setf FOO) function-name to the symbol holding its function. */
 CL_Obj cl_setf_function_symbol(CL_Obj accessor);
-/* Package-qualified hidden CLAMIGA symbol that stores accessor's (setf
+/* Package-qualified hidden AMILISP symbol that stores accessor's (setf
  * accessor) function — shared by the compiler and CLOS so they never collide
  * on same-named accessors in different packages. */
 CL_Obj cl_setf_store_symbol(CL_Obj accessor);
@@ -234,7 +234,7 @@ void cl_tables_dump_rdlock_holders(const char *header);
  * conditions/deftypes those linear walks made every TYPEP O(types) —
  * measured as multi-minute log4cl appender stalls when the print-object
  * hook ran one TYPEP per printed node (eta-hab item-definition phase,
- * 2026-07-14, diagnosed via CLAMIGA_LOCK_DIAG).
+ * 2026-07-14, diagnosed via AMILISP_LOCK_DIAG).
  *
  * Same protocol as the struct index: probes run under the tables rdlock
  * against a CLEAN index; a dirty/unbuilt index is rebuilt lazily under

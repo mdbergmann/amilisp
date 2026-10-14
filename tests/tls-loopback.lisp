@@ -6,7 +6,7 @@
 ;;; data through the encrypted stream — characters, binary chunks, LISTEN,
 ;;; peer-certificate introspection, verification success AND failure, and
 ;;; EOF on close.  Driven by tests/test_tls_loopback.sh (and, under
-;;; CLAMIGA_GC_STRESS=1, by the gc-stress suite); also runnable directly:
+;;; AMILISP_GC_STRESS=1, by the gc-stress suite); also runnable directly:
 ;;;
 ;;;   ./build/host/amilisp --non-interactive --load tests/tls-loopback.lisp
 ;;;

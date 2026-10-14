@@ -55,11 +55,11 @@ END
 
 EXIT CODE
 
-/* Returns the name of the first live amilisp port: CLAMIGA, else the
- * CLAMIGA.<n> a second instance claimed. */
+/* Returns the name of the first live amilisp port: AMILISP, else the
+ * AMILISP.<n> a second instance claimed. */
 FindPort:
-    IF SHOW('P', 'CLAMIGA') THEN RETURN 'CLAMIGA'
+    IF SHOW('P', 'AMILISP') THEN RETURN 'AMILISP'
     DO i = 1 TO 9
-        IF SHOW('P', 'CLAMIGA.'i) THEN RETURN 'CLAMIGA.'i
+        IF SHOW('P', 'AMILISP.'i) THEN RETURN 'AMILISP.'i
     END
     RETURN ''

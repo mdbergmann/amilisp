@@ -16,13 +16,13 @@
 #
 # Run: sh tests/test_struct_slot_access.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0
 
 run_quiet() {
-    "$CLAMIGA" --no-userinit --batch 2>&1 <<EOF
+    "$AMILISP" --no-userinit --batch 2>&1 <<EOF
 (setf *load-verbose* nil)
 $1
 EOF
@@ -60,7 +60,7 @@ check_contains "with-slots works on struct instance"  "WITH-SLOTS:13"  "$out"
 out=$(run_quiet '
 (defstruct ssa-early (a 100) (b 200))
 (dotimes (i 300)
-  (clamiga::%register-struct-type
+  (amilisp::%register-struct-type
    (make-symbol (format nil "SSA-FILLER-~D" i)) 1 nil (quote ((f nil)))))
 (let ((s (make-ssa-early)))
   (format t "BURIED:~a~%" (+ (slot-value s (quote a)) (slot-value s (quote b))))
@@ -70,11 +70,11 @@ check_contains "buried type typep resolves"      "TYPEP:T"    "$out"
 
 # --- 3. Re-registration: newest entry wins ---
 out=$(run_quiet '
-(clamiga::%register-struct-type (quote ssa-re) 1 nil (quote ((a nil))))
-(clamiga::%register-struct-type (quote ssa-re) 3 nil (quote ((p nil) (q nil) (r nil))))
-(format t "COUNT:~a~%" (clamiga::%struct-slot-count (quote ssa-re)))
-(format t "NEWSLOT:~a~%" (clamiga::%struct-slot-index (quote ssa-re) (quote r)))
-(format t "OLDSLOT:~a~%" (clamiga::%struct-slot-index (quote ssa-re) (quote a)))')
+(amilisp::%register-struct-type (quote ssa-re) 1 nil (quote ((a nil))))
+(amilisp::%register-struct-type (quote ssa-re) 3 nil (quote ((p nil) (q nil) (r nil))))
+(format t "COUNT:~a~%" (amilisp::%struct-slot-count (quote ssa-re)))
+(format t "NEWSLOT:~a~%" (amilisp::%struct-slot-index (quote ssa-re) (quote r)))
+(format t "OLDSLOT:~a~%" (amilisp::%struct-slot-index (quote ssa-re) (quote a)))')
 check_contains "redefined type has new slot count"  "COUNT:3"     "$out"
 check_contains "redefined type resolves new slot"   "NEWSLOT:2"   "$out"
 check_contains "redefined type drops old slot"      "OLDSLOT:NIL" "$out"
@@ -127,7 +127,7 @@ out=$(run_quiet '
 (ext:gc-compact)
 (format t "POST:~a~%" (slot-value (make-ssa-gc) (quote v)))
 (ext:gc-compact)
-(format t "IDX:~a~%" (clamiga::%struct-slot-index (quote ssa-gc) (quote v)))')
+(format t "IDX:~a~%" (amilisp::%struct-slot-index (quote ssa-gc) (quote v)))')
 check_contains "slot-value before compaction"       "PRE:41"  "$out"
 check_contains "slot-value after compaction"        "POST:41" "$out"
 check_contains "slot index rebuilt after compaction" "IDX:0"   "$out"
@@ -138,7 +138,7 @@ check_contains "slot index rebuilt after compaction" "IDX:0"   "$out"
 # %SET-SSA-VW-TITLE, and the setter's compiler macro turned every direct call
 # to the user's function into a slot write on its first argument (chipi-ui's
 # %SET-VIEW-TITLE wrote the title into its nav-context's DEPTH slot).  It is
-# CLAMIGA::%STRUCT-SET-<package>::<accessor> now.  Both definition orders, a
+# AMILISP::%STRUCT-SET-<package>::<accessor> now.  Both definition orders, a
 # typed (:type list) structure, and an accessor from another package.
 out=$(run_quiet '
 (defstruct ssa-nc body (depth 0))
@@ -159,14 +159,14 @@ out=$(run_quiet '
   (incf (ssa-nc-depth c) 10)
   (format t "INCF:~s~%" (ssa-nc-depth c))
   (format t "NOSYM:~s~%" (find-symbol "%SET-SSA-NC-DEPTH"))
-  (format t "HOME:~s~%" (symbol-package (clamiga::%struct-setter-name (quote ssa-nc-depth)))))')
+  (format t "HOME:~s~%" (symbol-package (amilisp::%struct-setter-name (quote ssa-nc-depth)))))')
 check_contains "user %SET-<acc> function is called, not the slot setter" 'DIRECT::USER/3' "$out"
 check_contains "SETF of the accessor still writes the slot"              'SETF:"T"/3'     "$out"
 check_contains "DEFSTRUCT after the user function leaves it alone"       'LATE:(:USER 1 2)/7' "$out"
 check_contains "typed (:type list) structure likewise"                   'LIST:(:USER-LIST 1 2)/(NIL 9)' "$out"
 check_contains "INCF through the accessor"                               'INCF:13'        "$out"
 check_contains "no %SET-<acc> symbol in the user package"                'NOSYM:NIL'      "$out"
-check_contains "the setter lives in CLAMIGA"                             'HOME:#<PACKAGE "CLAMIGA">\|HOME:#<PACKAGE CLAMIGA>' "$out"
+check_contains "the setter lives in CLAMIGA"                             'HOME:#<PACKAGE "AMILISP">\|HOME:#<PACKAGE AMILISP>' "$out"
 
 echo ""
 echo "$passed passed, $failed failed, $total total"

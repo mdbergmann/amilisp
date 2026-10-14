@@ -19,7 +19,7 @@
 #
 # Run: sh tests/test_backtrace_lines.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then
@@ -74,7 +74,7 @@ cat > "$src" <<'EOF'
 (btl-funcall-stub)
 EOF
 
-"$TIMEOUT" 60 "$CLAMIGA" --non-interactive --load "$src" < /dev/null > "$out" 2>&1
+"$TIMEOUT" 60 "$AMILISP" --non-interactive --load "$src" < /dev/null > "$out" 2>&1
 
 fail=0
 

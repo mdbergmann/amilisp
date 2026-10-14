@@ -1329,14 +1329,14 @@ static CL_Obj coerce_package(CL_Obj arg, const char *who)
     return CL_NIL;
 }
 
-/* (clamiga::%make-binding-table rows) -> byte vector */
+/* (amilisp::%make-binding-table rows) -> byte vector */
 static CL_Obj bi_make_binding_table(CL_Obj *args, int nargs)
 {
     (void)nargs;
     return cl_bindtab_pack(args[0]);
 }
 
-/* (clamiga::%register-binding-table package blob base-sym version-sym) -> T */
+/* (amilisp::%register-binding-table package blob base-sym version-sym) -> T */
 static CL_Obj bi_register_binding_table(CL_Obj *args, int nargs)
 {
     CL_Obj pkg = coerce_package(args[0], "%REGISTER-BINDING-TABLE");
@@ -1345,7 +1345,7 @@ static CL_Obj bi_register_binding_table(CL_Obj *args, int nargs)
     return CL_T;
 }
 
-/* (clamiga::%binding-table-materialize-all package) -> T */
+/* (amilisp::%binding-table-materialize-all package) -> T */
 static CL_Obj bi_binding_table_materialize_all(CL_Obj *args, int nargs)
 {
     CL_Obj pkg = coerce_package(args[0], "%BINDING-TABLE-MATERIALIZE-ALL");
@@ -1354,7 +1354,7 @@ static CL_Obj bi_binding_table_materialize_all(CL_Obj *args, int nargs)
     return CL_T;
 }
 
-/* (clamiga::%shed-binding-tables &optional package) -> bytes shed
+/* (amilisp::%shed-binding-tables &optional package) -> bytes shed
  *   With PACKAGE, sheds that one; with no argument, every lazy package.
  *   The destructive delivery operation EXT:SAVE-IMAGE :SHAKE-BINDINGS
  *   performs — exposed here (internal, like %BINDING-TABLE-MATERIALIZE-ALL)
@@ -1369,7 +1369,7 @@ static CL_Obj bi_shed_binding_tables(CL_Obj *args, int nargs)
     return CL_MAKE_FIXNUM((int32_t)bytes);
 }
 
-/* (clamiga::%binding-table-info package)
+/* (amilisp::%binding-table-info package)
  *   -> (:entries N :bytes B :symbols S :base SYM :version SYM :shed BOOL),
  *      or NIL when PACKAGE has no binding table.  :SYMBOLS is the number
  *      of symbols currently present (materialised + the eager ones).
@@ -1482,7 +1482,7 @@ static CL_Obj entry_row(const BtEntry *e, const uint8_t *name, const BtValue *va
     return row;
 }
 
-/* (clamiga::%binding-table-entries package) -> list of rows (see
+/* (amilisp::%binding-table-entries package) -> list of rows (see
  * entry_row), in table (name) order; NIL for an ordinary package.  Also
  * accepts a blob directly, for round-trip tests. */
 static CL_Obj bi_binding_table_entries(CL_Obj *args, int nargs)
@@ -1533,10 +1533,10 @@ static CL_Obj bi_binding_table_entries(CL_Obj *args, int nargs)
 
 void cl_builtins_bindtab_init(void)
 {
-    cl_register_builtin("%MAKE-BINDING-TABLE", bi_make_binding_table, 1, 1, cl_package_clamiga);
-    cl_register_builtin("%REGISTER-BINDING-TABLE", bi_register_binding_table, 4, 4, cl_package_clamiga);
-    cl_register_builtin("%BINDING-TABLE-MATERIALIZE-ALL", bi_binding_table_materialize_all, 1, 1, cl_package_clamiga);
-    cl_register_builtin("%SHED-BINDING-TABLES", bi_shed_binding_tables, 0, 1, cl_package_clamiga);
-    cl_register_builtin("%BINDING-TABLE-INFO", bi_binding_table_info, 1, 1, cl_package_clamiga);
-    cl_register_builtin("%BINDING-TABLE-ENTRIES", bi_binding_table_entries, 1, 1, cl_package_clamiga);
+    cl_register_builtin("%MAKE-BINDING-TABLE", bi_make_binding_table, 1, 1, cl_package_amilisp);
+    cl_register_builtin("%REGISTER-BINDING-TABLE", bi_register_binding_table, 4, 4, cl_package_amilisp);
+    cl_register_builtin("%BINDING-TABLE-MATERIALIZE-ALL", bi_binding_table_materialize_all, 1, 1, cl_package_amilisp);
+    cl_register_builtin("%SHED-BINDING-TABLES", bi_shed_binding_tables, 0, 1, cl_package_amilisp);
+    cl_register_builtin("%BINDING-TABLE-INFO", bi_binding_table_info, 1, 1, cl_package_amilisp);
+    cl_register_builtin("%BINDING-TABLE-ENTRIES", bi_binding_table_entries, 1, 1, cl_package_amilisp);
 }

@@ -12,36 +12,36 @@
 #   - AMIGA, AMIGA.FFI/INTUITION/GFX/GADTOOLS/REACTION/... -> parsed from source
 #       (these packages don't exist in the host build)
 #
-# CLAMIGA is handled separately: it exports ~224 internal %/*-prefixed helpers
+# AMILISP is handled separately: it exports ~224 internal %/*-prefixed helpers
 # that we intentionally do not document, so an exact diff would be pure noise.
 # Instead we verify that every symbol we DO document
-# (docs/clamiga-documented-symbols.txt) still exists as a live CLAMIGA export.
+# (docs/amilisp-documented-symbols.txt) still exists as a live AMILISP export.
 
 set -e
 
 MODE="$1"
-CLAMIGA_BIN="$2"
+AMILISP_BIN="$2"
 
 ROOT=$(CDPATH= cd "$(dirname "$0")/../.." && pwd)
 DUMP_LISP="$ROOT/tools/docs/dump-package-symbols.lisp"
 SNAPSHOT="$ROOT/docs/package-symbols.txt"
-CLAMIGA_DOC_LIST="$ROOT/docs/clamiga-documented-symbols.txt"
+AMILISP_DOC_LIST="$ROOT/docs/amilisp-documented-symbols.txt"
 
-if [ -z "$MODE" ] || [ -z "$CLAMIGA_BIN" ]; then
+if [ -z "$MODE" ] || [ -z "$AMILISP_BIN" ]; then
     echo "usage: $0 {generate|check} <amilisp-binary>" >&2
     exit 2
 fi
-if [ ! -x "$CLAMIGA_BIN" ]; then
-    echo "package-symbols.sh: amilisp binary not found: $CLAMIGA_BIN" >&2
+if [ ! -x "$AMILISP_BIN" ]; then
+    echo "package-symbols.sh: amilisp binary not found: $AMILISP_BIN" >&2
     exit 2
 fi
 
-# --- live host packages (EXT MP FFI GRAY MOP CLAMIGA) ----------------------
+# --- live host packages (EXT MP FFI GRAY MOP AMILISP) ----------------------
 live_dump() {
     # Filter to valid "PACKAGE|SYMBOL" lines — the binary may also emit boot
     # trace ("; [boot] ...") and other diagnostics to stdout.
-    CLAMIGA_NO_USERINIT=1 "$CLAMIGA_BIN" --non-interactive --load "$DUMP_LISP" \
-        | grep -E '^(EXT|MP|FFI|GRAY|MOP|CLAMIGA)\|'
+    AMILISP_NO_USERINIT=1 "$AMILISP_BIN" --non-interactive --load "$DUMP_LISP" \
+        | grep -E '^(EXT|MP|FFI|GRAY|MOP|AMILISP)\|'
 }
 
 # --- AMIGA package exports parsed from C source ----------------------------
@@ -75,8 +75,8 @@ amiga_lib_exports() {
 
 generate() {
     {
-        # Live packages, minus CLAMIGA (tracked via the curated list instead).
-        live_dump | grep -v '^CLAMIGA|'
+        # Live packages, minus AMILISP (tracked via the curated list instead).
+        live_dump | grep -v '^AMILISP|'
         amiga_from_source
         amiga_lib_exports "AMIGA.FFI"       "$ROOT/lib/amiga/ffi.lisp"
         amiga_lib_exports "AMIGA.INTUITION" "$ROOT/lib/amiga/intuition.lisp"
@@ -96,15 +96,15 @@ generate() {
 }
 
 check_clamiga_documented() {
-    # Every documented CLAMIGA symbol must still be a live export.
-    [ -f "$CLAMIGA_DOC_LIST" ] || return 0
-    live_clamiga=$(live_dump | grep '^CLAMIGA|' | sed 's/^CLAMIGA|//')
+    # Every documented AMILISP symbol must still be a live export.
+    [ -f "$AMILISP_DOC_LIST" ] || return 0
+    live_clamiga=$(live_dump | grep '^AMILISP|' | sed 's/^AMILISP|//')
     missing=""
     # strip comments/blank lines from the curated list
-    sed 's/#.*//' "$CLAMIGA_DOC_LIST" | tr -d ' \t' | while read -r sym; do
+    sed 's/#.*//' "$AMILISP_DOC_LIST" | tr -d ' \t' | while read -r sym; do
         [ -z "$sym" ] && continue
         if ! printf '%s\n' "$live_clamiga" | grep -qxF "$sym"; then
-            echo "  CLAMIGA|$sym (in docs/clamiga.md, no longer exported)"
+            echo "  AMILISP|$sym (in docs/amilisp.md, no longer exported)"
         fi
     done
 }
@@ -130,10 +130,10 @@ case "$MODE" in
             rm -f /tmp/docs-symdiff.$$
             rc=1
         fi
-        clamiga_missing=$(check_clamiga_documented)
-        if [ -n "$clamiga_missing" ]; then
-            echo "docs-check: docs/clamiga.md documents symbols that are no longer exported:" >&2
-            echo "$clamiga_missing" >&2
+        amilisp_missing=$(check_clamiga_documented)
+        if [ -n "$amilisp_missing" ]; then
+            echo "docs-check: docs/amilisp.md documents symbols that are no longer exported:" >&2
+            echo "$amilisp_missing" >&2
             rc=1
         fi
         if [ "$rc" -eq 0 ]; then

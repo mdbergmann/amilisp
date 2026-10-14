@@ -23,7 +23,7 @@
 #
 # Run: sh tests/test_repl_values.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then
@@ -41,7 +41,7 @@ passed=0
 # and the sign-off, leaving just the echoed values.
 repl() {
     printf '%s\n(quit)\n' "$1" |
-        "$TIMEOUT" 60 "$CLAMIGA" --no-userinit --no-color > "$out" 2>&1
+        "$TIMEOUT" 60 "$AMILISP" --no-userinit --no-color > "$out" 2>&1
     sed -e 's/COMMON-LISP-USER> //g' -e 's/^ *> //' "$out" |
         sed -n '/^Type (quit) to exit\./,$p' |
         grep -v '^Type (quit) to exit\.$' | grep -v '^Bye\.$' | grep -v '^$'

@@ -547,7 +547,7 @@ static CL_Obj bi_dbind_too_many(CL_Obj *args, int n)
     return CL_NIL;
 }
 
-/* (clamiga::%local-arity-error NAME EXPECTED GOT) — what the compiler emits
+/* (amilisp::%local-arity-error NAME EXPECTED GOT) — what the compiler emits
  * at a call to an inlined FLET/LABELS function with the wrong number of
  * arguments (compile_local_inline_call).  The arguments have already been
  * evaluated and dropped, exactly as they would have been for the closure
@@ -566,7 +566,7 @@ static CL_Obj bi_local_arity_error(CL_Obj *args, int n)
     return CL_NIL;
 }
 
-/* (clamiga::%dbind-check-keys list allowed-keywords) => NIL
+/* (amilisp::%dbind-check-keys list allowed-keywords) => NIL
  * The unknown-keyword check of a destructuring &key section.  CLHS 3.4.4
  * gives destructuring lambda lists the 3.4.1.4 keyword rules: a keyword the
  * section does not name is an error, unless the lambda list says
@@ -1482,8 +1482,8 @@ static CL_Obj bi_jit_c_floor(CL_Obj *args, int n)
  * T/NIL.  Use
  * around `defun` to bind a function in either mode for A/B benchmarks:
  *
- *   (clamiga::%jit-set-active nil) (defun slow-foo ...)
- *   (clamiga::%jit-set-active t)   (defun fast-foo ...)
+ *   (amilisp::%jit-set-active nil) (defun slow-foo ...)
+ *   (amilisp::%jit-set-active t)   (defun fast-foo ...)
  *   (time (slow-foo ...)) (time (fast-foo ...))
  *
  * Does not invalidate already-compiled functions — toggle before
@@ -2196,7 +2196,7 @@ void cl_run_thread_death_hooks(const char *msg)
             CL_UNCATCH();
         } else {
             char envbuf[8];
-            if (platform_getenv("CLAMIGA_THREAD_ERRORS", envbuf, sizeof(envbuf))) {
+            if (platform_getenv("AMILISP_THREAD_ERRORS", envbuf, sizeof(envbuf))) {
                 cl_write_cstring_to_error("; Warning: error in thread death hook: ");
                 cl_write_cstring_to_error(cl_error_msg);
                 cl_write_cstring_to_error("\n");
@@ -2336,30 +2336,30 @@ void cl_builtins_init(void)
 
     /* Property lists */
     defun("SYMBOL-PLIST", bi_symbol_plist, 1, 1);
-    cl_register_builtin("%DBIND-TOO-FEW", bi_dbind_too_few, 0, 0, cl_package_clamiga);
-    cl_register_builtin("%DBIND-TOO-MANY", bi_dbind_too_many, 0, 0, cl_package_clamiga);
+    cl_register_builtin("%DBIND-TOO-FEW", bi_dbind_too_few, 0, 0, cl_package_amilisp);
+    cl_register_builtin("%DBIND-TOO-MANY", bi_dbind_too_many, 0, 0, cl_package_amilisp);
     /* Cache + GC-root the helper symbols so the compiler's destructuring-bind
      * arity guards can be emitted without allocating (see compiler_internal.h). */
-    cl_dbind_too_few_sym = cl_intern_in("%DBIND-TOO-FEW", 14, cl_package_clamiga);
+    cl_dbind_too_few_sym = cl_intern_in("%DBIND-TOO-FEW", 14, cl_package_amilisp);
     cl_gc_register_root(&cl_dbind_too_few_sym);
-    cl_dbind_too_many_sym = cl_intern_in("%DBIND-TOO-MANY", 15, cl_package_clamiga);
+    cl_dbind_too_many_sym = cl_intern_in("%DBIND-TOO-MANY", 15, cl_package_amilisp);
     cl_gc_register_root(&cl_dbind_too_many_sym);
-    cl_register_builtin("%DBIND-CHECK-KEYS", bi_dbind_check_keys, 2, 2, cl_package_clamiga);
-    cl_dbind_check_keys_sym = cl_intern_in("%DBIND-CHECK-KEYS", 17, cl_package_clamiga);
+    cl_register_builtin("%DBIND-CHECK-KEYS", bi_dbind_check_keys, 2, 2, cl_package_amilisp);
+    cl_dbind_check_keys_sym = cl_intern_in("%DBIND-CHECK-KEYS", 17, cl_package_amilisp);
     cl_gc_register_root(&cl_dbind_check_keys_sym);
-    cl_register_builtin("%LOCAL-ARITY-ERROR", bi_local_arity_error, 3, 3, cl_package_clamiga);
-    cl_local_arity_error_sym = cl_intern_in("%LOCAL-ARITY-ERROR", 18, cl_package_clamiga);
+    cl_register_builtin("%LOCAL-ARITY-ERROR", bi_local_arity_error, 3, 3, cl_package_amilisp);
+    cl_local_arity_error_sym = cl_intern_in("%LOCAL-ARITY-ERROR", 18, cl_package_amilisp);
     cl_gc_register_root(&cl_local_arity_error_sym);
-    cl_register_builtin("%SET-SYMBOL-PLIST", bi_set_symbol_plist, 2, 2, cl_package_clamiga);
+    cl_register_builtin("%SET-SYMBOL-PLIST", bi_set_symbol_plist, 2, 2, cl_package_amilisp);
     defun("GET", bi_get, 2, 3);
-    cl_register_builtin("%SETF-GET", bi_setf_get, 3, 3, cl_package_clamiga);
+    cl_register_builtin("%SETF-GET", bi_setf_get, 3, 3, cl_package_amilisp);
     defun("REMPROP", bi_remprop, 2, 2);
 
     /* Trace (internal helpers, called by compiler special forms) */
-    cl_register_builtin("%TRACE-FUNCTION", bi_trace_function, 1, 1, cl_package_clamiga);
-    cl_register_builtin("%UNTRACE-FUNCTION", bi_untrace_function, 1, 1, cl_package_clamiga);
-    cl_register_builtin("%TRACED-FUNCTIONS", bi_traced_functions, 0, 0, cl_package_clamiga);
-    cl_register_builtin("%UNTRACE-ALL", bi_untrace_all, 0, 0, cl_package_clamiga);
+    cl_register_builtin("%TRACE-FUNCTION", bi_trace_function, 1, 1, cl_package_amilisp);
+    cl_register_builtin("%UNTRACE-FUNCTION", bi_untrace_function, 1, 1, cl_package_amilisp);
+    cl_register_builtin("%TRACED-FUNCTIONS", bi_traced_functions, 0, 0, cl_package_amilisp);
+    cl_register_builtin("%UNTRACE-ALL", bi_untrace_all, 0, 0, cl_package_amilisp);
 
     /* Function arglist introspection (Sly/SLYNK) — exported from EXT */
     cl_register_builtin("FUNCTION-ARGLIST", bi_function_arglist, 1, 1, cl_package_ext);
@@ -2375,28 +2375,28 @@ void cl_builtins_init(void)
     export_ext_symbol("FRAME-LOCALS", 12);
 
     /* Opcode profiler (no-op unless built with -DPROFILE_OPCODES) */
-    cl_register_builtin("%OP-COUNTS-RESET", bi_op_counts_reset, 0, 0, cl_package_clamiga);
-    cl_register_builtin("%OP-COUNTS-DUMP", bi_op_counts_dump, 0, 0, cl_package_clamiga);
+    cl_register_builtin("%OP-COUNTS-RESET", bi_op_counts_reset, 0, 0, cl_package_amilisp);
+    cl_register_builtin("%OP-COUNTS-DUMP", bi_op_counts_dump, 0, 0, cl_package_amilisp);
 
     /* JIT introspection — payload only on m68k builds; on host both
      * return NIL.  Useful for verifying the encoder pipeline before
      * any function actually executes through native code. */
-    cl_register_builtin("%JIT-DUMP-BYTES",    bi_jit_dump_bytes,    1, 1, cl_package_clamiga);
-    cl_register_builtin("%JIT-COMPILE-STUB",  bi_jit_compile_stub,  1, 1, cl_package_clamiga);
-    cl_register_builtin("%JIT-INVOKE-COUNT",  bi_jit_invoke_count,  0, 0, cl_package_clamiga);
-    cl_register_builtin("%JIT-C-FLOOR",       bi_jit_c_floor,       0, 0, cl_package_clamiga);
-    cl_register_builtin("%CALL-GEN",          bi_call_gen,          0, 0, cl_package_clamiga);
-    cl_register_builtin("%JIT-SET-DIRECT-CALLS", bi_jit_set_direct_calls, 1, 1, cl_package_clamiga);
-    cl_register_builtin("%JIT-DIRECT-CALL-STATS", bi_jit_direct_call_stats, 0, 0, cl_package_clamiga);
-    cl_register_builtin("%JIT-DISASSEMBLE",   bi_jit_disassemble,   1, 1, cl_package_clamiga);
-    cl_register_builtin("%JIT-SET-ACTIVE",    bi_jit_set_active,    1, 1, cl_package_clamiga);
-    cl_register_builtin("%JIT-ACTIVE-P",      bi_jit_active_p,      0, 0, cl_package_clamiga);
-    cl_register_builtin("%JIT-SET-HOT-THRESHOLD", bi_jit_set_hot_threshold, 1, 1, cl_package_clamiga);
-    cl_register_builtin("%JIT-HOT-THRESHOLD", bi_jit_hot_threshold, 0, 0, cl_package_clamiga);
-    cl_register_builtin("%JIT-HOT-COMPILE-COUNT", bi_jit_hot_compile_count, 0, 0, cl_package_clamiga);
-    cl_register_builtin("%JIT-NATIVE-BYTES", bi_jit_native_bytes, 0, 0, cl_package_clamiga);
-    cl_register_builtin("%JIT-SET-FRAMES",    bi_jit_set_frames,    1, 1, cl_package_clamiga);
-    cl_register_builtin("%JIT-FRAMES-P",      bi_jit_frames_p,      0, 0, cl_package_clamiga);
+    cl_register_builtin("%JIT-DUMP-BYTES",    bi_jit_dump_bytes,    1, 1, cl_package_amilisp);
+    cl_register_builtin("%JIT-COMPILE-STUB",  bi_jit_compile_stub,  1, 1, cl_package_amilisp);
+    cl_register_builtin("%JIT-INVOKE-COUNT",  bi_jit_invoke_count,  0, 0, cl_package_amilisp);
+    cl_register_builtin("%JIT-C-FLOOR",       bi_jit_c_floor,       0, 0, cl_package_amilisp);
+    cl_register_builtin("%CALL-GEN",          bi_call_gen,          0, 0, cl_package_amilisp);
+    cl_register_builtin("%JIT-SET-DIRECT-CALLS", bi_jit_set_direct_calls, 1, 1, cl_package_amilisp);
+    cl_register_builtin("%JIT-DIRECT-CALL-STATS", bi_jit_direct_call_stats, 0, 0, cl_package_amilisp);
+    cl_register_builtin("%JIT-DISASSEMBLE",   bi_jit_disassemble,   1, 1, cl_package_amilisp);
+    cl_register_builtin("%JIT-SET-ACTIVE",    bi_jit_set_active,    1, 1, cl_package_amilisp);
+    cl_register_builtin("%JIT-ACTIVE-P",      bi_jit_active_p,      0, 0, cl_package_amilisp);
+    cl_register_builtin("%JIT-SET-HOT-THRESHOLD", bi_jit_set_hot_threshold, 1, 1, cl_package_amilisp);
+    cl_register_builtin("%JIT-HOT-THRESHOLD", bi_jit_hot_threshold, 0, 0, cl_package_amilisp);
+    cl_register_builtin("%JIT-HOT-COMPILE-COUNT", bi_jit_hot_compile_count, 0, 0, cl_package_amilisp);
+    cl_register_builtin("%JIT-NATIVE-BYTES", bi_jit_native_bytes, 0, 0, cl_package_amilisp);
+    cl_register_builtin("%JIT-SET-FRAMES",    bi_jit_set_frames,    1, 1, cl_package_amilisp);
+    cl_register_builtin("%JIT-FRAMES-P",      bi_jit_frames_p,      0, 0, cl_package_amilisp);
 
     /* Reserved standard CL symbols — required to be present and external in
      * COMMON-LISP per ANSI 11.1.2.1.  Many do not have full implementations

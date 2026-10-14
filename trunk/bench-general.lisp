@@ -23,7 +23,7 @@
 ;;;     30-bit fixnum, so the data is identical everywhere.
 ;;;   - (optimize (speed 1) (safety 1) (debug 1)) everywhere: what third-
 ;;;     party code is compiled with by default.  Run amilisp with
-;;;     CLAMIGA_FORCE_SPEED=3 to see the peephole at full strength.
+;;;     AMILISP_FORCE_SPEED=3 to see the peephole at full strength.
 ;;;   - Output is one machine-parseable line per row:
 ;;;       GEN <name> ms=<min> val=<integer>
 ;;;

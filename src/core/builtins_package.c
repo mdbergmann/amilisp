@@ -206,7 +206,7 @@ static CL_Obj bi_find_package(CL_Obj *args, int nargs)
     return cl_find_package(name, len);
 }
 
-/* (clamiga::%set-current-package designator) — runtime in-package fallback.
+/* (amilisp::%set-current-package designator) — runtime in-package fallback.
  * Used by compile_in_package when the named package can't be resolved at
  * compile time (e.g. when a top-level let-body bundles `(load <file>)` and
  * `(in-package :PKG)` so that PKG is created by the load only at run time). */
@@ -1012,16 +1012,16 @@ void cl_builtins_package_init(void)
     defun("PACKAGE-USE-LIST", bi_package_use_list, 1, 1);
     defun("PACKAGE-NICKNAMES", bi_package_nicknames, 1, 1);
     defun("LIST-ALL-PACKAGES", bi_list_all_packages, 0, 0);
-    cl_register_builtin("%PACKAGE-SYMBOLS", bi_package_symbols, 1, 1, cl_package_clamiga);
-    cl_register_builtin("%PACKAGE-EXTERNAL-SYMBOLS", bi_package_external_symbols, 1, 1, cl_package_clamiga);
-    cl_register_builtin("%SET-CURRENT-PACKAGE", bi_pct_set_current_package, 1, 1, cl_package_clamiga);
-    /* Package-local nicknames (CDR-10) live in CLAMIGA.
-     * CL :uses CLAMIGA so internal code (boot.lisp, clos.lisp, tests)
+    cl_register_builtin("%PACKAGE-SYMBOLS", bi_package_symbols, 1, 1, cl_package_amilisp);
+    cl_register_builtin("%PACKAGE-EXTERNAL-SYMBOLS", bi_package_external_symbols, 1, 1, cl_package_amilisp);
+    cl_register_builtin("%SET-CURRENT-PACKAGE", bi_pct_set_current_package, 1, 1, cl_package_amilisp);
+    /* Package-local nicknames (CDR-10) live in AMILISP.
+     * CL :uses AMILISP so internal code (boot.lisp, clos.lisp, tests)
      * sees them as bare symbols.  User packages that only (:use :common-lisp)
-     * must add (:use :clamiga) or qualify with the CLAMIGA: prefix. */
-    cl_register_builtin("PACKAGE-LOCAL-NICKNAMES", bi_package_local_nicknames, 1, 1, cl_package_clamiga);
-    cl_register_builtin("ADD-PACKAGE-LOCAL-NICKNAME", bi_add_package_local_nickname, 2, 3, cl_package_clamiga);
-    cl_register_builtin("REMOVE-PACKAGE-LOCAL-NICKNAME", bi_remove_package_local_nickname, 1, 2, cl_package_clamiga);
+     * must add (:use :amilisp) or qualify with the CLAMIGA: prefix. */
+    cl_register_builtin("PACKAGE-LOCAL-NICKNAMES", bi_package_local_nicknames, 1, 1, cl_package_amilisp);
+    cl_register_builtin("ADD-PACKAGE-LOCAL-NICKNAME", bi_add_package_local_nickname, 2, 3, cl_package_amilisp);
+    cl_register_builtin("REMOVE-PACKAGE-LOCAL-NICKNAME", bi_remove_package_local_nickname, 1, 2, cl_package_amilisp);
     defun("PACKAGE-USED-BY-LIST", bi_package_used_by_list, 1, 1);
     defun("SHADOWING-IMPORT", bi_shadowing_import, 1, 2);
     defun("PACKAGE-SHADOWING-SYMBOLS", bi_package_shadowing_symbols, 1, 1);

@@ -1,7 +1,7 @@
 ; Peephole differential corpus (spec 1.8).
 ;
-; Run twice by tests/test_peephole_diff.sh — once with CLAMIGA_FORCE_SPEED=0
-; (peephole off) and once with CLAMIGA_FORCE_SPEED=3 (peephole on for every
+; Run twice by tests/test_peephole_diff.sh — once with AMILISP_FORCE_SPEED=0
+; (peephole off) and once with AMILISP_FORCE_SPEED=3 (peephole on for every
 ; compile) — and the printed output must be byte-identical.  Every form
 ; below exercises a rewrite pattern or a guard the pass must respect:
 ; store-then-reload chains, discarded pure values, (not ...) branch fusion,

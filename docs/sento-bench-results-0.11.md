@@ -64,7 +64,7 @@ per-primitive entries and the interleaved-A/B method note.
   `vm.o`). No backup was running; two idle amilisp processes of other
   sessions (0% CPU) were parked on the machine.
 - **Binary**: `build/host/amilisp` of each worktree, `--heap 192M`,
-  `CLAMIGA_FORCE_SPEED=3`.
+  `AMILISP_FORCE_SPEED=3`.
 - **Collector**: generational (host default), TLABs active — both
   binaries.
 - **sento**: 3.4.5 at `82cd1e1`, pinned through a detached worktree of the
@@ -90,11 +90,11 @@ per-primitive entries and the interleaved-A/B method note.
 Same driver and protocol as the 0.10 entry: `trunk/sento-bench-matrix.lisp`
 loads `trunk/load-sento-bench.lisp`, runs the six cells back-to-back in one
 session and prints a `CELL ... STATS` line per cell with the collector
-deltas. Cold ASDF cache per binary through `CLAMIGA_FASL_CACHE_DIR`, sento
+deltas. Cold ASDF cache per binary through `AMILISP_FASL_CACHE_DIR`, sento
 pinned through the driver's `ATOMICS_DIR` hook:
 
 ```
-CLAMIGA_FASL_CACHE_DIR=/path/to/fresh/dir CLAMIGA_FORCE_SPEED=3 \
+AMILISP_FASL_CACHE_DIR=/path/to/fresh/dir AMILISP_FORCE_SPEED=3 \
     ATOMICS_DIR=/path/to/sento-worktree \
     ./build/host/amilisp --no-userinit --heap 192M --non-interactive \
     --load trunk/sento-bench-matrix.lisp

@@ -378,9 +378,9 @@ designator) so its names are materialised on first reference.  BASE names
 the special variable holding the open library base (needed by :fn rows),
 VERSION the variable holding its lib_Version (for version guards).  See
 the comment above for the row syntax."
-  (let ((blob (clamiga::%make-binding-table rows)))
+  (let ((blob (amilisp::%make-binding-table rows)))
     `(eval-when (:compile-toplevel :load-toplevel :execute)
-       (clamiga::%register-binding-table ,package ,blob ',base ',version))))
+       (amilisp::%register-binding-table ,package ,blob ',base ',version))))
 
 ;;; ================================================================
 ;;; Hooks and dispatchers — Lisp functions the OS calls

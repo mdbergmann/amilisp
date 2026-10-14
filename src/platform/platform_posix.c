@@ -527,7 +527,7 @@ static void iobuf_free(IOBuf *b)
     }
 }
 
-/* ---- Platform file-I/O trace (CLAMIGA_IO_DIAG) ----
+/* ---- Platform file-I/O trace (AMILISP_IO_DIAG) ----
  * One stderr line as each file operation is ENTERED (before the blocking
  * call), so a hang inside the OS still shows which op/path/handle entered
  * it.  Mirrors the AmigaOS implementation (platform_amiga.c), where this
@@ -540,8 +540,8 @@ static volatile int32_t io_diag_cached = -2;  /* -2 unread; 0 off; 1 on */
 static int io_diag_on(void)
 {
     if (io_diag_cached == -2)
-        io_diag_cached = (getenv("CLAMIGA_IO_DIAG") &&
-                          *getenv("CLAMIGA_IO_DIAG")) ? 1 : 0;
+        io_diag_cached = (platform_getenv_s("AMILISP_IO_DIAG") &&
+                          *platform_getenv_s("AMILISP_IO_DIAG")) ? 1 : 0;
     return io_diag_cached;
 }
 
@@ -868,7 +868,7 @@ int platform_mkdir(const char *path)
     return (mkdir(path, 0755) == 0 || errno == EEXIST) ? 0 : -1;
 }
 
-const char *platform_getenv(const char *name, char *buf, int bufsize)
+const char *platform_getenv_raw(const char *name, char *buf, int bufsize)
 {
     (void)buf; (void)bufsize;
     return getenv(name);
@@ -908,7 +908,7 @@ static int executable_resolved(char *resolved)
     return 1;
 #else
     /* No portable way to find the executable on other POSIX systems —
-     * callers fall back to cwd-relative lookup and $CLAMIGA_HOME. */
+     * callers fall back to cwd-relative lookup and $AMILISP_HOME. */
     (void)resolved;
     return 0;
 #endif

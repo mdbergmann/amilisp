@@ -107,8 +107,8 @@ static void define_fixture(const char *pkg)
         " (defpackage \"%s\" (:use \"CL\") (:shadow \"OPEN\") (:export \"OPEN\"))"
         " (defvar *btt-base* nil)"
         " (defvar *btt-version* nil)"
-        " (clamiga::%%register-binding-table \"%s\""
-        "  (clamiga::%%make-binding-table"
+        " (amilisp::%%register-binding-table \"%s\""
+        "  (amilisp::%%make-binding-table"
         "   '((:const \"+ONE+\" 1) (:const \"+U32+\" #xFFFFFFFF) (:const \"+NEG+\" -5)"
         "     (:const \"+BIG+\" #x746578742E6461746174797065) (:const \"+NEGBIG+\" -123456789012345678901234567890)"
         "     (:const \"+CLASS+\" \"Window.mui\")"
@@ -135,7 +135,7 @@ static void define_fixture(const char *pkg)
 TEST(pack_decode_round_trip_every_row_kind)
 {
     const char *r = eval_print(
-        "(clamiga::%binding-table-entries (clamiga::%make-binding-table"
+        "(amilisp::%binding-table-entries (amilisp::%make-binding-table"
         " '((:const \"+B+\" #xFFFFFFFF) (:const \"+A+\" 1) (:const \"+N+\" -5)"
         "   (:const \"+W+\" #x746578742E6461746174797065) (:const \"+NW+\" -123456789012345678901234567890)"
         "   (:const \"+S31+\" #x80000000) (:const \"+M31+\" -2147483648) (:const \"+M32+\" -2147483649)"
@@ -166,113 +166,113 @@ TEST(pack_blob_layout_and_size)
 {
     /* header 16 + 3 entries x 16 + names "+A+" "+B+" "F" = 7 bytes */
     ASSERT_STR_EQ(eval_print(
-        "(length (clamiga::%make-binding-table '((:const \"+A+\" 1) (:const \"+B+\" 2) (:fn \"F\" -30 () :void))))"),
+        "(length (amilisp::%make-binding-table '((:const \"+A+\" 1) (:const \"+B+\" 2) (:fn \"F\" -30 () :void))))"),
         "71");
     /* magic "CLBT", version 1, the has-libcalls flag */
     ASSERT_STR_EQ(eval_print(
-        "(let ((b (clamiga::%make-binding-table '((:fn \"F\" -30 () :void)))))"
+        "(let ((b (amilisp::%make-binding-table '((:fn \"F\" -30 () :void)))))"
         " (list (aref b 0) (aref b 1) (aref b 2) (aref b 3) (aref b 4) (aref b 5)))"),
         "(67 76 66 84 1 1)");
     ASSERT_STR_EQ(eval_print(
-        "(aref (clamiga::%make-binding-table '((:const \"+A+\" 1))) 5)"), "0");
-    ASSERT_STR_EQ(eval_print("(clamiga::%binding-table-entries (clamiga::%make-binding-table '()))"), "NIL");
+        "(aref (amilisp::%make-binding-table '((:const \"+A+\" 1))) 5)"), "0");
+    ASSERT_STR_EQ(eval_print("(amilisp::%binding-table-entries (amilisp::%make-binding-table '()))"), "NIL");
     /* a string value: u8 length + the bytes in the arena after the names —
      * header 16 + 1 entry x 16 + "+A+" 3 + (1 + "xy" 2) = 38; the entry's
      * payload is the arena offset of the length byte (3), flags = STRING */
     ASSERT_STR_EQ(eval_print(
-        "(let ((b (clamiga::%make-binding-table '((:const \"+A+\" \"xy\")))))"
+        "(let ((b (amilisp::%make-binding-table '((:const \"+A+\" \"xy\")))))"
         " (list (length b) (aref b 23) (aref b 27) (aref b 35) (aref b 36) (aref b 37)))"),
         "(38 16 3 2 120 121)");
 }
 
 TEST(packer_rejects_malformed_rows)
 {
-    ASSERT(contains(eval_print("(clamiga::%make-binding-table '((:const \"+A+\" 1.5)))"),
+    ASSERT(contains(eval_print("(amilisp::%make-binding-table '((:const \"+A+\" 1.5)))"),
                     "row 1 (+A+): value must be an integer or a string, got SINGLE-FLOAT"));
-    ASSERT(contains(eval_print("(clamiga::%make-binding-table '((:const \"+A+\" :kw)))"),
+    ASSERT(contains(eval_print("(amilisp::%make-binding-table '((:const \"+A+\" :kw)))"),
                     "row 1 (+A+): value must be an integer or a string"));
     /* string values: ASCII, at most 255 characters (the arena length byte) */
-    ASSERT(contains(eval_print("(clamiga::%make-binding-table (list (list :const \"+A+\" (format nil \"W~Andow\" (code-char 233)))))"),
+    ASSERT(contains(eval_print("(amilisp::%make-binding-table (list (list :const \"+A+\" (format nil \"W~Andow\" (code-char 233)))))"),
                     "row 1 (+A+): string value must be ASCII (character 1 is code 233)"));
-    ASSERT(contains(eval_print("(clamiga::%make-binding-table (list (list :const \"+A+\" (make-string 256 :initial-element #\\x))))"),
+    ASSERT(contains(eval_print("(amilisp::%make-binding-table (list (list :const \"+A+\" (make-string 256 :initial-element #\\x))))"),
                     "row 1 (+A+): string value must be at most 255 characters (got 256)"));
-    ASSERT_STR_EQ(eval_print("(length (third (first (clamiga::%binding-table-entries"
-                             " (clamiga::%make-binding-table (list (list :const \"+A+\" (make-string 255 :initial-element #\\x))))))))"),
+    ASSERT_STR_EQ(eval_print("(length (third (first (amilisp::%binding-table-entries"
+                             " (amilisp::%make-binding-table (list (list :const \"+A+\" (make-string 255 :initial-element #\\x))))))))"),
                   "255");
-    ASSERT(contains(eval_print("(clamiga::%make-binding-table '((:const \"\" 1)))"),
+    ASSERT(contains(eval_print("(amilisp::%make-binding-table '((:const \"\" 1)))"),
                     "1..255 characters"));
-    ASSERT(contains(eval_print("(clamiga::%make-binding-table '((:const \"\\\"\" 1)))"),
+    ASSERT(contains(eval_print("(amilisp::%make-binding-table '((:const \"\\\"\" 1)))"),
                     "")); /* one-char non-ASCII check is below */
-    ASSERT(contains(eval_print("(clamiga::%make-binding-table (list (list :const (string (code-char 233)) 1)))"),
+    ASSERT(contains(eval_print("(amilisp::%make-binding-table (list (list :const (string (code-char 233)) 1)))"),
                     "must be ASCII"));
-    ASSERT(contains(eval_print("(clamiga::%make-binding-table '((:fn \"F\" 30 () :void)))"),
+    ASSERT(contains(eval_print("(amilisp::%make-binding-table '((:fn \"F\" 30 () :void)))"),
                     "LVO must be a negative integer"));
-    ASSERT(contains(eval_print("(clamiga::%make-binding-table '((:fn \"F\" -30 (:a5) :void)))"),
+    ASSERT(contains(eval_print("(amilisp::%make-binding-table '((:fn \"F\" -30 (:a5) :void)))"),
                     "register 0 is not one of :D0-:D7/:A0-:A4"));
-    ASSERT(contains(eval_print("(clamiga::%make-binding-table '((:fn \"F\" -30 (:a0 :a1 :a2 :a3 :a4 :d0 :d1 :d2) :void)))"),
+    ASSERT(contains(eval_print("(amilisp::%make-binding-table '((:fn \"F\" -30 (:a0 :a1 :a2 :a3 :a4 :d0 :d1 :d2) :void)))"),
                     "0..7"));
-    ASSERT(contains(eval_print("(clamiga::%make-binding-table '((:fn \"F\" -30 () :bogus)))"),
+    ASSERT(contains(eval_print("(amilisp::%make-binding-table '((:fn \"F\" -30 () :bogus)))"),
                     "result kind must be one of"));
-    ASSERT(contains(eval_print("(clamiga::%make-binding-table '((:fn \"F\" -30 () :void :morphos :not-morphos)))"),
+    ASSERT(contains(eval_print("(amilisp::%make-binding-table '((:fn \"F\" -30 () :void :morphos :not-morphos)))"),
                     "exclude each other"));
-    ASSERT(contains(eval_print("(clamiga::%make-binding-table '((:fn \"F\" -30 () :void :later)))"),
+    ASSERT(contains(eval_print("(amilisp::%make-binding-table '((:fn \"F\" -30 () :void :later)))"),
                     "unknown option LATER"));
-    ASSERT(contains(eval_print("(clamiga::%make-binding-table '((:field \"X\" :i64 0)))"),
+    ASSERT(contains(eval_print("(amilisp::%make-binding-table '((:field \"X\" :i64 0)))"),
                     "unknown field type"));
-    ASSERT(contains(eval_print("(clamiga::%make-binding-table '((:field \"X\" (:array :u8 0) 0)))"),
+    ASSERT(contains(eval_print("(amilisp::%make-binding-table '((:field \"X\" (:array :u8 0) 0)))"),
                     "element count 1..65535"));
-    ASSERT(contains(eval_print("(clamiga::%make-binding-table '((:field \"X\" :u8 -1)))"),
+    ASSERT(contains(eval_print("(amilisp::%make-binding-table '((:field \"X\" :u8 -1)))"),
                     "offset must be a non-negative fixnum"));
-    ASSERT(contains(eval_print("(clamiga::%make-binding-table '((:struct \"S\" 4 (\"X\" :u8))))"),
+    ASSERT(contains(eval_print("(amilisp::%make-binding-table '((:struct \"S\" 4 (\"X\" :u8))))"),
                     "struct field must be"));
-    ASSERT(contains(eval_print("(clamiga::%make-binding-table '((:zap \"X\")))"),
+    ASSERT(contains(eval_print("(amilisp::%make-binding-table '((:zap \"X\")))"),
                     "unknown row kind ZAP"));
-    ASSERT(contains(eval_print("(clamiga::%make-binding-table '((:const \"+A+\" 1) (:const \"+A+\" 2)))"),
+    ASSERT(contains(eval_print("(amilisp::%make-binding-table '((:const \"+A+\" 1) (:const \"+A+\" 2)))"),
                     "duplicate name +A+"));
-    ASSERT(contains(eval_print("(clamiga::%make-binding-table '((:const \"+A+\" 1) (:fn \"+A+\" -30 () :void)))"),
+    ASSERT(contains(eval_print("(amilisp::%make-binding-table '((:const \"+A+\" 1) (:fn \"+A+\" -30 () :void)))"),
                     "duplicate name +A+"));
-    ASSERT(contains(eval_print("(clamiga::%make-binding-table '(42))"),
+    ASSERT(contains(eval_print("(amilisp::%make-binding-table '(42))"),
                     "row 1: expected"));
-    ASSERT(contains(eval_print("(clamiga::%make-binding-table 'x)"), "proper list"));
+    ASSERT(contains(eval_print("(amilisp::%make-binding-table 'x)"), "proper list"));
 }
 
 TEST(register_rejects_corrupt_blobs_and_bad_args)
 {
     eval_print("(defpackage \"BTT-R\" (:use \"CL\"))");
-    ASSERT(contains(eval_print("(clamiga::%register-binding-table \"BTT-R\" \"nope\" nil nil)"),
+    ASSERT(contains(eval_print("(amilisp::%register-binding-table \"BTT-R\" \"nope\" nil nil)"),
                     "malformed binding table (not a byte vector)"));
     ASSERT(contains(eval_print(
-        "(let ((b (clamiga::%make-binding-table '((:const \"+A+\" 1))))) (setf (aref b 0) 88)"
-        " (clamiga::%register-binding-table \"BTT-R\" b nil nil))"),
+        "(let ((b (amilisp::%make-binding-table '((:const \"+A+\" 1))))) (setf (aref b 0) 88)"
+        " (amilisp::%register-binding-table \"BTT-R\" b nil nil))"),
         "bad magic"));
     ASSERT(contains(eval_print(
-        "(let ((b (clamiga::%make-binding-table '((:const \"+A+\" 1))))) (setf (aref b 22) 99)"
-        " (clamiga::%register-binding-table \"BTT-R\" b nil nil))"),
+        "(let ((b (amilisp::%make-binding-table '((:const \"+A+\" 1))))) (setf (aref b 22) 99)"
+        " (amilisp::%register-binding-table \"BTT-R\" b nil nil))"),
         "unknown entry kind"));
     /* a string value whose length byte (arena offset 3 = blob byte 35 in
      * the one-row layout) points past the arena, and an unknown flag bit */
     ASSERT(contains(eval_print(
-        "(let ((b (clamiga::%make-binding-table '((:const \"+A+\" \"xy\"))))) (setf (aref b 35) 200)"
-        " (clamiga::%register-binding-table \"BTT-R\" b nil nil))"),
+        "(let ((b (amilisp::%make-binding-table '((:const \"+A+\" \"xy\"))))) (setf (aref b 35) 200)"
+        " (amilisp::%register-binding-table \"BTT-R\" b nil nil))"),
         "string value outside the arena"));
     ASSERT(contains(eval_print(
-        "(let ((b (clamiga::%make-binding-table '((:const \"+A+\" \"xy\"))))) (setf (aref b 36) 200)"
-        " (clamiga::%register-binding-table \"BTT-R\" b nil nil))"),
+        "(let ((b (amilisp::%make-binding-table '((:const \"+A+\" \"xy\"))))) (setf (aref b 36) 200)"
+        " (amilisp::%register-binding-table \"BTT-R\" b nil nil))"),
         "non-ASCII string value"));
     ASSERT(contains(eval_print(
-        "(let ((b (clamiga::%make-binding-table '((:const \"+A+\" 1))))) (setf (aref b 23) 128)"
-        " (clamiga::%register-binding-table \"BTT-R\" b nil nil))"),
+        "(let ((b (amilisp::%make-binding-table '((:const \"+A+\" 1))))) (setf (aref b 23) 128)"
+        " (amilisp::%register-binding-table \"BTT-R\" b nil nil))"),
         "unknown entry flag"));
     ASSERT(contains(eval_print(
-        "(clamiga::%register-binding-table \"BTT-R\""
-        " (clamiga::%make-binding-table '((:fn \"F\" -30 () :void))) nil nil)"),
+        "(amilisp::%register-binding-table \"BTT-R\""
+        " (amilisp::%make-binding-table '((:fn \"F\" -30 () :void))) nil nil)"),
         "no :BASE variable"));
     ASSERT(contains(eval_print(
-        "(clamiga::%register-binding-table \"NO-SUCH-PKG\""
-        " (clamiga::%make-binding-table '((:const \"+A+\" 1))) nil nil)"),
+        "(amilisp::%register-binding-table \"NO-SUCH-PKG\""
+        " (amilisp::%make-binding-table '((:const \"+A+\" 1))) nil nil)"),
         "not found"));
     /* a rejected table leaves the package ordinary */
-    ASSERT_STR_EQ(eval_print("(clamiga::%binding-table-info \"BTT-R\")"), "NIL");
+    ASSERT_STR_EQ(eval_print("(amilisp::%binding-table-info \"BTT-R\")"), "NIL");
 }
 
 /* ================================================================
@@ -283,8 +283,8 @@ TEST(find_symbol_materialises_constants_and_variables)
 {
     define_fixture("BTT-A");
     /* nothing built at registration beyond the shadow + eager names */
-    ASSERT(contains(eval_print("(getf (clamiga::%binding-table-info \"BTT-A\") :symbols)"), "1"));
-    ASSERT_STR_EQ(eval_print("(getf (clamiga::%binding-table-info \"BTT-A\") :entries)"), "20");
+    ASSERT(contains(eval_print("(getf (amilisp::%binding-table-info \"BTT-A\") :symbols)"), "1"));
+    ASSERT_STR_EQ(eval_print("(getf (amilisp::%binding-table-info \"BTT-A\") :entries)"), "20");
     ASSERT_STR_EQ(eval_print("(multiple-value-list (find-symbol \"+ONE+\" \"BTT-A\"))"),
                   "(BTT-A:+ONE+ :EXTERNAL)");
     ASSERT_STR_EQ(eval_print("(list btt-a:+one+ btt-a:+u32+ btt-a:+neg+ btt-a:+big+ btt-a:+negbig+ btt-a:*sz*)"),
@@ -417,10 +417,10 @@ TEST(enumeration_flips_eager_and_nothing_resurrects)
 {
     define_fixture("BTT-G");
     eval_print("(defvar *btt-g-one* 'btt-g:+one+)");
-    ASSERT_STR_EQ(eval_print("(not (null (clamiga::%binding-table-info \"BTT-G\")))"), "T");
+    ASSERT_STR_EQ(eval_print("(not (null (amilisp::%binding-table-info \"BTT-G\")))"), "T");
     ASSERT_STR_EQ(eval_print("(let ((n 0)) (do-symbols (s \"BTT-G\") (when (eq (symbol-package s) (find-package \"BTT-G\")) (incf n))) (> n 18))"), "T");
     /* table gone, symbols the same, everything defined */
-    ASSERT_STR_EQ(eval_print("(clamiga::%binding-table-info \"BTT-G\")"), "NIL");
+    ASSERT_STR_EQ(eval_print("(amilisp::%binding-table-info \"BTT-G\")"), "NIL");
     ASSERT_STR_EQ(eval_print("(list (eq *btt-g-one* 'btt-g:+one+) btt-g:+big+ (fboundp 'btt-g:foo) (fboundp 'btt-g:pt-x)"
                              " (fboundp 'btt-g::%set-pt-x) (nth-value 1 (find-symbol \"NEWER\" \"BTT-G\")))"),
                   "(T 9221870457395268199001198522469 T T T :EXTERNAL)");
@@ -430,19 +430,19 @@ TEST(enumeration_flips_eager_and_nothing_resurrects)
     /* unintern on a still-lazy package flips first */
     define_fixture("BTT-G2");
     eval_print("(unintern 'btt-g2:foo \"BTT-G2\")");
-    ASSERT_STR_EQ(eval_print("(list (clamiga::%binding-table-info \"BTT-G2\") (find-symbol \"FOO\" \"BTT-G2\") (fboundp 'btt-g2:pt-x))"),
+    ASSERT_STR_EQ(eval_print("(list (amilisp::%binding-table-info \"BTT-G2\") (find-symbol \"FOO\" \"BTT-G2\") (fboundp 'btt-g2:pt-x))"),
                   "(NIL NIL T)");
     /* apropos and do-external-symbols see the whole set */
     define_fixture("BTT-G3");
     ASSERT_STR_EQ(eval_print("(let ((n 0)) (do-external-symbols (s \"BTT-G3\") (incf n)) (>= n 18))"), "T");
     /* %PACKAGE-SYMBOLS (what LOOP ... BEING THE SYMBOLS and APROPOS use) */
     define_fixture("BTT-G4");
-    ASSERT_STR_EQ(eval_print("(and (member 'btt-g4:+negbig+ (clamiga::%package-symbols \"BTT-G4\")) t)"), "T");
-    ASSERT_STR_EQ(eval_print("(clamiga::%binding-table-info \"BTT-G4\")"), "NIL");
+    ASSERT_STR_EQ(eval_print("(and (member 'btt-g4:+negbig+ (amilisp::%package-symbols \"BTT-G4\")) t)"), "T");
+    ASSERT_STR_EQ(eval_print("(amilisp::%binding-table-info \"BTT-G4\")"), "NIL");
     /* explicit flip hook */
     define_fixture("BTT-G5");
-    ASSERT_STR_EQ(eval_print("(progn (clamiga::%binding-table-materialize-all \"BTT-G5\")"
-                             " (list (clamiga::%binding-table-info \"BTT-G5\") (fboundp 'btt-g5:foo)))"), "(NIL T)");
+    ASSERT_STR_EQ(eval_print("(progn (amilisp::%binding-table-materialize-all \"BTT-G5\")"
+                             " (list (amilisp::%binding-table-info \"BTT-G5\") (fboundp 'btt-g5:foo)))"), "(NIL T)");
 }
 
 TEST(reload_overwrites_present_definitions)
@@ -452,14 +452,14 @@ TEST(reload_overwrites_present_definitions)
     ASSERT_STR_EQ(eval_print("(getf (ffi::%ffi-stub-info #'btt-h:foo) :lvo)"), "-36");
     /* The reload rewrites the present FOO's function cell, so a JIT call
      * site caching the old stub must be invalidated (cl_call_gen moves). */
-    ASSERT_STR_EQ(eval_print("(progn (defparameter *btt-gen* (clamiga::%call-gen)) t)"), "T");
-    eval_print("(clamiga::%register-binding-table \"BTT-H\""
-               " (clamiga::%make-binding-table '((:const \"+ONE+\" 111) (:fn \"FOO\" -300 (:a0) :pointer)))"
+    ASSERT_STR_EQ(eval_print("(progn (defparameter *btt-gen* (amilisp::%call-gen)) t)"), "T");
+    eval_print("(amilisp::%register-binding-table \"BTT-H\""
+               " (amilisp::%make-binding-table '((:const \"+ONE+\" 111) (:fn \"FOO\" -300 (:a0) :pointer)))"
                " '*btt-base* nil)");
     ASSERT_STR_EQ(eval_print("(list btt-h:+one+ (getf (ffi::%ffi-stub-info #'btt-h:foo) :lvo))"), "(111 -300)");
-    ASSERT_STR_EQ(eval_print("(/= *btt-gen* (clamiga::%call-gen))"), "T");
+    ASSERT_STR_EQ(eval_print("(/= *btt-gen* (amilisp::%call-gen))"), "T");
     /* names of the old table that the new one lacks keep their old definition */
-    ASSERT_STR_EQ(eval_print("(and (fboundp 'btt-h:open) (getf (clamiga::%binding-table-info \"BTT-H\") :entries))"), "2");
+    ASSERT_STR_EQ(eval_print("(and (fboundp 'btt-h:open) (getf (amilisp::%binding-table-info \"BTT-H\") :entries))"), "2");
 }
 
 TEST(export_import_on_lazy_package_flip_first)
@@ -480,19 +480,19 @@ TEST(export_import_on_lazy_package_flip_first)
     define_fixture("BTT-I");
     eval_print("(defvar *btt-i-foreign* (make-symbol \"FOREIGN\"))");
     eval_print("(import *btt-i-foreign* \"BTT-I\")");
-    ASSERT_STR_EQ(eval_print("(list (clamiga::%binding-table-info \"BTT-I\") (fboundp 'btt-i:foo))"), "(NIL T)");
+    ASSERT_STR_EQ(eval_print("(list (amilisp::%binding-table-info \"BTT-I\") (fboundp 'btt-i:foo))"), "(NIL T)");
     /* EXPORT of a present symbol does not flip */
     define_fixture("BTT-I2");
     eval_print("(export (intern \"+ONE+\" \"BTT-I2\") \"BTT-I2\")");
-    ASSERT_STR_EQ(eval_print("(not (null (clamiga::%binding-table-info \"BTT-I2\")))"), "T");
+    ASSERT_STR_EQ(eval_print("(not (null (amilisp::%binding-table-info \"BTT-I2\")))"), "T");
     eval_print("(export (intern \"NEWSYM\" \"BTT-I2\") \"BTT-I2\")");
-    ASSERT_STR_EQ(eval_print("(not (null (clamiga::%binding-table-info \"BTT-I2\")))"), "T");
+    ASSERT_STR_EQ(eval_print("(not (null (amilisp::%binding-table-info \"BTT-I2\")))"), "T");
     /* EXPORT of a genuinely foreign symbol (not in the table at all) on a
      * still-lazy package flips first, same as IMPORT above */
     define_fixture("BTT-I3");
     eval_print("(defvar *btt-i3-foreign* (make-symbol \"FOREIGN\"))");
     eval_print("(export *btt-i3-foreign* \"BTT-I3\")");
-    ASSERT_STR_EQ(eval_print("(list (clamiga::%binding-table-info \"BTT-I3\")"
+    ASSERT_STR_EQ(eval_print("(list (amilisp::%binding-table-info \"BTT-I3\")"
                              " (eq (find-symbol \"FOREIGN\" \"BTT-I3\") *btt-i3-foreign*) (fboundp 'btt-i3:foo))"),
                   "(NIL T T)");
 }
@@ -504,9 +504,9 @@ TEST(export_import_on_lazy_package_flip_first)
 TEST(unexport_and_shadowing_import_on_lazy_package_flip_first)
 {
     define_fixture("BTT-K");
-    ASSERT_STR_EQ(eval_print("(not (null (clamiga::%binding-table-info \"BTT-K\")))"), "T");
+    ASSERT_STR_EQ(eval_print("(not (null (amilisp::%binding-table-info \"BTT-K\")))"), "T");
     eval_print("(unexport 'btt-k:foo \"BTT-K\")");
-    ASSERT_STR_EQ(eval_print("(list (clamiga::%binding-table-info \"BTT-K\")"
+    ASSERT_STR_EQ(eval_print("(list (amilisp::%binding-table-info \"BTT-K\")"
                              " (nth-value 1 (find-symbol \"FOO\" \"BTT-K\")) (fboundp 'btt-k::foo))"),
                   "(NIL :INTERNAL T)");
 
@@ -514,9 +514,9 @@ TEST(unexport_and_shadowing_import_on_lazy_package_flip_first)
      * shadowing-import must replace the just-flipped FOO, not conflict */
     define_fixture("BTT-K2");
     eval_print("(defvar *btt-k2-foreign* (make-symbol \"FOO\"))");
-    ASSERT_STR_EQ(eval_print("(not (null (clamiga::%binding-table-info \"BTT-K2\")))"), "T");
+    ASSERT_STR_EQ(eval_print("(not (null (amilisp::%binding-table-info \"BTT-K2\")))"), "T");
     eval_print("(shadowing-import *btt-k2-foreign* \"BTT-K2\")");
-    ASSERT_STR_EQ(eval_print("(list (clamiga::%binding-table-info \"BTT-K2\")"
+    ASSERT_STR_EQ(eval_print("(list (amilisp::%binding-table-info \"BTT-K2\")"
                              " (eq (find-symbol \"FOO\" \"BTT-K2\") *btt-k2-foreign*)"
                              " (and (member *btt-k2-foreign* (package-shadowing-symbols \"BTT-K2\")) t))"),
                   "(NIL T T)");
@@ -564,17 +564,17 @@ TEST(shed_closes_the_package_at_the_names_already_referenced)
     eval_print("(defvar *btt-s-foo* #'btt-s:foo)");
     eval_print("(defvar *btt-s-ptx* (fboundp 'btt-s:pt-x))");
 
-    ASSERT_STR_EQ(eval_print("(getf (clamiga::%binding-table-info \"BTT-S\") :shed)"), "NIL");
+    ASSERT_STR_EQ(eval_print("(getf (amilisp::%binding-table-info \"BTT-S\") :shed)"), "NIL");
     /* sheds exactly the blob's bytes, and only once */
-    ASSERT_STR_EQ(eval_print("(let ((b (getf (clamiga::%binding-table-info \"BTT-S\") :bytes)))"
-                             "  (list (= b (clamiga::%shed-binding-tables \"BTT-S\"))"
-                             "        (clamiga::%shed-binding-tables \"BTT-S\")))"), "(T 0)");
+    ASSERT_STR_EQ(eval_print("(let ((b (getf (amilisp::%binding-table-info \"BTT-S\") :bytes)))"
+                             "  (list (= b (amilisp::%shed-binding-tables \"BTT-S\"))"
+                             "        (amilisp::%shed-binding-tables \"BTT-S\")))"), "(T 0)");
 
     /* the marker stays: this package WAS lazy, and says so */
-    ASSERT_STR_EQ(eval_print("(list (getf (clamiga::%binding-table-info \"BTT-S\") :shed)"
-                             "      (getf (clamiga::%binding-table-info \"BTT-S\") :entries)"
-                             "      (getf (clamiga::%binding-table-info \"BTT-S\") :bytes)"
-                             "      (clamiga::%binding-table-entries \"BTT-S\"))"),
+    ASSERT_STR_EQ(eval_print("(list (getf (amilisp::%binding-table-info \"BTT-S\") :shed)"
+                             "      (getf (amilisp::%binding-table-info \"BTT-S\") :entries)"
+                             "      (getf (amilisp::%binding-table-info \"BTT-S\") :bytes)"
+                             "      (amilisp::%binding-table-entries \"BTT-S\"))"),
                   "(T 0 0 NIL)");
 
     /* touched names keep value, stub and identity */
@@ -598,8 +598,8 @@ TEST(shed_closes_the_package_at_the_names_already_referenced)
     /* the eager flip is a no-op on a shed package: nothing to materialise,
      * and the marker survives (without the NIL-blob guard this reads a NIL
      * byte vector) */
-    ASSERT_STR_EQ(eval_print("(progn (clamiga::%binding-table-materialize-all \"BTT-S\")"
-                             " (list (getf (clamiga::%binding-table-info \"BTT-S\") :shed)"
+    ASSERT_STR_EQ(eval_print("(progn (amilisp::%binding-table-materialize-all \"BTT-S\")"
+                             " (list (getf (amilisp::%binding-table-info \"BTT-S\") :shed)"
                              "       (multiple-value-list (find-symbol \"+U32+\" \"BTT-S\"))))"),
                   "(T (NIL NIL))");
 
@@ -611,27 +611,27 @@ TEST(shed_closes_the_package_at_the_names_already_referenced)
     /* enumeration sees only what is present, and does not resurrect */
     ASSERT_STR_EQ(eval_print("(let ((n 0)) (do-symbols (s \"BTT-S\")"
                              "   (when (eq (symbol-package s) (find-package \"BTT-S\")) (incf n)))"
-                             " (list (< n 10) (getf (clamiga::%binding-table-info \"BTT-S\") :shed)))"),
+                             " (list (< n 10) (getf (amilisp::%binding-table-info \"BTT-S\") :shed)))"),
                   "(T T)");
 
     /* re-registering a table undoes it (loading the module's FASL again),
      * and the symbols materialised before stay EQ */
-    eval_print("(clamiga::%register-binding-table \"BTT-S\""
-               " (clamiga::%make-binding-table '((:const \"+ONE+\" 1) (:const \"+U32+\" #xFFFFFFFF)"
+    eval_print("(amilisp::%register-binding-table \"BTT-S\""
+               " (amilisp::%make-binding-table '((:const \"+ONE+\" 1) (:const \"+U32+\" #xFFFFFFFF)"
                "                                 (:fn \"FOO\" -36 (:a0) :pointer)))"
                " '*btt-base* nil)");
-    ASSERT_STR_EQ(eval_print("(list (getf (clamiga::%binding-table-info \"BTT-S\") :shed)"
+    ASSERT_STR_EQ(eval_print("(list (getf (amilisp::%binding-table-info \"BTT-S\") :shed)"
                              " (eq *btt-s-one* 'btt-s:+one+) btt-s:+u32+)"),
                   "(NIL T 4294967295)");
 
     /* an ordinary package has nothing to shed */
     eval_print("(defpackage \"BTT-S-PLAIN\" (:use \"CL\"))");
-    ASSERT_STR_EQ(eval_print("(list (clamiga::%shed-binding-tables \"BTT-S-PLAIN\")"
-                             " (clamiga::%binding-table-info \"BTT-S-PLAIN\"))"), "(0 NIL)");
+    ASSERT_STR_EQ(eval_print("(list (amilisp::%shed-binding-tables \"BTT-S-PLAIN\")"
+                             " (amilisp::%binding-table-info \"BTT-S-PLAIN\"))"), "(0 NIL)");
     /* nor has a package already flipped eager */
     define_fixture("BTT-S2");
-    eval_print("(clamiga::%binding-table-materialize-all \"BTT-S2\")");
-    ASSERT_STR_EQ(eval_print("(clamiga::%shed-binding-tables \"BTT-S2\")"), "0");
+    eval_print("(amilisp::%binding-table-materialize-all \"BTT-S2\")");
+    ASSERT_STR_EQ(eval_print("(amilisp::%shed-binding-tables \"BTT-S2\")"), "0");
 }
 
 TEST(shed_all_reclaims_the_blobs)
@@ -697,11 +697,11 @@ TEST(define_binding_table_macro_and_compile_file_round_trip)
     fclose(f);
     ASSERT(contains(eval_print("(compile-file \"/tmp/btt-mod.lisp\" :output-file \"/tmp/btt-mod.fasl\")"), "btt-mod.fasl"));
     /* compile time registered the table in THIS image already (eval-when) */
-    ASSERT_STR_EQ(eval_print("(not (null (clamiga::%binding-table-info \"BTT-MOD\")))"), "T");
+    ASSERT_STR_EQ(eval_print("(not (null (amilisp::%binding-table-info \"BTT-MOD\")))"), "T");
     /* wipe and reload from the FASL: the blob comes back, names resolve lazily */
     eval_print("(delete-package \"BTT-MOD\")");
     eval_print("(progn (defpackage \"BTT-MOD\" (:use \"CL\") (:export \"*M-BASE*\")) (load \"/tmp/btt-mod.fasl\"))");
-    ASSERT_STR_EQ(eval_print("(getf (clamiga::%binding-table-info \"BTT-MOD\") :entries)"), "7");
+    ASSERT_STR_EQ(eval_print("(getf (amilisp::%binding-table-info \"BTT-MOD\") :entries)"), "7");
     ASSERT_STR_EQ(eval_print("(list btt-mod:+k+ btt-mod:*node-size* (fboundp 'btt-mod:node-succ)"
                              " (getf (ffi::%ffi-stub-info #'btt-mod:call-me) :result) (btt-mod:late 1) (btt-mod::user-of-k)"
                              " btt-mod:+s+ (constantp 'btt-mod:+s+))"),
@@ -726,7 +726,7 @@ TEST(macro_trampoline_carries_more_than_254_arguments)
         "(progn (defpackage \"BTT-BIG\" (:use \"CL\"))"
         " (eval (list* 'amiga.ffi:define-binding-table \"BTT-BIG\" '()"
         "              (loop for i below 1000 collect (list :const (format nil \"+C~D+\" i) i))))"
-        " (list (getf (clamiga::%binding-table-info \"BTT-BIG\") :entries)"
+        " (list (getf (amilisp::%binding-table-info \"BTT-BIG\") :entries)"
         "       (symbol-value (find-symbol \"+C999+\" \"BTT-BIG\"))))"),
         "(1000 999)");
 }

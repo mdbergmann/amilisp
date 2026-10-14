@@ -1,5 +1,8 @@
 #include "string_utils.h"
 #include "mem.h"
+#include "../platform/platform.h"
+#include <string.h>
+#include <stdio.h>
 
 /* Materialize a range [start,end) of an adjustable/fill-pointer character
  * vector (CL_STRING_VECTOR_P) into a fresh simple string.  Picks a wide
@@ -309,3 +312,30 @@ CL_Obj cl_utf8_to_cl_string(const char *buf, uint32_t len)
 }
 
 #endif /* CL_WIDE_STRINGS */
+
+/* platform.h: the environment lookup with the pre-rename fallback.  An
+ * AMILISP_<X> variable that is not set is looked up as CLAMIGA_<X> (what it
+ * was called before 0.12); any other name is passed through unchanged. */
+const char *platform_getenv(const char *name, char *buf, int bufsize)
+{
+    const char *v = platform_getenv_raw(name, buf, bufsize);
+    /* An empty value counts as unset (the runtime's convention, so a child
+     * can clear an inherited export with AMILISP_X=), and an unset new name
+     * falls back to the old one. */
+    if ((v == NULL || v[0] == '\0') && strncmp(name, "AMILISP_", 8) == 0) {
+        char legacy[128];
+        if (snprintf(legacy, sizeof(legacy), "CLAMIGA_%s", name + 8)
+            < (int)sizeof(legacy))
+            v = platform_getenv_raw(legacy, buf, bufsize);
+    }
+    return v;
+}
+
+/* platform_getenv for one-shot reads where the caller has no buffer of its
+ * own (startup and diagnostic switches): the value lives in a static buffer
+ * until the next call, so it is not for concurrent or repeated use. */
+const char *platform_getenv_s(const char *name)
+{
+    static char buf[256];
+    return platform_getenv(name, buf, (int)sizeof(buf));
+}

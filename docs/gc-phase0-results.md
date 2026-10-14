@@ -4,7 +4,7 @@ Measurement gate of `specs/gc-backend-immix.md` (2026-10-08).  Script:
 `trunk/gc-phase0.lisp`; counters: `(ext:%gc-time-stats)` and the new
 `(ext:%heap-stats)` (free-list probe steps + free-list shape).  Every run
 is `--no-userinit --heap 8M --non-interactive`, the classic collector
-(host: `CLAMIGA_GENGC=0`).  AmigaOS phase timers tick at 20 ms, so single
+(host: `AMILISP_GENGC=0`).  AmigaOS phase timers tick at 20 ms, so single
 cycles are quantised; the churn rows are what to read.
 
 Three workloads per binary:
@@ -71,7 +71,7 @@ What the rows say:
    same order as one churn cycle's mark+sweep, cheaper than the 2–4×
    allocation tax it removes for a while.
 
-## Host (M3 Ultra, macOS), `CLAMIGA_GENGC=0` — reference only
+## Host (M3 Ultra, macOS), `AMILISP_GENGC=0` — reference only
 
 | | mark | sweep | sweep share | free-list steps / cycle | wall / cycle |
 |---|--:|--:|--:|--:|--:|
@@ -362,7 +362,7 @@ cycle-exact), so one run per binary is the number.
 
 | binary | mark per cycle |
 |---|--:|
-| classic (`CLAMIGA_GENGC=0`), Phase 3 tree | 11.3 ms |
+| classic (`AMILISP_GENGC=0`), Phase 3 tree | 11.3 ms |
 | classic, this pass | 6.6 ms |
 | Immix, Phase 3 tree | 13.2 ms |
 | Immix, this pass | 8.5 ms |

@@ -67,7 +67,7 @@ static void setup(void)
     /* This suite pins the CLASSIC collector's sweep-forever escape
      * heuristics; the generational collector has no sweep regime (majors
      * are always compactions), so run the binary in classic mode. */
-    setenv("CLAMIGA_GENGC", "0", 1);
+    setenv("AMILISP_GENGC", "0", 1);
     platform_init();
     cl_thread_init();
     cl_error_init();

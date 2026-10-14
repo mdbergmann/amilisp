@@ -27,7 +27,7 @@
  * shapes:
  *
  *   CL_VERSION_STRING       "0.5"    major.minor — keys the FASL cache path
- *                                    (~/.cache/common-lisp/cl-amiga-<ver>-fasl<n>/),
+ *                                    (~/.cache/common-lisp/amilisp-<ver>-fasl<n>/),
  *                                    so it changes only on a minor bump and a
  *                                    patch release keeps its warm cache.
  *   CL_VERSION_STRING_FULL  "0.5.0"  major.minor.patch — LISP-IMPLEMENTATION-VERSION.

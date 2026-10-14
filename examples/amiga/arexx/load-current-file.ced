@@ -21,9 +21,9 @@ OPTIONS RESULTS
  * this the macro would die at the moment it had something to report. */
 OPTIONS FAILAT 21
 
-PORT = 'CLAMIGA'
+PORT = 'AMILISP'
 IF ~SHOW('P', PORT) THEN DO
-    /* A second amilisp takes CLAMIGA.1, and so on. */
+    /* A second amilisp takes AMILISP.1, and so on. */
     DO i = 1 TO 9
         IF SHOW('P', PORT'.'i) THEN DO
             PORT = PORT'.'i

@@ -256,7 +256,7 @@ typedef struct CL_Thread_s {
     /* ---- Macroexpansion lexical environment ----
      * Set by cl_macroexpand_1_env before cl_vm_apply of the expander,
      * restored afterwards.  Exposed to user macros as the value of
-     * their &environment parameter via the CLAMIGA::%MACROEXPAND-ENV
+     * their &environment parameter via the AMILISP::%MACROEXPAND-ENV
      * builtin.  Represented as an alist of (SYMBOL . EXPANSION) pairs
      * capturing the symbol-macros active at the macro call site.
      * CL_NIL = empty env. */
@@ -802,7 +802,7 @@ void cl_thread_handle_interrupt(CL_Thread *t);  /* slow path: handle pending int
 
 /* Hang-triage dump (builtins_thread.c): per-thread wait states to stderr.
  * The C entry point behind MP:DUMP-THREAD-WAITS; also called by the
- * CLAMIGA_STW_DIAG straggler watchdog in cl_gc_stop_the_world. */
+ * AMILISP_STW_DIAG straggler watchdog in cl_gc_stop_the_world. */
 void cl_dump_thread_waits(void);
 
 /* Bring a freshly-created worker online: the first thing its OS thread must do

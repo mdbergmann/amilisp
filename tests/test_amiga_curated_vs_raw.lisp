@@ -165,12 +165,12 @@ specs/raw-bindings-footprint.md) plus the >7-register DEFCFUN forms that
 follow the table in its source.  BASE is the table's :base variable name,
 REGS the register keyword list — the same shape DEFCFUN-ENTRY yields."
   (let* ((table (make-hash-table))
-         (info (clamiga::%binding-table-info pkg-name))
+         (info (amilisp::%binding-table-info pkg-name))
          (base (and info (getf info :base) (symbol-name (getf info :base)))))
     (unless info
       (error "~A carries no binding table (enumerated before the tables were read?)"
              pkg-name))
-    (dolist (row (clamiga::%binding-table-entries pkg-name))
+    (dolist (row (amilisp::%binding-table-entries pkg-name))
       (case (first row)
         (:fn
          (destructuring-bind (kind name lvo regs &rest more) row

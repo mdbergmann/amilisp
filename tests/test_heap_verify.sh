@@ -9,19 +9,19 @@
 # fact, and on the Amiga stderr is never seen -- this is the probe a
 # script can call after each LOAD to find where a corruption entered
 # (the layout-dependent Amiga-written-FASL finding of 2026-09-18).
-# Under CLAMIGA_GC_STRESS=1 (`make test-gc-stress`, the DEBUG_GC_STRESS build)
+# Under AMILISP_GC_STRESS=1 (`make test-gc-stress`, the DEBUG_GC_STRESS build)
 # every allocation compacts, so the churn shrinks to a few objects of each
 # kind %heap-verify walks: what is checked there is that the verifier's own
 # allocations (its collection, its report string) survive a compaction on
 # every allocation, not the volume of heap it walks.
 # Run: sh tests/test_heap_verify.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0
 
-if [ "${CLAMIGA_GC_STRESS:-0}" = 1 ]; then
+if [ "${AMILISP_GC_STRESS:-0}" = 1 ]; then
     N_LISTS=8; LIST_LEN=20; N_TABLES=3; N_STRUCTS=10; N_CLOSURES=5
 else
     N_LISTS=200; LIST_LEN=500; N_TABLES=50; N_STRUCTS=300; N_CLOSURES=100
@@ -73,7 +73,7 @@ cat >> "$WORK/hv.lisp" <<'EOF'
 EOF
 
 for g in 1 0; do
-    out=$(CLAMIGA_GENGC=$g "$CLAMIGA" --no-userinit --non-interactive --heap 8M \
+    out=$(AMILISP_GENGC=$g "$AMILISP" --no-userinit --non-interactive --heap 8M \
           --load "$WORK/hv.lisp" </dev/null 2>&1)
     check_contains "gengc=$g: the script ran to the end" "HV-DONE" "$out"
     check_contains "gengc=$g: a fresh heap is clean" "HV boot: 0" "$out"

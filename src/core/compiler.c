@@ -309,7 +309,7 @@ CL_Obj SYM_LEX_LOCAL_MACRO = CL_NIL;
  * global — see compiler.h and cl_compiler_seed_optimize_settings below. */
 CL_OptimizeSettings cl_optimize_global   = {1, 1, 1, 1};
 
-/* CLAMIGA_FORCE_SPEED=0..3 pins the effective speed for every compile in
+/* AMILISP_FORCE_SPEED=0..3 pins the effective speed for every compile in
  * the process, overriding both the proclaimed baseline and body (declare
  * (optimize (speed ...))) forms.  -1 = no override.  Set once at startup
  * (main.c) before any user code compiles; the differential test harness
@@ -318,7 +318,7 @@ CL_OptimizeSettings cl_optimize_global   = {1, 1, 1, 1};
 int cl_optimize_force_speed = -1;
 
 /* Local-function inlining switch — see compiler_internal.h; main.c clears
- * it for CLAMIGA_NO_LOCAL_INLINE=1. */
+ * it for AMILISP_NO_LOCAL_INLINE=1. */
 int cl_local_inline_enabled = 1;
 
 /* A reference to an inlined FLET/LABELS function that the escape analysis
@@ -427,7 +427,7 @@ const char *cl_intern_source_file(const char *path)
 #define CL_COMPILER_CODE_KEEP   16384
 #define CL_COMPILER_CONST_KEEP  1024
 
-/* Largest buffers any compile grew to, for the CLAMIGA_MEM_DIAG report at
+/* Largest buffers any compile grew to, for the AMILISP_MEM_DIAG report at
  * shutdown.  Written only when a buffer grows. */
 static int compiler_code_cap_max = 0;
 static int compiler_const_cap_max = 0;
@@ -2296,7 +2296,7 @@ top:
         return;
     }
 
-    /* (clamiga::%handler-case form (type ([var]) . body)...) — the HANDLER-CASE
+    /* (amilisp::%handler-case form (type ([var]) . body)...) — the HANDLER-CASE
      * special form.  The clause CAR is a type spec and the CADR a variable
      * list, not evaluated code; scan the form and each clause body. */
     if (cl_handler_case_sym != CL_NIL && head == cl_handler_case_sym) {
@@ -3516,11 +3516,11 @@ static int is_composite_cadr(CL_Obj sym)
  * Returns the symbol that names the (setf FOO) function: either the binding
  * registered via cl_register_setf_function (e.g. by (defun (setf foo) ...) /
  * (defmethod (setf foo) ...)), or — failing that — an optimistically-interned
- * %SETF-<name> symbol in the CLAMIGA package for late binding.  This is the
+ * %SETF-<name> symbol in the AMILISP package for late binding.  This is the
  * single source of truth for the (setf place) calling convention; both
  * setf-PLACE compilation and #'(setf foo) function references go through it
  * so they agree on which symbol holds the setter. */
-/* Synthesize the hidden CLAMIGA symbol that stores the (setf ACCESSOR)
+/* Synthesize the hidden AMILISP symbol that stores the (setf ACCESSOR)
  * function.  The name is package-qualified — %SETF-<home-package>::<name> —
  * so that same-named accessors in different packages (e.g. LOCAL-TIME::SEC-OF
  * vs LOCAL-TIME-DURATION::SEC-OF) get DISTINCT storage symbols instead of
@@ -3554,7 +3554,7 @@ CL_Obj cl_setf_store_symbol(CL_Obj accessor)
                        (int)sname->length, sname->data);
     }
     if (len >= (int)sizeof(buf)) len = (int)sizeof(buf) - 1;
-    return cl_intern_in(buf, (uint32_t)len, cl_package_clamiga);
+    return cl_intern_in(buf, (uint32_t)len, cl_package_amilisp);
 }
 
 static CL_Obj resolve_setf_fn_symbol(CL_Obj accessor)
@@ -4957,8 +4957,8 @@ static void compile_call(CL_Compiler *c, CL_Obj form)
         return;
     }
 
-    /* Inline (clamiga::%struct-ref obj <fixnum 0..255>) and
-     * (clamiga::%struct-set obj <fixnum 0..255> val) as dedicated
+    /* Inline (amilisp::%struct-ref obj <fixnum 0..255>) and
+     * (amilisp::%struct-set obj <fixnum 0..255> val) as dedicated
      * opcodes when the index is a small literal — bypasses the wrapper
      * accessor function call AND the bi_struct_ref/set builtin frame.
      * Compound accessors like (line-sx l) defstruct expands to
@@ -5162,7 +5162,7 @@ void compile_body(CL_Compiler *c, CL_Obj forms)
 }
 
 /* Look up a global symbol-macro expansion stored on the symbol's plist
-   under the CLAMIGA::%SYMBOL-MACRO-EXPANSION indicator (set by the
+   under the AMILISP::%SYMBOL-MACRO-EXPANSION indicator (set by the
    DEFINE-SYMBOL-MACRO macro in boot.lisp).  Returns CL_NIL when none. */
 CL_Obj cl_lookup_global_symbol_macro(CL_Obj sym)
 {
@@ -5191,7 +5191,7 @@ int cl_lookup_global_symbol_macro_p(CL_Obj sym, CL_Obj *out)
     if (symbol_macro_indicator == 0) {
         /* Fallback for harnesses that bypass cl_compiler_init. */
         symbol_macro_indicator =
-            cl_intern_in("%SYMBOL-MACRO-EXPANSION", 23, cl_package_clamiga);
+            cl_intern_in("%SYMBOL-MACRO-EXPANSION", 23, cl_package_amilisp);
         cl_gc_register_root(&symbol_macro_indicator);
     }
 
@@ -5918,7 +5918,7 @@ CL_Obj cl_get_macro(CL_Obj name)
  * hundred registered expanders (defstruct accessors, the generated OS
  * bindings used to add ~550) a linear walk taxed the compilation of
  * every unrelated call site.  defstruct uses these to inline accessor
- * wrappers like (line-sx l) → (clamiga::%struct-ref l 0) which then
+ * wrappers like (line-sx l) → (amilisp::%struct-ref l 0) which then
  * trips the OP_STRUCT_REF compiler hook. */
 static CL_AlistIndex cmacro_index = { &compiler_macro_table, NULL, 0, 0, 0 };
 
@@ -6629,19 +6629,19 @@ static void register_inlined_macro_stubs(void)
     CL_GC_PROTECT(stub_fn);
     CL_GC_PROTECT(sym);
 
-    /* The stub is registered as a NAMED CLAMIGA builtin (not an anonymous
+    /* The stub is registered as a NAMED AMILISP builtin (not an anonymous
      * cl_make_function) so the image-relink registry can resolve it after a
      * restore — an image's macro_table references this function object, and
      * a nameless function cannot be relinked to its C pointer (builtins.h). */
     {
         extern void cl_register_builtin(const char *, CL_CFunc, int, int,
                                         CL_Obj);
-        extern CL_Obj cl_package_clamiga;
+        extern CL_Obj cl_package_amilisp;
         cl_register_builtin("%INLINED-MACRO-STUB", bi_inlined_macro_stub,
-                            2, 2, cl_package_clamiga);
+                            2, 2, cl_package_amilisp);
         sym = cl_intern_in("%INLINED-MACRO-STUB",
                            (uint32_t)strlen("%INLINED-MACRO-STUB"),
-                           cl_package_clamiga);
+                           cl_package_amilisp);
         stub_fn = ((CL_Symbol *)CL_OBJ_TO_PTR(sym))->function;
     }
 
@@ -6752,28 +6752,28 @@ void cl_compiler_init(void)
     SETF_SYM_SYMBOL_FUNCTION = cl_intern_in("SYMBOL-FUNCTION", 15, cl_package_cl);
     SETF_SYM_SYMBOL_PLIST    = cl_intern_in("SYMBOL-PLIST", 12, cl_package_cl);
     SETF_SYM_FDEFINITION     = cl_intern_in("FDEFINITION", 11, cl_package_cl);
-    SETF_HELPER_NTH          = cl_intern_in("%SETF-NTH", 9, cl_package_clamiga);
-    SETF_HELPER_SV           = cl_intern_in("%SET-SYMBOL-VALUE", 17, cl_package_clamiga);
-    SETF_HELPER_SF           = cl_intern_in("%SET-SYMBOL-FUNCTION", 20, cl_package_clamiga);
-    SETF_HELPER_SP           = cl_intern_in("%SET-SYMBOL-PLIST", 17, cl_package_clamiga);
+    SETF_HELPER_NTH          = cl_intern_in("%SETF-NTH", 9, cl_package_amilisp);
+    SETF_HELPER_SV           = cl_intern_in("%SET-SYMBOL-VALUE", 17, cl_package_amilisp);
+    SETF_HELPER_SF           = cl_intern_in("%SET-SYMBOL-FUNCTION", 20, cl_package_amilisp);
+    SETF_HELPER_SP           = cl_intern_in("%SET-SYMBOL-PLIST", 17, cl_package_amilisp);
     SETF_SYM_GETHASH         = cl_intern_in("GETHASH", 7, cl_package_cl);
-    SETF_HELPER_GETHASH      = cl_intern_in("%SETF-GETHASH", 13, cl_package_clamiga);
-    SETF_HELPER_AREF         = cl_intern_in("%SETF-AREF", 10, cl_package_clamiga);
+    SETF_HELPER_GETHASH      = cl_intern_in("%SETF-GETHASH", 13, cl_package_amilisp);
+    SETF_HELPER_AREF         = cl_intern_in("%SETF-AREF", 10, cl_package_amilisp);
     SETF_SYM_ROW_MAJOR_AREF = cl_intern_in("ROW-MAJOR-AREF", 14, cl_package_cl);
-    SETF_HELPER_ROW_MAJOR_AREF = cl_intern_in("%SETF-ROW-MAJOR-AREF", 20, cl_package_clamiga);
+    SETF_HELPER_ROW_MAJOR_AREF = cl_intern_in("%SETF-ROW-MAJOR-AREF", 20, cl_package_amilisp);
     SETF_SYM_FILL_POINTER    = cl_intern_in("FILL-POINTER", 12, cl_package_cl);
-    SETF_HELPER_FILL_POINTER = cl_intern_in("%SETF-FILL-POINTER", 18, cl_package_clamiga);
+    SETF_HELPER_FILL_POINTER = cl_intern_in("%SETF-FILL-POINTER", 18, cl_package_amilisp);
     SETF_SYM_BIT             = cl_intern_in("BIT", 3, cl_package_cl);
-    SETF_HELPER_BIT          = cl_intern_in("%SETF-BIT", 9, cl_package_clamiga);
+    SETF_HELPER_BIT          = cl_intern_in("%SETF-BIT", 9, cl_package_amilisp);
     SETF_SYM_SBIT            = cl_intern_in("SBIT", 4, cl_package_cl);
-    SETF_HELPER_SBIT         = cl_intern_in("%SETF-SBIT", 10, cl_package_clamiga);
+    SETF_HELPER_SBIT         = cl_intern_in("%SETF-SBIT", 10, cl_package_amilisp);
     SETF_SYM_GET             = cl_intern_in("GET", 3, cl_package_cl);
-    SETF_HELPER_GET          = cl_intern_in("%SETF-GET", 9, cl_package_clamiga);
+    SETF_HELPER_GET          = cl_intern_in("%SETF-GET", 9, cl_package_amilisp);
     SETF_SYM_GETF            = cl_intern_in("GETF", 4, cl_package_cl);
-    SETF_HELPER_GETF         = cl_intern_in("%SETF-GETF", 10, cl_package_clamiga);
-    SYM_LEX_LOCAL_MACRO      = cl_intern_in("%LEX-LOCAL-MACRO", 16, cl_package_clamiga);
+    SETF_HELPER_GETF         = cl_intern_in("%SETF-GETF", 10, cl_package_amilisp);
+    SYM_LEX_LOCAL_MACRO      = cl_intern_in("%LEX-LOCAL-MACRO", 16, cl_package_amilisp);
     symbol_macro_indicator   = cl_intern_in("%SYMBOL-MACRO-EXPANSION", 23,
-                                            cl_package_clamiga);
+                                            cl_package_amilisp);
 
     /* Register cached symbols for GC compaction forwarding */
     cl_gc_register_root(&symbol_macro_indicator);

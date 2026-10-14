@@ -36,7 +36,7 @@
 ; so it runs in eager mode (every function compiles at definition, the way
 ; the JIT worked before 0.12).  The default -- compile once hot -- is
 ; restored, and covered, in the "Hot compilation" section at the end.
-(defparameter *jit-suite-hot-threshold* (clamiga::%jit-set-hot-threshold 0))
+(defparameter *jit-suite-hot-threshold* (amilisp::%jit-set-hot-threshold 0))
 
 ; --- Byte-pipeline smoke: %JIT-COMPILE-STUB writes NOP+RTS into a
 ; function's native_code slot, %JIT-DUMP-BYTES reads it back. ---
@@ -46,15 +46,15 @@
 ; yet" baseline to verify %JIT-COMPILE-STUB attaches the stub bytes.
 ; (This used to rely on a shape the walkers decline -- (and x y), then
 ; &optional -- and each one went away when a walker learned it.)
-(clamiga::%jit-set-active nil)
+(amilisp::%jit-set-active nil)
 (defun jit-stub-test-fn (x &optional y) (or x y))
-(clamiga::%jit-set-active t)
-(check "jit-dump-before-stub" nil (clamiga::%jit-dump-bytes #'jit-stub-test-fn))
-(check "jit-compile-stub-succeeds" t (clamiga::%jit-compile-stub #'jit-stub-test-fn))
+(amilisp::%jit-set-active t)
+(check "jit-dump-before-stub" nil (amilisp::%jit-dump-bytes #'jit-stub-test-fn))
+(check "jit-compile-stub-succeeds" t (amilisp::%jit-compile-stub #'jit-stub-test-fn))
 ; NOP = 0x4E71, RTS = 0x4E75 → bytes 78 113 78 117
-#+m68k (check "jit-dump-after-stub" '(78 113 78 117) (clamiga::%jit-dump-bytes #'jit-stub-test-fn))
+#+m68k (check "jit-dump-after-stub" '(78 113 78 117) (amilisp::%jit-dump-bytes #'jit-stub-test-fn))
 ; The AArch64 stub: movz w0, #0 ; ret, little-endian.
-#-m68k (check "jit-dump-after-stub-a64" '(0 0 128 82 192 3 95 214) (clamiga::%jit-dump-bytes #'jit-stub-test-fn))
+#-m68k (check "jit-dump-after-stub-a64" '(0 0 128 82 192 3 95 214) (amilisp::%jit-dump-bytes #'jit-stub-test-fn))
 
 ; --- Round-trip: trivial `() -> NIL` function actually runs as
 ; native code.  Compiler emits moveq #0,d0 ; rts; OP_CALL dispatches
@@ -64,11 +64,11 @@
 ; MOVEQ #0,d0 = 0x7000 → 0x70 0x00 = 112 0
 ; RTS         = 0x4E75 → 0x4E 0x75 = 78 117
 #+m68k (check "jit-roundtrip-bytes" '(112 0 78 117)
-  (clamiga::%jit-dump-bytes #'jit-roundtrip-nil))
+  (amilisp::%jit-dump-bytes #'jit-roundtrip-nil))
 (check "jit-roundtrip-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (jit-roundtrip-nil)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "jit-roundtrip-returns-nil" nil (jit-roundtrip-nil))
 
 ; --- Literal-leaf coverage: OP_T, OP_CONST fixnum (fits moveq),
@@ -80,7 +80,7 @@
 ; Fits signed 8-bit → moveq #85,d0 ; rts → bytes 0x70 0x55 0x4E 0x75.
 (defun jit-rt-fix-small () 42)
 #+m68k (check "jit-rt-fix-small-bytes" '(112 85 78 117)
-  (clamiga::%jit-dump-bytes #'jit-rt-fix-small))
+  (amilisp::%jit-dump-bytes #'jit-rt-fix-small))
 (check "jit-rt-fix-small-returns" 42 (jit-rt-fix-small))
 
 ; Negative fixnum -5: tagged = ((-5)<<1)|1 = 0xFFFFFFF7 = signed -9.
@@ -88,7 +88,7 @@
 ; 0x70 0xF7 0x4E 0x75 (sign-extended back to 0xFFFFFFF7 on execute).
 (defun jit-rt-fix-neg () -5)
 #+m68k (check "jit-rt-fix-neg-bytes" '(112 247 78 117)
-  (clamiga::%jit-dump-bytes #'jit-rt-fix-neg))
+  (amilisp::%jit-dump-bytes #'jit-rt-fix-neg))
 (check "jit-rt-fix-neg-returns" -5 (jit-rt-fix-neg))
 
 ; Larger fixnum 1000: tagged = 2001 = 0x000007D1.  Doesn't fit
@@ -96,7 +96,7 @@
 ;   0x20 0x3C  0x00 0x00 0x07 0xD1  0x4E 0x75
 (defun jit-rt-fix-big () 1000)
 #+m68k (check "jit-rt-fix-big-bytes" '(32 60 0 0 7 209 78 117)
-  (clamiga::%jit-dump-bytes #'jit-rt-fix-big))
+  (amilisp::%jit-dump-bytes #'jit-rt-fix-big))
 (check "jit-rt-fix-big-returns" 1000 (jit-rt-fix-big))
 
 ; OP_T → CL_T is a heap pointer (runtime-allocated symbol), so the
@@ -106,7 +106,7 @@
 (defun jit-rt-t () t)
 (check "jit-rt-t-returns" t (jit-rt-t))
 #+m68k (check "jit-rt-t-shape" t
-  (let ((bs (clamiga::%jit-dump-bytes #'jit-rt-t)))
+  (let ((bs (amilisp::%jit-dump-bytes #'jit-rt-t)))
     (and (= 8 (length bs))
          (= 32 (nth 0 bs)) (= 60 (nth 1 bs))   ; 0x20 0x3C
          (= 78 (nth 6 bs)) (= 117 (nth 7 bs))))) ; 0x4E 0x75
@@ -138,11 +138,11 @@
        (= 78 (nth 10 bs)) (= 117 (nth 11 bs))))   ; 0x4E 0x75  rts
 (defun jit-id (x) x)
 #+m68k (check "jit-id-bytes" t
-  (jit-passthrough-shape-p (clamiga::%jit-dump-bytes #'jit-id) 8))
+  (jit-passthrough-shape-p (amilisp::%jit-dump-bytes #'jit-id) 8))
 (check "jit-id-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (jit-id 42)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "jit-id-fixnum-small" 7   (jit-id 7))
 (check "jit-id-fixnum-neg"   -3  (jit-id -3))
 (check "jit-id-fixnum-big"   1000 (jit-id 1000))
@@ -169,14 +169,14 @@
 (defun jit-2arg-fst (x y) x)
 (defun jit-2arg-snd (x y) y)
 #+m68k (check "jit-2arg-fst-bytes" t
-  (jit-passthrough-shape-p (clamiga::%jit-dump-bytes #'jit-2arg-fst) 12))
+  (jit-passthrough-shape-p (amilisp::%jit-dump-bytes #'jit-2arg-fst) 12))
 #+m68k (check "jit-2arg-snd-bytes" t
-  (jit-passthrough-shape-p (clamiga::%jit-dump-bytes #'jit-2arg-snd) 8))
+  (jit-passthrough-shape-p (amilisp::%jit-dump-bytes #'jit-2arg-snd) 8))
 (check "jit-2arg-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (jit-2arg-fst 1 2)
     (jit-2arg-snd 3 4)
-    (= (+ before 2) (clamiga::%jit-invoke-count))))
+    (= (+ before 2) (amilisp::%jit-invoke-count))))
 (check "jit-2arg-fst-fixnum" 11 (jit-2arg-fst 11 22))
 (check "jit-2arg-snd-fixnum" 22 (jit-2arg-snd 11 22))
 (check "jit-2arg-fst-mixed" 'a   (jit-2arg-fst 'a "b"))
@@ -195,20 +195,20 @@
 ; 8; the 9-arg one the first at 40. ---
 (defun jit-3arg-mid (x y z) y)
 #+m68k (check "jit-3arg-mid-bytes" t
-  (jit-passthrough-shape-p (clamiga::%jit-dump-bytes #'jit-3arg-mid) 12))
+  (jit-passthrough-shape-p (amilisp::%jit-dump-bytes #'jit-3arg-mid) 12))
 (check "jit-3arg-mid-returns" 'b (jit-3arg-mid 'a 'b 'c))
 
 (defun jit-6arg-1 (a b c d e f) a)
 (defun jit-6arg-6 (a b c d e f) f)
 #+m68k (check "jit-6arg-1-bytes" t
-  (jit-passthrough-shape-p (clamiga::%jit-dump-bytes #'jit-6arg-1) 28))
+  (jit-passthrough-shape-p (amilisp::%jit-dump-bytes #'jit-6arg-1) 28))
 #+m68k (check "jit-6arg-6-bytes" t
-  (jit-passthrough-shape-p (clamiga::%jit-dump-bytes #'jit-6arg-6) 8))
+  (jit-passthrough-shape-p (amilisp::%jit-dump-bytes #'jit-6arg-6) 8))
 (check "jit-6arg-1-returns" 'first  (jit-6arg-1 'first 2 3 4 5 'last))
 (check "jit-6arg-6-returns" 'last   (jit-6arg-6 'first 2 3 4 5 'last))
 (defun jit-9arg-1 (a b c d e f g h i) a)
 #+m68k (check "jit-9arg-1-bytes" t
-  (jit-passthrough-shape-p (clamiga::%jit-dump-bytes #'jit-9arg-1) 40))
+  (jit-passthrough-shape-p (amilisp::%jit-dump-bytes #'jit-9arg-1) 40))
 (check "jit-9arg-1-returns" 'first (jit-9arg-1 'first 2 3 4 5 6 7 8 'last))
 
 ; --- Per-opcode walker.  Fires only for shapes the whole-function
@@ -249,11 +249,11 @@
   '(78 86 255 252  47 7  47 6  47 5  122 0  32 5
     46 46 255 248  44 46 255 244  42 46 255 240
     78 94  78 117)
-  (clamiga::%jit-dump-bytes #'walker-nil-1arg))
+  (amilisp::%jit-dump-bytes #'walker-nil-1arg))
 (check "walker-nil-1arg-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-nil-1arg 99)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-nil-1arg-returns-nil"    nil (walker-nil-1arg 99))
 (check "walker-nil-1arg-ignores-arg"    nil (walker-nil-1arg 'anything))
 
@@ -267,7 +267,7 @@
   '(78 86 255 252  47 7  47 6  47 5  122 85  32 5
     46 46 255 248  44 46 255 244  42 46 255 240
     78 94  78 117)
-  (clamiga::%jit-dump-bytes #'walker-fix-1arg))
+  (amilisp::%jit-dump-bytes #'walker-fix-1arg))
 (check "walker-fix-1arg-returns" 42 (walker-fix-1arg 'ignored))
 
 ; OP_T: shape is identical to OP_NIL except OP_T loads CL_T (a heap
@@ -278,7 +278,7 @@
 ; behavior.
 (defun walker-t-1arg (x) t)
 #+m68k (check "walker-t-1arg-size" 34
-  (length (clamiga::%jit-dump-bytes #'walker-t-1arg)))
+  (length (amilisp::%jit-dump-bytes #'walker-t-1arg)))
 (check "walker-t-1arg-returns-t" t (walker-t-1arg nil))
 
 ; Real local-slot use: LET binds an extra slot above the block-return.
@@ -293,9 +293,9 @@
 (check "walker-let-id-symbol" 'banana  (walker-let-id 'banana))
 (check "walker-let-id-cons"   '(1 . 2) (walker-let-id (cons 1 2)))
 (check "walker-let-id-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-let-id 1)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 
 ; OP_MV_RESET (emitted between AND/OR arms) now compiles via a JSR to
 ; cl_jit_runtime_mv_reset, which sets cl_mv_count = 1 on the current
@@ -306,12 +306,12 @@
 ; short-circuit/value semantics still match the interpreter.
 (defun walker-mv-reset-and (x y) (and x y))
 (check "walker-mv-reset-and-has-native" t
-  (let ((bytes (clamiga::%jit-dump-bytes #'walker-mv-reset-and)))
+  (let ((bytes (amilisp::%jit-dump-bytes #'walker-mv-reset-and)))
     (and (consp bytes) (> (length bytes) 0))))
 (check "walker-mv-reset-and-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-mv-reset-and 'a 'b)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-mv-reset-and-truthy"      'b  (walker-mv-reset-and 'a 'b))
 (check "walker-mv-reset-and-short-nil"   nil (walker-mv-reset-and nil 'b))
 (check "walker-mv-reset-and-second-nil"  nil (walker-mv-reset-and 'a nil))
@@ -322,7 +322,7 @@
 ; OP_JTRUE instead of OP_JNIL.
 (defun walker-mv-reset-or (x y) (or x y))
 (check "walker-mv-reset-or-has-native" t
-  (let ((bytes (clamiga::%jit-dump-bytes #'walker-mv-reset-or)))
+  (let ((bytes (amilisp::%jit-dump-bytes #'walker-mv-reset-or)))
     (and (consp bytes) (> (length bytes) 0))))
 (check "walker-mv-reset-or-first"   'a  (walker-mv-reset-or 'a 'b))
 (check "walker-mv-reset-or-second"  'b  (walker-mv-reset-or nil 'b))
@@ -356,9 +356,9 @@
 
 (defun walker-if-1-2 (x) (if x 1 2))
 (check "walker-if-1-2-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-if-1-2 t)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-if-1-2-then-t"      1 (walker-if-1-2 t))
 (check "walker-if-1-2-then-fixnum" 1 (walker-if-1-2 42))
 (check "walker-if-1-2-then-symbol" 1 (walker-if-1-2 'anything))
@@ -396,9 +396,9 @@
 ; rejects), so it doubles as the OP_DUP regression test.
 (defun walker-cond-empty-body (x) (cond (x)))
 (check "walker-cond-empty-body-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-cond-empty-body t)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-cond-empty-body-truthy-t"      t      (walker-cond-empty-body t))
 (check "walker-cond-empty-body-truthy-fixnum" 7      (walker-cond-empty-body 7))
 (check "walker-cond-empty-body-truthy-sym"    'foo   (walker-cond-empty-body 'foo))
@@ -431,9 +431,9 @@
 
 (defun walker-add2 (a b) (+ a b))
 (check "walker-add2-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-add2 1 2)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-add2-small"     5    (walker-add2 2 3))
 (check "walker-add2-negative" -1    (walker-add2 -3 2))
 (check "walker-add2-zero"      0    (walker-add2 0 0))
@@ -451,9 +451,9 @@
 ; Fast path: cmp.l + BLT → push CL_T else push CL_NIL.
 (defun walker-lt2 (a b) (< a b))
 (check "walker-lt2-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-lt2 1 2)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-lt2-yes"            t   (walker-lt2 1 2))
 (check "walker-lt2-no-greater"     nil (walker-lt2 2 1))
 (check "walker-lt2-no-equal"       nil (walker-lt2 5 5))
@@ -475,9 +475,9 @@
 ; Overflow recovery reconstructs original a via ADD d1,d0.
 (defun walker-sub2 (a b) (- a b))
 (check "walker-sub2-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-sub2 5 3)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-sub2-small"        2    (walker-sub2 5 3))
 (check "walker-sub2-zero"         0    (walker-sub2 7 7))
 (check "walker-sub2-negative"    -5    (walker-sub2 3 8))
@@ -526,9 +526,9 @@
 ; for distinct conses / strings / floats even with equal contents.
 (defun walker-eq2 (a b) (eq a b))
 (check "walker-eq2-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-eq2 'a 'a)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-eq2-same-symbol"     t   (walker-eq2 'foo 'foo))
 (check "walker-eq2-different-syms"  nil (walker-eq2 'foo 'bar))
 (check "walker-eq2-same-fixnum"     t   (walker-eq2 42 42))
@@ -543,9 +543,9 @@
 ; from the popped value.
 (defun walker-not (x) (not x))
 (check "walker-not-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-not t)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-not-nil"        t   (walker-not nil))
 (check "walker-not-t"          nil (walker-not t))
 (check "walker-not-fixnum"     nil (walker-not 42))
@@ -571,10 +571,10 @@
 (defun walker-point-z (p) (jit-point-z p))
 
 (check "walker-point-x-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count))
+  (let ((before (amilisp::%jit-invoke-count))
         (p (make-jit-point :x 10 :y 20 :z 30)))
     (walker-point-x p)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 
 (check "walker-point-x-fixnum" 10
   (walker-point-x (make-jit-point :x 10 :y 20 :z 30)))
@@ -603,10 +603,10 @@
 (defun walker-set-point-z (p v) (setf (jit-point-z p) v))
 
 (check "walker-set-point-x-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count))
+  (let ((before (amilisp::%jit-invoke-count))
         (p (make-jit-point :x 0 :y 0 :z 0)))
     (walker-set-point-x p 99)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 
 ; The setter returns the stored value (CL `setf` semantics).
 (check "walker-set-point-x-returns-val" 99
@@ -643,9 +643,9 @@
 ; code.
 (defun walker-mul2 (a b) (* a b))
 (check "walker-mul2-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-mul2 6 7)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-mul2-fix"          42  (walker-mul2 6 7))
 (check "walker-mul2-zero"         0   (walker-mul2 0 12345))
 (check "walker-mul2-zero-rhs"     0   (walker-mul2 12345 0))
@@ -673,9 +673,9 @@
 (defun walker-car1 (lst) (car lst))
 (defun walker-cdr1 (lst) (cdr lst))
 (check "walker-car1-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-car1 '(1 2 3))
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-car1-list"    1   (walker-car1 '(1 2 3)))
 (check "walker-car1-single"  'x  (walker-car1 '(x)))
 (check "walker-car1-pair"    'a  (walker-car1 (cons 'a 'b)))
@@ -704,9 +704,9 @@
 ; heap pointers visible to the scan.
 (defun walker-cons1 (x y) (cons x y))
 (check "walker-cons1-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-cons1 1 2)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-cons1-fixnums"  '(1 . 2)         (walker-cons1 1 2))
 (check "walker-cons1-symbols"  '(a . b)         (walker-cons1 'a 'b))
 (check "walker-cons1-mixed"    '(1 . a)         (walker-cons1 1 'a))
@@ -733,9 +733,9 @@
              (go loop-top))))
     lst))
 (check "walker-cons-stress-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-cons-stress 10)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-cons-stress-10-length" 10
   (length (walker-cons-stress 10)))
 (check "walker-cons-stress-10-head"   9
@@ -778,9 +778,9 @@
              (go loop-top))))
     s))
 (check "walker-sum-to-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-sum-to 10)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-sum-to-0"   0     (walker-sum-to 0))
 (check "walker-sum-to-1"   0     (walker-sum-to 1))
 (check "walker-sum-to-10"  45    (walker-sum-to 10))
@@ -814,9 +814,9 @@
 (defun walker-call-target-0 () 17)
 (defun walker-call-0 () (let ((r (walker-call-target-0))) r))
 (check "walker-call-0-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-call-0)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-call-0-returns" 17 (walker-call-0))
 
 ; --- 1-arg call wrapped in let.  Identity callee; verifies arg-
@@ -825,9 +825,9 @@
 (defun walker-call-target-id (x) x)
 (defun walker-call-id (x) (let ((r (walker-call-target-id x))) r))
 (check "walker-call-id-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-call-id 1)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-call-id-fix"    42     (walker-call-id 42))
 (check "walker-call-id-sym"    'q     (walker-call-id 'q))
 (check "walker-call-id-nil"    nil    (walker-call-id nil))
@@ -879,9 +879,9 @@
       n
       (+ (walker-call-fib (- n 1)) (walker-call-fib (- n 2)))))
 (check "walker-call-fib-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-call-fib 5)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-call-fib-0"   0  (walker-call-fib 0))
 (check "walker-call-fib-1"   1  (walker-call-fib 1))
 (check "walker-call-fib-2"   1  (walker-call-fib 2))
@@ -927,9 +927,9 @@
 (defun walker-tail-target (x) x)
 (defun walker-tail-id (x) (walker-tail-target x))
 (check "walker-tail-id-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-tail-id 1)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-tail-id-fix"  42    (walker-tail-id 42))
 (check "walker-tail-id-sym"  'q    (walker-tail-id 'q))
 (check "walker-tail-id-nil"  nil   (walker-tail-id nil))
@@ -980,9 +980,9 @@
       acc
       (walker-tail-sum (- n 1) (+ acc n))))
 (check "walker-tail-sum-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-tail-sum 5 0)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-tail-sum-0"   0     (walker-tail-sum 0   0))
 (check "walker-tail-sum-1"   1     (walker-tail-sum 1   0))
 (check "walker-tail-sum-10"  55    (walker-tail-sum 10  0))
@@ -1071,9 +1071,9 @@
 ; compiler emits as OP_GLOAD <*walker-glo*>.
 (defun walker-gload () *walker-glo*)
 (check "walker-gload-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-gload)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-gload-fix" 100 (walker-gload))
 
 ; Writer: SETQ on a special emits OP_GSTORE.  Returns the stored value
@@ -1081,9 +1081,9 @@
 ; argument.
 (defun walker-gstore (v) (setq *walker-glo* v))
 (check "walker-gstore-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-gstore 100)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-gstore-returns-val" 7 (walker-gstore 7))
 
 ; Round-trip: store via walker-gstore, read back via walker-gload.
@@ -1152,9 +1152,9 @@
 (defun walker-dyn-let-read ()
   (let ((*walker-glo* 999)) *walker-glo*))
 #+m68k (check "walker-dyn-let-read-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-dyn-let-read)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-dyn-let-read-inner"  999 (walker-dyn-let-read))
 (check "walker-dyn-let-read-outer-restored" 100 *walker-glo*)
 
@@ -1178,9 +1178,9 @@
         (*walker-glo2* 222))
     (+ *walker-glo* *walker-glo2*)))
 #+m68k (check "walker-dyn-let-two-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-dyn-let-two)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-dyn-let-two-inner"        333 (walker-dyn-let-two))
 (check "walker-dyn-let-two-outer1-rest"  100 *walker-glo*)
 (check "walker-dyn-let-two-outer2-rest"  200 *walker-glo2*)
@@ -1249,9 +1249,9 @@
     (mapc (lambda (x) (declare (ignore x)) nil) list)
     :normal-exit))
 (check "walker-block-no-return-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-block-no-return '(1 2 3))
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-block-no-return" :normal-exit (walker-block-no-return '(1 2 3)))
 (check "walker-block-no-return-empty" :normal-exit (walker-block-no-return nil))
 
@@ -1295,9 +1295,9 @@
         when (and (numberp x) (oddp x))
           do (return x)))
 (check "walker-block-loop-return-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-block-loop-return '(2 4 5 6))
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-block-loop-return-hit" 5  (walker-block-loop-return '(2 4 5 6)))
 (check "walker-block-loop-return-all-even" nil (walker-block-loop-return '(2 4 6)))
 
@@ -1360,9 +1360,9 @@
     (+ 1 2)
     (incf *walker-uwp-cleanup-count*)))
 #+m68k (check "walker-uwp-normal-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-uwp-normal)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-uwp-normal-result" 3 (walker-uwp-normal))
 (check "walker-uwp-normal-cleanup-ran-once" 1
   (progn (walker-uwp-normal) *walker-uwp-cleanup-count*))
@@ -1383,9 +1383,9 @@
   (handler-case (walker-uwp-error-inner)
     (error (c) (declare (ignore c)) :caught)))
 #+m68k (check "walker-uwp-error-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-uwp-error)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-uwp-error-result" :caught (walker-uwp-error))
 (check "walker-uwp-error-cleanup-ran" 1
   (progn (walker-uwp-error) *walker-uwp-cleanup-err*))
@@ -1407,9 +1407,9 @@
   (handler-case (walker-uwp-nested-inner)
     (error (c) (declare (ignore c)) :caught)))
 #+m68k (check "walker-uwp-nested-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-uwp-nested)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-uwp-nested-result" :caught (walker-uwp-nested))
 (check "walker-uwp-nested-order" '(:outer :inner)
   (progn (walker-uwp-nested) *walker-uwp-order*))
@@ -1427,9 +1427,9 @@
 (defun walker-uwp-mv ()
   (multiple-value-list (walker-uwp-mv-inner)))
 #+m68k (check "walker-uwp-mv-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-uwp-mv)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-uwp-mv-result" '(1 2 3) (walker-uwp-mv))
 
 ; Multiple values surviving a RETURN-FROM that unwinds THROUGH a JIT'd
@@ -1446,9 +1446,9 @@
   (block done
     (walker-uwp-mv-nlx-cleanup (lambda () (return-from done (values nil t))))))
 #+m68k (check "walker-uwp-mv-nlx-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-uwp-mv-nlx)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-uwp-mv-nlx-result" '(nil t)
   (multiple-value-list (walker-uwp-mv-nlx)))
 
@@ -1598,9 +1598,9 @@
 (defun walker-key-2 (&key (a 10) (b 20))
   (+ a b))
 #+m68k (check "walker-key-2-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-key-2)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-key-2-defaults"      30 (walker-key-2))
 (check "walker-key-2-supplied-a"    23 (walker-key-2 :a 3))
 (check "walker-key-2-supplied-b"    15 (walker-key-2 :b 5))
@@ -1671,9 +1671,9 @@
   (defun walker-fstore-installed-fn (x) (* x x))
   'installed)
 #+m68k (check "walker-fstore-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-fstore-installer)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-fstore-returns-tag"    'installed (walker-fstore-installer))
 ; The nested defun must have actually installed the function — call it.
 (check "walker-fstore-installs-fn"    25
@@ -1693,9 +1693,9 @@
 (defun walker-op-list-3 ()
   (untrace walker-untrace-tag-a walker-untrace-tag-b walker-untrace-tag-c))
 (check "walker-op-list-3-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-op-list-3)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-op-list-3-result"
   '(walker-untrace-tag-a walker-untrace-tag-b walker-untrace-tag-c)
   (walker-op-list-3))
@@ -1725,10 +1725,10 @@
 ; changes.
 (defun walker-rplaca-1 (c v) (setf (car c) v))
 (check "walker-rplaca-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count))
+  (let ((before (amilisp::%jit-invoke-count))
         (c (cons 1 2)))
     (walker-rplaca-1 c 99)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 ; rplaca returns the new car (CLHS setf semantics).
 (check "walker-rplaca-returns-val" 99
   (walker-rplaca-1 (cons 1 2) 99))
@@ -1748,10 +1748,10 @@
 ; in a single helper.
 (defun walker-aset-1 (v idx val) (setf (aref v idx) val))
 (check "walker-aset-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count))
+  (let ((before (amilisp::%jit-invoke-count))
         (v (make-array 3 :initial-element 0)))
     (walker-aset-1 v 0 99)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 ; General vector — value type unconstrained.
 (check "walker-aset-vector-returns-val" 99
   (walker-aset-1 (make-array 3 :initial-element 0) 1 99))
@@ -1794,10 +1794,10 @@
 ; --- OP_RPLACD.  Mirror of RPLACA via (setf (cdr ...) ...).
 (defun walker-rplacd-1 (c v) (setf (cdr c) v))
 (check "walker-rplacd-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count))
+  (let ((before (amilisp::%jit-invoke-count))
         (c (cons 1 2)))
     (walker-rplacd-1 c 99)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-rplacd-returns-val" 99
   (walker-rplacd-1 (cons 1 2) 99))
 (check "walker-rplacd-mutates" '(1 . 99)
@@ -1816,9 +1816,9 @@
   (multiple-value-bind (x y) (values a b)
     (+ x y)))
 #+m68k (check "walker-mv-load-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-mv-load-1 10 20)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-mv-load-primary" 30 (walker-mv-load-1 10 20))
 (defun walker-mv-load-2 (a b c)
   (multiple-value-bind (x y z) (values a b c)
@@ -1832,9 +1832,9 @@
 
 (defun walker-nth-value-1 (n) (nth-value n (values 'a 'b 'c)))
 #+m68k (check "walker-nth-value-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-nth-value-1 0)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-nth-value-0" 'a (walker-nth-value-1 0))
 (check "walker-nth-value-1" 'b (walker-nth-value-1 1))
 (check "walker-nth-value-2" 'c (walker-nth-value-1 2))
@@ -1849,9 +1849,9 @@
 ; FORM)` which lowers to OP_ASSERT_TYPE on the result of FORM.
 (defun walker-assert-type-fixnum (x) (the fixnum x))
 (check "walker-assert-type-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-assert-type-fixnum 42)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-assert-type-pass" 42 (walker-assert-type-fixnum 42))
 (check "walker-assert-type-fail" :caught
   (handler-case (progn (walker-assert-type-fixnum "not a fixnum") :no-error)
@@ -1867,9 +1867,9 @@
 ; the arglist and routes through cl_vm_apply).
 (defun walker-apply-1 (fn args) (apply fn args))
 (check "walker-apply-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-apply-1 #'+ '(1 2 3))
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 ; Simple builtin via apply.
 (check "walker-apply-builtin" 6 (walker-apply-1 #'+ '(1 2 3)))
 ; Empty arglist.
@@ -1898,9 +1898,9 @@
     (symbol-value (car syms))))
 
 #+m68k (check "walker-progv-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-progv-1 '(walker-progv-not-special) '(42))
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 
 ; Single binding visible inside body.
 (check "walker-progv-single" 42
@@ -1965,9 +1965,9 @@
 ; Confirm the body actually runs as native code (else the test wouldn't
 ; exercise the baked-immediate path at all).
 (check "jit-reloc-sum runs native" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (jit-reloc-sum 3)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 
 ; sum_{i=0}^{99} (i+1) = 5050.  A stale FLOAD symbol would crash or call
 ; the wrong function; the retained filler keeps the heap pressured so a
@@ -1991,7 +1991,7 @@
       (let ((name (intern (format nil "JIT-DEAD-FN-~D" i))))
         (eval (list 'defun name '() i))
         ; must actually be JIT'd, else the finalizer has nothing to free
-        (unless (clamiga::%jit-dump-bytes (symbol-function name))
+        (unless (amilisp::%jit-dump-bytes (symbol-function name))
           (error "expected ~S to be JIT-compiled" name))
         (funcall name)
         (fmakunbound name)
@@ -2023,7 +2023,7 @@
 
 ; ---- Walker: OP_HANDLER_CASE_PUSH / OP_HANDLER_CASE_POP ----
 ;
-; HANDLER-CASE is the special form CLAMIGA::%HANDLER-CASE (Tier-4 phase
+; HANDLER-CASE is the special form AMILISP::%HANDLER-CASE (Tier-4 phase
 ; 2): one NLX frame plus one clause binding per clause, and a landing
 ; table of per-clause OP_JMPs.  The walker emits the same inline JSR
 ; setjmp shape as OP_BLOCK_PUSH; the longjmp arm pushes the condition and
@@ -2034,17 +2034,17 @@
 (defun walker-hc-normal (x)
   (handler-case (* x 2)
     (error (c) (declare (ignore c)) :err)))
-#+m68k (check "walker-hc-normal-compiled" t (not (null (clamiga::%jit-dump-bytes #'walker-hc-normal))))
+#+m68k (check "walker-hc-normal-compiled" t (not (null (amilisp::%jit-dump-bytes #'walker-hc-normal))))
 #+m68k (check "walker-hc-normal-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (walker-hc-normal 21)
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "walker-hc-normal-result" 42 (walker-hc-normal 21))
 
 (defun walker-hc-error (x)
   (handler-case (error "hc boom ~A" x)
     (error (c) (list :caught (search "hc boom" (princ-to-string c))))))
-#+m68k (check "walker-hc-error-compiled" t (not (null (clamiga::%jit-dump-bytes #'walker-hc-error))))
+#+m68k (check "walker-hc-error-compiled" t (not (null (amilisp::%jit-dump-bytes #'walker-hc-error))))
 (check "walker-hc-error-result" '(:caught 0) (walker-hc-error 1))
 
 ; Three clauses: the dispatch must reach the second and third table
@@ -2059,7 +2059,7 @@
     (walker-hc-c1 () :first)
     (walker-hc-c2 (c) (declare (ignore c)) :second)
     (error () :third)))
-#+m68k (check "walker-hc-dispatch-compiled" t (not (null (clamiga::%jit-dump-bytes #'walker-hc-dispatch))))
+#+m68k (check "walker-hc-dispatch-compiled" t (not (null (amilisp::%jit-dump-bytes #'walker-hc-dispatch))))
 (check "walker-hc-dispatch" '(:first :second :third :none)
   (list (walker-hc-dispatch 1) (walker-hc-dispatch 2)
         (walker-hc-dispatch 3) (walker-hc-dispatch 4)))
@@ -2070,7 +2070,7 @@
 (defun walker-hc-caller (x)
   (handler-case (walker-hc-callee x)
     (error (c) (declare (ignore c)) :from-callee)))
-#+m68k (check "walker-hc-caller-compiled" t (not (null (clamiga::%jit-dump-bytes #'walker-hc-caller))))
+#+m68k (check "walker-hc-caller-compiled" t (not (null (amilisp::%jit-dump-bytes #'walker-hc-caller))))
 (check "walker-hc-across-frames" '(5 :from-callee)
   (list (walker-hc-caller -5) (walker-hc-caller 5)))
 
@@ -2084,7 +2084,7 @@
       (unwind-protect (error "through cleanup")
         (incf *walker-hc-cleanups*))
     (error () (list :caught *walker-hc-cleanups*))))
-#+m68k (check "walker-hc-uwp-compiled" t (not (null (clamiga::%jit-dump-bytes #'walker-hc-uwp))))
+#+m68k (check "walker-hc-uwp-compiled" t (not (null (amilisp::%jit-dump-bytes #'walker-hc-uwp))))
 (check "walker-hc-uwp-cleanup-first" '(:caught 1) (walker-hc-uwp))
 
 ; Nested: the inner clause does not match and the outer does, then the
@@ -2094,7 +2094,7 @@
       (handler-case (if (eql which :inner) (error 'walker-hc-c1) (error 'walker-hc-c2))
         (walker-hc-c1 () :inner-caught))
     (walker-hc-c2 () :outer-caught)))
-#+m68k (check "walker-hc-nested-compiled" t (not (null (clamiga::%jit-dump-bytes #'walker-hc-nested))))
+#+m68k (check "walker-hc-nested-compiled" t (not (null (amilisp::%jit-dump-bytes #'walker-hc-nested))))
 (check "walker-hc-nested" '(:inner-caught :outer-caught)
   (list (walker-hc-nested :inner) (walker-hc-nested :outer)))
 
@@ -2114,7 +2114,7 @@
     (dotimes (i n hits)
       (handler-case (if (oddp i) (error "odd") i)
         (error () (incf hits))))))
-#+m68k (check "walker-hc-loop-compiled" t (not (null (clamiga::%jit-dump-bytes #'walker-hc-loop))))
+#+m68k (check "walker-hc-loop-compiled" t (not (null (amilisp::%jit-dump-bytes #'walker-hc-loop))))
 (check "walker-hc-loop-no-leak" 150 (walker-hc-loop 300))
 
 ;; --- The direct call path (jit_dispatch, src/jit/runtime_m68k.c).  A JIT'd
@@ -2131,22 +2131,22 @@
 (defun jdc-leaf (a b) (+ a b))
 (defun jdc-caller (n) (let ((s 0)) (dotimes (i n) (setq s (jdc-leaf s 1))) s))
 (check "jit-direct-native-callee-compiled" '(t t)
-  (list (not (null (clamiga::%jit-dump-bytes #'jdc-leaf)))
-        (not (null (clamiga::%jit-dump-bytes #'jdc-caller)))))
+  (list (not (null (amilisp::%jit-dump-bytes #'jdc-leaf)))
+        (not (null (amilisp::%jit-dump-bytes #'jdc-caller)))))
 (check "jit-direct-native-callee-invokes" 11
   (progn
-    (clamiga::%jit-set-direct-calls nil)
+    (amilisp::%jit-set-direct-calls nil)
     (unwind-protect
-         (let ((before (clamiga::%jit-invoke-count)))
+         (let ((before (amilisp::%jit-invoke-count)))
            (jdc-caller 10)
-           (- (clamiga::%jit-invoke-count) before))
-      (clamiga::%jit-set-direct-calls t))))
+           (- (amilisp::%jit-invoke-count) before))
+      (amilisp::%jit-set-direct-calls t))))
 #+m68k (check "jit-direct-native-callee-invokes-direct" 2
   (progn
-    (clamiga::%jit-set-direct-calls t)  ; a fresh generation: the site refills
-    (let ((before (clamiga::%jit-invoke-count)))
+    (amilisp::%jit-set-direct-calls t)  ; a fresh generation: the site refills
+    (let ((before (amilisp::%jit-invoke-count)))
       (jdc-caller 10)
-      (- (clamiga::%jit-invoke-count) before))))
+      (- (amilisp::%jit-invoke-count) before))))
 (check "jit-direct-native-callee-value" 1000 (jdc-caller 1000))
 
 ;; A native callee's multiple values survive the direct entry, as do a
@@ -2162,7 +2162,7 @@
 (defun jdc-key (a &key (b 10)) (+ a b))
 (defun jdc-key-caller () (list (jdc-key 1) (jdc-key 1 :b 2)))
 #+m68k (check "jit-direct-key-callee-compiled" t
-  (not (null (clamiga::%jit-dump-bytes #'jdc-key))))
+  (not (null (amilisp::%jit-dump-bytes #'jdc-key))))
 (check "jit-direct-key-callee" '(11 3) (jdc-key-caller))
 
 ;; OP_CALL with a function value (FUNCALL) takes the same path.
@@ -2222,9 +2222,9 @@
 ;; collection for 300000 conses, so "a collection happened" is the Amiga's.
 #+m68k
 (stress-check "jit-direct-builtin-across-gc" '(t (299999 299998))
-  (let ((g0 (clamiga::%get-gc-count)))
+  (let ((g0 (amilisp::%get-gc-count)))
     (let ((r (jdc-alloc 300000)))
-      (list (> (clamiga::%get-gc-count) g0) r))))
+      (list (> (amilisp::%get-gc-count) g0) r))))
 
 ;; Regression: jit_dispatch's native-callee fast path (the TYPE_BYTECODE /
 ;; TYPE_CLOSURE arm above, src/jit/runtime_m68k.c) used to resolve the callee's
@@ -2245,7 +2245,7 @@
     s))
 (stress-check "jit-direct-native-callee-across-concurrent-gc" t
   (progn
-    (unless (clamiga::%jit-dump-bytes #'jdc-mt-leaf)
+    (unless (amilisp::%jit-dump-bytes #'jdc-mt-leaf)
       (error "jdc-mt-leaf did not JIT-compile"))
     (let ((workers nil))
       (dotimes (w 4)
@@ -2303,21 +2303,21 @@
 (defun abi-native-funcall (f g)
   (list (funcall f 1 'b "c") (funcall g 1 'b "c" #\d '(e) 6.5)))
 ;; An interpreted caller: defined with the JIT off, it stays bytecode.
-(clamiga::%jit-set-active nil)
+(amilisp::%jit-set-active nil)
 (defun abi-vm-caller (&optional (x 1))
   (list (abi-0) (abi-1 x) (abi-2 x 'b) (abi-3 x 'b "c")
         (abi-4 x 'b "c" #\d) (abi-5 x 'b "c" #\d '(e))
         (abi-6 x 'b "c" #\d '(e) 6.5)))
-(clamiga::%jit-set-active t)
+(amilisp::%jit-set-active t)
 (defparameter *abi-expected*
   '(() (1) (1 b) (1 b "c") (1 b "c" #\d) (1 b "c" #\d (e))
     (1 b "c" #\d (e) 6.5)))
 (check "jit-abi-all-native" t
-  (every (lambda (f) (not (null (clamiga::%jit-dump-bytes f))))
+  (every (lambda (f) (not (null (amilisp::%jit-dump-bytes f))))
          (list #'abi-0 #'abi-1 #'abi-2 #'abi-3 #'abi-4 #'abi-5 #'abi-6
                #'abi-store-6 #'abi-capture-3 #'abi-rot-global
                #'abi-rot-funcall #'abi-native-caller #'abi-native-funcall)))
-(check "jit-abi-vm-caller-not-native" nil (clamiga::%jit-dump-bytes #'abi-vm-caller))
+(check "jit-abi-vm-caller-not-native" nil (amilisp::%jit-dump-bytes #'abi-vm-caller))
 (check "jit-abi-from-vm" *abi-expected* (abi-vm-caller))
 (check "jit-abi-from-native" *abi-expected* (abi-native-caller))
 (check "jit-abi-funcall-native" '((1 b "c") (1 b "c" #\d (e) 6.5))
@@ -2341,17 +2341,17 @@
 ;; through it for every positional arity, the walker-key-* checks for the
 ;; keyword ABI.  The outermost entry computes CL_Thread.jit_c_floor once:
 ;; %JIT-C-FLOOR returns (FLOOR SP) from inside native code, NIL outside.
-(defun jef-floor () (clamiga::%jit-c-floor))
+(defun jef-floor () (amilisp::%jit-c-floor))
 (defun jef-deep (n)
   (if (= n 0) (jef-floor) (car (list (jef-deep (- n 1))))))
 (defun jef-error (n) (if (= n 0) (error "jef") (car (list (jef-error (- n 1))))))
 ;; Interpreted (defined with the JIT off): calls the builtin with no native
 ;; frame on the stack.
-(clamiga::%jit-set-active nil)
-(defun jef-vm-floor (&optional x) (declare (ignore x)) (clamiga::%jit-c-floor))
-(clamiga::%jit-set-active t)
+(amilisp::%jit-set-active nil)
+(defun jef-vm-floor (&optional x) (declare (ignore x)) (amilisp::%jit-c-floor))
+(amilisp::%jit-set-active t)
 (check "jit-enter-all-native" t
-  (every (lambda (f) (not (null (clamiga::%jit-dump-bytes f))))
+  (every (lambda (f) (not (null (amilisp::%jit-dump-bytes f))))
          (list #'jef-floor #'jef-deep #'jef-error)))
 (check "jit-enter-floor-outside-native" nil (jef-vm-floor))
 ;; The floor is the m68k entry trampoline's (cl_jit_enter); AArch64 has
@@ -2399,7 +2399,7 @@
     (handler-bind ((warning #'muffle-warning)) (warn "jfu"))
     (list :muffled (eql before (first (jef-floor))))))
 (check "jit-floor-unwind-all-native" t
-  (every (lambda (f) (not (null (clamiga::%jit-dump-bytes f))))
+  (every (lambda (f) (not (null (amilisp::%jit-dump-bytes f))))
          (list #'jfu-thrower #'jfu-catch #'jfu-handler-case #'jfu-muffle)))
 (check "jit-floor-restored-after-throw" '(:thrown t) (jfu-catch))
 (check "jit-floor-restored-after-handler-case" '(:caught t) (jfu-handler-case))
@@ -2417,7 +2417,7 @@
 ;; bump of the call generation (a definition, a collection, TRACE, ...)
 ;; empties every site at once; these checks pin that no stale cell is ever
 ;; used, through every way the cached pair can go wrong.
-(defun jds-stat (key) (getf (clamiga::%jit-direct-call-stats) key))
+(defun jds-stat (key) (getf (amilisp::%jit-direct-call-stats) key))
 (defun jds-leaf (a b) (+ a b))
 (defun jds-loop (n) (let ((s 0)) (dotimes (i n s) (setq s (jds-leaf s 1)))))
 (defun jds-misses-for (n)
@@ -2434,17 +2434,17 @@
       (let ((d (- (jds-misses-for 1000) (jds-misses-for 10))))
         (when (or (null best) (< (abs d) (abs best))) (setq best d))))))
 (defun jds-fills-for (n)
-  (clamiga::%jit-set-direct-calls t)   ; a new generation: every site is empty
+  (amilisp::%jit-set-direct-calls t)   ; a new generation: every site is empty
   (let ((f0 (jds-stat :fills)))
     (jds-loop n)
     (- (jds-stat :fills) f0)))
 
 (check "jit-site-all-native" t
-  (every (lambda (f) (not (null (clamiga::%jit-dump-bytes f))))
+  (every (lambda (f) (not (null (amilisp::%jit-dump-bytes f))))
          (list #'jds-stat #'jds-leaf #'jds-loop #'jds-misses-for
                #'jds-extra-misses #'jds-fills-for)))
 (check "jit-site-enabled-by-default" t
-  (getf (clamiga::%jit-direct-call-stats) :enabled))
+  (getf (amilisp::%jit-direct-call-stats) :enabled))
 (check "jit-site-hit-value" 1000 (jds-loop 1000))
 (check "jit-site-hits-cost-no-misses" 0 (jds-extra-misses))
 ;; One fill per site per generation, however many calls go through it.
@@ -2454,18 +2454,18 @@
 ;; The kill switch: nothing fills, every call misses, values unchanged.
 (check "jit-site-kill-switch" '(nil 1000 990 0)
   (progn
-    (clamiga::%jit-set-direct-calls nil)
+    (amilisp::%jit-set-direct-calls nil)
     (unwind-protect
          (let ((f0 (jds-stat :fills)))
-           (list (getf (clamiga::%jit-direct-call-stats) :enabled)
+           (list (getf (amilisp::%jit-direct-call-stats) :enabled)
                  (jds-loop 1000)
                  (- (jds-misses-for 1000) (jds-misses-for 10))
                  (- (jds-stat :fills) f0)))
-      (clamiga::%jit-set-direct-calls t))))
+      (amilisp::%jit-set-direct-calls t))))
 (check "jit-site-kill-switch-bumps" t
-  (let ((g (clamiga::%call-gen)))
-    (clamiga::%jit-set-direct-calls t)
-    (/= g (clamiga::%call-gen))))
+  (let ((g (amilisp::%call-gen)))
+    (amilisp::%jit-set-direct-calls t)
+    (/= g (amilisp::%call-gen))))
 
 ;; Redefinition through every public path between two calls of the same
 ;; native caller: the second call runs the new definition.
@@ -2491,9 +2491,9 @@
 (defun jcen-gload () jcen-unbound-var)
 (defun jcen-apply (s) (apply s '(1 2)))
 (check "jit-cell-error-callers-native" '(t t t)
-  (list (and (clamiga::%jit-dump-bytes #'jcen-call) t)
-        (and (clamiga::%jit-dump-bytes #'jcen-gload) t)
-        (and (clamiga::%jit-dump-bytes #'jcen-apply) t)))
+  (list (and (amilisp::%jit-dump-bytes #'jcen-call) t)
+        (and (amilisp::%jit-dump-bytes #'jcen-gload) t)
+        (and (amilisp::%jit-dump-bytes #'jcen-apply) t)))
 (check "jit-cell-error-name-undefined-function"
   '(jcen-no-such-fn "Undefined function: JCEN-NO-SUCH-FN")
   (handler-case (jcen-call)
@@ -2543,9 +2543,9 @@
 (defun jds-gc-loop (n)
   (let ((s 0)) (dotimes (i n s) (make-string 2000) (setq s (jds-leaf s 1)))))
 (stress-check "jit-site-across-gc" '(20000 t t)
-  (let ((g0 (clamiga::%get-gc-count)) (f0 (jds-stat :fills)))
+  (let ((g0 (amilisp::%get-gc-count)) (f0 (jds-stat :fills)))
     (let ((r (jds-gc-loop 20000)))
-      (let ((gcs (- (clamiga::%get-gc-count) g0))
+      (let ((gcs (- (amilisp::%get-gc-count) g0))
             (fills (- (jds-stat :fills) f0)))
         (list r (> gcs 0) (<= fills (+ (* 3 gcs) 6)))))))
 
@@ -2593,22 +2593,22 @@
   (let ((r nil))
     (dotimes (k 3 r)
       (jds-bt-caller)                   ; fill the site
-      (let* ((i0 (clamiga::%jit-invoke-count))
+      (let* ((i0 (amilisp::%jit-invoke-count))
              (bt (jds-bt-caller))
-             (di (- (clamiga::%jit-invoke-count) i0)))
+             (di (- (amilisp::%jit-invoke-count) i0)))
         (setq r (list (symbol-name (second (first bt)))
                       (symbol-name (second (second bt)))
                       di))
         (when (eql di 1) (return r))))))
 #+m68k
-(check "jit-frames-on-by-default" t (clamiga::%jit-frames-p))
-;; Forced compaction (CLAMIGA_GC_STRESS, make test-gc-stress) collects at
+(check "jit-frames-on-by-default" t (amilisp::%jit-frames-p))
+;; Forced compaction (AMILISP_GC_STRESS, make test-gc-stress) collects at
 ;; every allocation, which empties the sites before any call can hit: there
 ;; only the frames are checked.
 (check "jit-site-frames-backtrace" '("JDS-BT-LEAF" "JDS-BT-CALLER" t)
   (let ((r (jds-bt-hit)))
     (list (first r) (second r)
-          (or (eql (third r) 1) (not (null (ext:getenv "CLAMIGA_GC_STRESS")))))))
+          (or (eql (third r) 1) (not (null (ext:getenv "AMILISP_GC_STRESS")))))))
 ;; An m68k frame pushed by the hit path has no locals on the VM stack (the
 ;; arguments are on the m68k stack): FRAME-LOCALS answers with an empty
 ;; list, not with whatever the reused slot held before.  (AArch64 keeps its
@@ -2620,12 +2620,12 @@
 #+m68k
 (check "jit-site-frames-off-refused" '(t 3)
   (progn
-    (clamiga::%jit-set-frames nil)
+    (amilisp::%jit-set-frames nil)
     (unwind-protect
          (let ((r0 (jds-stat :refused-shadow)))
            (list (progn (jds-loop 3) (> (jds-stat :refused-shadow) r0))
                  (jds-loop 3)))
-      (clamiga::%jit-set-frames t))))
+      (amilisp::%jit-set-frames t))))
 ;; Runaway native recursion now fills the frame stack, the interpreter's
 ;; limit, before it reaches the C-stack floor -- the same error either way.
 (defun jds-runaway (n) (if (= n 0) 0 (+ 1 (jds-runaway (- n 1)))))
@@ -2714,7 +2714,7 @@
 (defun jtc-bind (v) (let ((*jtc-special* v)) (jtc-read-special)))
 
 (check "jtc-all-native" t
-  (every (lambda (f) (not (null (clamiga::%jit-dump-bytes f))))
+  (every (lambda (f) (not (null (amilisp::%jit-dump-bytes f))))
          (list #'jtc-even #'jtc-odd #'jtc-st-a #'jtc-st-b #'jtc-st-c
                #'jtc-grow #'jtc-grow2 #'jtc-grow3 #'jtc-nine #'jtc-nine2)))
 (check "jtc-mutual-small" '(t nil t) (list (jtc-even 10) (jtc-even 7) (jtc-odd 7)))
@@ -2763,9 +2763,9 @@
 #+m68k
 (check "jtc-frames-off" '(t nil (1 10))
   (progn
-    (clamiga::%jit-set-frames nil)
+    (amilisp::%jit-set-frames nil)
     (unwind-protect (list (jtc-even 300) (jtc-odd 300) (jtc-to-opt 1))
-      (clamiga::%jit-set-frames t))))
+      (amilisp::%jit-set-frames t))))
 
 ;; --- The line of a native frame in a backtrace: the line of the call the
 ;; function is in, as for an interpreted one (m68k: the backtrace finds the
@@ -2783,36 +2783,36 @@
   (let ((a (car x)))
     (list a
           (jln-leaf))))
-(clamiga::%jit-set-active nil)
+(amilisp::%jit-set-active nil)
 (defun jln-outer-i (x)
   (let ((a (car x)))
     (list a
           (jln-leaf-i))))
 (defun jln-leaf-i () (ext:backtrace))
-(clamiga::%jit-set-active t)
+(amilisp::%jit-set-active t)
 ;; A call to a builtin (the call site's miss path).
 (defun jln-builtin (x)
   (let ((a (car x)))
     (list a
           (ext:backtrace))))
-(clamiga::%jit-set-active nil)
+(amilisp::%jit-set-active nil)
 (defun jln-builtin-i (x)
   (let ((a (car x)))
     (list a
           (ext:backtrace))))
-(clamiga::%jit-set-active t)
+(amilisp::%jit-set-active t)
 ;; An error signalled by a builtin the native function calls, seen from
 ;; the handler: there the frame is the innermost native one.
 (defun jln-err (h)
   (let ((y (list h)))
     (gethash
      y h)))
-(clamiga::%jit-set-active nil)
+(amilisp::%jit-set-active nil)
 (defun jln-err-i (h)
   (let ((y (list h)))
     (gethash
      y h)))
-(clamiga::%jit-set-active t)
+(amilisp::%jit-set-active t)
 (defun jln-err-line (fn name)
   (block nil
     (handler-bind ((error (lambda (c) (declare (ignore c))
@@ -2820,7 +2820,7 @@
       (funcall fn 5))))
 
 (check "jln-native" '(t t t nil nil nil nil)
-  (mapcar (lambda (f) (not (null (clamiga::%jit-dump-bytes f))))
+  (mapcar (lambda (f) (not (null (amilisp::%jit-dump-bytes f))))
           (list #'jln-outer #'jln-builtin #'jln-err
                 #'jln-outer-i #'jln-leaf-i #'jln-builtin-i #'jln-err-i)))
 (check "jln-direct-call-line" 5
@@ -2879,7 +2879,7 @@
 (defun opt-too-few () (opt-o))
 (defun opt-mk (n) (lambda (&optional (x n) (y (list x))) (list x y)))
 (defun opt-fc (f) (list (funcall f) (funcall f 1) (funcall f 1 2)))
-(defun opt-native-p (f) (and (clamiga::%jit-dump-bytes f) t))
+(defun opt-native-p (f) (and (amilisp::%jit-dump-bytes f) t))
 (defun opt-misses-for (n)
   (let ((m0 (jds-stat :misses)))
     (opt-sum-loop n)
@@ -2895,7 +2895,7 @@
 #+m68k
 (check "jit-opt-prologue-disassembles" '(t t t t)
   (let ((d (with-output-to-string (*standard-output*)
-             (clamiga::%jit-disassemble #'opt-o))))
+             (amilisp::%jit-disassemble #'opt-o))))
     (mapcar (lambda (s) (not (null (search s d))))
             '("adda.l d0,a0" "move.l -(a0),(a1)+" "clr.l (a1)+" "dbf d0,"))))
 (check "jit-opt-defaults" '((1 10 (1 10) nil) (1 2 (1 2) nil) (1 2 3 t))
@@ -3065,10 +3065,10 @@
 (check "jit-rest-direct-calls-value" 1001000 (rest-sum-loop 1000))
 ;; The fill rule used to refuse &rest callees, so every call missed.  Best
 ;; of three, as jit-opt-direct-calls-hit.  REST-SUM conses its list, and
-;; under CLAMIGA_GC_STRESS every allocation collects, which empties every
+;; under AMILISP_GC_STRESS every allocation collects, which empties every
 ;; site: there every call misses by design, so the check stands down.
 (check "jit-rest-direct-calls-hit" 0
-  (if (ext:getenv "CLAMIGA_GC_STRESS")
+  (if (ext:getenv "AMILISP_GC_STRESS")
       0
       (progn
         (rest-misses-for 10)
@@ -3286,7 +3286,7 @@
         (handler-case (progn (key-call-odd :a) :no-error) (error () :odd))))
 (check "jit-key-direct-value" 1002000 (key-sum-loop 1000))
 ;; Best of three, as jit-opt-direct-calls-hit.  KEY-SUM conses nothing, so
-;; this holds under CLAMIGA_GC_STRESS too.
+;; this holds under AMILISP_GC_STRESS too.
 (check "jit-key-direct-calls-hit" 0
   (progn
     (key-misses-for 10)
@@ -3359,19 +3359,19 @@
 (defconstant +jlp-n+ 5000000)
 (jlp-spin 10)
 (check "jit-loop-poll-spin-is-native" t
-  (not (null (clamiga::%jit-dump-bytes #'jlp-spin))))
+  (not (null (amilisp::%jit-dump-bytes #'jlp-spin))))
 ;; The poll at the loop header: subq.w #1,jit_loop_ctr(a3) ($536B d16),
 ;; bcc.w over the call ($6400 $0008), jsr abs.l ($4EB9).
 #+m68k
 (check "jit-loop-poll-emitted-at-loop-header" t
-  (let ((b (clamiga::%jit-dump-bytes #'jlp-spin)))
+  (let ((b (amilisp::%jit-dump-bytes #'jlp-spin)))
     (let ((p (search '(#x53 #x6B) b)))
       (and p (equal (subseq b (+ p 4) (+ p 10)) '(#x64 #x00 #x00 #x08 #x4E #xB9))))))
 ;; A function without a loop gets no poll.
 (defun jlp-straight (a b) (if (< a b) (+ a b) (- a b)))
 (jlp-straight 1 2)
 (check "jit-loop-poll-not-in-straight-code" '(t nil)
-  (let ((b (clamiga::%jit-dump-bytes #'jlp-straight)))
+  (let ((b (amilisp::%jit-dump-bytes #'jlp-straight)))
     (list (not (null b)) (not (null (search '(#x53 #x6B) b))))))
 
 ;; A self tail call is a loop too: the native code branches back to its
@@ -3504,15 +3504,15 @@
                  (t (setq state 1))))
              (incf i))
     (list opens state stack)))
-(defun jss-native-p (f) (not (null (clamiga::%jit-dump-bytes f))))
+(defun jss-native-p (f) (not (null (amilisp::%jit-dump-bytes f))))
 (check "jss-all-native" t
   (every #'jss-native-p (list #'jss-schar #'jss-char #'jss-aref #'jss-svref
                               #'jss-chareq #'jss-chareq-br #'jss-cmp
                               #'jss-push #'jss-pop #'jss-scan)))
 (check "jss-scan-counter-bump" t
-  (let ((before (clamiga::%jit-invoke-count)))
+  (let ((before (amilisp::%jit-invoke-count)))
     (jss-scan "()")
-    (> (clamiga::%jit-invoke-count) before)))
+    (> (amilisp::%jit-invoke-count) before)))
 (check "jss-schar" #\b (jss-schar "abc" 1))
 (check "jss-char" #\c (jss-char "abc" 2))
 (check "jss-char-fill-pointer" #\b
@@ -3568,52 +3568,52 @@
 ; and at definition when compiled under (optimize (speed 3)).  A function
 ; defined with the JIT off stays bytecode.  All of this is what lets a heap
 ; image, whose native code is dropped on restore, run native code again.
-(clamiga::%jit-set-hot-threshold *jit-suite-hot-threshold*)
-(defun hot-native-p (f) (and (clamiga::%jit-dump-bytes f) t))
-;; The default is 8, unless CLAMIGA_JIT_HOT set another at boot (`make
+(amilisp::%jit-set-hot-threshold *jit-suite-hot-threshold*)
+(defun hot-native-p (f) (and (amilisp::%jit-dump-bytes f) t))
+;; The default is 8, unless AMILISP_JIT_HOT set another at boot (`make
 ;; test-jit-eager` runs everything with 0).  The checks below are written
 ;; against 8, so the section pins it.
 (check "hot: default threshold"
-  (if (ext:getenv "CLAMIGA_JIT_HOT") *jit-suite-hot-threshold* 8)
-  (clamiga::%jit-hot-threshold))
-(clamiga::%jit-set-hot-threshold 8)
+  (if (ext:getenv "AMILISP_JIT_HOT") *jit-suite-hot-threshold* 8)
+  (amilisp::%jit-hot-threshold))
+(amilisp::%jit-set-hot-threshold 8)
 ; %JIT-SET-HOT-THRESHOLD documents its domain as (INTEGER 0 126) -- the
 ; count lives in 7 bits of bc->jit_hot (CL_BC_JIT_COUNT_MASK) and 127 is
 ; reserved as the CL_BC_JIT_SETTLED sentinel.  A negative value signals;
 ; a value past 126 used to be silently clamped by cl_jit_set_hot_threshold
 ; instead of also signaling, contradicting that documented type.
 (check "hot: set-hot-threshold rejects a negative value" :type-error
-  (handler-case (progn (clamiga::%jit-set-hot-threshold -1) :no-error)
+  (handler-case (progn (amilisp::%jit-set-hot-threshold -1) :no-error)
     (type-error () :type-error)))
 (check "hot: set-hot-threshold rejects past the 7-bit max" :type-error
-  (handler-case (progn (clamiga::%jit-set-hot-threshold 127) :no-error)
+  (handler-case (progn (amilisp::%jit-set-hot-threshold 127) :no-error)
     (type-error () :type-error)))
 (check "hot: set-hot-threshold accepts the max" 126
-  (let ((prev (clamiga::%jit-set-hot-threshold 126)))
-    (prog1 (clamiga::%jit-hot-threshold)
-      (clamiga::%jit-set-hot-threshold prev))))
+  (let ((prev (amilisp::%jit-set-hot-threshold 126)))
+    (prog1 (amilisp::%jit-hot-threshold)
+      (amilisp::%jit-set-hot-threshold prev))))
 (check "hot: threshold unchanged after a rejected out-of-range call" 8
-  (clamiga::%jit-hot-threshold))
+  (amilisp::%jit-hot-threshold))
 (defun hot-inc (x) (+ x 1))
 (check "hot: not compiled at definition" nil (hot-native-p #'hot-inc))
 (check "hot: interpreted below the threshold" nil
   (progn (dotimes (i 7) (hot-inc i)) (hot-native-p #'hot-inc)))
 (check "hot: compiled on the threshold-th call" '(1 t t)
-  (let ((before (clamiga::%jit-hot-compile-count)))
+  (let ((before (amilisp::%jit-hot-compile-count)))
     (list (hot-inc 0) (hot-native-p #'hot-inc)
-          (> (clamiga::%jit-hot-compile-count) before))))
+          (> (amilisp::%jit-hot-compile-count) before))))
 (check "hot: native after it turned hot" '(42 t)
-  (let ((before (clamiga::%jit-invoke-count)))
-    (list (hot-inc 41) (> (clamiga::%jit-invoke-count) before))))
+  (let ((before (amilisp::%jit-invoke-count)))
+    (list (hot-inc 41) (> (amilisp::%jit-invoke-count) before))))
 (defun hot-loop (n) (let ((s 0)) (dotimes (i n) (setq s (+ s i))) s))
 (check "hot: a loop is not compiled at definition" nil (hot-native-p #'hot-loop))
 (check "hot: a loop compiles on its first call" '(45 t)
   (list (hot-loop 10) (hot-native-p #'hot-loop)))
 (defun hot-speed (x) (declare (optimize (speed 3))) (* x 2))
 (check "hot: (speed 3) compiles at definition" t (hot-native-p #'hot-speed))
-(clamiga::%jit-set-active nil)
+(amilisp::%jit-set-active nil)
 (defun hot-cold (x) (+ x 3))
-(clamiga::%jit-set-active t)
+(amilisp::%jit-set-active t)
 (check "hot: defined with the JIT off stays bytecode" '(23 nil)
   (let ((r 0)) (dotimes (i 21) (setq r (hot-cold i))) (list r (hot-native-p #'hot-cold))))
 ; A callee reached only from native code is counted by the native call path.
@@ -3630,31 +3630,31 @@
   (let ((s 0)) (dotimes (i n) (setq s (+ s (hot-leaf-once i)))) s))
 (check "hot: a native caller's callee compiles on the threshold-th call" '(t nil t)
   (list (hot-native-p #'hot-driver-native)
-        (progn (hot-driver-native (1- (clamiga::%jit-hot-threshold)))
+        (progn (hot-driver-native (1- (amilisp::%jit-hot-threshold)))
                (hot-native-p #'hot-leaf-once))
         (progn (hot-driver-native 1) (hot-native-p #'hot-leaf-once))))
 (check "hot: threshold 1 compiles on the first call" '(5 t)
-  (let ((prev (clamiga::%jit-set-hot-threshold 1)))
+  (let ((prev (amilisp::%jit-set-hot-threshold 1)))
     (defun hot-once (x) (+ x 4))
     (prog1 (list (hot-once 1) (hot-native-p #'hot-once))
-      (clamiga::%jit-set-hot-threshold prev))))
+      (amilisp::%jit-set-hot-threshold prev))))
 ; A TAIL call from interpreted code into native code runs native (call, then
 ; return from the caller's frame).  The native fast path used to skip tail
 ; calls, which kept a hot loop that a run-once entry function tail-calls
 ; interpreted forever.
 (defun hot-tail-target (n) (let ((s 0)) (dotimes (i n) (setq s (+ s 1))) s))
 (defun hot-tail-mv (x) (values x (+ x 1) (+ x 2)))
-(clamiga::%jit-set-active nil)
+(amilisp::%jit-set-active nil)
 (defun hot-tail-caller (n) (hot-tail-target n))          ; bytecode, tail call
 (defun hot-tail-mv-caller (x) (hot-tail-mv x))
-(clamiga::%jit-set-active t)
+(amilisp::%jit-set-active t)
 (check "hot: an interpreted tail call enters native code" '(t 100 t)
   (progn
     (hot-tail-target 1)                                  ; a loop: compiles now
-    (let ((before (clamiga::%jit-invoke-count)))
+    (let ((before (amilisp::%jit-invoke-count)))
       (list (hot-native-p #'hot-tail-target)
             (hot-tail-caller 100)
-            (> (clamiga::%jit-invoke-count) before)))))
+            (> (amilisp::%jit-invoke-count) before)))))
 (check "hot: multiple values through a native tail call" '(t (5 6 7))
   (progn
     (dotimes (i 8) (hot-tail-mv i))
@@ -3672,9 +3672,9 @@
 (defun hot-shown (x) (- x 1))
 (check "hot: %jit-disassemble compiles a fresh definition" '(nil t)
   (list (hot-native-p #'hot-shown)
-        (progn (clamiga::%jit-disassemble #'hot-shown) (hot-native-p #'hot-shown))))
+        (progn (amilisp::%jit-disassemble #'hot-shown) (hot-native-p #'hot-shown))))
 (check "hot: %jit-disassemble leaves a JIT-off definition alone" nil
-  (progn (clamiga::%jit-disassemble #'hot-cold) (hot-native-p #'hot-cold)))
+  (progn (amilisp::%jit-disassemble #'hot-cold) (hot-native-p #'hot-cold)))
 
 ; Several threads calling one function while it turns hot.  A counting
 ; store that went stale could overwrite another thread's settle with a
@@ -3694,23 +3694,23 @@
   (declare (optimize (speed 3)))
   (dotimes (i 400) (hot-race-declined i nil nil nil nil nil nil)))
 (check "hot: concurrent calls settle a declined function" '(nil t)
-  (let ((prev (clamiga::%jit-set-hot-threshold 8)))
+  (let ((prev (amilisp::%jit-set-hot-threshold 8)))
     (unwind-protect
-        (let ((before (clamiga::%jit-hot-compile-count))
+        (let ((before (amilisp::%jit-hot-compile-count))
               (workers nil))
           (dotimes (w 6)
             (push (mp:make-thread #'hot-race-worker :name "hot-race-worker")
                   workers))
           (mapc #'mp:join-thread workers)
           (list (hot-native-p #'hot-race-declined)
-                (<= 1 (- (clamiga::%jit-hot-compile-count) before) 2)))
-      (clamiga::%jit-set-hot-threshold prev))))
+                (<= 1 (- (amilisp::%jit-hot-compile-count) before) 2)))
+      (amilisp::%jit-set-hot-threshold prev))))
 
 ; Restore the suite-wide baseline established by run-tests.lisp's
 ; "declaim optimize" test — sections after this load expect speed 3.
 (declaim (optimize (speed 3)))
 
-(clamiga::%jit-set-hot-threshold *jit-suite-hot-threshold*)
+(amilisp::%jit-set-hot-threshold *jit-suite-hot-threshold*)
 
 ; The last form: a runner can tell the whole file loaded (a reader error --
 ; a package missing on this platform, say -- ends a LOAD silently early).

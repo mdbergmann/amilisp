@@ -1,4 +1,4 @@
-/* test_type_expander.c — CLAMIGA::%TYPE-EXPANDER builtin.
+/* test_type_expander.c — AMILISP::%TYPE-EXPANDER builtin.
  *
  * %TYPE-EXPANDER exposes the internal deftype expander table to Lisp so a
  * portable TYPEXPAND can be implemented on top of it (the AmiLisp
@@ -63,15 +63,15 @@ static const char *eval_print(const char *str)
 /* A built-in / primitive type name has no deftype expander → NIL. */
 TEST(type_expander_builtin_is_nil)
 {
-    ASSERT_STR_EQ(eval_print("(clamiga::%type-expander 'list)"), "NIL");
-    ASSERT_STR_EQ(eval_print("(clamiga::%type-expander 'integer)"), "NIL");
+    ASSERT_STR_EQ(eval_print("(amilisp::%type-expander 'list)"), "NIL");
+    ASSERT_STR_EQ(eval_print("(amilisp::%type-expander 'integer)"), "NIL");
 }
 
 /* A non-symbol argument never names a deftype → NIL (not an error). */
 TEST(type_expander_non_symbol_is_nil)
 {
-    ASSERT_STR_EQ(eval_print("(clamiga::%type-expander 42)"), "NIL");
-    ASSERT_STR_EQ(eval_print("(clamiga::%type-expander '(a b))"), "NIL");
+    ASSERT_STR_EQ(eval_print("(amilisp::%type-expander 42)"), "NIL");
+    ASSERT_STR_EQ(eval_print("(amilisp::%type-expander '(a b))"), "NIL");
 }
 
 /* An atom deftype's expander takes zero arguments and yields its body. */
@@ -79,7 +79,7 @@ TEST(type_expander_atom_alias_expands)
 {
     ASSERT_STR_EQ(eval_print(
         "(progn (deftype my-disj () '(or x (or y z) (member :x :y)))"
-        "       (funcall (clamiga::%type-expander 'my-disj)))"),
+        "       (funcall (amilisp::%type-expander 'my-disj)))"),
         "(OR X (OR Y Z) (MEMBER :X :Y))");
 }
 
@@ -88,7 +88,7 @@ TEST(type_expander_parameterized_alias_expands)
 {
     ASSERT_STR_EQ(eval_print(
         "(progn (deftype my-int (lo hi) `(integer ,lo ,hi))"
-        "       (funcall (clamiga::%type-expander 'my-int) 0 9))"),
+        "       (funcall (amilisp::%type-expander 'my-int) 0 9))"),
         "(INTEGER 0 9)");
 }
 
@@ -103,7 +103,7 @@ TEST(type_expander_drives_portable_typexpand)
         "  (multiple-value-bind (head args)"
         "      (if (consp type) (values (car type) (cdr type)) (values type nil))"
         "    (if (symbolp head)"
-        "        (let ((ex (clamiga::%type-expander head)))"
+        "        (let ((ex (amilisp::%type-expander head)))"
         "          (if ex (values (apply ex args) t) (values type nil)))"
         "        (values type nil))))"
         "(defun tx (type)"

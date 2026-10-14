@@ -100,10 +100,10 @@ void gc_hdr_index_init(void)
     char ebuf[8];
     const char *e;
     gc_hdr_index_release();
-    /* CLAMIGA_HDR_INDEX=0 leaves the index absent (the scan falls back to
+    /* AMILISP_HDR_INDEX=0 leaves the index absent (the scan falls back to
      * the full arena walk) — an A/B switch for measuring the marker's JIT
-     * cost, in the spirit of CLAMIGA_GENGC=0. */
-    e = platform_getenv("CLAMIGA_HDR_INDEX", ebuf, (int)sizeof(ebuf));
+     * cost, in the spirit of AMILISP_GENGC=0. */
+    e = platform_getenv("AMILISP_HDR_INDEX", ebuf, (int)sizeof(ebuf));
     if (e && e[0] == '0' && e[1] == '\0')
         return;
     gc_hdr_npages = (cl_heap.arena_size + GC_HDR_PAGE - 1) >> GC_HDR_PAGE_SHIFT;

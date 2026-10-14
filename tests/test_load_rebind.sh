@@ -19,7 +19,7 @@
 #
 # Run: sh tests/test_load_rebind.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0
@@ -28,7 +28,7 @@ trap 'rm -rf "$TMPD"' EXIT INT TERM
 
 run_quiet() {
     # $1 = forms; stdin-batch mode, *load-verbose* off
-    echo "(setf *load-verbose* nil) $1" | "$CLAMIGA" --no-userinit --batch 2>&1
+    echo "(setf *load-verbose* nil) $1" | "$AMILISP" --no-userinit --batch 2>&1
 }
 
 check_contains() {
@@ -140,11 +140,11 @@ check_contains "compile-file-package-restored-after-abort" "PKG=COMMON-LISP-USER
 
 # --- Test 9: abort-path restore under GC stress (compaction every alloc) ---
 # Only meaningful when the binary was built with DEBUG_GC_STRESS; on a normal
-# build CLAMIGA_GC_STRESS=1 is ignored and this is a cheap re-run of Test 1.
+# build AMILISP_GC_STRESS=1 is ignored and this is a cheap re-run of Test 1.
 out=$(echo "(setf *load-verbose* nil)
  (handler-case (load \"$TMPD/bomb.lisp\") (error () nil))
  (format t \"PKG=~a~%\" (package-name *package*))" \
-      | CLAMIGA_GC_STRESS=1 "$CLAMIGA" --no-userinit --batch 2>&1)
+      | AMILISP_GC_STRESS=1 "$AMILISP" --no-userinit --batch 2>&1)
 check_contains "package-restored-under-gc-stress" "PKG=COMMON-LISP-USER" "$out"
 
 echo ""

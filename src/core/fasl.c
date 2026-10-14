@@ -63,7 +63,7 @@ void cl_fasl_writer_release(CL_FaslWriter *w)
  * Before a COMPILE-FILE run serializes its bytecode units, it calls
  * cl_fasl_mlf_prepass() over the collected bytecodes.  The pre-pass
  * walks the constant graph and, for every literal object whose class
- * has a user MAKE-LOAD-FORM method, calls clamiga::%FASL-LOAD-FORM to
+ * has a user MAKE-LOAD-FORM method, calls amilisp::%FASL-LOAD-FORM to
  * obtain (creation-form . init-form) and records it.  fasl_ser_step's
  * TYPE_STRUCT case then emits FASL_TAG_LOAD_FORM for those objects
  * (looked up by EQ via cl_fasl_mlf_lookup) instead of dumping slots.
@@ -82,7 +82,7 @@ void cl_fasl_writer_release(CL_FaslWriter *w)
  * threads, so a single file-static context is safe.
  *
  * Zero cost when unused: the pre-pass is gated on
- * clamiga::%MAKE-LOAD-FORM-ACTIVE-P — when no user MAKE-LOAD-FORM method
+ * amilisp::%MAKE-LOAD-FORM-ACTIVE-P — when no user MAKE-LOAD-FORM method
  * exists (the case for virtually every file), the graph walk is skipped
  * entirely and serialization behaves exactly as before. */
 
@@ -411,9 +411,9 @@ static void fasl_mlf_free_walk_state(void)
 
 /* Resolve a CLAMIGA-package function by name; CL_NIL if undefined
  * (e.g. CLOS not loaded — the pre-pass then no-ops). */
-static CL_Obj fasl_mlf_clamiga_fn(const char *name, int len)
+static CL_Obj fasl_mlf_amilisp_fn(const char *name, int len)
 {
-    CL_Obj sym = cl_intern_in(name, len, cl_package_clamiga);
+    CL_Obj sym = cl_intern_in(name, len, cl_package_amilisp);
     CL_Symbol *s = (CL_Symbol *)CL_OBJ_TO_PTR(sym);
     return s->function;
 }
@@ -453,7 +453,7 @@ void cl_fasl_mlf_prepass(CL_Obj bc_vec, int bc_count)
     CL_GC_PROTECT(bc_vec);
 
     /* Gate: only walk when MAKE-LOAD-FORM has at least one user method. */
-    active_fn = fasl_mlf_clamiga_fn("%MAKE-LOAD-FORM-ACTIVE-P", 24);
+    active_fn = fasl_mlf_amilisp_fn("%MAKE-LOAD-FORM-ACTIVE-P", 24);
     if (CL_NULL_P(active_fn) || active_fn == CL_UNBOUND) {
         CL_GC_UNPROTECT(1);
         return;  /* CLOS / helper not loaded */
@@ -463,7 +463,7 @@ void cl_fasl_mlf_prepass(CL_Obj bc_vec, int bc_count)
         return;
     }
 
-    fasl_fn = fasl_mlf_clamiga_fn("%FASL-LOAD-FORM", 15);
+    fasl_fn = fasl_mlf_amilisp_fn("%FASL-LOAD-FORM", 15);
     if (CL_NULL_P(fasl_fn) || fasl_fn == CL_UNBOUND) {
         CL_GC_UNPROTECT(1);
         return;
@@ -998,7 +998,7 @@ static int fasl_ser_stack_push(CL_FaslWriter *w, FaslSerStack *s,
 /* Step the topmost frame.  Returns 1 if the frame is done (caller pops),
  * 0 if it pushed children (frame stays on stack, children processed first). */
 /* --- Portable-FASL mode (see fasl.h) ---
- * CLAMIGA_FASL_PORTABLE=1 makes the writer refuse strings that need
+ * AMILISP_FASL_PORTABLE=1 makes the writer refuse strings that need
  * FASL_TAG_WIDE_STRING; the refusal detail lives on the writer itself
  * (CL_FaslWriter.nonportable_detail) for bi_compile_file's "FASL unit
  * failed" diagnostic — not a global, so concurrent writers (e.g. two MP
@@ -1009,7 +1009,7 @@ int cl_fasl_portable_mode(void)
 {
     if (fasl_portable_mode < 0) {
         char envbuf[16];
-        const char *s = platform_getenv("CLAMIGA_FASL_PORTABLE", envbuf,
+        const char *s = platform_getenv("AMILISP_FASL_PORTABLE", envbuf,
                                         (int)sizeof(envbuf));
         fasl_portable_mode = (s && s[0] && s[0] != '0') ? 1 : 0;
     }
@@ -1250,7 +1250,7 @@ static int fasl_ser_step(CL_FaslWriter *w, FaslSerStack *s)
                 for (i = 0; i < ws->length; i++)
                     cl_fasl_write_u8(w, (uint8_t)ws->data[i]);
             } else if (cl_fasl_portable_mode()) {
-                /* CLAMIGA_FASL_PORTABLE=1: this FASL is meant for a
+                /* AMILISP_FASL_PORTABLE=1: this FASL is meant for a
                  * byte-string build, which has no decoder for
                  * TAG_WIDE_STRING — refuse now, on the host, and describe
                  * the string (ASCII prefix + first offending code point)
@@ -1268,7 +1268,7 @@ static int fasl_ser_step(CL_FaslWriter *w, FaslSerStack *s)
                 snprintf(w->nonportable_detail, sizeof(w->nonportable_detail),
                          "non-ASCII string literal (U+%04X in \"%s%s\") cannot "
                          "be loaded by byte-string builds -- use ASCII "
-                         "(CLAMIGA_FASL_PORTABLE=1)",
+                         "(AMILISP_FASL_PORTABLE=1)",
                          (unsigned)cp, head, ws->length > n ? "..." : "");
                 w->error = FASL_ERR_NONPORTABLE;
                 return 0;

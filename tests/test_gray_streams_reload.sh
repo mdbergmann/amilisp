@@ -23,7 +23,7 @@
 #
 # Run: sh tests/test_gray_streams_reload.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 
 # Paths written into the generated .lisp file must be in amilisp's own
 # spelling: under MSYS2 "$(pwd)" is /c/... but a native amilisp.exe resolves
@@ -93,7 +93,7 @@ cat > "$tmp" <<EOF
 (format t "GRAY-RELOAD-DONE~%")
 EOF
 
-out=$("$TIMEOUT" 20 "$CLAMIGA" --no-userinit --heap 16M --non-interactive --load "$tmp" </dev/null 2>&1)
+out=$("$TIMEOUT" 20 "$AMILISP" --no-userinit --heap 16M --non-interactive --load "$tmp" </dev/null 2>&1)
 ec=$?
 
 total=1

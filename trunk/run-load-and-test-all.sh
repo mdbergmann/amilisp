@@ -22,14 +22,14 @@
 
 set -u
 
-# CLAMIGA / LOGDIR / CACHE_PARENT are overridable via the environment so the
+# AMILISP / LOGDIR / CACHE_PARENT are overridable via the environment so the
 # regression test (tests/test_test_extra.sh) can drive the runner against a fake
 # binary and a throwaway cache without touching the real build tree.
-CLAMIGA=${CLAMIGA:-build/host/amilisp}
+AMILISP=${AMILISP:-build/host/amilisp}
 LOGDIR=${LOGDIR:-build/load-and-test-logs}
-CACHE_PARENT=${CLAMIGA_FASL_CACHE_PARENT:-$HOME/.cache/common-lisp}
+CACHE_PARENT=${AMILISP_FASL_CACHE_PARENT:-$HOME/.cache/common-lisp}
 # Each script gets its own FASL cache under here (see the per-script isolation
-# note below). Kept separate from CACHE_PARENT/cl-amiga-* so we never disturb
+# note below). Kept separate from CACHE_PARENT/amilisp-* so we never disturb
 # the user's interactive cache.
 PERSCRIPT_CACHE="$CACHE_PARENT/clamiga-test-extra"
 COLD=0
@@ -224,8 +224,8 @@ fi
 
 # --- Normal path: run scripts, then print grand total ---
 
-if [ ! -x "$CLAMIGA" ]; then
-  echo "error: $CLAMIGA not found or not executable — run 'make host' first" >&2
+if [ ! -x "$AMILISP" ]; then
+  echo "error: $AMILISP not found or not executable — run 'make host' first" >&2
   exit 2
 fi
 if ! ls trunk/load-and-test-*.lisp >/dev/null 2>&1; then
@@ -236,7 +236,7 @@ fi
 # FASL-cache correctness.
 #
 # These scripts hit two distinct cache hazards. Both are defended here by giving
-# each script its own FASL cache directory (CLAMIGA_FASL_CACHE_DIR, honoured by
+# each script its own FASL cache directory (AMILISP_FASL_CACHE_DIR, honoured by
 # make_fasl_cache_path in src/core/builtins_io.c) and invalidating it when the
 # amilisp binary changes:
 #
@@ -266,10 +266,10 @@ if [ "$COLD" -eq 0 ]; then
   # The boot and CLOS FASLs count as part of the binary: they hold the macros
   # (LOOP, DEFCLASS, ...) every cached expansion came from, and a fix there
   # leaves the executable untouched.
-  # (CLAMIGA_BOOT_FASLS overrides the list; tests/test_test_extra.sh uses it.)
-  BOOT_FASLS=${CLAMIGA_BOOT_FASLS:-lib/boot.fasl lib/clos.fasl}
+  # (AMILISP_BOOT_FASLS overrides the list; tests/test_test_extra.sh uses it.)
+  BOOT_FASLS=${AMILISP_BOOT_FASLS:-lib/boot.fasl lib/clos.fasl}
   # shellcheck disable=SC2086
-  cur_binid=$(cat "$CLAMIGA" $BOOT_FASLS 2>/dev/null | cksum | awk '{print $1, $2}')
+  cur_binid=$(cat "$AMILISP" $BOOT_FASLS 2>/dev/null | cksum | awk '{print $1, $2}')
   prev_binid=""
   [ -f "$BINID_FILE" ] && prev_binid=$(cat "$BINID_FILE" 2>/dev/null)
   if [ -n "$cur_binid" ] && [ "$cur_binid" != "$prev_binid" ]; then
@@ -312,8 +312,8 @@ for f in trunk/load-and-test-*.lisp; do
   # stdin from /dev/null so the post-load REPL sees EOF and exits instead
   # of blocking; everything (incl. stderr) captured to the per-script log.
   start_s=$(date +%s)
-  CLAMIGA_FASL_CACHE_DIR="$script_cache" \
-    timeout "$tmo" "$CLAMIGA" --no-userinit --heap "${heap}M" --load "$f" </dev/null >"$log" 2>&1
+  AMILISP_FASL_CACHE_DIR="$script_cache" \
+    timeout "$tmo" "$AMILISP" --no-userinit --heap "${heap}M" --load "$f" </dev/null >"$log" 2>&1
   ec=$?
   elapsed=$(( $(date +%s) - start_s ))
   total_time=$((total_time + elapsed))

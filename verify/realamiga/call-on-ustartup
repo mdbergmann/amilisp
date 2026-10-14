@@ -52,18 +52,18 @@ build/amiga/amilisp --no-userinit --no-image --heap 8M --non-interactive --load 
 cd AmiLisp:tests
 AmiLisp:build/amiga/amilisp --no-userinit --image AmiLisp:build/amiga/amilisp-test.img --heap 8M --non-interactive --load AmiLisp:tests/amiga/image-verify.lisp >>AmiLisp:build/amiga/test-results.log
 cd AmiLisp:
-; Failed starts hand everything back (CLAMIGA_MEM_DIAG=1 compares AvailMem
+; Failed starts hand everything back (AMILISP_MEM_DIAG=1 compares AvailMem
 ; at start and exit; verify-amiga wants "fully returned" after each): an
 ; arena that cannot be allocated, with an image staged, and an image whose
 ; payload is truncated.
 echo "=== failed image starts ===" >>build/amiga/test-results.log
 build/amiga/amilisp --no-userinit --no-image --heap 8M --non-interactive --load tests/amiga/image-trunc.lisp >>build/amiga/test-results.log
-setenv CLAMIGA_MEM_DIAG 1
+setenv AMILISP_MEM_DIAG 1
 build/amiga/amilisp --no-userinit --image build/amiga/amilisp-test.img --heap 1000M --non-interactive --eval "(quit)" >>build/amiga/test-results.log
 echo "heap-fail rc=$RC" >>build/amiga/test-results.log
 build/amiga/amilisp --no-userinit --image build/amiga/amilisp-trunc.img --heap 8M --non-interactive --eval "(quit)" >>build/amiga/test-results.log
 echo "trunc rc=$RC" >>build/amiga/test-results.log
-unsetenv CLAMIGA_MEM_DIAG
+unsetenv AMILISP_MEM_DIAG
 delete >NIL: AmiLisp:build/amiga/amilisp-trunc.img
 ; Restored-boot suite gate: snapshot a bare boot, then run the ENTIRE
 ; suite from the restored image — verify-amiga requires a second
@@ -71,12 +71,12 @@ delete >NIL: AmiLisp:build/amiga/amilisp-trunc.img
 ; watchdog's stall detector keeps seeing progress.
 echo "=== restored-boot suite ===" >>build/amiga/test-results.log
 build/amiga/amilisp --no-userinit --no-image --heap 8M --non-interactive --load tests/amiga/image-boot-save.lisp >>build/amiga/test-results.log
-; CLAMIGA_SUITE_QUICK: this pass skips the STRESS-CHECKs (concurrent-GC and
+; AMILISP_SUITE_QUICK: this pass skips the STRESS-CHECKs (concurrent-GC and
 ; method-install race hammers, ~5 min) and the JIT bench -- they test the
 ; runtime, not the restored boot, and the fresh-boot pass above ran them.
-setenv CLAMIGA_SUITE_QUICK 1
+setenv AMILISP_SUITE_QUICK 1
 build/amiga/amilisp --no-userinit --image build/amiga/boot.img --heap 8M --non-interactive --load tests/amiga/run-tests.lisp -- suite-arg "two words" >>build/amiga/test-results.log
-unsetenv CLAMIGA_SUITE_QUICK
+unsetenv AMILISP_SUITE_QUICK
 delete >NIL: AmiLisp:build/amiga/amilisp-test.img
 delete >NIL: AmiLisp:build/amiga/boot.img
 ; Delivered executable (tests/amiga/exe-save.lisp): EXT:SAVE-IMAGE

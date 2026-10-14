@@ -13,16 +13,16 @@
 # Every FASL now carries a DEPS trailer — a layout hash per structure it
 # depends on — that is compared against the live registry before any unit
 # runs.  LOAD's cache recompiles on a mismatch; a FASL loaded by name signals.
-# --no-fasl-cache / CLAMIGA_FASL_CACHE=0 switch the implicit cache off, which
+# --no-fasl-cache / AMILISP_FASL_CACHE=0 switch the implicit cache off, which
 # is the answer for what the trailer cannot see (a changed macro or inline
 # function in another file).
 #
 # Run: sh tests/test_fasl_struct_deps.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/amilisp}"
-case "$CLAMIGA" in
+AMILISP="${1:-build/host/amilisp}"
+case "$AMILISP" in
     /*|[A-Za-z]:/*) ;;
-    *) CLAMIGA="$(cd "$(dirname "$CLAMIGA")" && pwd)/$(basename "$CLAMIGA")" ;;
+    *) AMILISP="$(cd "$(dirname "$AMILISP")" && pwd)/$(basename "$AMILISP")" ;;
 esac
 
 passed=0
@@ -47,8 +47,8 @@ hasnt() { echo "$out" | grep -q -- "$1" && echo no || echo yes; }
 # private to DIR; relative names keep the generated Lisp free of host paths.
 run() {
     dir="$1"; shift
-    out=$(cd "$dir" && CLAMIGA_FASL_CACHE_DIR="$dir/cache" \
-          "$CLAMIGA" --no-userinit --non-interactive "$@" --load run.lisp \
+    out=$(cd "$dir" && AMILISP_FASL_CACHE_DIR="$dir/cache" \
+          "$AMILISP" --no-userinit --non-interactive "$@" --load run.lisp \
           </dev/null 2>&1)
 }
 # An edit must land in a later second than the cache entry written before it:
@@ -71,7 +71,7 @@ cat > "$d/run.lisp" <<'EOF'
   (format t "READ ~S~%" (docs e))
   (set-docs e '(d2))
   (format t "WRITE ~S ~S~%" (editor-documents e) (editor-name e))
-  (format t "SLOTS ~S~%" (clamiga::%struct-slot-count 'editor)))
+  (format t "SLOTS ~S~%" (amilisp::%struct-slot-count 'editor)))
 EOF
 run "$d"
 check "fresh_load_is_correct" "$(has 'READ (D1)')"
@@ -175,7 +175,7 @@ cat > "$d/run.lisp" <<'EOF'
 (load "b.lisp")
 (let ((c (make-child :id 1 :tag :t1)))
   (format t "CHILD ~S ~S ~S~%" (child-id c) (child-tag c)
-          (clamiga::%struct-slot-count 'child)))
+          (amilisp::%struct-slot-count 'child)))
 EOF
 run "$d"
 check "include_fresh" "$(has 'CHILD 1 :T1 2')"
@@ -249,8 +249,8 @@ printf '(load "a.lisp")\n(format t "F ~S~%%" (f))\n' > "$d/run.lisp"
 run "$d" --no-fasl-cache
 check "flag_loads_source" "$(has 'F 1')"
 check "flag_writes_no_cache" "$([ "$(nfasl "$d")" -eq 0 ] && echo yes || echo no)"
-out=$(cd "$d" && CLAMIGA_FASL_CACHE=0 CLAMIGA_FASL_CACHE_DIR="$d/cache" \
-      "$CLAMIGA" --no-userinit --non-interactive --load run.lisp </dev/null 2>&1)
+out=$(cd "$d" && AMILISP_FASL_CACHE=0 AMILISP_FASL_CACHE_DIR="$d/cache" \
+      "$AMILISP" --no-userinit --non-interactive --load run.lisp </dev/null 2>&1)
 check "env_loads_source" "$(has 'F 1')"
 check "env_writes_no_cache" "$([ "$(nfasl "$d")" -eq 0 ] && echo yes || echo no)"
 run "$d"
@@ -259,7 +259,7 @@ run "$d" --no-fasl-cache
 check "flag_ignores_existing_cache" "$(hasnt 'Loading .*cache.*a\.fasl')"
 run "$d"
 check "default_reads_cache" "$(has 'Loading .*cache.*a\.fasl')"
-out=$("$CLAMIGA" --help 2>&1)
+out=$("$AMILISP" --help 2>&1)
 check "help_mentions_flag" "$(has '--no-fasl-cache')"
 
 echo ""

@@ -5,16 +5,16 @@
 #     (also through a $PATH symlink) with no environment setup
 #   - install prefix (<prefix>/bin/amilisp + <prefix>/lib/amilisp/): resolves
 #     ../lib/amilisp/, shims included, with no environment setup
-#   - $CLAMIGA_HOME fallback: a bare copied binary finds lib/ via the env var
+#   - $AMILISP_HOME fallback: a bare copied binary finds lib/ via the env var
 #   - when nothing is found: boot fails with a diagnostic naming
-#     CLAMIGA_HOME instead of a generic REQUIRE error later, and REQUIRE
+#     AMILISP_HOME instead of a generic REQUIRE error later, and REQUIRE
 #     errors name the module they could not find
 # Run: sh tests/test_lib_search_cwd.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/amilisp}"
-case "$CLAMIGA" in
-    /*) ABS_CLAMIGA="$CLAMIGA" ;;
-    *)  ABS_CLAMIGA="$(pwd)/$CLAMIGA" ;;
+AMILISP="${1:-build/host/amilisp}"
+case "$AMILISP" in
+    /*) ABS_CLAMIGA="$AMILISP" ;;
+    *)  ABS_CLAMIGA="$(pwd)/$AMILISP" ;;
 esac
 ROOT="$(pwd)"
 
@@ -62,7 +62,7 @@ EVAL_REQUIRE='(progn (require "gray-streams") (format t "GS-OK R=~A~%" (+ 1 2)))
 
 # --- Executable-relative fallback: repo binary run from elsewhere ---
 
-result=$(cd "$WORKDIR" && env -u CLAMIGA_HOME "$ABS_CLAMIGA" --no-userinit \
+result=$(cd "$WORKDIR" && env -u AMILISP_HOME "$ABS_CLAMIGA" --no-userinit \
     --non-interactive --eval "$EVAL_REQUIRE" </dev/null 2>&1)
 check_contains     "exedir_boot_and_require"  "GS-OK R=3" "$result"
 check_not_contains "exedir_no_boot_error"     "cannot locate its runtime library" "$result"
@@ -71,12 +71,12 @@ check_not_contains "exedir_no_boot_error"     "cannot locate its runtime library
 
 ln -s "$ABS_CLAMIGA" "$WORKDIR/clamiga-link" 2>/dev/null
 if [ -L "$WORKDIR/clamiga-link" ]; then
-    result=$(cd "$WORKDIR" && env -u CLAMIGA_HOME ./clamiga-link --no-userinit \
+    result=$(cd "$WORKDIR" && env -u AMILISP_HOME ./clamiga-link --no-userinit \
         --non-interactive --eval "$EVAL_REQUIRE" </dev/null 2>&1)
     check_contains "symlink_boot_and_require" "GS-OK R=3" "$result"
 else
     # MSYS2 without Developer Mode copies instead of linking, and a copy
-    # would re-test the $CLAMIGA_HOME leg below rather than symlink
+    # would re-test the $AMILISP_HOME leg below rather than symlink
     # resolution.
     echo "  skip  symlink_boot_and_require (no symlink support on this host)"
 fi
@@ -85,14 +85,14 @@ fi
 # An install prefix (the layout SBCL uses): the binary in bin/, the whole
 # lib/ tree beside it in ../lib/amilisp/.  Must work with no env var and from a
 # cwd that has no lib/ of its own — the only lib/ in reach here is the
-# installed one (cwd has none, $CLAMIGA_HOME is unset, <exedir>/lib/ and
+# installed one (cwd has none, $AMILISP_HOME is unset, <exedir>/lib/ and
 # <exedir>/../../lib/ do not exist), so finding gray-streams proves the
 # ../lib/amilisp/ leg resolved.
 
 mkdir -p "$WORKDIR/prefix/bin" "$WORKDIR/prefix/lib"
 cp -pR "$ROOT/lib" "$WORKDIR/prefix/lib/amilisp"
 cp "$ABS_CLAMIGA" "$WORKDIR/prefix/bin/amilisp"
-result=$(cd "$WORKDIR" && env -u CLAMIGA_HOME "$WORKDIR/prefix/bin/amilisp" \
+result=$(cd "$WORKDIR" && env -u AMILISP_HOME "$WORKDIR/prefix/bin/amilisp" \
     --no-userinit --non-interactive --eval "$EVAL_REQUIRE" </dev/null 2>&1)
 check_contains     "fhs_install_boot_and_require" "GS-OK R=3" "$result"
 check_not_contains "fhs_install_no_boot_error"    "cannot locate its runtime library" "$result"
@@ -103,14 +103,14 @@ check_not_contains "fhs_install_no_boot_error"    "cannot locate its runtime lib
 mkdir -p "$WORKDIR/prefix-old/bin" "$WORKDIR/prefix-old/lib"
 cp -pR "$ROOT/lib" "$WORKDIR/prefix-old/lib/clamiga"
 cp "$ABS_CLAMIGA" "$WORKDIR/prefix-old/bin/amilisp"
-result=$(cd "$WORKDIR" && env -u CLAMIGA_HOME "$WORKDIR/prefix-old/bin/amilisp" \
+result=$(cd "$WORKDIR" && env -u AMILISP_HOME "$WORKDIR/prefix-old/bin/amilisp" \
     --no-userinit --non-interactive --eval "$EVAL_REQUIRE" </dev/null 2>&1)
 check_contains     "fhs_install_pre_rename_lib_clamiga" "GS-OK R=3" "$result"
 
 # The bundled ASDF shims live under the installed lib/ too — they are
 # resolved from asdf.lisp's own load truename, so they must land inside
 # <prefix>/lib/amilisp/shims/ rather than in the source tree.
-result=$(cd "$WORKDIR" && env -u CLAMIGA_HOME "$WORKDIR/prefix/bin/amilisp" \
+result=$(cd "$WORKDIR" && env -u AMILISP_HOME "$WORKDIR/prefix/bin/amilisp" \
     --no-userinit --non-interactive --eval '(require "asdf")' \
     --eval '(dolist (d (symbol-value (find-symbol "*CENTRAL-REGISTRY*" "ASDF"))) (format t "REG ~A~%" d))' \
     </dev/null 2>&1)
@@ -120,19 +120,19 @@ result=$(cd "$WORKDIR" && env -u CLAMIGA_HOME "$WORKDIR/prefix/bin/amilisp" \
 check_contains "fhs_install_shims_under_prefix" \
     "/prefix/lib/amilisp/shims/cl+ssl/" "$result"
 
-# --- $CLAMIGA_HOME fallback: bare copied binary, lib/ nowhere nearby ---
+# --- $AMILISP_HOME fallback: bare copied binary, lib/ nowhere nearby ---
 
 cp "$ABS_CLAMIGA" "$WORKDIR/clamiga-copy"
-result=$(cd "$WORKDIR" && CLAMIGA_HOME="$ROOT" ./clamiga-copy --no-userinit \
+result=$(cd "$WORKDIR" && AMILISP_HOME="$ROOT" ./clamiga-copy --no-userinit \
     --non-interactive --eval "$EVAL_REQUIRE" </dev/null 2>&1)
 check_contains "clamiga_home_boot_and_require" "GS-OK R=3" "$result"
 
 # --- Nothing findable: clear diagnostics instead of a generic error ---
 
-result=$(cd "$WORKDIR" && env -u CLAMIGA_HOME ./clamiga-copy --no-userinit \
+result=$(cd "$WORKDIR" && env -u AMILISP_HOME ./clamiga-copy --no-userinit \
     --non-interactive --eval '(require "gray-streams")' </dev/null 2>&1)
 check_contains "lost_boot_names_problem"   "cannot locate its runtime library" "$result"
-check_contains "lost_boot_names_fix"       "CLAMIGA_HOME" "$result"
+check_contains "lost_boot_names_fix"       "AMILISP_HOME" "$result"
 check_contains "lost_require_names_module" 'cannot find module "gray-streams"' "$result"
 
 # --- Boot candidate exists but fails to LOAD (e.g. reader error) ---
@@ -146,7 +146,7 @@ check_contains "lost_require_names_module" 'cannot find module "gray-streams"' "
 mkdir -p "$WORKDIR/poison/lib"
 printf '(defmacro dummy () nil)\n((((( \n' > "$WORKDIR/poison/lib/boot.lisp"
 cp "$ABS_CLAMIGA" "$WORKDIR/poison/clamiga-poison"
-result=$(cd "$WORKDIR/poison" && env -u CLAMIGA_HOME ./clamiga-poison --no-userinit \
+result=$(cd "$WORKDIR/poison" && env -u AMILISP_HOME ./clamiga-poison --no-userinit \
     --non-interactive --eval '(list 1 2)' </dev/null 2>&1)
 check_contains     "poisoned_boot_names_load_failure" "but loading it FAILED" "$result"
 check_contains     "poisoned_boot_still_reports_no_runtime" "cannot locate its runtime library" "$result"

@@ -52,7 +52,7 @@ originally every guide went to `docs/`, see the implementation record):
 | `docs/ffi.md` | `docs/ffi.guide` | `FFI` reference |
 | `docs/gray.md` | `docs/gray.guide` | `GRAY` reference |
 | `docs/mop.md` | `docs/mop.guide` | `MOP` reference |
-| `docs/clamiga.md` | `docs/clamiga.guide` | `CLAMIGA` reference |
+| `docs/amilisp.md` | `docs/amilisp.guide` | `AMILISP` reference |
 | `docs/amiga.md` | `docs/amiga.guide` | `AMIGA.*` reference |
 
 The output paths are the release layout: the three guides a user opens
@@ -62,7 +62,7 @@ under `docs/` next to its Markdown.  Every guide gets a Workbench icon
 `<name>.guide.info` by the release script), so the documentation is
 visible and readable from Workbench.  The top-level README is named
 `amilisp.guide` rather than `README.guide` (taken by the index) or
-`clamiga.guide` (taken by the `CLAMIGA` package page; AmigaDOS file names
+`clamiga.guide` (taken by the `AMILISP` package page; AmigaDOS file names
 are case-insensitive).  `README-FIRST.md` lives in the repository root so
 that its links resolve identically in the checkout and in the release
 (same relative position); it replaces the `README-BINARY.txt` the release
@@ -337,7 +337,7 @@ heading and therefore an error.
   message` on standard error, exit code 1 on any error.
 - `tools/docs/md2guide.sh <amilisp-binary> <output-dir>`: wraps the
   above for the fixed input set, invoked like `package-symbols.sh`
-  (`CLAMIGA_NO_USERINIT=1 ... --non-interactive --load ... --eval ...`).
+  (`AMILISP_NO_USERINIT=1 ... --non-interactive --load ... --eval ...`).
   `<output-dir>` is laid out as the release root (the root guides at the
   top, the reference under `docs/`; the converter creates the directory).
 - `make guide` (Makefile, next to `docs-check`/`docs-update`): builds
@@ -388,7 +388,7 @@ Both host and Amiga, per project rule.
    converter is portable Lisp and gives the real-target run.  The
    fixture, not the nine docs, to keep suite time flat.
 3. `make test-gc-stress`: run the fixture conversion under
-   `CLAMIGA_GC_STRESS=1` (one line in the existing target list).  The
+   `AMILISP_GC_STRESS=1` (one line in the existing target list).  The
    converter allocates strings and conses heavily; this is cheap
    coverage of those paths, even though no C changes are involved.
 
@@ -524,7 +524,7 @@ Verification:
   through `md2guide.sh`, and the structural checks (plus: the `@$VER:`
   line carries the version from `src/core/types.h`, no unindented body
   line wider than 76 visible columns, the index links every reference
-  page).  Also run under `CLAMIGA_GC_STRESS=1` in `make test-gc-stress`.
+  page).  Also run under `AMILISP_GC_STRESS=1` in `make test-gc-stress`.
 - `tests/amiga/md2guide-tests.lisp` in the Amiga suite: the fixture set
   converted on the target is byte-identical to the golden files.
 - Acceptance in FS-UAE (OS 3.9 Workbench, 68040 JIT config): the ten
@@ -577,7 +577,7 @@ getting-started guide, and every guide should have an icon.
   like the others.  It carries what `README-BINARY.txt` used to say --
   the layout, the binaries, the stack and heap, the heap image, the
   libraries -- plus the two lines every Clamacs user needs in
-  `S:.amilisprc` and why (the editor launches `PROGDIR:clamiga` when no
+  `S:.amilisprc` and why (the editor launches `PROGDIR:amilisp` when no
   port is found, and only the rc file opens the port).  The release
   script no longer writes `README-BINARY.txt`; a `--snapshot` build gets
   a `SNAPSHOT.txt` with the snapshot note instead.

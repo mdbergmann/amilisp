@@ -15,7 +15,7 @@
 # Reproduction is scheduler-dependent, so the binary runs several times
 # under a hard timeout; any hang/crash in ANY run fails.
 #
-# When CLAMIGA_GC_STRESS=1 is already set in the environment (used by
+# When AMILISP_GC_STRESS=1 is already set in the environment (used by
 # `make test-gc-stress`, which runs this script a second time against a
 # -DDEBUG_GC_STRESS binary — see Makefile), every allocation forces a
 # compacting GC, so instead of relying on scheduler luck to land a
@@ -28,9 +28,9 @@
 # mark-sweep-compaction.
 #
 # Run: sh tests/test_mt_intern_stw.sh build/host/amilisp
-# Run under stress: CLAMIGA_GC_STRESS=1 sh tests/test_mt_intern_stw.sh build/host-gcstress/amilisp
+# Run under stress: AMILISP_GC_STRESS=1 sh tests/test_mt_intern_stw.sh build/host-gcstress/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then
@@ -41,7 +41,7 @@ fi
 tmp=$(mktemp "${TMPDIR:-/tmp}/clamiga_mtintern_XXXXXX") || exit 1
 trap 'rm -f "$tmp"' EXIT
 
-if [ -n "$CLAMIGA_GC_STRESS" ]; then
+if [ -n "$AMILISP_GC_STRESS" ]; then
     runs=1
     run_timeout=90
     cat > "$tmp" <<'EOF'
@@ -50,8 +50,8 @@ if [ -n "$CLAMIGA_GC_STRESS" ]; then
 ;; cl_package_rwlock and links under it with a re-check, so the losers of
 ;; a race must end up with the winner's symbol — all lists EQ, pairwise.
 (defpackage "T2-LAZY" (:use "CL"))
-(clamiga::%register-binding-table "T2-LAZY"
-  (clamiga::%make-binding-table
+(amilisp::%register-binding-table "T2-LAZY"
+  (amilisp::%make-binding-table
    (loop for i below 12 collect (list :const (format nil "+L~D+" i) i)))
   nil nil)
 (defvar *lazy-names* (loop for i below 12 collect (format nil "+L~D+" i)))
@@ -72,7 +72,7 @@ if [ -n "$CLAMIGA_GC_STRESS" ]; then
                 ;; Fresh names: every intern takes the slow path (symbol +
                 ;; bucket-cell alloc, then the write-locked link) while the
                 ;; peers hammer the read lock — exactly the pre-fix
-                ;; STW-vs-rwlock window.  Under CLAMIGA_GC_STRESS every one
+                ;; STW-vs-rwlock window.  Under AMILISP_GC_STRESS every one
                 ;; of these allocations forces a compaction.
                 (intern (format nil "T2-SYM-~d-~d" tid i))
                 ;; SHADOW/EXPORT: the other two pre-cons-then-relink sites
@@ -113,8 +113,8 @@ else
 ;; allocate outside cl_package_rwlock, link under it with a re-check); the
 ;; losers of a race must end up with the winner's symbol — all lists EQ.
 (defpackage "T2-LAZY" (:use "CL"))
-(clamiga::%register-binding-table "T2-LAZY"
-  (clamiga::%make-binding-table
+(amilisp::%register-binding-table "T2-LAZY"
+  (amilisp::%make-binding-table
    (loop for i below 60 collect (list :const (format nil "+L~D+" i) i)))
   nil nil)
 (defvar *lazy-names* (loop for i below 60 collect (format nil "+L~D+" i)))
@@ -163,7 +163,7 @@ fi
 
 i=1
 while [ $i -le $runs ]; do
-    out=$("$TIMEOUT" "$run_timeout" "$CLAMIGA" --no-userinit --heap 24M \
+    out=$("$TIMEOUT" "$run_timeout" "$AMILISP" --no-userinit --heap 24M \
               --non-interactive --load "$tmp" </dev/null 2>&1)
     status=$?
     if [ $status -ne 0 ]; then

@@ -16,7 +16,7 @@
 #include "../platform/platform.h"
 #include "../platform/platform_thread.h"
 #include <string.h>
-#include <stdio.h>   /* CLAMIGA_STW_DIAG straggler reports (and race selftest) */
+#include <stdio.h>   /* AMILISP_STW_DIAG straggler reports (and race selftest) */
 #include <stdlib.h>  /* atoi for the env threshold */
 
 static CL_Thread cl_main_thread;
@@ -290,9 +290,9 @@ void cl_gc_thread_online(CL_Thread *self)
 
 /* ---- Stop-the-world GC coordination ---- */
 
-/* ---- STW straggler diagnostic (CLAMIGA_STW_DIAG) ----
+/* ---- STW straggler diagnostic (AMILISP_STW_DIAG) ----
  *
- * When the CLAMIGA_STW_DIAG environment variable is set, the STW initiator's
+ * When the AMILISP_STW_DIAG environment variable is set, the STW initiator's
  * wait loop uses a TIMED condvar wait; every time the timeout elapses without
  * the world having stopped it reports the straggler thread (the one the scan
  * found neither stopped nor in a safe region) and dumps every thread's wait
@@ -305,7 +305,7 @@ void cl_gc_thread_online(CL_Thread *self)
  * broadcast) the rescan unsticks the world — the report says so, because that
  * outcome is itself the diagnosis.  Runtime diagnostic, not DEBUG-flag
  * instrumentation: always compiled, zero cost when the env var is unset
- * (same pattern as CLAMIGA_LOCK_DIAG in builtins_thread.c). */
+ * (same pattern as AMILISP_LOCK_DIAG in builtins_thread.c). */
 
 /* Pure parsing rule, factored out of stw_diag_threshold_ms so the
  * DEBUG_THREAD_RACE_HOOKS self-test below can exercise every branch
@@ -328,7 +328,7 @@ static int32_t stw_diag_threshold_ms(void)
 {
     if (stw_diag_cached_ms == -2) {
         char envbuf[32];
-        const char *s = platform_getenv("CLAMIGA_STW_DIAG", envbuf,
+        const char *s = platform_getenv("AMILISP_STW_DIAG", envbuf,
                                         (int)sizeof(envbuf));
         stw_diag_cached_ms = stw_diag_parse_ms(s);
     }
@@ -488,7 +488,7 @@ static void *dbg_race_worker_fn(void *arg)
     return NULL;
 }
 
-/* ---- STW straggler-diagnostic self-test (CLAMIGA_STW_DIAG) ----
+/* ---- STW straggler-diagnostic self-test (AMILISP_STW_DIAG) ----
  *
  * Exercises stw_diag_parse_ms's branches directly (a pure function, no
  * process state to race on) and then drives one real timed-wait/rescan
@@ -501,7 +501,7 @@ static void *dbg_race_worker_fn(void *arg)
  *
  * Must run before dbg_race_selftest below touches cl_gc_stop_the_world:
  * stw_diag_cached_ms is a process-wide lazy cache, and this is the only
- * chance to have it observe CLAMIGA_STW_DIAG being set. */
+ * chance to have it observe AMILISP_STW_DIAG being set. */
 static void *dbg_stw_diag_worker_fn(void *arg)
 {
     CL_Thread *t = (CL_Thread *)arg;
@@ -523,7 +523,7 @@ static int dbg_stw_diag_selftest(void)
     if (stw_diag_parse_ms("abc") != 5000) return 0;
     if (stw_diag_parse_ms("20")  != 20)   return 0;
 
-    setenv("CLAMIGA_STW_DIAG", "20", 1);
+    setenv("AMILISP_STW_DIAG", "20", 1);
 
     worker = cl_thread_alloc_worker();
     if (!worker) return 0;
@@ -593,10 +593,10 @@ static void dbg_race_selftest_and_exit(void)
 __attribute__((constructor))
 static void dbg_race_selftest_ctor(void)
 {
-    /* CLAMIGA_RACE_SELFTEST=0 skips the self-test so the same binary can
+    /* AMILISP_RACE_SELFTEST=0 skips the self-test so the same binary can
      * run a Lisp program under the other race hooks it carries
-     * (CLAMIGA_RACE_LOCK_MARK_DELAY_MS, tests/test_mt_lock_barge_race.sh). */
-    const char *skip = getenv("CLAMIGA_RACE_SELFTEST");
+     * (AMILISP_RACE_LOCK_MARK_DELAY_MS, tests/test_mt_lock_barge_race.sh). */
+    const char *skip = platform_getenv_s("AMILISP_RACE_SELFTEST");
     if (skip && skip[0] == '0' && skip[1] == '\0')
         return;
     dbg_race_selftest_and_exit();  /* never returns */
@@ -1372,7 +1372,7 @@ void cl_thread_shutdown(void)
      * exiting, and a handful of orphaned OS primitives is a far better
      * outcome than a crash in teardown.  (On AmigaOS the leak is real — the
      * system does not reclaim a process's memory — which is why this path
-     * warns and why main() reports it separately in the CLAMIGA_MEM_DIAG
+     * warns and why main() reports it separately in the AMILISP_MEM_DIAG
      * line rather than counting it as a clean exit.) */
     if (cl_thread_count > 0) {
         static int warned = 0;

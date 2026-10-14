@@ -197,8 +197,8 @@ host: $(HOST_BIN)
 
 # Keep the docs/*.md package symbol lists in sync with the real exports.
 # docs-check (also run by `make test`: tests/test_docs_symbols.sh) fails if any documented extension package's export
-# set drifts from docs/package-symbols.txt, or if docs/clamiga.md references a
-# CLAMIGA symbol that is no longer exported.  docs-update regenerates the
+# set drifts from docs/package-symbols.txt, or if docs/amilisp.md references a
+# AMILISP symbol that is no longer exported.  docs-update regenerates the
 # snapshot after you have updated the prose.  See tools/docs/package-symbols.sh.
 docs-check: host
 	@sh tools/docs/package-symbols.sh check $(HOST_BIN)
@@ -315,7 +315,7 @@ SHELL_TESTS_NOARG = test_cross_wide_knob test_test_extra test_aminet_upload \
 
 test-fast: $(TEST_BINS) host
 	@echo "=== Running tests (fast tier: skips sento/host-cold-test) ==="
-	@export CLAMIGA_NO_USERINIT=1 $(TEST_TMPDIR_ENV); \
+	@export AMILISP_NO_USERINIT=1 $(TEST_TMPDIR_ENV); \
 	failed=0; \
 	tmo=$$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true); \
 	for t in $(TEST_BINS); do \
@@ -362,14 +362,14 @@ test-fast: $(TEST_BINS) host
 test: test-fast
 
 # `make test-jit-eager` runs the fast tier with every function compiled at
-# definition (CLAMIGA_JIT_HOT=0): on an arm64 Mac, the whole suite as a
+# definition (AMILISP_JIT_HOT=0): on an arm64 Mac, the whole suite as a
 # differential run of the AArch64 walker against the interpreter.  Without
 # a backend it is plain `make test`.  Expected to fail where a test reads
 # frames back: native frames are not in EXT:BACKTRACE, line attribution or
 # FRAME locals unless %JIT-SET-FRAMES is on (specs/native-backend-a64.md,
 # phase 1 status) -- every other failure is a walker bug.
 test-jit-eager:
-	@CLAMIGA_JIT_HOT=0 $(MAKE) --no-print-directory test-fast
+	@AMILISP_JIT_HOT=0 $(MAKE) --no-print-directory test-fast
 
 # `make test-gc-stress` builds a dedicated DEBUG_GC_STRESS binary (forces a
 # compacting GC before every allocation) and runs the GC-stress regression
@@ -384,55 +384,55 @@ test-gc-stress:
 	@echo "--- test_gc_stress_regression ---"
 	@$(TEST_TMPDIR_ENV) sh $(TEST_SRCDIR)/test_gc_stress_regression.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 ifeq ($(GC),immix)
-	@echo "--- test_gc_stress_regression (CLAMIGA_GC_STRESS_IMMIX=8: line-sweep cycles between the compactions) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS_IMMIX=8 sh $(TEST_SRCDIR)/test_gc_stress_regression.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
+	@echo "--- test_gc_stress_regression (AMILISP_GC_STRESS_IMMIX=8: line-sweep cycles between the compactions) ---"
+	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS_IMMIX=8 sh $(TEST_SRCDIR)/test_gc_stress_regression.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 endif
-	@echo "--- test_mt_intern_stw (CLAMIGA_GC_STRESS=1) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_mt_intern_stw.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
-	@echo "--- test_mt_thread_death_hook (CLAMIGA_GC_STRESS=1) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_mt_thread_death_hook.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
-	@echo "--- test_peephole_diff (CLAMIGA_GC_STRESS=1, forced compaction) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_peephole_diff.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
-	@echo "--- test_tier4_phase1 (CLAMIGA_GC_STRESS=1, forced compaction) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_tier4_phase1.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
-	@echo "--- test_tier4_phase2 (CLAMIGA_GC_STRESS=1, forced compaction) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_tier4_phase2.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
-	@echo "--- test_local_inline (CLAMIGA_GC_STRESS=1, forced compaction) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_local_inline.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
-	@echo "--- test_tier4_phase3 (CLAMIGA_GC_STRESS=1, forced compaction) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_tier4_phase3.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
-	@echo "--- test_scan_opcodes (CLAMIGA_GC_STRESS=1, forced compaction) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_scan_opcodes.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
-	@echo "--- test_runtime_forms (CLAMIGA_GC_STRESS=1, forced compaction) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_runtime_forms.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
-	@echo "--- test_compiler_buffers (CLAMIGA_GC_STRESS=1, forced compaction) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_compiler_buffers.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
-	@echo "--- test_tls_loopback (CLAMIGA_GC_STRESS=1, forced compaction) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_tls_loopback.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
-	@echo "--- test_image (CLAMIGA_GC_STRESS=1, forced compaction) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_image.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
-	@echo "--- test_executable (CLAMIGA_GC_STRESS=1, forced compaction) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_executable.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
-	@echo "--- test_command_line_args (CLAMIGA_GC_STRESS=1, forced compaction: the argument list is consed at boot) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_command_line_args.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
-	@echo "--- test_shutdown_leak (CLAMIGA_GC_STRESS=1, forced compaction) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_shutdown_leak.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
-	@echo "--- test_md2guide (CLAMIGA_GC_STRESS=1, forced compaction: string/cons-heavy Lisp) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_md2guide.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
-	@echo "--- test_heap_verify (CLAMIGA_GC_STRESS=1, forced compaction: the verifier collects and allocates its report; light churn) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_heap_verify.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
-	@echo "--- test_call_diag (CLAMIGA_GC_STRESS=1, forced compaction: the diagnostics' error messages) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_call_diag.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
-	@echo "--- test_call_gen (CLAMIGA_GC_STRESS=1, forced compaction: every collection must bump the call generation) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_call_gen.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
-	@echo "--- test_jit_a64 (CLAMIGA_GC_STRESS=1, forced compaction: native entry, stubs swept with dead functions) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_jit_a64.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
-	@echo "--- test_jit_a64_walk (CLAMIGA_GC_STRESS=1, forced compaction: native frames, constants and helper calls across every collection) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_jit_a64_walk.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
-	@echo "--- test_defvar_init_once_fasl (CLAMIGA_GC_STRESS=1, forced compaction: DEFVAR's BOUNDP-guarded codegen) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_defvar_init_once_fasl.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
-	@echo "--- test_dev_tcp (CLAMIGA_GC_STRESS=1, forced compaction: the TCP dev port's frames, server, client, REPL leg and the two builtins under it) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_dev_tcp.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
+	@echo "--- test_mt_intern_stw (AMILISP_GC_STRESS=1) ---"
+	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 sh $(TEST_SRCDIR)/test_mt_intern_stw.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
+	@echo "--- test_mt_thread_death_hook (AMILISP_GC_STRESS=1) ---"
+	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 sh $(TEST_SRCDIR)/test_mt_thread_death_hook.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
+	@echo "--- test_peephole_diff (AMILISP_GC_STRESS=1, forced compaction) ---"
+	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 sh $(TEST_SRCDIR)/test_peephole_diff.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
+	@echo "--- test_tier4_phase1 (AMILISP_GC_STRESS=1, forced compaction) ---"
+	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 sh $(TEST_SRCDIR)/test_tier4_phase1.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
+	@echo "--- test_tier4_phase2 (AMILISP_GC_STRESS=1, forced compaction) ---"
+	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 sh $(TEST_SRCDIR)/test_tier4_phase2.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
+	@echo "--- test_local_inline (AMILISP_GC_STRESS=1, forced compaction) ---"
+	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 sh $(TEST_SRCDIR)/test_local_inline.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
+	@echo "--- test_tier4_phase3 (AMILISP_GC_STRESS=1, forced compaction) ---"
+	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 sh $(TEST_SRCDIR)/test_tier4_phase3.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
+	@echo "--- test_scan_opcodes (AMILISP_GC_STRESS=1, forced compaction) ---"
+	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 sh $(TEST_SRCDIR)/test_scan_opcodes.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
+	@echo "--- test_runtime_forms (AMILISP_GC_STRESS=1, forced compaction) ---"
+	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 sh $(TEST_SRCDIR)/test_runtime_forms.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
+	@echo "--- test_compiler_buffers (AMILISP_GC_STRESS=1, forced compaction) ---"
+	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 sh $(TEST_SRCDIR)/test_compiler_buffers.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
+	@echo "--- test_tls_loopback (AMILISP_GC_STRESS=1, forced compaction) ---"
+	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 sh $(TEST_SRCDIR)/test_tls_loopback.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
+	@echo "--- test_image (AMILISP_GC_STRESS=1, forced compaction) ---"
+	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 sh $(TEST_SRCDIR)/test_image.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
+	@echo "--- test_executable (AMILISP_GC_STRESS=1, forced compaction) ---"
+	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 sh $(TEST_SRCDIR)/test_executable.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
+	@echo "--- test_command_line_args (AMILISP_GC_STRESS=1, forced compaction: the argument list is consed at boot) ---"
+	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 sh $(TEST_SRCDIR)/test_command_line_args.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
+	@echo "--- test_shutdown_leak (AMILISP_GC_STRESS=1, forced compaction) ---"
+	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 sh $(TEST_SRCDIR)/test_shutdown_leak.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
+	@echo "--- test_md2guide (AMILISP_GC_STRESS=1, forced compaction: string/cons-heavy Lisp) ---"
+	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 sh $(TEST_SRCDIR)/test_md2guide.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
+	@echo "--- test_heap_verify (AMILISP_GC_STRESS=1, forced compaction: the verifier collects and allocates its report; light churn) ---"
+	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 sh $(TEST_SRCDIR)/test_heap_verify.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
+	@echo "--- test_call_diag (AMILISP_GC_STRESS=1, forced compaction: the diagnostics' error messages) ---"
+	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 sh $(TEST_SRCDIR)/test_call_diag.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
+	@echo "--- test_call_gen (AMILISP_GC_STRESS=1, forced compaction: every collection must bump the call generation) ---"
+	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 sh $(TEST_SRCDIR)/test_call_gen.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
+	@echo "--- test_jit_a64 (AMILISP_GC_STRESS=1, forced compaction: native entry, stubs swept with dead functions) ---"
+	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 sh $(TEST_SRCDIR)/test_jit_a64.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
+	@echo "--- test_jit_a64_walk (AMILISP_GC_STRESS=1, forced compaction: native frames, constants and helper calls across every collection) ---"
+	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 sh $(TEST_SRCDIR)/test_jit_a64_walk.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
+	@echo "--- test_defvar_init_once_fasl (AMILISP_GC_STRESS=1, forced compaction: DEFVAR's BOUNDP-guarded codegen) ---"
+	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 sh $(TEST_SRCDIR)/test_defvar_init_once_fasl.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
+	@echo "--- test_dev_tcp (AMILISP_GC_STRESS=1, forced compaction: the TCP dev port's frames, server, client, REPL leg and the two builtins under it) ---"
+	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 sh $(TEST_SRCDIR)/test_dev_tcp.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 
 # `make test-memleak` builds a DEBUG_MEM_TRACK binary — every platform_alloc
 # tagged with its call site — and asserts that a run ends with ZERO off-heap
@@ -474,7 +474,7 @@ test-mt-thread-exit-race: host
 # `make test-plus` adds the host-cold-test (sento cold-load smoke test) on top
 # of the fast tier.
 test-plus: test-fast
-	@export CLAMIGA_NO_USERINIT=1 $(TEST_TMPDIR_ENV); \
+	@export AMILISP_NO_USERINIT=1 $(TEST_TMPDIR_ENV); \
 	echo "--- host-cold-test ---"; \
 	if $(MAKE) --no-print-directory host-cold-test; then \
 		echo "PASS"; \
@@ -533,7 +533,7 @@ host-cold-test: host
 	  exit 0; \
 	fi; \
 	echo "=== host-cold-test: clearing FASL cache and running $(HOST_COLD_TEST_SCRIPT) ==="; \
-	rm -rf $(HOME)/.cache/common-lisp/cl-amiga-*; \
+	rm -rf $(HOME)/.cache/common-lisp/amilisp-*; \
 	mkdir -p $(dir $(HOST_COLD_TEST_LOG)); \
 	tmo=$$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true); \
 	if [ -n "$$tmo" ]; then \
@@ -575,7 +575,7 @@ host-cold-test: host
 # NOT wired into 'make test' — heavyweight, needs quicklisp/ansi-tests.
 # Set COLD=1 to clear the FASL cache before each script (cold-boot mode).
 test-extra: host
-	@export CLAMIGA_NO_USERINIT=1 $(TEST_TMPDIR_ENV); \
+	@export AMILISP_NO_USERINIT=1 $(TEST_TMPDIR_ENV); \
 	sh trunk/run-load-and-test-all.sh $(if $(filter 1,$(COLD)),--cold)
 
 # Run host build + tests inside an Ubuntu container (matches GitHub Actions
@@ -630,17 +630,17 @@ verify-amiga:
 gen-amiga-bindings: $(HOST_BIN)
 	NDK="$(NDK)" MOS_SDK="$(MOS_SDK)" MUI_SDK="$(MUI_SDK)" MUI5_SDK="$(MUI5_SDK)" AHI_SDK="$(AHI_SDK)" sh scripts/gen-amiga-bindings.sh
 
-# Both FASL targets compile with CLAMIGA_FASL_PORTABLE=1: the output is loaded
+# Both FASL targets compile with AMILISP_FASL_PORTABLE=1: the output is loaded
 # by the byte-string m68k AmigaOS binaries (and MorphOS), so a non-ASCII
 # string literal in lib/ fails here with the source line instead of on the
 # Amiga (tests/test_lib_fasl_portable.sh).
 fasl: $(HOST_BIN)
 	@echo "=== Compiling boot.lisp → lib/boot.fasl ==="
-	CLAMIGA_FASL_PORTABLE=1 $(HOST_BIN) --no-userinit --heap 24M \
+	AMILISP_FASL_PORTABLE=1 $(HOST_BIN) --no-userinit --heap 24M \
 		--eval '(compile-file "lib/boot.lisp" :output-file "lib/boot.fasl")' \
 		--eval '(quit)'
 	@echo "=== Compiling clos.lisp → lib/clos.fasl ==="
-	CLAMIGA_FASL_PORTABLE=1 $(HOST_BIN) --no-userinit --heap 24M \
+	AMILISP_FASL_PORTABLE=1 $(HOST_BIN) --no-userinit --heap 24M \
 		--eval '(compile-file "lib/clos.lisp" :output-file "lib/clos.fasl")' \
 		--eval '(quit)'
 
@@ -665,7 +665,7 @@ QL_LOCAL_PROJECTS ?= $(HOME)/quicklisp/local-projects
 # loads — searched before the Quicklisp and ocicl searchers, so they shadow
 # any package-manager copy without touching the filesystem, work from the
 # binary release, and stay invisible to other implementations sharing the
-# same quicklisp tree.  Opt out with CLAMIGA_NO_SHIMS=1.
+# same quicklisp tree.  Opt out with AMILISP_NO_SHIMS=1.
 #
 # This target remains only to clean up symlinks created by the old scheme
 # (they dangle now that contrib/shims/ moved to lib/shims/).
@@ -703,15 +703,15 @@ install-hooks:
 # since the fingerprint keys on version/format rather than the binary's
 # bytes, a leftover would outlive a rebuild that changed lib/boot.lisp and
 # the gates would run the stale boot.  The verify step names it with --image
-# for the same reason.  CLAMIGA_HOME is cleared so the dump comes from THIS
+# for the same reason.  AMILISP_HOME is cleared so the dump comes from THIS
 # tree's lib/, the one `install` copies, not from an installed one.
 IMAGE_DIR = $(BUILDDIR)/image
 
 image: $(HOST_BIN)
 	@mkdir -p $(IMAGE_DIR)
 	rm -f $(IMAGE_DIR)/amilisp.img
-	cd $(IMAGE_DIR) && CLAMIGA_HOME= ../amilisp$(EXE) --no-userinit --no-image --non-interactive --boot-log --load $(CURDIR)/scripts/save-boot-image.lisp
-	CLAMIGA_HOME= $(HOST_BIN) --no-userinit --non-interactive --boot-log --image $(IMAGE_DIR)/amilisp.img --load scripts/verify-boot-image.lisp
+	cd $(IMAGE_DIR) && AMILISP_HOME= ../amilisp$(EXE) --no-userinit --no-image --non-interactive --boot-log --load $(CURDIR)/scripts/save-boot-image.lisp
+	AMILISP_HOME= $(HOST_BIN) --no-userinit --non-interactive --boot-log --image $(IMAGE_DIR)/amilisp.img --load scripts/verify-boot-image.lisp
 
 # Binary + lib/ + heap image under a prefix, SBCL-style: <prefix>/bin/amilisp,
 # <prefix>/lib/amilisp/ (the runtime library) and, in there, the amilisp.img

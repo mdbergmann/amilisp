@@ -13,8 +13,8 @@
 #
 # The three-way timing cannot be forced from Lisp, so this runs against a
 # -DDEBUG_THREAD_RACE_HOOKS binary whose lock_acquire_slow sleeps
-# CLAMIGA_RACE_LOCK_MARK_DELAY_MS between registering and marking
-# (CLAMIGA_RACE_SELFTEST=0 keeps that binary's start-up self-test from
+# AMILISP_RACE_LOCK_MARK_DELAY_MS between registering and marking
+# (AMILISP_RACE_SELFTEST=0 keeps that binary's start-up self-test from
 # running and exiting before the program).  With
 # the window held open for 300 ms, the main thread releases the lock and
 # immediately re-acquires it plain (the barge) inside that window every
@@ -22,7 +22,7 @@
 #
 # Run: sh tests/test_mt_lock_barge_race.sh build/host/amilisp build/host-race/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 RACE="${2:-build/host-race/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
@@ -68,7 +68,7 @@ cat > "$tmp" <<'EOF'
   (format t "BARGE-RACE-2=~a~%" *n2*))
 EOF
 
-out=$(CLAMIGA_RACE_SELFTEST=0 CLAMIGA_RACE_LOCK_MARK_DELAY_MS=300 "$TIMEOUT" 60 "$RACE" --no-userinit --non-interactive --load "$tmp" </dev/null 2>&1)
+out=$(AMILISP_RACE_SELFTEST=0 AMILISP_RACE_LOCK_MARK_DELAY_MS=300 "$TIMEOUT" 60 "$RACE" --no-userinit --non-interactive --load "$tmp" </dev/null 2>&1)
 status=$?
 fail() {
     echo "FAIL mt_lock_barge_race ($1)"
@@ -81,7 +81,7 @@ printf '%s' "$out" | grep -q "BARGE-RACE=DONE,GOT" || fail "waiter did not acqui
 printf '%s' "$out" | grep -q "BARGE-RACE-2=2" || fail "two waiters did not both acquire after two barges"
 
 # The default binary ignores the knob and must behave the same.
-out=$(CLAMIGA_RACE_LOCK_MARK_DELAY_MS=300 "$TIMEOUT" 60 "$CLAMIGA" --no-userinit --non-interactive --load "$tmp" </dev/null 2>&1)
+out=$(AMILISP_RACE_LOCK_MARK_DELAY_MS=300 "$TIMEOUT" 60 "$AMILISP" --no-userinit --non-interactive --load "$tmp" </dev/null 2>&1)
 status=$?
 [ $status -eq 0 ] || fail "default binary: exit $status"
 printf '%s' "$out" | grep -q "BARGE-RACE=DONE,GOT" || fail "default binary: waiter stranded"

@@ -615,7 +615,7 @@ TEST(serialize_wide_string_nonascii_stays_wide)
     ASSERT_EQ_INT(buf[3], FASL_TAG_WIDE_STRING);
 }
 
-/* CLAMIGA_FASL_PORTABLE=1 (cl_fasl_set_portable_mode): a string that would
+/* AMILISP_FASL_PORTABLE=1 (cl_fasl_set_portable_mode): a string that would
  * need TAG_WIDE_STRING is REFUSED with FASL_ERR_NONPORTABLE, and the detail
  * names the offending code point and the ASCII prefix, so the compile-file
  * diagnostic on the host points at the literal instead of the Amiga dying
@@ -637,7 +637,7 @@ TEST(serialize_wide_string_nonascii_portable_refused)
     ASSERT_EQ_INT(w.error, FASL_ERR_NONPORTABLE);
     ASSERT(strstr(cl_fasl_nonportable_detail(&w), "U+2014") != NULL);
     ASSERT(strstr(cl_fasl_nonportable_detail(&w), "\"ab?c\"") != NULL);
-    ASSERT(strstr(cl_fasl_nonportable_detail(&w), "CLAMIGA_FASL_PORTABLE") != NULL);
+    ASSERT(strstr(cl_fasl_nonportable_detail(&w), "AMILISP_FASL_PORTABLE") != NULL);
 
     /* ASCII-only wide strings are unaffected (downgraded to TAG_STRING). */
     ws = cl_make_wide_string(ascii, 2);
@@ -2168,7 +2168,7 @@ TEST(compile_file_pathname_uses_cache)
         "(namestring (compile-file-pathname \"/tmp/test.lisp\"))");
     /* Should contain the cache directory structure and version */
     ASSERT(result != NULL);
-    ASSERT(strstr(result, ".cache/common-lisp/cl-amiga-") != NULL);
+    ASSERT(strstr(result, ".cache/common-lisp/amilisp-") != NULL);
     ASSERT(strstr(result, CL_VERSION_STRING) != NULL);
     /* Should end with test.fasl (path may include /private/tmp on macOS) */
     ASSERT(strstr(result, "test.fasl") != NULL);

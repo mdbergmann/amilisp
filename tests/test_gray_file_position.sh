@@ -19,7 +19,7 @@
 #
 # Run: sh tests/test_gray_file_position.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then
@@ -29,7 +29,7 @@ fi
 
 # Two --eval forms: the GRAY package must exist before the second form is
 # READ (a single form would hit "Package GRAY not found" at read time).
-OUT=$("$TIMEOUT" 60 "$CLAMIGA" --no-userinit --non-interactive \
+OUT=$("$TIMEOUT" 60 "$AMILISP" --no-userinit --non-interactive \
   --eval '(load "lib/gray-streams.lisp")' \
   --eval '
 (progn

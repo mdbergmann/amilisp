@@ -391,7 +391,7 @@ Done in phase 1:
     host through a new shell test, with JIT on, eager
     (`%JIT-SET-HOT-THRESHOLD 0`).  The m68k byte goldens are guarded with
     `#+m68k`, and new AArch64 goldens are added for the matcher shapes.
-  - The same run under `CLAMIGA_GC_STRESS=1`.
+  - The same run under `AMILISP_GC_STRESS=1`.
   - The whole `make test` Lisp suite once with eager JIT, as a
     differential run against the interpreter.
   - A threaded test: a call-free native loop in one thread while another
@@ -424,7 +424,7 @@ Done in phase 1:
 - `vm.c`'s hot-call counting and its tail call into native code are
   switched from `JIT_M68K` to `CL_JIT_NATIVE`; `%JIT-INVOKE-COUNT` counts
   per thread (`CL_Thread.jit_invoke_count`) on AArch64.
-- `CLAMIGA_JIT_HOT=N` sets the hot threshold at boot; `make test-jit-eager`
+- `AMILISP_JIT_HOT=N` sets the hot threshold at boot; `make test-jit-eager`
   runs the fast tier with every function compiled at definition.
 - Tests: `tests/test_jit_a64_walk.sh` (also under gc-stress) runs the
   behavioural checks of `tests/amiga/test-jit.lisp` eager -- its
@@ -561,7 +561,7 @@ or an allocating helper.
   stack overflow".  An arity error raised from the stub frame of a native
   call names the frame under the stub as the caller (`frame_site_brief`).
 - Tests: `tests/test_jit_a64_walk.sh` part 3 (also under gc-stress, and once
-  more with `CLAMIGA_GENGC=0`): each frame kind both ways through native
+  more with `AMILISP_GENGC=0`): each frame kind both ways through native
   frames with values held across, nested cleanups and a throw from one,
   handler-case/-bind, restarts, special bindings restored by an error and a
   throw, PROGV unbound and `*PACKAGE*`, multiple values, closures over
@@ -623,7 +623,7 @@ What differs from m68k:
   hot-path rule forbids.
 - Fill refuses while frames are off (`%JIT-SET-FRAMES NIL`), anything is
   traced, or the kill switch (`%JIT-SET-DIRECT-CALLS`,
-  `CLAMIGA_JIT_DIRECT=0`) is off.
+  `AMILISP_JIT_DIRECT=0`) is off.
 - The cells are ordinary memory hung on `bc->native_relocs` (this backend
   bakes no heap object, so the count stays 0), freed with the code by the
   sweep, `drop_native` and image restore.

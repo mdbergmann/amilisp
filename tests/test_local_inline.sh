@@ -20,14 +20,14 @@
 #      a call from inside a nested closure, a special parameter or
 #      declaration, recursion in LABELS, a large body called twice, an
 #      (optimize (space > speed)) or (debug 3) policy, and the
-#      CLAMIGA_NO_LOCAL_INLINE=1 switch — each pinned through DISASSEMBLE.
+#      AMILISP_NO_LOCAL_INLINE=1 switch — each pinned through DISASSEMBLE.
 #   4. The analysis sees through macros, MACROLET macros and symbol-macros
 #      (so does the BLOCK / TAGBODY exit analysis); a macro that expands
 #      differently on each expansion yields a clear compile error, never a
 #      call to an empty slot.
 #   5. COMPILE-FILE round trip; a method body; the bench-prims row shape.
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 
@@ -39,13 +39,13 @@ WORK="$TMPDIR/clamiga_linline_$$"
 mkdir -p "$WORK"
 trap 'rm -rf "$WORK"' EXIT
 
-if [ ! -x "$CLAMIGA" ]; then
-    echo "  SKIP  local inline: no binary at $CLAMIGA"
+if [ ! -x "$AMILISP" ]; then
+    echo "  SKIP  local inline: no binary at $AMILISP"
     echo "0 passed, 0 failed, 0 total"
     exit 0
 fi
 
-if [ -n "${CLAMIGA_GC_STRESS:-}" ]; then
+if [ -n "${AMILISP_GC_STRESS:-}" ]; then
     TAILN=400
 else
     TAILN=200000
@@ -53,10 +53,10 @@ fi
 
 run() {
     if [ -n "$TIMEOUT" ]; then
-        "$TIMEOUT" 120 "$CLAMIGA" --no-userinit --heap 64M \
+        "$TIMEOUT" 120 "$AMILISP" --no-userinit --heap 64M \
             --non-interactive --load "$1" 2>&1
     else
-        "$CLAMIGA" --no-userinit --heap 64M --non-interactive --load "$1" 2>&1
+        "$AMILISP" --no-userinit --heap 64M --non-interactive --load "$1" 2>&1
     fi
 }
 
@@ -322,11 +322,11 @@ cat > "$WORK/t3b.lisp" <<'EOF'
 (format t "R3b ~S~%" (li-inl 3))
 EOF
 if [ -n "$TIMEOUT" ]; then
-    out=$(CLAMIGA_NO_LOCAL_INLINE=1 "$TIMEOUT" 60 "$CLAMIGA" --no-userinit --non-interactive --load "$WORK/t3b.lisp" 2>&1)
+    out=$(AMILISP_NO_LOCAL_INLINE=1 "$TIMEOUT" 60 "$AMILISP" --no-userinit --non-interactive --load "$WORK/t3b.lisp" 2>&1)
 else
-    out=$(CLAMIGA_NO_LOCAL_INLINE=1 "$CLAMIGA" --no-userinit --non-interactive --load "$WORK/t3b.lisp" 2>&1)
+    out=$(AMILISP_NO_LOCAL_INLINE=1 "$AMILISP" --no-userinit --non-interactive --load "$WORK/t3b.lisp" 2>&1)
 fi
-check_contains "CLAMIGA_NO_LOCAL_INLINE=1 keeps every closure"   "CLOSURE" "$out"
+check_contains "AMILISP_NO_LOCAL_INLINE=1 keeps every closure"   "CLOSURE" "$out"
 check_contains "... and the call still works"                    "R3b 8" "$out"
 
 # ---------------------------------------------------------------------------

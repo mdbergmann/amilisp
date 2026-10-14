@@ -18,7 +18,7 @@
 ;;;   - Callees are declared NOTINLINE so a call really is a call.
 ;;;   - (optimize (speed 1) (safety 1) (debug 1)) everywhere: the settings
 ;;;     third-party code (sento) is compiled with by default.  Re-run
-;;;     amilisp with CLAMIGA_FORCE_SPEED=3 to see the peephole's effect
+;;;     amilisp with AMILISP_FORCE_SPEED=3 to see the peephole's effect
 ;;;     (2026-09-08: none — see the spec).
 ;;;   - Output is one machine-parseable line per row:
 ;;;       PRIM <name> ns=<net>

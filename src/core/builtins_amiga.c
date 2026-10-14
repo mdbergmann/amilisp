@@ -486,7 +486,7 @@ static CL_Obj bi_amiga_arexx_open(CL_Obj *args, int nargs)
     int rc;
     if (nargs >= 1 && !CL_NULL_P(args[0]))
         base = arexx_string_arg(args[0], "AMIGA:AREXX-OPEN", "the port basename", NULL);
-    rc = platform_arexx_open(base ? base : "CLAMIGA", name, (int)sizeof(name));
+    rc = platform_arexx_open(base ? base : "AMILISP", name, (int)sizeof(name));
     if (base) platform_free(base);
     if (rc != PLATFORM_AREXX_OK)
         cl_error(CL_ERR_GENERAL, "AMIGA:AREXX-OPEN: %s", platform_arexx_strerror(rc));

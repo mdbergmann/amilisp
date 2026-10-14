@@ -47,7 +47,7 @@ static void setup(void)
 {
     /* Classic collector: the front's behaviour across a sweep (the bump
      * does not move) and a compaction (it does) are what is checked. */
-    setenv("CLAMIGA_GENGC", "0", 1);
+    setenv("AMILISP_GENGC", "0", 1);
     platform_init();
     cl_thread_init();
     cl_error_init();

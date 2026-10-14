@@ -19,7 +19,7 @@
 ;;; searchers Quicklisp and ocicl append — so this facade shadows any
 ;;; package-manager-installed cl+ssl without filesystem installation.
 ;;; Opt out (e.g. to run the real cl+ssl on the host) with
-;;; CLAMIGA_NO_SHIMS=1.
+;;; AMILISP_NO_SHIMS=1.
 
 #-cl-amiga
 (error "The cl-amiga cl+ssl shim is only intended for cl-amiga.")

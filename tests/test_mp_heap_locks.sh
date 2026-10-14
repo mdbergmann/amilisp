@@ -21,7 +21,7 @@
 #
 # Run: sh tests/test_mp_heap_locks.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then
@@ -279,7 +279,7 @@ cat > "$tmp" <<'EOF'
 (quit :code (if (zerop *fails*) 0 1))
 EOF
 
-out=$("$TIMEOUT" 240 "$CLAMIGA" --no-userinit --non-interactive --load "$tmp" </dev/null 2>&1)
+out=$("$TIMEOUT" 240 "$AMILISP" --no-userinit --non-interactive --load "$tmp" </dev/null 2>&1)
 status=$?
 echo "$out" | grep -E "^  ok  |^FAIL "
 if [ $status -ne 0 ] || ! echo "$out" | grep -q "MP-HEAP-LOCKS-DONE fails=0"; then

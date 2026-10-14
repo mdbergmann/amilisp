@@ -373,23 +373,23 @@ void cl_builtins_mutation_init(void)
     defun("FDEFINITION", bi_fdefinition, 1, 1);
 
     /* Setf helpers */
-    cl_register_builtin("%SETF-NTH", bi_setf_nth, 3, 3, cl_package_clamiga);
-    cl_register_builtin("%SET-SYMBOL-VALUE", bi_set_symbol_value, 2, 2, cl_package_clamiga);
-    cl_register_builtin("%SET-SYMBOL-FUNCTION", bi_set_symbol_function, 2, 2, cl_package_clamiga);
+    cl_register_builtin("%SETF-NTH", bi_setf_nth, 3, 3, cl_package_amilisp);
+    cl_register_builtin("%SET-SYMBOL-VALUE", bi_set_symbol_value, 2, 2, cl_package_amilisp);
+    cl_register_builtin("%SET-SYMBOL-FUNCTION", bi_set_symbol_function, 2, 2, cl_package_amilisp);
     defun("SET", bi_set_symbol_value, 2, 2);
 
     /* Boundp / Fboundp */
     defun("BOUNDP", bi_boundp, 1, 1);
-    cl_register_builtin("%SYMBOL-CONSTANT-P", bi_symbol_constant_p, 1, 1, cl_package_clamiga);
-    cl_register_builtin("%MARK-CONSTANT", bi_mark_constant, 1, 1, cl_package_clamiga);
-    cl_register_builtin("%MARK-SPECIAL", bi_mark_special, 1, 1, cl_package_clamiga);
-    cl_register_builtin("%GLOBALLY-BOUND-P", bi_globally_boundp, 1, 1, cl_package_clamiga);
+    cl_register_builtin("%SYMBOL-CONSTANT-P", bi_symbol_constant_p, 1, 1, cl_package_amilisp);
+    cl_register_builtin("%MARK-CONSTANT", bi_mark_constant, 1, 1, cl_package_amilisp);
+    cl_register_builtin("%MARK-SPECIAL", bi_mark_special, 1, 1, cl_package_amilisp);
+    cl_register_builtin("%GLOBALLY-BOUND-P", bi_globally_boundp, 1, 1, cl_package_amilisp);
     defun("FBOUNDP", bi_fboundp, 1, 1);
     defun("FMAKUNBOUND", bi_fmakunbound, 1, 1);
     defun("MAKUNBOUND", bi_makunbound, 1, 1);
     defun("SPECIAL-OPERATOR-P", bi_special_operator_p, 1, 1);
-    cl_register_builtin("%REGISTER-SETF-FUNCTION", bi_register_setf_function, 2, 2, cl_package_clamiga);
-    cl_register_builtin("%SETF-STORE-SYMBOL", bi_setf_store_symbol, 1, 1, cl_package_clamiga);
-    cl_register_builtin("%REGISTER-SETF-EXPANDER", bi_register_setf_expander, 2, 2, cl_package_clamiga);
-    cl_register_builtin("%GET-DEFSETF-SETTER", bi_get_defsetf_setter, 1, 1, cl_package_clamiga);
+    cl_register_builtin("%REGISTER-SETF-FUNCTION", bi_register_setf_function, 2, 2, cl_package_amilisp);
+    cl_register_builtin("%SETF-STORE-SYMBOL", bi_setf_store_symbol, 1, 1, cl_package_amilisp);
+    cl_register_builtin("%REGISTER-SETF-EXPANDER", bi_register_setf_expander, 2, 2, cl_package_amilisp);
+    cl_register_builtin("%GET-DEFSETF-SETTER", bi_get_defsetf_setter, 1, 1, cl_package_amilisp);
 }

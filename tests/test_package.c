@@ -121,7 +121,7 @@ TEST(c_find_external)
 
 /* Internal %-prefixed helpers defined by boot.lisp / clos.lisp must NOT
  * leak as external symbols of COMMON-LISP — they are pre-interned in
- * CLAMIGA (clos_internal_names[] in package.c) so the reader resolves the
+ * AMILISP (clos_internal_names[] in package.c) so the reader resolves the
  * bare name there.  A new helper that forgets this list fails the ANSI
  * NO-EXTRA-SYMBOLS-EXPORTED-FROM-COMMON-LISP test; guard the regression
  * here where it runs in the fast tier.  (%LOOP-SKIP-TYPE-SPEC and
@@ -146,8 +146,8 @@ TEST(c_internal_helpers_not_external_in_cl)
         uint32_t len = (uint32_t)strlen(*p);
         /* Not external in CL... */
         ASSERT(CL_NULL_P(cl_package_find_external(*p, len, cl_package_cl)));
-        /* ...but present (external) in CLAMIGA. */
-        ASSERT(!CL_NULL_P(cl_package_find_external(*p, len, cl_package_clamiga)));
+        /* ...but present (external) in AMILISP. */
+        ASSERT(!CL_NULL_P(cl_package_find_external(*p, len, cl_package_amilisp)));
     }
 }
 
@@ -319,7 +319,7 @@ TEST(eval_package_nicknames)
 
 TEST(eval_package_use_list)
 {
-    /* CL-USER uses CL, EXT, CLAMIGA, MOP, MP, FFI and AMIGA (the AMIGA
+    /* CL-USER uses CL, EXT, AMILISP, MOP, MP, FFI and AMIGA (the AMIGA
      * package exists on every platform — stubs on non-Amiga builds) */
     ASSERT_STR_EQ(eval_print("(length (package-use-list (find-package \"CL-USER\")))"), "7");
 }
@@ -999,9 +999,9 @@ TEST(eval_remove_local_nickname)
     eval_print("(add-package-local-nickname \"K2\" (find-package \"KEYWORD\") (find-package \"LN-EVAL2\"))");
     eval_print("(in-package \"LN-EVAL2\")");
     ASSERT_STR_EQ(eval_print("(find-package \"K2\")"), "#<PACKAGE KEYWORD>");
-    /* REMOVE-PACKAGE-LOCAL-NICKNAME is in CLAMIGA, not CL; use qualified name
+    /* REMOVE-PACKAGE-LOCAL-NICKNAME is in AMILISP, not CL; use qualified name
      * since LN-EVAL2 only :uses COMMON-LISP */
-    eval_print("(clamiga:remove-package-local-nickname \"K2\")");
+    eval_print("(amilisp:remove-package-local-nickname \"K2\")");
     ASSERT_STR_EQ(eval_print("(find-package \"K2\")"), "NIL");
     eval_print("(in-package \"COMMON-LISP-USER\")");
 }

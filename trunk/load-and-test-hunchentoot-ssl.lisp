@@ -15,7 +15,7 @@
 ;; tests).
 ;;
 ;; NOTE: like every trunk script, run it with its own FASL cache
-;; (CLAMIGA_FASL_CACHE_DIR) when alternating with the no-ssl hunchentoot
+;; (AMILISP_FASL_CACHE_DIR) when alternating with the no-ssl hunchentoot
 ;; script — the :hunchentoot-no-ssl feature changes what hunchentoot.asd
 ;; compiles (the "No class named SSL-ACCEPTOR" stale-cache trap).
 ;;
@@ -57,7 +57,7 @@
 (unless (find-symbol "%START-TLS" "CL+SSL")
   (error "the loaded cl+ssl is not the cl-amiga facade: lib/shims/cl+ssl ~
           should have been auto-registered on ASDF:*CENTRAL-REGISTRY* when ~
-          ASDF loaded (is CLAMIGA_NO_SHIMS set?)"))
+          ASDF loaded (is AMILISP_NO_SHIMS set?)"))
 
 (format t "~%--- Loading :hunchentoot/test ---~%")
 (asdf:load-system :hunchentoot/test)

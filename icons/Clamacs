@@ -3,7 +3,7 @@
 ; restored from the clamacs.img next to it (the editor, already loaded) and
 ; told to run it.  It opens its own MUI windows, so the icon's WINDOW tool
 ; type is NIL:.  The editor talks to a running amilisp over ARexx and can
-; start one itself (PROGDIR:clamiga, i.e. the same binary).  Needs MUI 3.8+
+; start one itself (PROGDIR:amilisp, i.e. the same binary).  Needs MUI 3.8+
 ; and TextEditor.mcc 15.29+ (see README-FIRST).  Clamacs-FPU is the same on
 ; the hard-float build, Clamacs-MOS on MorphOS.  Files to edit go after `--'
 ; when started from a shell; S:.clamacsrc is loaded first.

@@ -281,12 +281,12 @@ typedef struct CL_Compiler_s {
  * closure, never recursive) AND either has a single call site or a body of
  * at most CL_LOCAL_INLINE_MAX_SIZE conses; at most CL_LOCAL_INLINE_MAX_PARAMS
  * parameters.  cl_local_inline_enabled is the process-wide switch
- * (CLAMIGA_NO_LOCAL_INLINE=1 clears it — for A/B runs and bug isolation). */
+ * (AMILISP_NO_LOCAL_INLINE=1 clears it — for A/B runs and bug isolation). */
 #define CL_LOCAL_INLINE_MAX_PARAMS 8
 #define CL_LOCAL_INLINE_MAX_SIZE   48
 #define CL_LOCAL_INLINE_MAX_NAMES  32
 extern int cl_local_inline_enabled;
-/* CLAMIGA::%LOCAL-ARITY-ERROR (builtins.c): what an inlined call site with
+/* AMILISP::%LOCAL-ARITY-ERROR (builtins.c): what an inlined call site with
  * the wrong argument count compiles to, so the runtime error matches the
  * one the closure call would have signalled. */
 extern CL_Obj cl_local_arity_error_sym;
@@ -309,7 +309,7 @@ extern CL_Obj cl_dbind_check_keys_sym;
 extern CL_Obj macro_table;
 extern CL_Obj setf_table;
 extern CL_Obj setf_fn_table;
-/* Synthesize the package-qualified hidden CLAMIGA symbol that stores a
+/* Synthesize the package-qualified hidden AMILISP symbol that stores a
  * (setf ACCESSOR) function (see compiler.c). */
 CL_Obj cl_setf_store_symbol(CL_Obj accessor);
 extern CL_Obj setf_expander_table;

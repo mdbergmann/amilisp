@@ -15,7 +15,7 @@
 #
 # Run: sh tests/test_dev_commands.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0
@@ -25,7 +25,7 @@ trap 'rm -rf "$TMPD"' EXIT INT TERM
 # Each case runs in a fresh image: no FASL cache carry-over between checks.
 run_cmd() {
     # $1 = command string (already Lisp-escaped)
-    cat <<EOF | "$CLAMIGA" --no-userinit --batch 2>&1
+    cat <<EOF | "$AMILISP" --no-userinit --batch 2>&1
 (require "dev-commands")
 (multiple-value-bind (rc text) (ext.dev:handle-command "$1")
   (format t "~&<<RC=~d>>~%~a~%<<END>>~%" rc text))
@@ -50,7 +50,7 @@ check() {
 # substitution re-parses quotes, and an apostrophe in Lisp source (quote) is
 # enough to break the shell parse.
 run_script() {
-    "$CLAMIGA" --no-userinit --batch < "$1" 2>&1
+    "$AMILISP" --no-userinit --batch < "$1" 2>&1
 }
 
 check_not() {
@@ -298,7 +298,7 @@ run_script "$TMPD/intro-compile.lisp" >/dev/null 2>&1
 
 # Runs COMMAND after loading the FASL (a fresh image each time).
 run_intro() {
-    cat <<EOF | "$CLAMIGA" --no-userinit --batch 2>&1
+    cat <<EOF | "$AMILISP" --no-userinit --batch 2>&1
 (require "dev-commands")
 (load "$TMPD/intro.fasl")
 (multiple-value-bind (rc text) (ext.dev:handle-command "$1")
@@ -698,7 +698,7 @@ cat > "$TMPD/repl-death.lisp" <<'EOF'
 (cmd "detach" "REPL-DETACH")
 (format t "<<ALIVE-AFTER-DETACH=~a>>~%" (and ext.dev::*repl-thread* t))
 EOF
-death_out=$("$CLAMIGA" --heap 4M --no-userinit --batch < "$TMPD/repl-death.lisp" 2>&1)
+death_out=$("$AMILISP" --heap 4M --no-userinit --batch < "$TMPD/repl-death.lisp" 2>&1)
 dblock() { echo "$death_out" | sed -n "/<<$1>>/,/<<END $1>>/p"; }
 
 check "a REPL thread out of heap still sends RESULT, rc 10" \
@@ -937,12 +937,12 @@ case "$(uname -s)" in
 esac
 cat > "$TMPD/dirlist.lisp" <<EOF
 (require "asdf")
-(let ((dirs (uiop:getenv-pathnames "CLAMIGA_TEST_DIRS" :want-absolute t)))
+(let ((dirs (uiop:getenv-pathnames "AMILISP_TEST_DIRS" :want-absolute t)))
   (format t "~&<<DIRS=~d>>~%" (length dirs))
   (format t "~&<<DIRS-EXIST=~a>>~%"
           (and dirs (every (function uiop:directory-exists-p) dirs) t)))
 EOF
-dirs_out=$(CLAMIGA_TEST_DIRS="$TMPD/devsys/$dirsep$dir2" run_script "$TMPD/dirlist.lisp")
+dirs_out=$(AMILISP_TEST_DIRS="$TMPD/devsys/$dirsep$dir2" run_script "$TMPD/dirlist.lisp")
 check "a directory list in the environment is split at the separator" '<<DIRS=2>>' "$dirs_out"
 check "and each entry is a directory that exists" '<<DIRS-EXIST=T>>' "$dirs_out"
 

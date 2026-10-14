@@ -60,7 +60,7 @@
   (cerror "Go on" "drt native stop")
   :drt-went-on)
 
-(clamiga::%jit-set-active nil)
+(amilisp::%jit-set-active nil)
 (defun drt-bytecode-fn (n m)
   (let ((c (* n m)))
     (error "drt bytecode ~a" c)))
@@ -68,13 +68,13 @@
 (defun drt-bytecode-cerror ()
   (cerror "Go on" "drt bytecode stop")
   :drt-went-on)
-(clamiga::%jit-set-active t)
+(amilisp::%jit-set-active t)
 
 (format t "~&; dev-repl-tests: native signaller has native code: ~a, bytecode one: ~a~%"
-        (and (clamiga::%jit-dump-bytes #'drt-native-fn) t)
-        (and (clamiga::%jit-dump-bytes #'drt-bytecode-fn) t))
+        (and (amilisp::%jit-dump-bytes #'drt-native-fn) t)
+        (and (amilisp::%jit-dump-bytes #'drt-bytecode-fn) t))
 (check "dev-repl: the bytecode signaller has no native code" nil
-       (clamiga::%jit-dump-bytes #'drt-bytecode-fn))
+       (amilisp::%jit-dump-bytes #'drt-bytecode-fn))
 
 ;;; ----------------------------------------------------------------
 ;;; The command layer's guard shape (dev-commands' %CALL-GUARDED: a CATCH
@@ -112,9 +112,9 @@
                     (push :middle-cleanup *drt-trace*))))))))
 
 (drt-define-guards drt-guard-native drt-outer-guard-native)
-(clamiga::%jit-set-active nil)
+(amilisp::%jit-set-active nil)
 (drt-define-guards drt-guard-bytecode drt-outer-guard-bytecode)
-(clamiga::%jit-set-active t)
+(amilisp::%jit-set-active t)
 
 (defun drt-guard-case (label outer thunk)
   (setf *drt-guard-result* :not-run
@@ -179,9 +179,9 @@
            :outer)))))
 
 (drt-define-machinery drt-inner-native drt-outer-native)
-(clamiga::%jit-set-active nil)
+(amilisp::%jit-set-active nil)
 (drt-define-machinery drt-inner-bytecode drt-outer-bytecode)
-(clamiga::%jit-set-active t)
+(amilisp::%jit-set-active t)
 
 (dolist (machinery (list (list "native machinery" #'drt-outer-native)
                          (list "bytecode machinery" #'drt-outer-bytecode)))

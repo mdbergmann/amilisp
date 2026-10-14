@@ -19,8 +19,8 @@
 
 (defun asyncio-pat (i) (mod (* 7 i) 251))
 
-(defparameter *asyncio-path* "T:clamiga-asyncio-test.dat")
-(defparameter *asyncio-text* "T:clamiga-asyncio-text.dat")
+(defparameter *asyncio-path* "T:amilisp-asyncio-test.dat")
+(defparameter *asyncio-text* "T:amilisp-asyncio-text.dat")
 (defparameter *asyncio-size* 50000)
 
 (check "asyncio-available" t (amiga.asyncio:available-p))

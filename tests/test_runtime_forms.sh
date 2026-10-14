@@ -34,10 +34,10 @@
 # Also run under the gc-stress binary (make test-gc-stress), where every
 # allocation compacts the heap.
 
-CLAMIGA="${1:-build/host/amilisp}"
-case "$CLAMIGA" in
+AMILISP="${1:-build/host/amilisp}"
+case "$AMILISP" in
   /*) ;;
-  *) CLAMIGA="$(pwd)/$CLAMIGA" ;;
+  *) AMILISP="$(pwd)/$AMILISP" ;;
 esac
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
@@ -50,14 +50,14 @@ WORK="$TMPDIR/clamiga_rtforms_$$"
 mkdir -p "$WORK"
 trap 'rm -rf "$WORK"' EXIT
 
-if [ ! -x "$CLAMIGA" ]; then
-    echo "  SKIP  runtime forms: no binary at $CLAMIGA"
+if [ ! -x "$AMILISP" ]; then
+    echo "  SKIP  runtime forms: no binary at $AMILISP"
     echo "0 passed, 0 failed, 0 total"
     exit 0
 fi
 
 # Every allocation compacts under stress: repeat each form fewer times.
-if [ -n "${CLAMIGA_GC_STRESS:-}" ]; then
+if [ -n "${AMILISP_GC_STRESS:-}" ]; then
     REPEAT=3
 else
     REPEAT=200
@@ -65,9 +65,9 @@ fi
 
 run() {
     if [ -n "$TIMEOUT" ]; then
-        "$TIMEOUT" 300 "$CLAMIGA" --no-userinit --non-interactive --load "$1" 2>&1 </dev/null
+        "$TIMEOUT" 300 "$AMILISP" --no-userinit --non-interactive --load "$1" 2>&1 </dev/null
     else
-        "$CLAMIGA" --no-userinit --non-interactive --load "$1" 2>&1 </dev/null
+        "$AMILISP" --no-userinit --non-interactive --load "$1" 2>&1 </dev/null
     fi
 }
 

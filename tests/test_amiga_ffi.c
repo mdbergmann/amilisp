@@ -613,7 +613,7 @@ TEST(defcstruct_accessors_are_field_stubs)
     /* embedded struct: reader only */
     ASSERT_STR_EQ(eval_print("(fboundp 'cl-user::%set-tst-sub)"), "NIL");
     /* defsetf linkage is what (setf (tst-x m) v) compiles through */
-    ASSERT_STR_EQ(eval_print("(clamiga::%get-defsetf-setter 'cl-user::tst-x)"), "%SET-TST-X");
+    ASSERT_STR_EQ(eval_print("(amilisp::%get-defsetf-setter 'cl-user::tst-x)"), "%SET-TST-X");
     ASSERT_STR_EQ(eval_print("(prin1-to-string #'cl-user::tst-arr)"),
                   "\"#<FFI-STUB TST-ARR PEEK-IDX :U8 @16 [4 x 1]>\"");
     ASSERT_STR_EQ(eval_print("(ext:function-arglist #'cl-user::%set-tst-arr)"), "(#:ARG0 #:ARG1 #:ARG2)");

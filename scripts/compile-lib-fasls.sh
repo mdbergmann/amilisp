@@ -3,12 +3,12 @@
 # Amiga/MorphOS binaries (which load them instead of compiling the source on
 # a 68020 at first REQUIRE).
 #
-#   scripts/compile-lib-fasls.sh [-o OUTROOT] [-b CLAMIGA] [-D] [FILE...]
+#   scripts/compile-lib-fasls.sh [-o OUTROOT] [-b AMILISP] [-D] [FILE...]
 #
 #   -o OUTROOT   where lib/<module>.fasl lands (default: the repo root, i.e.
 #                next to the sources — what `make fasl-amiga` does; the
 #                binary release points it at its staging directory)
-#   -b CLAMIGA   host binary (default build/host/amilisp)
+#   -b AMILISP   host binary (default build/host/amilisp)
 #   -D, --no-docstrings
 #                bind AMIGA.FFI:*DEFCFUN-DOCSTRINGS* and
 #                EXT:*CAPTURE-DOCUMENTATION* to NIL for the run, so the
@@ -21,7 +21,7 @@
 #   FILE...      sources relative to the repo root (default: every .lisp
 #                under lib/amiga/, the ReAction/raw-bindings tree)
 #
-# Every file is compiled by ONE amilisp process with CLAMIGA_FASL_PORTABLE=1,
+# Every file is compiled by ONE amilisp process with AMILISP_FASL_PORTABLE=1,
 # so a string literal that the byte-string Amiga builds could not load
 # (anything above U+007F) fails the run here, on the host, with the source
 # line in the diagnostic — instead of the Amiga failing the module with
@@ -41,14 +41,14 @@ set -u
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 OUTROOT="$ROOT"
-CLAMIGA="$ROOT/build/host/amilisp"
+AMILISP="$ROOT/build/host/amilisp"
 HEAP="${LIBFASL_HEAP:-256M}"
 DOCSTRINGS=1
 
 while [ $# -gt 0 ]; do
     case "$1" in
         -o) OUTROOT="$2"; shift 2 ;;
-        -b) CLAMIGA="$2"; shift 2 ;;
+        -b) AMILISP="$2"; shift 2 ;;
         -D|--no-docstrings) DOCSTRINGS=0; shift ;;
         -h|--help) sed -n '2,36p' "$0"; exit 0 ;;
         --) shift; break ;;
@@ -61,8 +61,8 @@ done
 # the tests as TMPDIR on Windows -- it is absolute for the native amilisp.exe
 # the paths end up in, and must not get $(pwd) glued in front.
 case "$OUTROOT" in /*|[A-Za-z]:/*) ;; *) OUTROOT="$(pwd)/$OUTROOT" ;; esac
-case "$CLAMIGA" in /*|[A-Za-z]:/*) ;; *) CLAMIGA="$(pwd)/$CLAMIGA" ;; esac
-[ -x "$CLAMIGA" ] || { echo "compile-lib-fasls: no host binary at $CLAMIGA (make host)" >&2; exit 2; }
+case "$AMILISP" in /*|[A-Za-z]:/*) ;; *) AMILISP="$(pwd)/$AMILISP" ;; esac
+[ -x "$AMILISP" ] || { echo "compile-lib-fasls: no host binary at $AMILISP (make host)" >&2; exit 2; }
 
 cd "$ROOT" || exit 2
 
@@ -112,7 +112,7 @@ EOF
     n=$((n + 1))
 done
 
-CLAMIGA_NO_USERINIT=1 CLAMIGA_FASL_PORTABLE=1 "$CLAMIGA" --no-userinit \
+AMILISP_NO_USERINIT=1 AMILISP_FASL_PORTABLE=1 "$AMILISP" --no-userinit \
     --non-interactive --heap "$HEAP" --load "$DRIVER" </dev/null > "$LOG" 2>&1
 rc=$?
 

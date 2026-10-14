@@ -2057,7 +2057,7 @@ static void fmt_run(FmtCtx *ctx)
 /* ================================================================
  * %FORMATTER-INNER — internal helper for the FORMATTER macro (CLHS 22.3.6.4)
  *
- * (clamiga::%formatter-inner stream ctrl-str args-list) -> remaining-args-list
+ * (amilisp::%formatter-inner stream ctrl-str args-list) -> remaining-args-list
  *
  * Applies the format control string CTRL-STR to ARGS-LIST, writing to STREAM,
  * and returns the unconsumed argument tail as a list.  This lets the function
@@ -2143,7 +2143,7 @@ static CL_Obj bi__formatter_inner(CL_Obj *args, int nargs)
 void cl_format_builtins_init(void)
 {
     cl_register_builtin("%FORMATTER-INNER", bi__formatter_inner,
-                        3, 3, cl_package_clamiga);
+                        3, 3, cl_package_amilisp);
 }
 
 /* ================================================================

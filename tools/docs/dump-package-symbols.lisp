@@ -12,7 +12,7 @@
 ;; deterministic regardless of user init.
 (ignore-errors (require "gray-streams"))
 
-(dolist (p '("EXT" "MP" "FFI" "GRAY" "MOP" "CLAMIGA"))
+(dolist (p '("EXT" "MP" "FFI" "GRAY" "MOP" "AMILISP"))
   (let ((pkg (find-package p)))
     (when pkg
       (let ((names '()))

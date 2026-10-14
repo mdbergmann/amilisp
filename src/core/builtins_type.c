@@ -3048,7 +3048,7 @@ static CL_Obj bi_subtypep(CL_Obj *args, int n)
     return result ? SYM_T : CL_NIL;
 }
 
-/* (clamiga::%type-expander NAME) → the deftype expander closure registered
+/* (amilisp::%type-expander NAME) → the deftype expander closure registered
  * for the symbol NAME, or NIL if NAME has no deftype expander.
  *
  * Exposes the internal deftype type_table to Lisp so a portable typexpand
@@ -3121,7 +3121,7 @@ void cl_builtins_type_init(void)
     /* Internal: expose the deftype expander table for a portable typexpand
      * (introspect-environment shim). */
     cl_register_builtin("%TYPE-EXPANDER", bi_type_expander, 1, 1,
-                        cl_package_clamiga);
+                        cl_package_amilisp);
 
     /* Register cached symbols for GC compaction forwarding */
     cl_gc_register_root(&TYPE_SYM_OR);

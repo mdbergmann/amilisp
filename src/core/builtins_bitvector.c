@@ -240,8 +240,8 @@ void cl_builtins_bitvector_init(void)
     /* Element access */
     defun("BIT", bi_bit, 2, 2);
     defun("SBIT", bi_sbit, 2, 2);
-    cl_register_builtin("%SETF-BIT", bi_setf_bit, 3, 3, cl_package_clamiga);
-    cl_register_builtin("%SETF-SBIT", bi_setf_sbit, 3, 3, cl_package_clamiga);
+    cl_register_builtin("%SETF-BIT", bi_setf_bit, 3, 3, cl_package_amilisp);
+    cl_register_builtin("%SETF-SBIT", bi_setf_sbit, 3, 3, cl_package_amilisp);
 
     /* Bitwise array operations */
     defun("BIT-AND", bi_bit_and, 2, 3);

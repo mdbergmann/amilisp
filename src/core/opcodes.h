@@ -197,7 +197,7 @@ typedef enum {
      * pushes the primary (NIL for zero values). */ \
     X(OP_MV_SAVE,      0xAE, "MV_SAVE",      CL_OPND_NONE, CL_OPF_MVR)       /* Pop primary; push MV record on the save stack */ \
     X(OP_MV_RESTORE,   0xAF, "MV_RESTORE",   CL_OPND_NONE, CL_OPF_MVW)       /* Pop save-stack record into MV buffer; push primary */ \
-    /* HANDLER-CASE as a special form (CLAMIGA::%HANDLER-CASE): PUSH takes the
+    /* HANDLER-CASE as a special form (AMILISP::%HANDLER-CASE): PUSH takes the
      * clause type list (u16 const) and the landing offset; it pushes one
      * CL_NLX_HANDLER_CASE frame and one handler binding per clause, no cons
      * and no closure.  The landing is a table of OP_JMPs, one per clause,
@@ -260,7 +260,7 @@ typedef enum {
  * OP_STRUCT_REF/OP_STRUCT_SET: pop the struct (and value for SET),
  * bounds-check against n_slots, read/write slots[idx] with idx baked into
  * the operand stream as a u8 (0..255 covers any realistic defstruct).
- * Emitted for (clamiga::%struct-ref obj <fixnum>) etc. with a constant
+ * Emitted for (amilisp::%struct-ref obj <fixnum>) etc. with a constant
  * index; the full builtins remain for dynamic indices.
  */
 

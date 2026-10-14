@@ -65,7 +65,7 @@ CL_Obj condition_hierarchy = CL_NIL;
  * walk per call.  With eta-hab's ~hundreds of registered conditions and a
  * print-object hook doing one TYPEP per printed node, a single log4cl log
  * line took ~60s while holding the appender lock, stalling every logging
- * thread (diagnosed 2026-07-14 via CLAMIGA_LOCK_DIAG + in-container gdb). */
+ * thread (diagnosed 2026-07-14 via AMILISP_LOCK_DIAG + in-container gdb). */
 static CL_AlistIndex cond_index = { &condition_hierarchy, NULL, 0, 0, 0 };
 
 /* Compaction moved the index's key symbols and entry conses — mark it
@@ -1691,7 +1691,7 @@ static CL_Obj bi_warn(CL_Obj *args, int n)
          * nlx_top; a C-pushed frame has no bytecode, and the slot's previous
          * occupant (a VM frame of some since-collected top-level form) left
          * a stale offset here.  Marking it corrupted the arena walk
-         * ([GC-BADMARK] nlx_stack.bytecode under CLAMIGA_GC_STRESS, found by
+         * ([GC-BADMARK] nlx_stack.bytecode under AMILISP_GC_STRESS, found by
          * tests/test_tier4_phase3.sh's HANDLER-CASE + WARN case). */
         frame->bytecode = CL_NIL;
         frame->dyn_mark = cl_dyn_top;
@@ -2155,15 +2155,15 @@ void cl_builtins_condition_shutdown(void)
     cl_alist_index_reset(&cond_index);
 }
 
-/* The HANDLER-CASE special form's operator, CLAMIGA::%HANDLER-CASE (what the
+/* The HANDLER-CASE special form's operator, AMILISP::%HANDLER-CASE (what the
  * boot.lisp HANDLER-CASE macro expands to); recognized by identity in
- * compile_expr.  Interned in CLAMIGA at init and GC-rooted, like
+ * compile_expr.  Interned in AMILISP at init and GC-rooted, like
  * cl_struct_ref_sym. */
 CL_Obj cl_handler_case_sym = CL_NIL;
 
 void cl_builtins_condition_init(void)
 {
-    cl_handler_case_sym = cl_intern_in("%HANDLER-CASE", 13, cl_package_clamiga);
+    cl_handler_case_sym = cl_intern_in("%HANDLER-CASE", 13, cl_package_amilisp);
     cl_gc_register_root(&cl_handler_case_sym);
     /* After a shutdown/re-init cycle (test harnesses) these statics
      * still hold PREVIOUS-arena offsets, and gc_mark marks them —
@@ -2186,12 +2186,12 @@ void cl_builtins_condition_init(void)
 
     /* Register builtins */
     defun("MAKE-CONDITION", bi_make_condition, 1, -1);
-    /* Implementation-specific predicates / accessors live in CLAMIGA.
-     * CL :uses CLAMIGA, so boot.lisp / clos.lisp / test code can see
+    /* Implementation-specific predicates / accessors live in AMILISP.
+     * CL :uses AMILISP, so boot.lisp / clos.lisp / test code can see
      * them as bare symbols.  User packages that only (:use :common-lisp)
-     * must add (:use :clamiga) or qualify with the CLAMIGA: prefix. */
-    cl_register_builtin("CONDITIONP", bi_conditionp, 1, 1, cl_package_clamiga);
-    cl_register_builtin("CONDITION-TYPE-NAME", bi_condition_type_name, 1, 1, cl_package_clamiga);
+     * must add (:use :amilisp) or qualify with the CLAMIGA: prefix. */
+    cl_register_builtin("CONDITIONP", bi_conditionp, 1, 1, cl_package_amilisp);
+    cl_register_builtin("CONDITION-TYPE-NAME", bi_condition_type_name, 1, 1, cl_package_amilisp);
     defun("SIMPLE-CONDITION-FORMAT-CONTROL", bi_simple_condition_format_control, 1, 1);
     defun("SIMPLE-CONDITION-FORMAT-ARGUMENTS", bi_simple_condition_format_arguments, 1, 1);
     defun("TYPE-ERROR-DATUM", bi_type_error_datum, 1, 1);
@@ -2205,13 +2205,13 @@ void cl_builtins_condition_init(void)
     defun("UNBOUND-SLOT-INSTANCE", bi_unbound_slot_instance, 1, 1);
 
     /* User-defined condition types */
-    cl_register_builtin("%REGISTER-CONDITION-TYPE", bi_register_condition_type, 3, 3, cl_package_clamiga);
-    cl_register_builtin("CONDITION-SLOT-VALUE", bi_condition_slot_value, 2, 2, cl_package_clamiga);
-    cl_register_builtin("%SET-CONDITION-SLOT-VALUE", bi_set_condition_slot_value, 3, 3, cl_package_clamiga);
-    cl_register_builtin("CONDITION-SLOT-BOUNDP", bi_condition_slot_boundp, 2, 2, cl_package_clamiga);
-    cl_register_builtin("%CONDITION-SLOT-MAKUNBOUND", bi_condition_slot_makunbound, 2, 2, cl_package_clamiga);
-    cl_register_builtin("%SET-CONDITION-DEFAULT-INITARGS", bi_set_condition_default_initargs, 2, 2, cl_package_clamiga);
-    cl_register_builtin("%REGISTER-CONDITION-SLOT-INITFORMS", bi_register_condition_slot_initforms, 2, 2, cl_package_clamiga);
+    cl_register_builtin("%REGISTER-CONDITION-TYPE", bi_register_condition_type, 3, 3, cl_package_amilisp);
+    cl_register_builtin("CONDITION-SLOT-VALUE", bi_condition_slot_value, 2, 2, cl_package_amilisp);
+    cl_register_builtin("%SET-CONDITION-SLOT-VALUE", bi_set_condition_slot_value, 3, 3, cl_package_amilisp);
+    cl_register_builtin("CONDITION-SLOT-BOUNDP", bi_condition_slot_boundp, 2, 2, cl_package_amilisp);
+    cl_register_builtin("%CONDITION-SLOT-MAKUNBOUND", bi_condition_slot_makunbound, 2, 2, cl_package_amilisp);
+    cl_register_builtin("%SET-CONDITION-DEFAULT-INITARGS", bi_set_condition_default_initargs, 2, 2, cl_package_amilisp);
+    cl_register_builtin("%REGISTER-CONDITION-SLOT-INITFORMS", bi_register_condition_slot_initforms, 2, 2, cl_package_amilisp);
 
     /* Signaling */
     defun("SIGNAL", bi_signal, 1, -1);

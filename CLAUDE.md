@@ -4,18 +4,24 @@ Common Lisp environment for AmigaOS 3+ with bytecode VM, written in C (C89/C99).
 
 ## Naming
 
-The product and the executable are **AmiLisp** / `amilisp` (since 0.12;
-the project started as CL-Amiga, said *Clamiga*).  The **Lisp-level
-identifiers deliberately keep the old name** and must not be renamed: the
-`CLAMIGA` package (`clamiga::...`), the `:clamiga` / `:cl-amiga` features (`:amilisp` and `:amicl` are the new ones, all four are in `*features*`),
-the `CLAMIGA_*` environment variables, the `S:cl-amiga/faslcache/` cache
-root, `docs/clamiga.md` (the package's reference), and the Aminet package
-name `dev/lang/clamiga.lha`.  User code and the library forks depend on
-them.  The runtime also still accepts the pre-rename file names as
-fallbacks (`clamiga.img` after `amilisp.img`, `~/.clamigarc` /
+The product, the executable and the Lisp-level names are **AmiLisp** /
+`amilisp` (since 0.12; the project started as CL-Amiga, said *Clamiga*):
+the `AMILISP` package (`amilisp::...`, reference in `docs/amilisp.md`), the
+`AMILISP_*` environment variables, the ARexx port `AMILISP`, the FASL
+cache under `S:amilisp/faslcache/` / `~/.cache/common-lisp/amilisp-<v>-fasl<n>/`.
+The old names stay as **compatibility aliases, never as the primary
+spelling in new code**: `CLAMIGA` is a nickname of the `AMILISP` package,
+`*features*` carries `:amilisp` and `:amicl` next to `:clamiga` and
+`:cl-amiga` (all four stay — the library forks say `#+clamiga`), an
+`AMILISP_X` variable that is unset is read as `CLAMIGA_X`
+(`platform_getenv` in `string_utils.c`), and the runtime still finds the
+pre-rename files (`clamiga.img` after `amilisp.img`, `~/.clamigarc` /
 `S:.clamigarc` after `.amilisprc`, `<prefix>/lib/clamiga/` after
-`lib/amilisp/`); `tests/test_image.sh`, `tests/test_userinit.sh`,
-`tests/test_lib_search_cwd.sh` and `tests/test_userinit_paths.c` pin that.
+`lib/amilisp/`).  Two names keep the old spelling for external reasons:
+the Aminet package `dev/lang/clamiga.lha` (same name = update) and the TLS
+test fixture's issuer.  `tests/test_image.sh`, `test_userinit.sh`,
+`test_lib_search_cwd.sh`, `test_userinit_paths.c` and `test_reader.c` pin
+the aliases.
 
 ## Target Platforms
 
@@ -177,7 +183,7 @@ Any C code that holds `CL_Obj` values across allocating calls **must** GC-protec
 - **Fix**: wrap with `CL_GC_PROTECT(var)` before the loop and `CL_GC_UNPROTECT(n)` after
 - **Why it matters**: this is a **compacting (moving) GC** — when fragmentation forces compaction (which can be triggered inside any allocating call), live objects are relocated and arena-relative offsets are rewritten. A `CL_Obj` C local that isn't GC-protected will (a) be swept/freed if unreachable, or (b) hold a stale offset after objects move — either way silently corrupting memory. `CL_GC_PROTECT` registers the variable's address so the compactor forwards it.
 - **Note**: values on the VM stack (`cl_vm.stack`) and in `args[]` (builtin function arguments) are already GC-rooted — no need to protect those
-- **Host runs a generational collector** (`CL_GENGC`, see `specs/generational-gc.md`): minor collections MOVE young objects and `cl_gc()` itself is a moving (compacting) collection under it — never assume an explicit GC call is non-moving. The protection discipline above is exactly sufficient; `CLAMIGA_GENGC=0` selects the classic collector (always on Amiga).
+- **Host runs a generational collector** (`CL_GENGC`, see `specs/generational-gc.md`): minor collections MOVE young objects and `cl_gc()` itself is a moving (compacting) collection under it — never assume an explicit GC call is non-moving. The protection discipline above is exactly sufficient; `AMILISP_GENGC=0` selects the classic collector (always on Amiga).
 
 ## Debugging & Troubleshooting
 
@@ -195,7 +201,7 @@ Any C code that holds `CL_Obj` values across allocating calls **must** GC-protec
 - Amiga tests: `tests/amiga/run-tests.lisp` — Lisp-based test suite run on AmigaOS via FS-UAE
 - **Tests must be tight on production code** — test the exact behavior, not just the happy path; cover edge cases, boundary conditions, and error paths thoroughly
 - **Target 90% test coverage** — aim for at least 90% coverage across the codebase
-- **The gc-stress test suite is critical for the stability and resiliency of amilisp** (`make test-gc-stress`, forces compaction every alloc via `DEBUG_GC_STRESS`/`CLAMIGA_GC_STRESS=1` to make unprotected-`CL_Obj` GC bugs deterministic). When changing or adding any code, make sure there is coverage not only in the unit tests but **also in the gc-stress suite** — exercise new allocating paths under GC stress so compaction/relocation bugs surface in CI rather than in the field.
+- **The gc-stress test suite is critical for the stability and resiliency of amilisp** (`make test-gc-stress`, forces compaction every alloc via `DEBUG_GC_STRESS`/`AMILISP_GC_STRESS=1` to make unprotected-`CL_Obj` GC bugs deterministic). When changing or adding any code, make sure there is coverage not only in the unit tests but **also in the gc-stress suite** — exercise new allocating paths under GC stress so compaction/relocation bugs surface in CI rather than in the field.
 
 ### Off-heap memory must be handed back (AmigaOS has no exit reclaim)
 
@@ -219,7 +225,7 @@ on *every* launch on a Vampire until the 0.8 shutdown paths were fixed.)
   `cl_thread_count > 0` check in `main()`. Destroying a console mutex or a
   compiler lock while a worker thread is still live hangs the process at exit
   — `test_mt_print_stress` and `test_mt_gc_regression` catch it.
-- `CLAMIGA_MEM_DIAG=1` makes each stage report what it handed back, and on
+- `AMILISP_MEM_DIAG=1` makes each stage report what it handed back, and on
   AmigaOS prints the whole-process `AvailMem` delta. Pair it with `Avail`.
 
 ## Documentation

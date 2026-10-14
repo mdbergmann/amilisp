@@ -10,14 +10,14 @@
 #
 # Run: sh tests/test_amiga_curated_vs_raw.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 CHECK="$ROOT/tests/test_amiga_curated_vs_raw.lisp"
-case "$CLAMIGA" in /*) ;; *) CLAMIGA="$(pwd)/$CLAMIGA" ;; esac
+case "$AMILISP" in /*) ;; *) AMILISP="$(pwd)/$AMILISP" ;; esac
 
 cd "$ROOT" || exit 1
 
-out=$(CLAMIGA_NO_USERINIT=1 "$CLAMIGA" --no-userinit --non-interactive \
+out=$(AMILISP_NO_USERINIT=1 "$AMILISP" --no-userinit --non-interactive \
       --heap 256M --load "$CHECK" </dev/null 2>&1 | grep -v '^; Loading')
 
 echo "$out" | grep -E '^(FAIL|ok  |     uncovered)' | sed 's/^/  /'

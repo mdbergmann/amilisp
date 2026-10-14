@@ -211,15 +211,15 @@ void cl_jit_backend_init(void)
     /* Native frames are the interpreter's (cl_jit_invoke): visible to the
      * debugger unless %JIT-SET-FRAMES turns them off. */
     cl_jit_set_shadow_frames(1);
-    /* CLAMIGA_JIT_HOT=N: the hot-call threshold at boot (0 = eager, every
+    /* AMILISP_JIT_HOT=N: the hot-call threshold at boot (0 = eager, every
      * function compiled at definition) -- the differential runs of the
      * whole suite against the interpreter (tests/test_jit_a64_walk.sh). */
-    v = platform_getenv("CLAMIGA_JIT_HOT", envbuf, sizeof(envbuf));
+    v = platform_getenv("AMILISP_JIT_HOT", envbuf, sizeof(envbuf));
     if (v != NULL && v[0] >= '0' && v[0] <= '9')
         cl_jit_set_hot_threshold(atoi(v));
-    /* CLAMIGA_JIT_DIRECT=0: no direct native-to-native calls (A/B runs,
+    /* AMILISP_JIT_DIRECT=0: no direct native-to-native calls (A/B runs,
      * bisection), as on m68k. */
-    v = platform_getenv("CLAMIGA_JIT_DIRECT", envbuf, sizeof(envbuf));
+    v = platform_getenv("AMILISP_JIT_DIRECT", envbuf, sizeof(envbuf));
     if (v != NULL && v[0] == '0')
         cl_jit_set_direct_calls(0);
 }

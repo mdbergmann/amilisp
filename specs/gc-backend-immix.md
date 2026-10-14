@@ -102,7 +102,7 @@ the allocation fast path, where a function pointer or a runtime flag is
 measurable on the 68020 and `vm.o`-sensitive on host; and the Amiga
 binary must not carry two collectors.  Host A/B is two binaries, like the
 `FPU=1` precedent.  The classic backend keeps its runtime
-`CLAMIGA_GENGC=0/1` switch: gen mode is a mode *of* classic (sticky marks
+`AMILISP_GENGC=0/1` switch: gen mode is a mode *of* classic (sticky marks
 on the same compactor), not a third backend.
 
 ### File split (mechanical first, then the three unifications)
@@ -627,7 +627,7 @@ classic by the forwarding-table latch).  Measured on the host (8 MB heap,
 
 `make test-gc-stress GC=immix` runs the stress suite with the compaction
 before every allocation as before, then the regression script once more
-with `CLAMIGA_GC_STRESS_IMMIX=8`: of every 8 stressed allocations one
+with `AMILISP_GC_STRESS_IMMIX=8`: of every 8 stressed allocations one
 compacts and seven run a line-sweep cycle, so the claims, the finalizers
 and the sense flip get the same per-allocation treatment.  That mixed
 regime also sees a class of bug the classic regime is blind to: a
@@ -641,7 +641,7 @@ rehash, and `%ffi-stub-info` passed its plist in the same argument list as
 a keyword intern (the argument-order lint now also knows `*intern*` and
 `*_keyword` helpers).  On a `[GC-BADMARK]`, the stress build prints the
 claims that formatted the offending address and the stressed-allocation
-index, so `CLAMIGA_GC_STRESS_AT=<index>` names the code at the compaction.
+index, so `AMILISP_GC_STRESS_AT=<index>` names the code at the compaction.
 
 ### As landed (Phase 3, 2026-10-13)
 
@@ -852,7 +852,7 @@ Part 2 wins and is deliberately not in the critical path.
 splits stw/mark/sweep/compact.  Record on: FS-UAE 68040 after the test
 suite, FS-UAE 68020 (`test-amiga-lowend`), the Vampire with Clamacs loaded
 (`clamacs/spike/run-vamp.py` has the full-GC cells), and host
-`CLAMIGA_GENGC=0` on the sento pair for reference.  Also
+`AMILISP_GENGC=0` on the sento pair for reference.  Also
 `cl_heap.freelist_steps` per cycle.  **Gate**: if sweep + free-list
 probing is under ~30 % of collector wall on the 68020/68040, Part 2 is the
 wrong lever (the cost is the live-set trace) and we stop after Part 1 —
@@ -893,7 +893,7 @@ often enough to matter.
   sweep-forever regime, compaction only on measured fragmentation.
 - **Host**: no change by default (gen stays).  `GC=immix` is the
   development and A/B vehicle; it may also beat classic for the
-  `CLAMIGA_GENGC=0` and Windows paths, which is a side effect, not a goal.
+  `AMILISP_GENGC=0` and Windows paths, which is a side effect, not a goal.
 - **Memory**: +0.8 % of the heap in side tables on the Amiga (0.4 % with
   256 B lines) plus 4 bytes per live finalizable object.
 - **Code**: Part 1 removes ~500 lines of duplicated root walking and ~12

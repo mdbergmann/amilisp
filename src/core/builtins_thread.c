@@ -365,11 +365,11 @@ static void *thread_entry(void *arg)
         /* Diagnostic: a worker that dies via an uncaught error otherwise
          * vanishes silently (status 3), which is very hard to debug — e.g. a
          * Hunchentoot request thread aborting mid-handler just closes the
-         * connection.  Surface the error code+message when CLAMIGA_THREAD_ERRORS
+         * connection.  Surface the error code+message when AMILISP_THREAD_ERRORS
          * is set in the environment. */
         {
             char envbuf[8];
-            if (platform_getenv("CLAMIGA_THREAD_ERRORS", envbuf, sizeof(envbuf))) {
+            if (platform_getenv("AMILISP_THREAD_ERRORS", envbuf, sizeof(envbuf))) {
                 fprintf(stderr,
                         "[THREAD-ERROR] worker tid=%u died: err=%d msg=\"%s\"\n",
                         t->id, err,
@@ -1042,13 +1042,13 @@ static CL_Obj bi_thread_yield(CL_Obj *args, int n)
 /* Deterministic race window for tests/test_mt_lock_barge_race.sh: the
  * number of milliseconds a contended acquirer sleeps between registering
  * itself as a waiter and marking the current holder's word CONTENDED
- * (CLAMIGA_RACE_LOCK_MARK_DELAY_MS; 0 / unset = no delay). */
+ * (AMILISP_RACE_LOCK_MARK_DELAY_MS; 0 / unset = no delay). */
 static int dbg_race_lock_mark_delay_ms(void)
 {
     static int cached = -1;
     if (cached < 0) {
         char envbuf[16];
-        const char *s = platform_getenv("CLAMIGA_RACE_LOCK_MARK_DELAY_MS",
+        const char *s = platform_getenv("AMILISP_RACE_LOCK_MARK_DELAY_MS",
                                         envbuf, (int)sizeof(envbuf));
         cached = (s && *s) ? atoi(s) : 0;
         if (cached < 0) cached = 0;
@@ -1236,9 +1236,9 @@ static void lock_abandon_wait(CL_Obj lock_obj, CL_Thread *self)
     }
 }
 
-/* ---- Slow-lock-wait diagnostic (CLAMIGA_LOCK_DIAG) ----
+/* ---- Slow-lock-wait diagnostic (AMILISP_LOCK_DIAG) ----
  *
- * When the CLAMIGA_LOCK_DIAG environment variable is set, a blocking
+ * When the AMILISP_LOCK_DIAG environment variable is set, a blocking
  * MP:ACQUIRE-LOCK that has waited at least the threshold reports the
  * contended lock (name), the waiting thread, and the current HOLDER —
  * including what the holder itself is blocked on — to stderr, repeats
@@ -1264,7 +1264,7 @@ static int32_t lock_diag_threshold_ms(void)
     static int32_t cached = -2;
     if (cached == -2) {
         char envbuf[32];
-        const char *s = platform_getenv("CLAMIGA_LOCK_DIAG", envbuf,
+        const char *s = platform_getenv("AMILISP_LOCK_DIAG", envbuf,
                                         (int)sizeof(envbuf));
         if (!s || !*s)
             cached = -1;
@@ -1439,7 +1439,7 @@ static int lock_acquire_slow(CL_Obj *lock_slot, CL_Thread *self,
 #ifdef DEBUG_THREAD_RACE_HOOKS
         /* Widen the registered-but-not-yet-marked window on demand so
          * tests/test_mt_lock_barge_race.sh can force a release plus a
-         * barging re-acquire to land inside it (CLAMIGA_RACE_LOCK_MARK_DELAY_MS). */
+         * barging re-acquire to land inside it (AMILISP_RACE_LOCK_MARK_DELAY_MS). */
         if (dbg_race_lock_mark_delay_ms() > 0)
             platform_sleep_ms((uint32_t)dbg_race_lock_mark_delay_ms());
 #endif
@@ -2186,7 +2186,7 @@ static CL_Obj bi_cas_svref(CL_Obj *args, int n)
 
 /* (mp::%cas-struct-slot struct index old new) -> previous slot value.
  * STRUCT is a defstruct instance or a CLOS instance (both TYPE_STRUCT);
- * INDEX is the positional slot index, as for CLAMIGA::%STRUCT-REF. */
+ * INDEX is the positional slot index, as for AMILISP::%STRUCT-REF. */
 static CL_Obj bi_cas_struct_slot(CL_Obj *args, int n)
 {
     CL_Struct *st;

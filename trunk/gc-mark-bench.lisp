@@ -18,7 +18,7 @@
 ;;; lists of fixnums (cons-heavy, the common case), lists of small strings
 ;;; (every cons reaches a leaf object), small simple-vectors of conses, and
 ;;; a hash table.  Everything is reachable from one special variable.
-;;; Host: CLAMIGA_GENGC=0 selects the classic collector (gen mode routes
+;;; Host: AMILISP_GENGC=0 selects the classic collector (gen mode routes
 ;;; (ext:gc) to a compaction and reports no mark phase).  On the Amiga,
 ;;; verify/realamiga/run-gc-phase0.sh SCRIPT=trunk/gc-mark-bench.lisp runs
 ;;; it in FS-UAE.

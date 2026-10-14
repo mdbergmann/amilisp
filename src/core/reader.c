@@ -1574,10 +1574,10 @@ static CL_Obj read_expr(void)
             CL_GC_PROTECT(quoted);
             form = cl_cons(quoted, CL_NIL);                /* ((QUOTE spec)) */
             CL_GC_PROTECT(form);
-            /* The helper lives in the CLAMIGA package (see boot.lisp); intern
+            /* The helper lives in the AMILISP package (see boot.lisp); intern
              * there so the same symbol is found whether boot was loaded from
              * source or FASL (the current package at boot time is not fixed). */
-            helper_sym = cl_intern_in("%READ-EVAL-STRUCT", 17, cl_package_clamiga);
+            helper_sym = cl_intern_in("%READ-EVAL-STRUCT", 17, cl_package_amilisp);
             CL_GC_PROTECT(helper_sym);         /* protect across cl_cons below */
             form = cl_cons(helper_sym, form);  /* (%READ-EVAL-STRUCT (QUOTE spec)) */
             CL_GC_PROTECT(form);

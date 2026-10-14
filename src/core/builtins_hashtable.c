@@ -1102,7 +1102,7 @@ static CL_Obj bi_hash_table_pairs(CL_Obj *args, int n)
     return result;
 }
 
-/* CLAMIGA::%MAKE-SYNC-HASH-TABLE test-symbol — create a thread-safe hash table
+/* AMILISP::%MAKE-SYNC-HASH-TABLE test-symbol — create a thread-safe hash table
  * (CL_HT_FLAG_SYNC).  Used internally by the CLOS dispatch caches, which are
  * mutated concurrently by peer threads.  TEST is one of the symbols
  * EQ/EQL/EQUAL/EQUALP. */
@@ -1165,9 +1165,9 @@ void cl_builtins_hashtable_init(void)
     defun("HASH-TABLE-TEST", bi_hash_table_test, 1, 1);
     defun("HASH-TABLE-REHASH-SIZE", bi_hash_table_rehash_size, 1, 1);
     defun("HASH-TABLE-REHASH-THRESHOLD", bi_hash_table_rehash_threshold, 1, 1);
-    cl_register_builtin("%SETF-GETHASH", bi_setf_gethash, 3, 3, cl_package_clamiga);
-    cl_register_builtin("%HASH-TABLE-PAIRS", bi_hash_table_pairs, 1, 1, cl_package_clamiga);
-    cl_register_builtin("%MAKE-SYNC-HASH-TABLE", bi_make_sync_hash_table, 1, 1, cl_package_clamiga);
+    cl_register_builtin("%SETF-GETHASH", bi_setf_gethash, 3, 3, cl_package_amilisp);
+    cl_register_builtin("%HASH-TABLE-PAIRS", bi_hash_table_pairs, 1, 1, cl_package_amilisp);
+    cl_register_builtin("%MAKE-SYNC-HASH-TABLE", bi_make_sync_hash_table, 1, 1, cl_package_amilisp);
     defun("SXHASH", bi_sxhash, 1, 1);
 
     /* Global mutex serializing access to CL_HT_FLAG_SYNC (CLOS dispatch cache)

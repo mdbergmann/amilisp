@@ -1,13 +1,13 @@
-# `CLAMIGA` — Implementation Extras
+# `AMILISP` — Implementation Extras
 
-The `CLAMIGA` package is mostly **implementation internals** — boot/CLOS/loop
+The `AMILISP` package is mostly **implementation internals** — boot/CLOS/loop
 helpers and metaobject plumbing prefixed with `%` or `*` (over 220 of them). Those
 are not a stable API and are intentionally undocumented here.
 
-A small number of `CLAMIGA` symbols are genuinely useful from user code; those are
+A small number of `AMILISP` symbols are genuinely useful from user code; those are
 documented below.
 
-- **Package:** `CLAMIGA` (mutually `:use`d with `CL` during bootstrap)
+- **Package:** `AMILISP` (mutually `:use`d with `CL` during bootstrap)
 - **Inherited by:** `COMMON-LISP-USER`.
 
 ## IEEE float bit access
@@ -53,18 +53,18 @@ isolating JIT bugs around a single `defun`.
 | `(%jit-frames-p)` | function | Whether native call frames are on |
 | `(%jit-disassemble fn)` | function | Disassemble a function's native m68k code |
 | `(%jit-invoke-count)` | function | How many times the JIT path was entered |
-| `(%jit-set-direct-calls enable)` | function | Enable/disable direct native-to-native calls (on by default; `CLAMIGA_JIT_DIRECT=0` starts with them off) — for A/B runs and bisecting |
+| `(%jit-set-direct-calls enable)` | function | Enable/disable direct native-to-native calls (on by default; `AMILISP_JIT_DIRECT=0` starts with them off) — for A/B runs and bisecting |
 | `(%jit-direct-call-stats)` | function | Call-site counters as a plist: `:fills`, `:misses`, the refusal reasons, `:gen`, `:enabled` |
 | `(%trace-function name)` / `(%untrace-function name)` / `(%untrace-all)` | function | Low-level tracing primitives behind `trace`/`untrace` (`name` is a symbol) |
 | `(%get-gc-count)` | function | Number of GCs performed (diagnostics) |
 
 ```lisp
-(clamiga::%jit-set-active nil)   ; define the next function bytecode-only
+(amilisp::%jit-set-active nil)   ; define the next function bytecode-only
 (defun foo (x) (* x x))
-(clamiga::%jit-set-active t)
+(amilisp::%jit-set-active t)
 ```
 
-> Everything else exported from `CLAMIGA` (the `%…` and `*…*` names) is internal
+> Everything else exported from `AMILISP` (the `%…` and `*…*` names) is internal
 > plumbing for `lib/boot.lisp` / `lib/clos.lisp` and the compiler — not a public
 > API and subject to change.
 

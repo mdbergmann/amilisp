@@ -1,7 +1,7 @@
 #!/bin/sh
 # Regression: quicklisp's network layers must arm socket timeouts.
 #
-# Field hang (MorphOS, 2026-07-28): (cl-amiga-ql:install) wedged half-way
+# Field hang (MorphOS, 2026-07-28): (amilisp-ql:install) wedged half-way
 # through the client-tar download — the connection stalled and the READFILL
 # parked in the socket reactor with NO deadline armed (socket_rtimeout
 # defaults to 0 = block forever), leaving the whole image in Wait until
@@ -21,7 +21,7 @@
 # lib/quicklisp-compat.lisp cannot be loaded without a quicklisp install,
 # so its (identical) wiring is asserted textually below instead.
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0
@@ -42,7 +42,7 @@ check() {
     fi
 }
 
-result=$("$CLAMIGA" --no-userinit --non-interactive --heap 24M --eval '
+result=$("$AMILISP" --no-userinit --non-interactive --heap 24M --eval '
 (progn
   (load "lib/quicklisp.lisp")
   (let ((l (ext:socket-listen 0 t)))

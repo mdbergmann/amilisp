@@ -101,7 +101,7 @@ the Lisp analogue of linking — without giving up anything observable.
 5. The curated `lib/amiga/*.lisp` modules (which use `defcfun` /
    `defcstruct` directly) get the cheaper representation for free.
 6. FASLs stay host-built and portable to the m68k target (big-endian
-   byte-vector payloads, ASCII names — the `CLAMIGA_FASL_PORTABLE=1`
+   byte-vector payloads, ASCII names — the `AMILISP_FASL_PORTABLE=1`
    rules).
 7. Amiga load time of a raw module drops from "deserialize ~2000
    top-level units" to "read one byte vector".
@@ -384,7 +384,7 @@ then N entries `{kind u8, flags u8, ctype u8, pad u8, name_off u32,
 payload u32, lvo_or_aux i16, …}` (12–16 B) sorted by name, then the
 name arena (`u16 len` + bytes each; ASCII only), optionally a doc arena
 on host builds.  Struct setters are derived (`%SET-` prefix) at probe
-time rather than stored.  Expansion: `(clamiga::%register-binding-table
+time rather than stored.  Expansion: `(amilisp::%register-binding-table
 "AMIGA.RAW.INTUITION" #<byte-vector> '(*intuition-base*) …)` — one
 top-level unit in the FASL instead of ~2000.  Loaded from source (no
 FASL) the same macro runs at load and packs in Lisp — correct, slower,
@@ -521,7 +521,7 @@ What landed, and where it deviates from the design above:
 
 - **Blob**: `src/core/bindtab.c`, layout as designed (16-byte header,
   16-byte entries sorted by name, name arena), packed in **C** by
-  `clamiga::%make-binding-table` — the `amiga.ffi:define-binding-table`
+  `amilisp::%make-binding-table` — the `amiga.ffi:define-binding-table`
   macro only calls it at macroexpansion time, so a source load on the
   68020 packs in C too (the design allowed a Lisp packer).  Values are
   u32 / i32 / or a wide big-endian magnitude of any size (the NDK has a
@@ -749,7 +749,7 @@ Host (`make test`):
 - `tests/test_binding_table.c`: shed a registered table — following GC
   reclaims the blob (heap shrinks), probe misses, materialise-all
   no-ops, `%binding-table-info` reports `:shed`, re-registration
-  restores laziness; the same under `CLAMIGA_GC_STRESS=1` (gc-stress
+  restores laziness; the same under `AMILISP_GC_STRESS=1` (gc-stress
   tier).
 - `tests/test_image.sh`: load raw/intuition on the host; touch a
   constant, a field accessor and `#'`a function;
@@ -803,10 +803,10 @@ What landed, and where it deviates from the design above:
   vector.  All three now read the blob through one `pkg_blob()` helper,
   which is the invariant worth keeping: nothing reads
   `CL_BT_SLOT_BLOB` directly.
-- **Deviation — an internal `clamiga::%shed-binding-tables` builtin.**
+- **Deviation — an internal `amilisp::%shed-binding-tables` builtin.**
   The design had no Lisp surface at all, which would have made the
   operation testable only by writing an image (and untestable under
-  `CLAMIGA_GC_STRESS`, where a dump is impractical).  It mirrors the
+  `AMILISP_GC_STRESS`, where a dump is impractical).  It mirrors the
   existing `%BINDING-TABLE-MATERIALIZE-ALL` hook: internal, undocumented
   in `docs/ext.md`, returns the bytes shed.
 - `%BINDING-TABLE-INFO` reports `:SHED T` with `:ENTRIES`/`:BYTES` 0;
@@ -853,7 +853,7 @@ What landed, and where it deviates from the design above:
   untouched ones with the hint, an unshaken control image, the no-lazy-
   package no-op, the keyword error); `test_gc_stress_regression.sh`
   (shed under the every-allocation compaction storm — and `test_image.sh`
-  already runs under `CLAMIGA_GC_STRESS=1` in that target);
+  already runs under `AMILISP_GC_STRESS=1` in that target);
   `tests/amiga/image-save.lisp` + `image-verify.lisp` now save with
   `:shake-bindings t` and check 9 target-side properties (the second
   Amiga image leg, `boot.img` → full suite, deliberately stays unshaken
@@ -1060,7 +1060,7 @@ Host (all in `make test`):
   (MT test, same harness as `tests/test_mt_*`).
 - **gc-stress** (`make test-gc-stress`): materialisation allocates
   outside the lock and links under it — run the lazy-package tests with
-  `CLAMIGA_GC_STRESS=1`; run the existing curated/raw cross-check under
+  `AMILISP_GC_STRESS=1`; run the existing curated/raw cross-check under
   stress too.
 - `tests/test_amiga_curated_vs_raw.sh`, `tests/test_lib_fasl_portable.sh`,
   `tests/test_amiga_bindgen.sh` keep passing.
@@ -1125,7 +1125,7 @@ load-bearing.
 ## Appendix — measurement method
 
 ```lisp
-;; host: CLAMIGA_NO_USERINIT=1 build/host/amilisp --no-userinit \
+;; host: AMILISP_NO_USERINIT=1 build/host/amilisp --no-userinit \
 ;;   --non-interactive --heap 64M --load measure.lisp </dev/null
 (defun heap-used ()
   (ext:gc)

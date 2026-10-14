@@ -25,13 +25,13 @@
 #
 # Run: sh tests/test_executable.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
-case "$CLAMIGA" in
+AMILISP="${1:-build/host/amilisp}"
+case "$AMILISP" in
     /*|[A-Za-z]:/*) : ;;
-    *) CLAMIGA="$(pwd)/$CLAMIGA" ;;
+    *) AMILISP="$(pwd)/$AMILISP" ;;
 esac
 # A Windows program is found by its extension.
-case "$CLAMIGA" in
+case "$AMILISP" in
     *.exe) X=.exe ;;
     *) X= ;;
 esac
@@ -51,7 +51,7 @@ cd "$WORK" || exit 1
 mkdir away home
 
 CLI="--no-userinit --no-image --non-interactive"
-unset CLAMIGA_HOME
+unset AMILISP_HOME
 
 fail() {
     desc="$1"; why="$2"; out="$3"
@@ -127,7 +127,7 @@ cat > build.lisp <<EOF2
 (ext:save-image "app$X" :executable t :toplevel 'ex-app:main :quit t)
 EOF2
 
-out=$("$TIMEOUT" 60 "$CLAMIGA" $CLI --load build.lisp </dev/null 2>&1); ec=$?
+out=$("$TIMEOUT" 60 "$AMILISP" $CLI --load build.lisp </dev/null 2>&1); ec=$?
 check "save_executable" 0 "$ec" "$out" "Executable saved to"
 
 desc="file_is_executable"
@@ -179,7 +179,7 @@ cat > build-heap.lisp <<EOF2
 (ext:save-image "away/big$X" :executable t :toplevel 'ex-app:main
                 :heap-size (* 12 1024 1024) :quit t)
 EOF2
-out=$("$TIMEOUT" 60 "$CLAMIGA" $CLI --load build-heap.lisp </dev/null 2>&1); ec=$?
+out=$("$TIMEOUT" 60 "$AMILISP" $CLI --load build-heap.lisp </dev/null 2>&1); ec=$?
 check "save_executable_with_heap_size" 0 "$ec" "$out" "Executable saved to"
 out=$(cd away && "$TIMEOUT" 30 "./big$X" room </dev/null 2>&1); ec=$?
 check "heap_size_is_the_arena_at_start" 0 "$ec" "$out" "/ 12582912 bytes used"
@@ -190,7 +190,7 @@ cat > build-repl.lisp <<EOF2
 (load "app.lisp")
 (ext:save-image "away/repl$X" :executable t :quit t)
 EOF2
-out=$("$TIMEOUT" 60 "$CLAMIGA" $CLI --load build-repl.lisp </dev/null 2>&1); ec=$?
+out=$("$TIMEOUT" 60 "$AMILISP" $CLI --load build-repl.lisp </dev/null 2>&1); ec=$?
 check "save_executable_without_toplevel" 0 "$ec" "$out" "Executable saved to"
 out=$(cd away && echo '(format t "REPL-SAYS ~a ~s~%" (ex-app::fib 10) ext:*command-line-args*)' |
       "$TIMEOUT" 30 "./repl$X" --no-such-option 2>&1); ec=$?
@@ -205,7 +205,7 @@ out=$(cd away && "$TIMEOUT" 30 "./gen2$X" second </dev/null 2>&1); ec=$?
 check "second_generation_runs" 0 "$ec" "$out" \
     'ARGS=("second")' "TRACE=(:RESTORE-HOOK :MAIN)" "FIB=610"
 desc="runtime_is_copied_without_the_old_image"
-s1=$(wc -c < "away/app$X"); s2=$(wc -c < "away/gen2$X"); sr=$(wc -c < "$CLAMIGA")
+s1=$(wc -c < "away/app$X"); s2=$(wc -c < "away/gen2$X"); sr=$(wc -c < "$AMILISP")
 # gen2 = runtime + one image: far below runtime + two images.
 if [ "$s2" -lt $((s1 + (s1 - sr) / 2)) ] && [ "$s2" -gt "$sr" ]; then ok
 else fail "$desc" "sizes app=$s1 gen2=$s2 runtime=$sr" ""; fi
@@ -215,7 +215,7 @@ else fail "$desc" "sizes app=$s1 gen2=$s2 runtime=$sr" ""; fi
 build_err() {   # build_err DESC FORM MARKER
     desc="$1"
     rm -f "bad$X"
-    out=$("$TIMEOUT" 60 "$CLAMIGA" $CLI --load app.lisp --eval "$2" </dev/null 2>&1); ec=$?
+    out=$("$TIMEOUT" 60 "$AMILISP" $CLI --load app.lisp --eval "$2" </dev/null 2>&1); ec=$?
     if [ -e "bad$X" ]; then fail "$desc" "a file was written" "$out"; return; fi
     check "$desc" 0 "$ec" "$out" "$3"
 }

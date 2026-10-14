@@ -21,7 +21,7 @@
  *   make host DEBUG_FLAGS=-DDEBUG_MEM_TRACK
  *   make -f Makefile.cross amiga DEBUG_FLAGS=-DDEBUG_MEM_TRACK
  *
- * Then run with CLAMIGA_MEM_DIAG=1.  At exit every block still outstanding is
+ * Then run with AMILISP_MEM_DIAG=1.  At exit every block still outstanding is
  * reported, grouped by the file and line that allocated it, largest first —
  * the answer to "what did we forget to free?", not a hint toward it.
  *
@@ -147,7 +147,7 @@ void *cl_mem_track_alloc(unsigned long size, const char *file, int line)
     int idx;
     MtSite *s;
 
-    /* CLAMIGA_MEM_FAIL_OVER=<bytes>: refuse every request of at least that
+    /* AMILISP_MEM_FAIL_OVER=<bytes>: refuse every request of at least that
      * size, so the suite can drive an allocation-failure exit (the heap
      * arena on a 24 MB 68020) on a host whose allocator never says no. */
     {
@@ -156,7 +156,7 @@ void *cl_mem_track_alloc(unsigned long size, const char *file, int line)
             /* platform_getenv, not getenv: libnix's getenv() is not safe
              * this early on AmigaOS (it crashed the process). */
             char ebuf[16];
-            const char *e = platform_getenv("CLAMIGA_MEM_FAIL_OVER", ebuf,
+            const char *e = platform_getenv("AMILISP_MEM_FAIL_OVER", ebuf,
                                             (int)sizeof(ebuf));
             fail_over = (e && *e) ? atol(e) : 0;
         }

@@ -2182,7 +2182,7 @@ void cl_builtins_stream_init(void)
     defun("INPUT-STREAM-P", bi_input_stream_p, 1, 1);
     defun("OUTPUT-STREAM-P", bi_output_stream_p, 1, 1);
     defun("INTERACTIVE-STREAM-P", bi_interactive_stream_p, 1, 1);
-    cl_register_builtin("%MAKE-TEST-STREAM", bi_make_test_stream, 2, 2, cl_package_clamiga);
+    cl_register_builtin("%MAKE-TEST-STREAM", bi_make_test_stream, 2, 2, cl_package_amilisp);
 
     /* Step 3: Character I/O */
     defun("READ-CHAR", bi_read_char, 0, 4);
@@ -2229,7 +2229,7 @@ void cl_builtins_stream_init(void)
     defun("DELETE-FILE", bi_delete_file, 1, 1);
     defun("RENAME-FILE", bi_rename_file, 2, 2);
     defun("FILE-WRITE-DATE", bi_file_write_date, 1, 1);
-    cl_register_builtin("%MKDIR", bi_mkdir, 1, 1, cl_package_clamiga);
+    cl_register_builtin("%MKDIR", bi_mkdir, 1, 1, cl_package_amilisp);
     defun("DIRECTORY", bi_directory, 1, -1);
     defun("FILE-NAMESTRING", bi_file_namestring, 1, 1);
     defun("DIRECTORY-NAMESTRING", bi_directory_namestring, 1, 1);
@@ -2256,10 +2256,10 @@ void cl_builtins_stream_init(void)
     {
         CL_Obj ssr_sym;
         cl_register_builtin("%READ-STANDARD-STRING", bi_read_standard_string,
-                            2, 2, cl_package_clamiga);
+                            2, 2, cl_package_amilisp);
         ssr_sym = cl_intern_in("%READ-STANDARD-STRING",
                                (uint32_t)strlen("%READ-STANDARD-STRING"),
-                               cl_package_clamiga);
+                               cl_package_amilisp);
         standard_string_reader_fn =
             ((CL_Symbol *)CL_OBJ_TO_PTR(ssr_sym))->function;
     }
@@ -2270,6 +2270,6 @@ void cl_builtins_stream_init(void)
     defun("COPY-READTABLE", bi_copy_readtable, 0, 2);
     defun("SET-SYNTAX-FROM-CHAR", bi_set_syntax_from_char, 2, 4);
     defun("READTABLE-CASE", bi_readtable_case, 0, 1);
-    cl_register_builtin("%SETF-READTABLE-CASE", bi_setf_readtable_case, 2, 2, cl_package_clamiga);
+    cl_register_builtin("%SETF-READTABLE-CASE", bi_setf_readtable_case, 2, 2, cl_package_amilisp);
 
 }

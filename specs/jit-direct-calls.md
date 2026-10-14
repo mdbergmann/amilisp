@@ -244,7 +244,7 @@ this.  `FindTask` per call is what we are removing, so:
   `cl_jit_restore_depth` clears the floor with `jit_stack_top` when an
   unwind leaves native code entirely; an unwind that stays inside native
   code restores the floor from the snapshot every error and NLX frame
-  takes beside `jit_depth`.  `(clamiga::%jit-c-floor)` returns
+  takes beside `jit_depth`.  `(amilisp::%jit-c-floor)` returns
   `(floor sp)` from inside native code (NIL outside), for the tests.
 
   The precedents are `stack_swap_m68k.s` and `cpu_store_probe_m68k.s`.  A
@@ -350,10 +350,10 @@ frame's snapshot, so the parking ends with the callback
 
 ### 7. Diagnostics
 
-- `(clamiga::%jit-direct-call-stats)` → plist `:fills :misses :refused-trace
+- `(amilisp::%jit-direct-call-stats)` → plist `:fills :misses :refused-trace
   :refused-shadow :refused-abi :refused-not-native :gen :enabled`.  The counters are
   bumped **only on the miss path** (C), never on a hit.
-- `(clamiga::%jit-set-direct-calls nil|t)` and `CLAMIGA_JIT_DIRECT=0`: the
+- `(amilisp::%jit-set-direct-calls nil|t)` and `AMILISP_JIT_DIRECT=0`: the
   kill switch for A/B runs and bisection.  It bumps, and fill then refuses.
   This mirrors `%jit-set-active`.
 - `DEBUG_JIT` logs every bump with its `why` string, so an unexpected
@@ -391,7 +391,7 @@ starts.
 - `tests/test_call_gen.c`: every bump source moves `cl_call_gen`.  This
   covers DEFUN, `(setf fdefinition)`, FMAKUNBOUND, `(setf symbol-function)`,
   `cl_gc()`, TRACE/UNTRACE, a stub install, and wraparound skipping 0.  It
-  is exposed to Lisp as `clamiga::%call-gen` so the same checks run from
+  is exposed to Lisp as `amilisp::%call-gen` so the same checks run from
   the shell tests.
 - `tests/test_symfn_funnel.sh`: the lint described in §1.
 - gc-stress: `make test-gc-stress` runs the `%call-gen` checks with
@@ -410,7 +410,7 @@ bound as the existing `jit-direct-*` block does):
 - **GC between calls:** a caller allocates enough to force collections and
   compaction between calls through the same site.  The value is right, and
   `:fills` grows once per collection, not per call.  Also run under
-  `CLAMIGA_GC_STRESS=1` in the Amiga gc-stress leg.  (As built there is
+  `AMILISP_GC_STRESS=1` in the Amiga gc-stress leg.  (As built there is
   no Amiga gc-stress leg; the check is a `stress-check`, and the host
   gc-stress run covers the `%call-gen` side.)
 - **ABA:** create a closure, call it through a site, drop it, collect,
@@ -455,7 +455,7 @@ bound as the existing `jit-direct-*` block does):
 
 FS-UAE A4000/68040 (`verify/realamiga/verify.fs-uae`), one binary, one
 boot, three interleaved rounds of `trunk/bench-jit-call.lisp` (200k
-iterations per row), alternating the default with `CLAMIGA_JIT_DIRECT=0`.
+iterations per row), alternating the default with `AMILISP_JIT_DIRECT=0`.
 The figures are medians in µs per iteration, including the 0.5 µs loop.
 
 | Row                              | bytecode | JIT, direct off | JIT, direct on |
@@ -488,7 +488,7 @@ bytecode-helper mix 7% *slower* (45.1 vs 42.3).
 
 The Clamacs per-key spike (`clamacs/spike/run-spike.sh 040`: 1,051 keys,
 44 RETs) ran in four boots, on / off / on / off (`SPIKE_SETENV=
-CLAMIGA_JIT_DIRECT=0` for off).  Per key, median / p90: 321 / 385 and
+AMILISP_JIT_DIRECT=0` for off).  Per key, median / p90: 321 / 385 and
 383 / 385 µs on, against 385 / 449 and 392 / 449 µs off.  RET median: 32.9
 and 31.5 ms on, against 32.8 and 33.2 ms off.  The spike's clock ticks in
 about 64 µs steps, so the per-key gain is about one tick at p90.  Explicit

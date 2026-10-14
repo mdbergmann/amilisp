@@ -60,7 +60,7 @@ hook has room to allocate, to send a message or to start a replacement:
 
 The hooks are not called for a thread whose function returned, that took
 its `abort` restart, or that `destroy-thread` ended. A hook that fails is
-dropped without a word (`CLAMIGA_THREAD_ERRORS=1` in the environment reports
+dropped without a word (`AMILISP_THREAD_ERRORS=1` in the environment reports
 it, as it reports every thread an error ended) and the next one still runs.
 A lock the thread held when it died stays held: no cleanup ran for it. See
 `tests/test_mt_thread_death_hook.sh`.

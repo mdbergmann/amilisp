@@ -7,7 +7,7 @@
 ;; and matches the convention of the other `load-and-test-*` scripts.
 ;;
 ;; Usage (host, cold cache):
-;;   rm -rf ~/.cache/common-lisp/cl-amiga-*
+;;   rm -rf ~/.cache/common-lisp/amilisp-*
 ;;   ./build/host/amilisp --heap 192M --load trunk/load-and-test-sento-system.lisp
 ;;
 ;; Usage (host, warm cache):

@@ -26,7 +26,7 @@
 #
 # Run: sh tests/test_repl_paste.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 
 EXPECT=$(command -v expect 2>/dev/null || true)
 if [ -z "$EXPECT" ]; then
@@ -96,7 +96,7 @@ expect {
 }
 EOF
 
-out=$("$EXPECT" -f "$script" "$CLAMIGA" 2>&1)
+out=$("$EXPECT" -f "$script" "$AMILISP" 2>&1)
 case "$out" in
     *TESTPASS*)
         echo "test_repl_paste: 1 passed, 0 failed"

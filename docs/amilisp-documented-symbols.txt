@@ -1,9 +1,9 @@
-# CLAMIGA symbols that docs/clamiga.md documents as user-facing.
+# AMILISP symbols that docs/amilisp.md documents as user-facing.
 #
-# `make docs-check` verifies each of these is still a live CLAMIGA export.
-# The other ~224 CLAMIGA exports are internal %/*-prefixed plumbing and are
-# intentionally NOT tracked here.  When you document a new CLAMIGA symbol in
-# docs/clamiga.md, add it below.
+# `make docs-check` verifies each of these is still a live AMILISP export.
+# The other ~224 AMILISP exports are internal %/*-prefixed plumbing and are
+# intentionally NOT tracked here.  When you document a new AMILISP symbol in
+# docs/amilisp.md, add it below.
 
 # IEEE float bits
 SINGLE-FLOAT-BITS

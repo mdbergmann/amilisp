@@ -21,7 +21,7 @@
 #
 # Run: sh tests/test_mt_interrupt_parked.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then
@@ -162,7 +162,7 @@ EOF
 runs=3
 i=1
 while [ $i -le $runs ]; do
-    out=$("$TIMEOUT" 60 "$CLAMIGA" --no-userinit --non-interactive --load "$tmp" </dev/null 2>&1)
+    out=$("$TIMEOUT" 60 "$AMILISP" --no-userinit --non-interactive --load "$tmp" </dev/null 2>&1)
     status=$?
     fail() {
         echo "FAIL mt_interrupt_parked (run $i/$runs — $1)"

@@ -24,8 +24,8 @@
 #
 # Run: sh tests/test_boot_source_compile.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
-case "$CLAMIGA" in /*) ;; *) CLAMIGA="$(pwd)/$CLAMIGA" ;; esac
+AMILISP="${1:-build/host/amilisp}"
+case "$AMILISP" in /*) ;; *) AMILISP="$(pwd)/$AMILISP" ;; esac
 passed=0
 failed=0
 total=0
@@ -71,8 +71,8 @@ EOF
 run_boot() {
     # $1 = output file.  Boot from $TMPD (cwd lib/ wins the lib search),
     # isolated FASL cache, 8M heap like the Amiga suite.
-    ( cd "$TMPD" && CLAMIGA_FASL_CACHE_DIR="$TMPD/cache" \
-      "$CLAMIGA" --no-userinit --heap 8M --non-interactive --load probe.lisp \
+    ( cd "$TMPD" && AMILISP_FASL_CACHE_DIR="$TMPD/cache" \
+      "$AMILISP" --no-userinit --heap 8M --non-interactive --load probe.lisp \
       </dev/null 2>&1 ) > "$1"
 }
 

@@ -21,16 +21,16 @@
 
 set -e
 
-CLAMIGA_BIN="$1"
+AMILISP_BIN="$1"
 OUT="$2"
 ROOT=$(CDPATH= cd "$(dirname "$0")/../.." && pwd)
 
-if [ -z "$CLAMIGA_BIN" ] || [ -z "$OUT" ]; then
+if [ -z "$AMILISP_BIN" ] || [ -z "$OUT" ]; then
     echo "usage: $0 <amilisp-binary> <output-dir>" >&2
     exit 2
 fi
-if [ ! -x "$CLAMIGA_BIN" ]; then
-    echo "md2guide.sh: amilisp binary not found: $CLAMIGA_BIN" >&2
+if [ ! -x "$AMILISP_BIN" ]; then
+    echo "md2guide.sh: amilisp binary not found: $AMILISP_BIN" >&2
     exit 2
 fi
 
@@ -56,7 +56,7 @@ INPUTS='("README-FIRST.md" . "README-FIRST.guide")
         ("docs/ffi.md" . "docs/ffi.guide")
         ("docs/gray.md" . "docs/gray.guide")
         ("docs/mop.md" . "docs/mop.guide")
-        ("docs/clamiga.md" . "docs/clamiga.guide")
+        ("docs/amilisp.md" . "docs/amilisp.guide")
         ("docs/amiga.md" . "docs/amiga.guide")'
 if [ -f "$ROOT/clamacs/README.md" ]; then
     INPUTS="$INPUTS
@@ -66,6 +66,6 @@ else
 fi
 
 cd "$ROOT"
-CLAMIGA_NO_USERINIT=1 "$CLAMIGA_BIN" --no-userinit --non-interactive \
+AMILISP_NO_USERINIT=1 "$AMILISP_BIN" --no-userinit --non-interactive \
     --load tools/docs/md2guide.lisp \
     --eval "(md2guide:cli '($INPUTS) \"$OUT_NATIVE/\" \"$VERSION\" \"$DATE\")" </dev/null

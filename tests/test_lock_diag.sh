@@ -1,5 +1,5 @@
 #!/bin/sh
-# Slow-lock-wait diagnostic (CLAMIGA_LOCK_DIAG): a blocking MP:ACQUIRE-LOCK
+# Slow-lock-wait diagnostic (AMILISP_LOCK_DIAG): a blocking MP:ACQUIRE-LOCK
 # that waits past the threshold must report — to stderr, from inside the
 # stalled wait — the contended lock (name), the waiting thread, the
 # current holder (name + wait state), and finally the total wait once the
@@ -13,7 +13,7 @@
 #
 # Run: sh tests/test_lock_diag.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then
@@ -53,7 +53,7 @@ fail() {
 
 # 1. Enabled at a 100ms threshold: both report forms must appear, naming
 #    the lock, the waiter, and the holder.
-out=$(CLAMIGA_LOCK_DIAG=100 "$TIMEOUT" 30 "$CLAMIGA" --no-userinit \
+out=$(AMILISP_LOCK_DIAG=100 "$TIMEOUT" 30 "$AMILISP" --no-userinit \
       --non-interactive --load "$tmp" </dev/null 2>&1)
 status=$?
 [ $status -eq 0 ] || fail "exit $status: hang or crash"
@@ -66,13 +66,13 @@ printf '%s' "$out" | \
     || fail "no acquired-after report"
 
 # 2. Default (env unset): the identical contended run must be silent.
-out=$(env -u CLAMIGA_LOCK_DIAG "$TIMEOUT" 30 "$CLAMIGA" --no-userinit \
+out=$(env -u AMILISP_LOCK_DIAG "$TIMEOUT" 30 "$AMILISP" --no-userinit \
       --non-interactive --load "$tmp" </dev/null 2>&1)
 status=$?
 [ $status -eq 0 ] || fail "exit $status on default run: hang or crash"
 printf '%s' "$out" | grep -q "LOCK-DIAG-DONE" || fail "default run did not complete"
 printf '%s' "$out" | grep -q "MP:ACQUIRE-LOCK diag" \
-    && fail "diagnostic printed with CLAMIGA_LOCK_DIAG unset"
+    && fail "diagnostic printed with AMILISP_LOCK_DIAG unset"
 
 echo "  ok  lock_diag (report + silence-by-default)"
 echo "1 passed, 0 failed, 1 total"

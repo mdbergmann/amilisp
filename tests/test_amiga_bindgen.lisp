@@ -112,7 +112,7 @@
          (or (null nparams) (eql (getf info :nparams) nparams)))))
 
 ;;; A module is one AMIGA.FFI:DEFINE-BINDING-TABLE form; its rows come back
-;;; from the registered table through CLAMIGA::%BINDING-TABLE-ENTRIES —
+;;; from the registered table through AMILISP::%BINDING-TABLE-ENTRIES —
 ;;; format-agnostic checks of what the generator emitted (LVOs, registers,
 ;;; result kinds, guards, field layouts) without grepping source text.
 ;;; Cached per package: an enumeration (DO-SYMBOLS) drops a table.
@@ -120,7 +120,7 @@
 
 (defun table-rows (pkg)
   (or (gethash pkg *rows-cache*)
-      (setf (gethash pkg *rows-cache*) (clamiga::%binding-table-entries pkg))))
+      (setf (gethash pkg *rows-cache*) (amilisp::%binding-table-entries pkg))))
 
 (defun rows-named (pkg kind name)
   (remove-if-not (lambda (r) (and (eq (first r) kind)
@@ -179,7 +179,7 @@
          (file-contains "example" "(amiga.ffi:open-library-or-die \"example.library\" 0)"))
     ;; the module is one binding table (plus the base/version defvars)
     (chk "module carries a binding table with :base/:version"
-         (let ((info (clamiga::%binding-table-info p)))
+         (let ((info (amilisp::%binding-table-info p)))
            (and info (> (getf info :entries) 40)
                 (eq (getf info :base) (sym p "*example-base*"))
                 (eq (getf info :version) (sym p "*example-version*")))))
@@ -187,9 +187,9 @@
          (file-contains "example" "(amiga.ffi:define-binding-table \"AMIGA.RAW.EXAMPLE\"
     (:base *example-base* :version *example-version*)"))
     (chk "names are materialised on first reference, not at load"
-         (let ((before (getf (clamiga::%binding-table-info p) :symbols)))
+         (let ((before (getf (amilisp::%binding-table-info p) :symbols)))
            (sym p "ex-flags")            ; first reference
-           (= (getf (clamiga::%binding-table-info p) :symbols) (1+ before))))
+           (= (getf (amilisp::%binding-table-info p) :symbols) (1+ before))))
     ;; plain functions: names, LVOs, registers, result kinds
     (chk "ex-flush defined + exported" (and (fbound p "ex-flush") (external-p p "ex-flush")))
     (chk "ex-flush: regs on the next line parsed, LVO -30, void"
@@ -330,7 +330,7 @@
     (let ((before (sym p "ex-flush")) (n 0))
       (do-symbols (s p) (when (eq (symbol-package s) (find-package p)) (incf n)))
       (chk "do-symbols flips the package eager (table dropped), symbols stay EQ"
-           (and (null (clamiga::%binding-table-info p))
+           (and (null (amilisp::%binding-table-info p))
                 (eq before (sym p "ex-flush"))
                 (> n 40)
                 (fbound p "ex-flush") (eql (sym-value p "+exf-base+") #x1000)))))
@@ -675,7 +675,7 @@
   (let ((p "AMIGA.RAW.MUI.FIXLIST"))
     (chk "mui/fixlist: package AMIGA.RAW.MUI.FIXLIST, header-only (no base), a binding table"
          (and (find-package p) (not (sym p "*fixlist-base*")) (not (sym p "*fixlist-mcc-base*"))
-              (clamiga::%binding-table-info p)
+              (amilisp::%binding-table-info p)
               (file-contains "mui/fixlist" ";;;   mui/Fixlist_mcc.h")
               (file-contains "mui/fixlist" "(amiga.ffi:define-binding-table \"AMIGA.RAW.MUI.FIXLIST\" ()")))
     (chk "mui/fixlist: MUIC_ string, MUIM_/MUIV_/MUIA_ constants, the NewObject shortcut skipped"
@@ -722,13 +722,13 @@
                                (list-all-packages))))
       (chk (format nil "all ~D AMIGA.RAW.* packages carry a binding table" (length pkgs))
            (and (>= (length pkgs) 100)
-                (every #'clamiga::%binding-table-info pkgs)))
+                (every #'amilisp::%binding-table-info pkgs)))
       ;; (the base/version vars, %VERSION>=, and the >7-register DEFCFUNs'
       ;; parameter names — cybergraphics has the most, 46)
       (chk "loading a module materialises only its eager symbols (< 60)"
-           (every (lambda (pk) (< (getf (clamiga::%binding-table-info pk) :symbols) 60)) pkgs))
+           (every (lambda (pk) (< (getf (amilisp::%binding-table-info pk) :symbols) 60)) pkgs))
       (chk "intuition: ~1500 table entries in ~47 KB of table"
-           (let ((info (clamiga::%binding-table-info "AMIGA.RAW.INTUITION")))
+           (let ((info (amilisp::%binding-table-info "AMIGA.RAW.INTUITION")))
              (and (> (getf info :entries) 1400) (< (getf info :bytes) 60000)))))
     ;; generated headers
     (chk "modules carry the DO NOT EDIT banner"
@@ -851,7 +851,7 @@
               (eql (sym-value "AMIGA.RAW.MUIMASTER" "+muimaster-vmin+") 11)
               (eql (sym-value "AMIGA.RAW.MUIMASTER" "+muii-count+") 42)))
     (chk "muimaster: ~2050 entries incl. 121 string constants and 136 structs, table < 100 KB"
-         (let ((info (clamiga::%binding-table-info "AMIGA.RAW.MUIMASTER")))
+         (let ((info (amilisp::%binding-table-info "AMIGA.RAW.MUIMASTER")))
            (and (> (getf info :entries) 1900) (< (getf info :entries) 2200)
                 (< (getf info :bytes) 100000)
                 (= 121 (count-if (lambda (r) (and (eq (first r) :const) (stringp (third r))))

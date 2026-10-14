@@ -16,17 +16,17 @@
 #      IF/WHEN/UNLESS/DOTIMES (both polarities), PUSH_LOCAL/POP_LOCAL for
 #      an unboxed lexical variable and NOT for a special, a captured or a
 #      symbol-macro place, one EQ_JNIL per CASE key, INCF without
-#      temporaries.  CLAMIGA_FORCE_SPEED=0 keeps the compiler-emitted
-#      opcodes and drops the fusion; CLAMIGA_NO_FUSE=1 the same.
+#      temporaries.  AMILISP_FORCE_SPEED=0 keeps the compiler-emitted
+#      opcodes and drops the fusion; AMILISP_NO_FUSE=1 the same.
 #   2. Semantics: every string / vector representation through AREF, the
 #      type and bounds errors with the builtin's text, CHAR= on
 #      non-characters, CMP_BR on fixnums / bignums / floats / ratios /
 #      complex and on the fixnum boundaries, PUSH/POP value and order,
 #      INCF/DECF on every kind of place.
 #   3. COMPILE-FILE round trip: the FASL carries the opcodes.
-#   4. The paths under allocation pressure (also under CLAMIGA_GC_STRESS).
+#   4. The paths under allocation pressure (also under AMILISP_GC_STRESS).
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 
@@ -38,13 +38,13 @@ WORK="$TMPDIR/clamiga_scanops_$$"
 mkdir -p "$WORK"
 trap 'rm -rf "$WORK"' EXIT
 
-if [ ! -x "$CLAMIGA" ]; then
-    echo "  SKIP  scan opcodes: no binary at $CLAMIGA"
+if [ ! -x "$AMILISP" ]; then
+    echo "  SKIP  scan opcodes: no binary at $AMILISP"
     echo "0 passed, 0 failed, 0 total"
     exit 0
 fi
 
-if [ -n "${CLAMIGA_GC_STRESS:-}" ]; then
+if [ -n "${AMILISP_GC_STRESS:-}" ]; then
     LOOPN=40
 else
     LOOPN=20000
@@ -52,10 +52,10 @@ fi
 
 run() {
     if [ -n "$TIMEOUT" ]; then
-        "$TIMEOUT" 120 "$CLAMIGA" --no-userinit --heap 64M \
+        "$TIMEOUT" 120 "$AMILISP" --no-userinit --heap 64M \
             --non-interactive --load "$1" 2>&1 </dev/null
     else
-        "$CLAMIGA" --no-userinit --heap 64M --non-interactive --load "$1" 2>&1 </dev/null
+        "$AMILISP" --no-userinit --heap 64M --non-interactive --load "$1" 2>&1 </dev/null
     fi
 }
 
@@ -162,12 +162,12 @@ else
 fi
 check_absent   "CASE last key: no JTRUE-over-JMP" "JMP          +5 " "$(sect SH-CASE)"
 
-out0=$(CLAMIGA_FORCE_SPEED=0 run "$WORK/shapes.lisp")
+out0=$(AMILISP_FORCE_SPEED=0 run "$WORK/shapes.lisp")
 check_contains "speed 0: AREF still emitted by the compiler"  "AREF         3" "$out0"
 check_contains "speed 0: CHAREQ still emitted"                "CHAREQ" "$out0"
 check_contains "speed 0: PUSH_LOCAL still emitted"            "PUSH_LOCAL" "$out0"
 check_absent   "speed 0: no CMP_BR (the fusion is the peephole's)" "CMP_BR" "$out0"
-outnf=$(CLAMIGA_NO_FUSE=1 run "$WORK/shapes.lisp")
+outnf=$(AMILISP_NO_FUSE=1 run "$WORK/shapes.lisp")
 check_absent   "NO_FUSE: no CMP_BR"                            "CMP_BR" "$outnf"
 check_contains "NO_FUSE: the LT stays"                         ": LT" "$outnf"
 

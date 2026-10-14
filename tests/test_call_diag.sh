@@ -15,7 +15,7 @@
 # of crashing the printer.
 # Run: sh tests/test_call_diag.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0
@@ -69,11 +69,11 @@ cat > "$WORK/diag.lisp" <<'EOF'
 (format t "DIAG-DONE~%")
 EOF
 
-out=$("$CLAMIGA" --no-userinit --non-interactive --load "$WORK/diag.lisp" </dev/null 2>&1)
+out=$("$AMILISP" --no-userinit --non-interactive --load "$WORK/diag.lisp" </dev/null 2>&1)
 
 check_contains "the script ran to the end" "DIAG-DONE" "$out"
 
-if [ "${CLAMIGA_GC_STRESS:-0}" = "1" ]; then
+if [ "${AMILISP_GC_STRESS:-0}" = "1" ]; then
     # KNOWN OPEN BUG, pre-existing (the build before these diagnostics does
     # the same) and not a property of the messages under test: in a
     # -DDEBUG_GC_STRESS build -- with or without forced compaction -- an
@@ -85,7 +85,7 @@ if [ "${CLAMIGA_GC_STRESS:-0}" = "1" ]; then
     # handler-case's own frame (E2, E12, E15, E16) are delivered.
     # Repro: make host BUILDDIR=build/host-gcstress DEBUG_FLAGS=-DDEBUG_GC_STRESS
     #        sh tests/test_call_diag.sh build/host-gcstress/amilisp
-    # (without CLAMIGA_GC_STRESS=1 in the environment the two E1 checks
+    # (without AMILISP_GC_STRESS=1 in the environment the two E1 checks
     # below the else fail on that binary).  The gc-stress suite is meant to
     # mirror the release build's semantics, so this is not a fix but a
     # holding pattern: accept either delivery path and keep the checks that

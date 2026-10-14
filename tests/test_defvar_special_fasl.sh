@@ -18,12 +18,12 @@
 #
 # Run: sh tests/test_defvar_special_fasl.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 passed=0
 failed=0
 TMP="${TMPDIR:-/tmp}/clamiga-dvfasl-$$"
 mkdir -p "$TMP"
-cleanup() { rm -rf "$TMP" "$HOME/.cache/common-lisp/cl-amiga-"*"$TMP"* 2>/dev/null; }
+cleanup() { rm -rf "$TMP" "$HOME/.cache/common-lisp/amilisp-"*"$TMP"* 2>/dev/null; }
 trap cleanup EXIT
 
 SRC="$TMP/dv.lisp"
@@ -40,7 +40,7 @@ COMPILE_DRIVER="$TMP/compile.lisp"
 cat > "$COMPILE_DRIVER" <<EOF
 (compile-file "$SRC" :output-file "$FASL")
 EOF
-CLAMIGA_NO_USERINIT=1 "$CLAMIGA" --no-userinit --non-interactive \
+AMILISP_NO_USERINIT=1 "$AMILISP" --no-userinit --non-interactive \
     --load "$COMPILE_DRIVER" </dev/null >/dev/null 2>&1
 
 if [ ! -f "$FASL" ]; then
@@ -59,7 +59,7 @@ cat > "$LOAD_DRIVER" <<EOF
         (if (boundp '*dvfasl-var*) :yes :no)
         (dvfasl-dyn))
 EOF
-out=$(CLAMIGA_NO_USERINIT=1 "$CLAMIGA" --no-userinit --non-interactive \
+out=$(AMILISP_NO_USERINIT=1 "$AMILISP" --no-userinit --non-interactive \
           --load "$LOAD_DRIVER" </dev/null 2>&1)
 
 bound=$(printf '%s\n' "$out" | sed -n 's/.*BOUNDP=\([^ ]*\) .*/\1/p' | head -1)

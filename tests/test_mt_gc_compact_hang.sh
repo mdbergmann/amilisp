@@ -39,7 +39,7 @@
 #
 # Run: sh tests/test_mt_gc_compact_hang.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then
@@ -58,7 +58,7 @@ run_scenario() {
     i=0
     while [ "$i" -lt "$runs" ]; do
         i=$((i + 1))
-        out=$(CLAMIGA_THREAD_ERRORS=1 "$TIMEOUT" 40 "$CLAMIGA" --no-userinit \
+        out=$(AMILISP_THREAD_ERRORS=1 "$TIMEOUT" 40 "$AMILISP" --no-userinit \
               --heap "$heap" --non-interactive --load "$tmp" </dev/null 2>&1)
         ec=$?
         if [ "$ec" -eq 124 ]; then

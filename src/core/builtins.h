@@ -48,7 +48,7 @@ void cl_run_exit_hooks(void);
  * text.  Called by the thread entry while the thread is still registered.
  * Does nothing (and allocates nothing) while the list is empty.  Each hook
  * runs in its own CL_CATCH; a hook that fails -- the heap may be as full as
- * when the thread died -- is dropped, reported under CLAMIGA_THREAD_ERRORS. */
+ * when the thread died -- is dropped, reported under AMILISP_THREAD_ERRORS. */
 void cl_run_thread_death_hooks(const char *msg);
 
 /* Register a builtin function in a specific package.

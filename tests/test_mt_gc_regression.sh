@@ -34,7 +34,7 @@
 #
 # Run: sh tests/test_mt_gc_regression.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then
@@ -81,7 +81,7 @@ RUNS=10
 i=0
 while [ "$i" -lt "$RUNS" ]; do
     i=$((i + 1))
-    out=$("$TIMEOUT" 40 "$CLAMIGA" --no-userinit --heap 4M --non-interactive --load "$tmp" </dev/null 2>&1)
+    out=$("$TIMEOUT" 40 "$AMILISP" --no-userinit --heap 4M --non-interactive --load "$tmp" </dev/null 2>&1)
     ec=$?
     if [ "$ec" -eq 124 ]; then
         echo "  FAIL mt_gc_regression (run $i/$RUNS timed out — STW-GC hang)"

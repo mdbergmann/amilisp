@@ -54,7 +54,7 @@ static void setup(void)
 {
     /* Classic collector: explicit compactions of the whole arena, no
      * nursery — the forwarding structures cover the full bump span. */
-    setenv("CLAMIGA_GENGC", "0", 1);
+    setenv("AMILISP_GENGC", "0", 1);
     platform_init();
     cl_thread_init();
     cl_error_init();

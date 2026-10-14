@@ -24,12 +24,12 @@ compiled at the target speed — cached FASLs bypass the compiler, so without
 the wipe a forced speed changes almost nothing:
 
 ```
-rm -rf ~/.cache/common-lisp/cl-amiga-0.3-fasl22
-CLAMIGA_FORCE_SPEED=1 ./build/host/amilisp --no-userinit --heap 192M \
+rm -rf ~/.cache/common-lisp/amilisp-0.3-fasl22
+AMILISP_FORCE_SPEED=1 ./build/host/amilisp --no-userinit --heap 192M \
     --non-interactive --load <driver.lisp>       # then again with =3
 ```
 
-`CLAMIGA_FORCE_SPEED` pins the effective `speed` for the whole process,
+`AMILISP_FORCE_SPEED` pins the effective `speed` for the whole process,
 overriding declaim/declare (see the peephole section in the README). The
 driver loads `trunk/load-sento-bench.lisp` and calls
 `sento.bench::run-benchmark` per configuration; the two speed runs executed
@@ -83,4 +83,4 @@ bytecode fraction of sento's per-message path receiving the peephole's
 - **MT soak**: the speed-3 leg cold-compiled the full dependency stack through
   the peephole and ran a heavily multi-threaded, NLX-heavy workload for
   ~12 minutes without incident, on top of the sento system test suite
-  (537/537) already passing at `CLAMIGA_FORCE_SPEED=3`.
+  (537/537) already passing at `AMILISP_FORCE_SPEED=3`.

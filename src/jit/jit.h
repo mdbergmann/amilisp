@@ -57,7 +57,7 @@ void   cl_jit_init(void);
  * code: hand back what the backend maps itself (the AArch64 code heap). */
 void   cl_jit_shutdown(void);
 
-/* The direct-call kill switch (%JIT-SET-DIRECT-CALLS, CLAMIGA_JIT_DIRECT=0):
+/* The direct-call kill switch (%JIT-SET-DIRECT-CALLS, AMILISP_JIT_DIRECT=0):
  * while off, no call site fills, so every call takes the helper path.
  * Toggling bumps cl_call_gen. */
 void   cl_jit_set_direct_calls(int on);
@@ -169,7 +169,7 @@ uint32_t cl_jit_invoke_count_get(void);
 /* Pretty-print the native bytes in `code` (length `len`) as one line of
  * assembly per instruction to platform_write_string.  Only decodes the
  * forms the JIT can emit; anything else falls through to ".word $xxxx".
- * Exposed to Lisp as `clamiga::%JIT-DISASSEMBLE`. */
+ * Exposed to Lisp as `amilisp::%JIT-DISASSEMBLE`. */
 void cl_jit_disassemble(const uint8_t *code, uint32_t len);
 
 #else  /* no CL_JIT_NATIVE — targets without a backend get no-op stubs */

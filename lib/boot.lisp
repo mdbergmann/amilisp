@@ -6,7 +6,7 @@
 ;;; %-helper defined here that another file (clos.lisp, a compiled FASL of
 ;;; either) or C code refers to MUST be listed in clos_internal_names[]
 ;;; (src/core/package.c) so both read paths resolve it to the same exported
-;;; CLAMIGA symbol.  A name missing from that list interns fresh in whichever
+;;; AMILISP symbol.  A name missing from that list interns fresh in whichever
 ;;; package is current — two symbols with one name, and cross-file references
 ;;; silently land on the unbound one (real-Amiga finding 2026-08-09; see
 ;;; tests/test_boot_source_compile.sh).
@@ -295,7 +295,7 @@
     ((symbolp place)
      (let ((new (gensym)) (found (gensym)) (ind (gensym)))
        `(let ((,ind ,indicator))
-          (multiple-value-bind (,new ,found) (clamiga::%remf ,place ,ind)
+          (multiple-value-bind (,new ,found) (amilisp::%remf ,place ,ind)
             (setq ,place ,new)
             ,found))))
     ((and (consp place) (%place-direct-mutator-p (car place)))
@@ -307,11 +307,11 @@
        `(let* (,@(mapcar #'list sub-ts subs)
                (,ind ,indicator))
           (multiple-value-bind (,new ,found)
-              (clamiga::%remf (,op ,@sub-ts) ,ind)
+              (amilisp::%remf (,op ,@sub-ts) ,ind)
             (setf (,op ,@sub-ts) ,new)
             ,found))))
     (t (let ((new (gensym)) (found (gensym)))
-         `(multiple-value-bind (,new ,found) (clamiga::%remf ,place ,indicator)
+         `(multiple-value-bind (,new ,found) (amilisp::%remf ,place ,indicator)
             (setf ,place ,new)
             ,found)))))
 (defsetf elt %setf-elt)
@@ -479,7 +479,7 @@ Spec is var | (var ...) | ((keyword var) ...)."
                           (push (%dbind-parse-key (car tail)) kws)))
                     (when (not allow)
                       (b (gensym "DBK")
-                         (list 'clamiga::%dbind-check-keys cur
+                         (list 'amilisp::%dbind-check-keys cur
                                (list 'quote (nreverse kws))))))
                   (scan (cdr ll) 2 cur))
                  ((eq item '&allow-other-keys) (scan (cdr ll) mode cur))
@@ -576,7 +576,7 @@ Spec is var | (var ...) | ((keyword var) ...)."
     (if setf-p
         `',name
         `(progn
-           (clamiga::%setf-compiler-macro-function
+           (amilisp::%setf-compiler-macro-function
             (lambda (,form-var ,env-var)
               ,@(if user-env
                     ;; Expose the macro environment to the user's
@@ -605,18 +605,18 @@ Spec is var | (var ...) | ((keyword var) ...)."
 ;; get-setf-expansion; the C-side setf_expander_table holds a single-form
 ;; wrapper consulted by the compiler.  define-setf-expander populates both
 ;; so place-subform-once semantics propagate through nested setf forms.
-(defparameter clamiga::*setf-expansion-fns* nil)
+(defparameter amilisp::*setf-expansion-fns* nil)
 
-(defun clamiga::%register-setf-expansion (name fn)
-  (let ((existing (assoc name clamiga::*setf-expansion-fns*)))
+(defun amilisp::%register-setf-expansion (name fn)
+  (let ((existing (assoc name amilisp::*setf-expansion-fns*)))
     (if existing
         (rplacd existing fn)
-        (setq clamiga::*setf-expansion-fns*
-              (cons (cons name fn) clamiga::*setf-expansion-fns*))))
+        (setq amilisp::*setf-expansion-fns*
+              (cons (cons name fn) amilisp::*setf-expansion-fns*))))
   name)
 
-(defun clamiga::%get-setf-expansion-fn (name)
-  (cdr (assoc name clamiga::*setf-expansion-fns*)))
+(defun amilisp::%get-setf-expansion-fn (name)
+  (cdr (assoc name amilisp::*setf-expansion-fns*)))
 
 ;; CLHS 5.1.2 GET-SETF-EXPANSION — returns 5 values bracketing a place
 ;; so that subforms are evaluated exactly once.  CLHS 5.1.2.7: when the
@@ -633,7 +633,7 @@ Spec is var | (var ...) | ((keyword var) ...)."
   ;; precedence compile_setf_place already applies on the compiler side.
   (let ((head-expander
           (and (consp place) (symbolp (car place))
-               (clamiga::%get-setf-expansion-fn (car place)))))
+               (amilisp::%get-setf-expansion-fn (car place)))))
     (when head-expander
       (return-from get-setf-expansion (apply head-expander (cdr place)))))
   (let ((place (macroexpand place env)))
@@ -651,7 +651,7 @@ Spec is var | (var ...) | ((keyword var) ...)."
          (values temps vals stores set-form
                  (list 'the (second place) access-form))))
       ((and (consp place) (symbolp (car place)))
-       (let ((expander (clamiga::%get-setf-expansion-fn (car place))))
+       (let ((expander (amilisp::%get-setf-expansion-fn (car place))))
          (cond
            (expander
             (apply expander (cdr place)))
@@ -688,7 +688,7 @@ Spec is var | (var ...) | ((keyword var) ...)."
       (setq clean-ll (append (subseq lambda-list 0 env-pos)
                              (subseq lambda-list (+ env-pos 2)))))
     `(progn
-       (clamiga::%register-setf-expansion
+       (amilisp::%register-setf-expansion
         ',access-fn
         (lambda ,clean-ll
           ,@(if env-var
@@ -696,11 +696,11 @@ Spec is var | (var ...) | ((keyword var) ...)."
                     (declare (ignorable ,env-var))
                     ,@body))
                 body)))
-       (clamiga::%register-setf-expander
+       (amilisp::%register-setf-expander
         ',access-fn
         (lambda (place-form value-form)
           (multiple-value-bind (temps vals stores store-form access-form)
-              (apply (clamiga::%get-setf-expansion-fn ',access-fn)
+              (apply (amilisp::%get-setf-expansion-fn ',access-fn)
                      (cdr place-form))
             (declare (ignore access-form))
             (let ((bindings (append (mapcar #'list temps vals)
@@ -717,7 +717,7 @@ Spec is var | (var ...) | ((keyword var) ...)."
 ;; store-variables are bound to fresh store gensyms; BODY is then evaluated as
 ;; a macro body to produce the storing form.  Using a real lambda + APPLY to
 ;; bind the lambda-list against the temps lets &optional/&key defaults work.
-(defmacro clamiga::%defsetf-long (access-fn lambda-list store-vars &body body)
+(defmacro amilisp::%defsetf-long (access-fn lambda-list store-vars &body body)
   ;; Strip a trailing &environment var from the access lambda list (CLHS
   ;; permits it); bind it to NIL since the compiler-side expander has no
   ;; environment to thread here.
@@ -802,7 +802,7 @@ Spec is var | (var ...) | ((keyword var) ...)."
        (append temps (list itemp dtemp))
        (append vals (list indicator default))
        (list store)
-       `(let ((,ptemp (clamiga::%setf-getf ,access-form ,itemp ,store)))
+       `(let ((,ptemp (amilisp::%setf-getf ,access-form ,itemp ,store)))
           ,set-form
           ,store)
        `(getf ,access-form ,itemp ,dtemp)))))
@@ -1142,7 +1142,7 @@ Spec is var | (var ...) | ((keyword var) ...)."
 ;;   - closures use value capture, so setq on outer variables doesn't propagate;
 ;;     rplaca on a shared cons cell does propagate
 (defmacro handler-case (form &rest clauses)
-  ;; The clauses compile to the CLAMIGA::%HANDLER-CASE special form: one NLX
+  ;; The clauses compile to the AMILISP::%HANDLER-CASE special form: one NLX
   ;; frame plus one handler binding per clause, no cons and no closure per
   ;; entry, and the clause body entered directly by the condition-signalling
   ;; code once the form's dynamic extent has been unwound (CLHS 9.1.3).  ALL
@@ -1162,7 +1162,7 @@ Spec is var | (var ...) | ((keyword var) ...)."
                  (return-from ,error-return
                    (handler-case (return-from ,normal-return ,form)
                      ,@(remove no-error clauses)))))))
-        `(clamiga::%handler-case ,form ,@clauses))))
+        `(amilisp::%handler-case ,form ,@clauses))))
 
 ;; ignore-errors — catch errors, return (values nil condition)
 (defmacro ignore-errors (&rest body)
@@ -1201,7 +1201,7 @@ Spec is var | (var ...) | ((keyword var) ...)."
   (restart-case (apply #'error datum args)
     (continue () :report (lambda (s) (apply #'format s format-control args)) nil)))
 
-;; %set-condition-default-initargs is a CLAMIGA builtin (builtins_condition.c):
+;; %set-condition-default-initargs is a AMILISP builtin (builtins_condition.c):
 ;; it records a condition type's :default-initargs so make-condition / error /
 ;; signal can fill in initargs the caller omitted.
 
@@ -1266,7 +1266,7 @@ Spec is var | (var ...) | ((keyword var) ...)."
                              (list `(defmethod ,reader ((c ,name)) (condition-slot-value c ',slot-name)))
                              (list `(defun ,reader (c) (condition-slot-value c ',slot-name)))))
                        (when accessor
-                         (let ((setter-name (clamiga::%setf-store-symbol accessor)))
+                         (let ((setter-name (amilisp::%setf-store-symbol accessor)))
                            (list `(defun ,setter-name (val c)
                                     (%set-condition-slot-value c ',slot-name val))))))))
                  slot-specs)
@@ -1657,32 +1657,32 @@ when the param has no explicit default.  CL spec 3.4.6 requires this."
                 ;; The positional call bakes in the slot order and the
                 ;; defaults: the code being compiled now depends on this
                 ;; layout (the FASL's DEPS trailer records it).
-                (clamiga::%note-struct-use struct-name)
+                (amilisp::%note-struct-use struct-name)
                 (let ((positional
                         (mapcar (lambda (key spec)
                                   (let ((hit (assoc key values-by-key)))
                                     (if hit (cdr hit) (cadr spec))))
                                 slot-keys slot-specs))
                       (call nil))
-                  (setq call (cons 'clamiga::%make-struct
+                  (setq call (cons 'amilisp::%make-struct
                                    (cons (list 'quote struct-name) positional)))
                   (if bindings
                       (list 'let* (nreverse bindings) call)
                       call))))))))
 
 ;; The hidden function behind (SETF (acc obj) val) for a structure accessor:
-;; CLAMIGA::%STRUCT-SET-<home package>::<accessor>, the scheme (SETF name)
+;; AMILISP::%STRUCT-SET-<home package>::<accessor>, the scheme (SETF name)
 ;; functions use.  It was %SET-<accessor> interned in the current package,
 ;; i.e. in the USER's namespace: (defstruct view title) silently took over a
 ;; user function named %SET-VIEW-TITLE - DEFUN order decided whose body won,
 ;; and the setter's compiler macro rewrote every direct call to the user's
 ;; function into a raw slot write on its first argument.
-(defun clamiga::%struct-setter-name (acc-name)
+(defun amilisp::%struct-setter-name (acc-name)
   (let ((pkg (symbol-package acc-name)))
     (intern (concatenate 'string "%STRUCT-SET-"
                          (if pkg (package-name pkg) "")
                          "::" (symbol-name acc-name))
-            "CLAMIGA")))
+            "AMILISP")))
 
 (defmacro defstruct (name-and-options &rest slot-specs)
   (let* ((name (if (consp name-and-options) (car name-and-options) name-and-options))
@@ -1744,7 +1744,7 @@ when the param has no explicit default.  CL spec 3.4.6 requires this."
     (when include-name
       ;; The parent's slot specs are copied into this expansion, so the
       ;; file being compiled depends on the parent's layout.
-      (clamiga::%note-struct-use include-name)
+      (amilisp::%note-struct-use include-name)
       (let ((parent-specs (%struct-slot-specs include-name)))
         (dolist (spec parent-specs)
           (push spec include-slots))
@@ -1833,7 +1833,7 @@ when the param has no explicit default.  CL spec 3.4.6 requires this."
             (let ((idx 0))
               (dolist (sname slot-names)
                 (let* ((acc-name (intern (concatenate 'string prefix (symbol-name sname))))
-                       (setter-name (clamiga::%struct-setter-name acc-name))
+                       (setter-name (amilisp::%struct-setter-name acc-name))
                        (getter-form (if (eq seq-kind 'vector)
                                         `(svref obj ,idx)
                                         `(nth ,idx obj)))
@@ -1908,7 +1908,7 @@ when the param has no explicit default.  CL spec 3.4.6 requires this."
                   forms))
           ;; Accessors and setf writers.  We emit both a defun (so #'line-sx
           ;; works for funcall/mapcar) AND a compiler macro that inlines
-          ;; the call into (clamiga::%struct-ref obj <idx>) — which the
+          ;; the call into (amilisp::%struct-ref obj <idx>) — which the
           ;; compiler then lowers to OP_STRUCT_REF, skipping the wrapper
           ;; frame entirely on direct calls.  Same for the setter.
           ;; %STRUCT-ACC-FORM builds that form and records that the code
@@ -1916,14 +1916,14 @@ when the param has no explicit default.  CL spec 3.4.6 requires this."
           (let ((idx 0))
             (dolist (sname slot-names)
               (let* ((acc-name (intern (concatenate 'string prefix (symbol-name sname))))
-                     (setter-name (clamiga::%struct-setter-name acc-name)))
-                (push `(defun ,acc-name (obj) (clamiga::%struct-ref obj ,idx)) forms)
+                     (setter-name (amilisp::%struct-setter-name acc-name)))
+                (push `(defun ,acc-name (obj) (amilisp::%struct-ref obj ,idx)) forms)
                 (push `(define-compiler-macro ,acc-name (obj)
-                         (clamiga::%struct-acc-form ',name ,idx obj))
+                         (amilisp::%struct-acc-form ',name ,idx obj))
                       forms)
-                (push `(defun ,setter-name (obj val) (clamiga::%struct-set obj ,idx val)) forms)
+                (push `(defun ,setter-name (obj val) (amilisp::%struct-set obj ,idx val)) forms)
                 (push `(define-compiler-macro ,setter-name (obj val)
-                         (clamiga::%struct-acc-form ',name ,idx obj val))
+                         (amilisp::%struct-acc-form ',name ,idx obj val))
                       forms)
                 (push `(defsetf ,acc-name ,setter-name) forms))
               (setq idx (+ idx 1))))
@@ -1965,11 +1965,11 @@ when the param has no explicit default.  CL spec 3.4.6 requires this."
 ;; MAKE-<type> in the type symbol's home package and applying it.  Slot names
 ;; are coerced to keywords so both #S(POINT :X 1) and #S(POINT X 1) work.
 ;;
-;; Defined explicitly in the CLAMIGA package (not the current package, which
+;; Defined explicitly in the AMILISP package (not the current package, which
 ;; varies with the load path) so the C reader's cl_intern_in(...,
-;; cl_package_clamiga) resolves the SAME symbol regardless of whether boot is
+;; cl_package_amilisp) resolves the SAME symbol regardless of whether boot is
 ;; loaded from source or FASL.
-(defun clamiga::%read-eval-struct (spec)
+(defun amilisp::%read-eval-struct (spec)
   (unless (consp spec)
     (error "#S: malformed structure literal ~S" spec))
   (let ((type (car spec))
@@ -2108,7 +2108,7 @@ when the param has no explicit default.  CL spec 3.4.6 requires this."
   (let ((stream (gensym "STREAM"))
         (args (gensym "ARGS")))
     `(lambda (,stream &rest ,args)
-       (clamiga::%formatter-inner ,stream ,control-string ,args))))
+       (amilisp::%formatter-inner ,stream ,control-string ,args))))
 
 ;; with-input-from-string (var string &key index start end) decl* form*
 ;; (CLHS).  START/END bound the substring made available through the stream;
@@ -3679,8 +3679,8 @@ DEFPARAMETER, or PROCLAIM); an ordinary lexical has no shared cell to CAS."
                ((symbol-value)
                 (cell 1 (lambda (s) `(symbol-value ,s))
                         (lambda (o nw s) `(mp::%cas-symbol-value ,s ,o ,nw))))
-               ((clamiga::%struct-ref)
-                (cell 2 (lambda (s i) `(clamiga::%struct-ref ,s ,i))
+               ((amilisp::%struct-ref)
+                (cell 2 (lambda (s i) `(amilisp::%struct-ref ,s ,i))
                         (lambda (o nw s i) `(mp::%cas-struct-slot ,s ,i ,o ,nw))))
                ((slot-value)
                 (cell 2 (lambda (i s) `(slot-value ,i ,s))
@@ -3876,16 +3876,16 @@ return the new value.  See MP:ATOMIC-INCF."
          `(progn
             ,f
             (format t "; JIT disassembly of ~A:~%" ',name)
-            (clamiga::%jit-disassemble (symbol-function ',name)))))
+            (amilisp::%jit-disassemble (symbol-function ',name)))))
       ;; (lambda ...) — disassemble the lambda directly.
       ((and (consp f) (eq (car f) 'lambda))
        `(progn
           (format t "; JIT disassembly of ~S:~%" ',f)
-          (clamiga::%jit-disassemble ,f)))
+          (amilisp::%jit-disassemble ,f)))
       ;; Any other expression — wrap as a thunk and disassemble.  The
       ;; thunk is never invoked, so free variables in F don't have to
       ;; be bound for the inspection to work.
       (t
        `(progn
           (format t "; JIT disassembly of (lambda () ~S):~%" ',f)
-          (clamiga::%jit-disassemble (lambda () ,f)))))))
+          (amilisp::%jit-disassemble (lambda () ,f)))))))

@@ -14,7 +14,7 @@
 #
 # Run: sh tests/test_mt_stop_workers.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then
@@ -58,7 +58,7 @@ cat > "$tmp/stop.lisp" <<'EOF'
 (mp:release-lock *lk*)
 (format t "BADMS ~a~%" (handler-case (mp::%stop-workers -1) (type-error () :type-error)))
 EOF
-out=$($TIMEOUT 30 "$CLAMIGA" --non-interactive --no-userinit --load "$tmp/stop.lisp" </dev/null 2>&1)
+out=$($TIMEOUT 30 "$AMILISP" --non-interactive --no-userinit --load "$tmp/stop.lisp" </dev/null 2>&1)
 for want in "NONE 0" "LEFT 0" "CLEANED (COND LOCK SLEEP SPIN)" "ALIVE 0" "BADMS TYPE-ERROR"; do
     if printf '%s\n' "$out" | grep -qx "$want"; then ok "stop: $want"
     else fail "stop: missing '$want'"; printf '%s\n' "$out" | sed 's/^/    /'; fi
@@ -87,7 +87,7 @@ cat > "$tmp/stuck.lisp" <<EOF
 ;; once the foreign call returns, the pending stop takes it down
 (format t "LATER ~a~%" (mp::%stop-workers 5000))
 EOF
-out=$($TIMEOUT 30 "$CLAMIGA" --non-interactive --no-userinit --load "$tmp/stuck.lisp" </dev/null 2>&1)
+out=$($TIMEOUT 30 "$AMILISP" --non-interactive --no-userinit --load "$tmp/stuck.lisp" </dev/null 2>&1)
 for want in "STUCK 1 WAITED" "LATER 0"; do
     if printf '%s\n' "$out" | grep -qx "$want"; then ok "stuck: $want"
     else fail "stuck: missing '$want'"; printf '%s\n' "$out" | sed 's/^/    /'; fi

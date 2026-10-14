@@ -106,7 +106,7 @@ In short: it exists to bring a modern, ANSI-aiming, library-capable Common Lisp 
 
 ### The name
 
-**AmiLisp** is Common Lisp for the Amiga, and *amiga* is Spanish/Portuguese for a (female) friend. So the name does double duty: the Lisp that runs on your Amiga, and the Lisp that's your *amiga*. 🙂 The project started as **CL-Amiga**, said out loud *Clamiga*, and the runtime still answers to that name in its Lisp-level identifiers — the `CLAMIGA` package, the `:clamiga` and `:cl-amiga` features (next to the new `:amilisp` and `:amicl`), the `CLAMIGA_*` environment variables — so existing code keeps working.
+**AmiLisp** is Common Lisp for the Amiga, and *amiga* is Spanish/Portuguese for a (female) friend. So the name does double duty: the Lisp that runs on your Amiga, and the Lisp that's your *amiga*. 🙂 The project started as **CL-Amiga**, said out loud *Clamiga*, and code written for that name keeps working: `CLAMIGA` is a nickname of the `AMILISP` package, `*features*` has `:clamiga` and `:cl-amiga` next to `:amilisp` and `:amicl`, and an `AMILISP_*` environment variable that is not set is read under its old `CLAMIGA_*` name.
 
 A side-by-side with SBCL, ECL, CCL, Clasp and CLISP is at the end of this
 document: [How it compares](#how-it-compares).
@@ -221,7 +221,7 @@ Three Windows-specific notes:
   device, so `(truename "Makefile")` prints as `#P"C:/Users/you/amilisp/Makefile"`.
 - **OpenSSL** is loaded at runtime, as on every other host. It is found by DLL
   name (`libssl-3-arm64.dll`, `libssl-3-x64.dll`, …) on `PATH`; point
-  `CLAMIGA_LIBSSL` / `CLAMIGA_LIBCRYPTO` at specific files to override.
+  `AMILISP_LIBSSL` / `AMILISP_LIBCRYPTO` at specific files to override.
   `(ext:tls-available-p)` reports what was found.
 
 ### AmigaOS (cross-compile with m68k-amigaos-gcc)
@@ -444,7 +444,7 @@ amilisp through `verify/realamiga/wbrun.c`, which sends the same
 
 ### Where amilisp finds its library
 
-amilisp finds `lib/` in three ways, in order: relative to the current working directory (so running it from the source root just works), under **`$CLAMIGA_HOME`**, and relative to the amilisp executable itself. The executable-relative lookup tries three layouts — `lib/` next to the binary (binary release), `../lib/amilisp/` (an install prefix: `<prefix>/bin/amilisp` + `<prefix>/lib/amilisp/`, the same layout SBCL uses), and `../../lib/` above it (the in-repo `build/host/amilisp`) — so an installed amilisp, or a symlink to the in-repo binary on `$PATH`, locates the bundled `lib/` from any directory with no environment setup at all. The same three locations are searched for a `amilisp.img` [heap image](#heap-images). On AmigaOS the executable-relative lookup is `PROGDIR:`. `CLAMIGA_HOME` is only needed for a binary that sits in none of those layouts (e.g. a bare copy of the executable); see `tests/test_lib_search_cwd.sh` for the exact resolution behavior.
+amilisp finds `lib/` in three ways, in order: relative to the current working directory (so running it from the source root just works), under **`$AMILISP_HOME`**, and relative to the amilisp executable itself. The executable-relative lookup tries three layouts — `lib/` next to the binary (binary release), `../lib/amilisp/` (an install prefix: `<prefix>/bin/amilisp` + `<prefix>/lib/amilisp/`, the same layout SBCL uses), and `../../lib/` above it (the in-repo `build/host/amilisp`) — so an installed amilisp, or a symlink to the in-repo binary on `$PATH`, locates the bundled `lib/` from any directory with no environment setup at all. The same three locations are searched for a `amilisp.img` [heap image](#heap-images). On AmigaOS the executable-relative lookup is `PROGDIR:`. `AMILISP_HOME` is only needed for a binary that sits in none of those layouts (e.g. a bare copy of the executable); see `tests/test_lib_search_cwd.sh` for the exact resolution behavior.
 
 ### Heap and stack sizing
 
@@ -557,14 +557,14 @@ See `tests/test_documentation.c`.
 `(jitexpand ...)` its native code; see [Disassembly](#disassembly).
 
 **Diagnostic switches** — a few environment variables make amilisp report on
-itself when something hangs or leaks: `CLAMIGA_GC_DIAG=1` prints one stderr
+itself when something hangs or leaks: `AMILISP_GC_DIAG=1` prints one stderr
 line per collection (kind, pause, heap occupancy) — useful for telling a GC
-storm from a hang elsewhere (`tests/test_break_diag.sh`); `CLAMIGA_IO_DIAG=1`
+storm from a hang elsewhere (`tests/test_break_diag.sh`); `AMILISP_IO_DIAG=1`
 traces every platform file operation (op, path, handle) as it is entered, so a
 process stuck inside an OS file call names the operation in its last trace
-line (`tests/test_io_diag.sh`); `CLAMIGA_LOCK_DIAG` and `CLAMIGA_SOCK_DIAG`
+line (`tests/test_io_diag.sh`); `AMILISP_LOCK_DIAG` and `AMILISP_SOCK_DIAG`
 do the same for lock waits and sockets (see [Threads](#threads-mp) and
-[Networking](#networking-tcp-tls-udp)), and `CLAMIGA_MEM_DIAG` for memory
+[Networking](#networking-tcp-tls-udp)), and `AMILISP_MEM_DIAG` for memory
 handed back at exit (see [Memory outside the heap](#memory-outside-the-heap)).
 On AmigaOS, set them with `SetEnv`.
 
@@ -604,10 +604,10 @@ When a literal object reachable from compiled code is an instance of a class tha
 
 **Per-user cache locations** (keyed by `amilisp` version + FASL format version, so a version bump invalidates everything automatically):
 
-- POSIX: `~/.cache/common-lisp/cl-amiga-<version>-fasl<n>/<source-path>.fasl`
-- AmigaOS: `S:cl-amiga/faslcache/<version>-fasl<n>/<source-path>.fasl`
+- POSIX: `~/.cache/common-lisp/amilisp-<version>-fasl<n>/<source-path>.fasl`
+- AmigaOS: `S:amilisp/faslcache/<version>-fasl<n>/<source-path>.fasl`
 
-`CLAMIGA_FASL_CACHE_DIR` (POSIX, Windows) moves the cache root. `--no-fasl-cache`, or `CLAMIGA_FASL_CACHE=0` in the environment, switches the implicit cache off: every `(load "x.lisp")` compiles the source, and nothing is read from or written to the cache.
+`AMILISP_FASL_CACHE_DIR` (POSIX, Windows) moves the cache root. `--no-fasl-cache`, or `AMILISP_FASL_CACHE=0` in the environment, switches the implicit cache off: every `(load "x.lisp")` compiles the source, and nothing is read from or written to the cache.
 
 **Structure layouts are checked.** Code that calls a `defstruct` accessor or keyword constructor is compiled against that structure's layout, and the `defstruct` usually lives in another file. Every FASL therefore records the layouts it depends on, and they are compared before the file runs: when a `defstruct` has changed since, `LOAD` recompiles the cached file that uses it (even though that file itself is untouched), and a FASL loaded by name signals an error naming the structure instead of reading the wrong slots. Macros and inline functions from other files are not tracked — after changing one, touch the files that use it, or load with `--no-fasl-cache`. See `tests/test_fasl_struct_deps.sh` for runnable examples.
 
@@ -615,7 +615,7 @@ Pre-built `lib/boot.fasl` and `lib/clos.fasl` ship with the binary; on the lower
 
 `make fasl-amiga` does the same for everything under `lib/amiga/` (the curated modules, `AMIGA.REACTION` and the generated raw OS bindings), writing `lib/amiga/**/*.fasl` next to the sources: an Amiga run of the tree — the FS-UAE suite, or a real machine with the repo on it — then loads e.g. `lib/amiga/raw/intuition.fasl` instead of compiling ~4k forms on a 68020 at the first `(require "amiga/raw/intuition")`. This is optional for development (the Amiga's faslcache does the same lazily on first use), the files are gitignored, and `REQUIRE` ignores a FASL that is older than its source or was written by another FASL format version. The binary release ships these FASLs (see below). The host-compiled FASLs are portable because the FASL format is arch/endian-neutral and the `lib/amiga` sources have no reader conditionals — all platform variance is decided at load time. See `tests/test_lib_fasl_portable.sh`.
 
-Note: string literals in the `lib/` modules that ship as FASLs must stay ASCII-only — the m68k Amiga build is compiled without `CL_WIDE_STRINGS` to save RAM and cannot read FASLs that contain `FASL_TAG_WIDE_STRING`. The host and MorphOS builds have `CL_WIDE_STRINGS` (full Unicode, `CHAR-CODE-LIMIT` 1114112 — required by e.g. flexi-streams/drakma); their writers auto-downgrade all-ASCII wide strings to byte strings, so the shared `lib/` FASLs stay readable everywhere. `make fasl`, `make fasl-amiga` and the release script compile with `CLAMIGA_FASL_PORTABLE=1`, which makes the writer refuse such a literal on the host — the diagnostic names the file, source line and code point (`U+2014` for the usual em dash) — instead of the Amiga failing the whole module with a `BAD_TAG` deserialize error at load time. Comments are unaffected; docstrings are string literals like any other (they are recorded for `documentation`, see below), so the rule applies to them too.
+Note: string literals in the `lib/` modules that ship as FASLs must stay ASCII-only — the m68k Amiga build is compiled without `CL_WIDE_STRINGS` to save RAM and cannot read FASLs that contain `FASL_TAG_WIDE_STRING`. The host and MorphOS builds have `CL_WIDE_STRINGS` (full Unicode, `CHAR-CODE-LIMIT` 1114112 — required by e.g. flexi-streams/drakma); their writers auto-downgrade all-ASCII wide strings to byte strings, so the shared `lib/` FASLs stay readable everywhere. `make fasl`, `make fasl-amiga` and the release script compile with `AMILISP_FASL_PORTABLE=1`, which makes the writer refuse such a literal on the host — the diagnostic names the file, source line and code point (`U+2014` for the usual em dash) — instead of the Amiga failing the whole module with a `BAD_TAG` deserialize error at load time. Comments are unaffected; docstrings are string literals like any other (they are recorded for `documentation`, see below), so the rule applies to them too.
 
 ### Exit hooks
 
@@ -742,10 +742,10 @@ Quicklisp runs on AmiLisp, but the stock client doesn't recognise this implement
 ```lisp
 (require "asdf")
 (load "lib/quicklisp-install.lisp")
-(cl-amiga-ql:install)                 ; downloads + installs the QL client, patches networking
+(amilisp-ql:install)                 ; downloads + installs the QL client, patches networking
 ```
 
-`cl-amiga-ql:install` runs the standard `quicklisp-quickstart:install`, catches the network error it raises (AmiLisp isn't a registered `ql-impl` yet), loads the compat shim so networking works, and retries the dist install. The bundled shim systems in `lib/shims/` — the `swank` stub and the `cl+ssl` facade (which routes drakma/Hunchentoot TLS through AmiLisp's native `ext:socket-start-tls` instead of the CFFI-based original) — need no installation: loading ASDF registers them on `asdf:*central-registry*`, which is searched ahead of the Quicklisp and ocicl searchers, so they shadow the stock dist copies automatically. To opt out of the auto-registration, set `CLAMIGA_NO_SHIMS` to `1` in the environment before starting amilisp — host: `CLAMIGA_NO_SHIMS=1 amilisp`, Amiga shell: `SetEnv CLAMIGA_NO_SHIMS 1` (any other value, or unsetting it, re-enables the shims). One thing still needs to be on disk in `~/quicklisp/local-projects` (Amiga: `S:quicklisp/local-projects`): the AmiLisp **library forks** (listed below), which you install by cloning them into that directory — Quicklisp's local-projects searcher then resolves them ahead of the stock dist releases.
+`amilisp-ql:install` runs the standard `quicklisp-quickstart:install`, catches the network error it raises (AmiLisp isn't a registered `ql-impl` yet), loads the compat shim so networking works, and retries the dist install. The bundled shim systems in `lib/shims/` — the `swank` stub and the `cl+ssl` facade (which routes drakma/Hunchentoot TLS through AmiLisp's native `ext:socket-start-tls` instead of the CFFI-based original) — need no installation: loading ASDF registers them on `asdf:*central-registry*`, which is searched ahead of the Quicklisp and ocicl searchers, so they shadow the stock dist copies automatically. To opt out of the auto-registration, set `AMILISP_NO_SHIMS` to `1` in the environment before starting amilisp — host: `AMILISP_NO_SHIMS=1 amilisp`, Amiga shell: `SetEnv AMILISP_NO_SHIMS 1` (any other value, or unsetting it, re-enables the shims). One thing still needs to be on disk in `~/quicklisp/local-projects` (Amiga: `S:quicklisp/local-projects`): the AmiLisp **library forks** (listed below), which you install by cloning them into that directory — Quicklisp's local-projects searcher then resolves them ahead of the stock dist releases.
 
 **Using Quicklisp** in any later session, once it is installed:
 
@@ -828,11 +828,11 @@ versions. The goal is to upstream each one as the remaining API gaps close.
 | **trivial-features** | https://github.com/mdbergmann/trivial-features | `src/tf-clamiga.lisp` — populates `*features*` with AmiLisp's OS/CPU/endianness keywords. Required by CFFI and cl+ssl for platform detection. |
 | **closer-mop** | https://codeberg.org/mdbergmann/closer-mop | `#+clamiga` package definition plus a `closer-clamiga.lisp` backend that re-export AmiLisp's native AMOP subset under the CLOSER-MOP / C2MOP / C2CL names. |
 | **trivial-cltl2** | https://github.com/mdbergmann/trivial-cltl2 | `clamiga.lisp` backend supplying the CLtL2 functions serapeum/trivia call (`declaration-information`, `variable-information`, `function-information`, `compiler-let`, `parse-macro` / `enclose`). |
-| **introspect-environment** | https://github.com/mdbergmann/introspect-environment | `#+cl-amiga` `typexpand` / `typexpand-1` built on AmiLisp's deftype expander table (`clamiga::%type-expander`), so callers like serapeum's `explode-type` can resolve user `deftype` aliases. |
+| **introspect-environment** | https://github.com/mdbergmann/introspect-environment | `#+cl-amiga` `typexpand` / `typexpand-1` built on AmiLisp's deftype expander table (`amilisp::%type-expander`), so callers like serapeum's `explode-type` can resolve user `deftype` aliases. |
 | **trivial-garbage** | https://github.com/mdbergmann/trivial-garbage | `#+cl-amiga` finalizers and weak pointers, with weak hash-tables falling back to ordinary (strong) tables. |
 | **trivial-gray-streams** | https://github.com/mdbergmann/trivial-gray-streams | `#+clamiga` branch importing AmiLisp's native `GRAY` package (same package name as ECL/CLISP) and bridging the `stream-read-sequence` / `stream-write-sequence` generics. The portability layer most Gray-stream users (flexi-streams, chipz, drakma, Hunchentoot) build on. |
 | **chipz** | https://github.com/mdbergmann/chipz | `#+cl-amiga` Gray-stream branch in `stream.lisp` — makes `make-decompressing-stream` work. Enables drakma's gzip/deflate `:decode-content`. |
-| **float-features** | https://codeberg.org/mdbergmann/float-features | `#+cl-amiga` branch using AmiLisp's IEEE float-bits builtins (`clamiga:single-float-bits`, …). Needed by jzon to serialize floats (e.g. chipi-api's SSE JSON). |
+| **float-features** | https://codeberg.org/mdbergmann/float-features | `#+cl-amiga` branch using AmiLisp's IEEE float-bits builtins (`amilisp:single-float-bits`, …). Needed by jzon to serialize floats (e.g. chipi-api's SSE JSON). |
 | **rfc2388** | https://github.com/mdbergmann/rfc2388 | `#+cl-amiga` MIME multipart parsing using a `:latin-1` external format. Used by Hunchentoot for multipart form/file uploads. |
 | **cl-fad** | https://github.com/mdbergmann/cl-fad | `#+:cl-amiga` directory/pathname/file utilities (`list-directory`, `file-exists-p`, …) mapped onto AmiLisp's `directory`/`probe-file`. Used by Hunchentoot. |
 | **hunchentoot** | https://github.com/mdbergmann/hunchentoot | `#+:cl-amiga` web-server adaptations (e.g. `set-timeouts` over the usocket amilisp backend). Runs AmiLisp as an HTTP server. |
@@ -903,7 +903,7 @@ amilisp comes up exactly like every other implementation — there is no amilisp
 
 #### Method A — auto-start with `M-x sly` (recommended)
 
-Add a `amilisp` entry to `sly-lisp-implementations`. Don't set SLY's `:directory` — the executable-relative `lib/` lookup (or `CLAMIGA_HOME`) already lets amilisp start from anywhere, so the connection's working directory stays free to follow the buffer you start from:
+Add a `amilisp` entry to `sly-lisp-implementations`. Don't set SLY's `:directory` — the executable-relative `lib/` lookup (or `AMILISP_HOME`) already lets amilisp start from anywhere, so the connection's working directory stays free to follow the buffer you start from:
 
 ```elisp
 (defvar my/amilisp-root "/path/to/amilisp")
@@ -911,7 +911,7 @@ Add a `amilisp` entry to `sly-lisp-implementations`. Don't set SLY's `:directory
 
 ;; Optional: only needed when the binary lives outside the AmiLisp tree —
 ;; build/host/amilisp finds its lib/ by itself via the executable location.
-(setenv "CLAMIGA_HOME" my/amilisp-root)
+(setenv "AMILISP_HOME" my/amilisp-root)
 
 (with-eval-after-load 'sly
   (add-to-list 'sly-lisp-implementations
@@ -930,7 +930,7 @@ Start a server in a terminal, then connect to it (useful to keep the image alive
 # From the AmiLisp repo root:
 SLY_SLYNK_DIR=/path/to/sly/slynk \
   ./tools/sly/amilisp-slynk.sh                 # defaults: port 4005, heap 96M
-# CLAMIGA_PORT=4006 and a trailing `--heap 192M' etc. also work.
+# AMILISP_PORT=4006 and a trailing `--heap 192M' etc. also work.
 ```
 
 It runs amilisp from the source root (so Gray streams resolve), loads `slynk-loader`, starts a server on the chosen port, and holds stdin open with `tail -f /dev/null` (otherwise the REPL reads EOF and exits, taking the server thread with it). Then in Emacs:
@@ -960,7 +960,7 @@ Register amilisp in `~/.iclrc`:
 
 ```lisp
 ;; Let amilisp's (require ...) find its bundled lib/ from any directory.
-(setf (uiop:getenv "CLAMIGA_HOME") "/path/to/amilisp")
+(setf (uiop:getenv "AMILISP_HOME") "/path/to/amilisp")
 
 ;; ICL must load a SLYNK whose slynk/backend/ includes clamiga.lisp —
 ;; point it at your SLY checkout (trailing slash required).
@@ -968,13 +968,13 @@ Register amilisp in `~/.iclrc`:
 
 ;; The 4 MB default heap thrashes the GC once SLYNK loads;
 ;; 96M is a practical minimum.
-(icl:configure-lisp :clamiga
+(icl:configure-lisp :amilisp
   :program "/path/to/amilisp/build/host/amilisp"
   :args '("--heap" "96M")
   :eval-arg "--eval")
 
 ;; Optional: make amilisp the default for a plain `icl`.
-;; (setf icl:*default-lisp* :clamiga)
+;; (setf icl:*default-lisp* :amilisp)
 ```
 
 Then run `icl --lisp amilisp`. ICL spawns amilisp, loads SLYNK via ASDF, and connects; evaluation, completion, `,doc`, the inspector, and the browser UI all run against the amilisp image. If something goes wrong at startup, `icl --verbose --lisp amilisp --eval '(+ 1 2)'` shows the spawn command and wire traffic.
@@ -995,7 +995,7 @@ Clamacs is written in Common Lisp and runs as a amilisp instance of its own. It 
 bin/aos3/amilisp --image bin/aos3/clamacs.img --non-interactive --eval "(clamacs::run)" -- file.lisp
 ```
 
-(the `Clamacs` Workbench icon runs that line; from a checkout, `amilisp --heap 8M --non-interactive --load clamacs/lisp/clamacs.lisp -- file.lisp` loads it from source). `S:.clamacsrc` is loaded before the first window opens and can define commands and bind keys (see `clamacs.guide`). The editor connects to a amilisp whose ARexx port is open, or starts one itself (**Clamiga > Start amilisp**, offered by the first command that needs it): that amilisp runs on the same binary with your `S:.amilisprc` loaded and is told to open its port, so no rc setup is needed for it — `(setq *clamiga-options* '("--no-userinit"))` in `S:.clamacsrc` makes it a bare one. To have the editor connect to a amilisp you start yourself, let `S:.amilisprc` open the port:
+(the `Clamacs` Workbench icon runs that line; from a checkout, `amilisp --heap 8M --non-interactive --load clamacs/lisp/clamacs.lisp -- file.lisp` loads it from source). `S:.clamacsrc` is loaded before the first window opens and can define commands and bind keys (see `clamacs.guide`). The editor connects to a amilisp whose ARexx port is open, or starts one itself (**Clamiga > Start amilisp**, offered by the first command that needs it): that amilisp runs on the same binary with your `S:.amilisprc` loaded and is told to open its port, so no rc setup is needed for it — `(setq *amilisp-options* '("--no-userinit"))` in `S:.clamacsrc` makes it a bare one. To have the editor connect to a amilisp you start yourself, let `S:.amilisprc` open the port:
 
 ```lisp
 ;; S:.amilisprc
@@ -1003,7 +1003,7 @@ bin/aos3/amilisp --image bin/aos3/clamacs.img --non-interactive --eval "(clamacs
 (amiga.arexx:start)
 ```
 
-**On the host.** The same editor runs on macOS and Linux, in one native window with the buffers as tabs (its menus on the screen's menu bar on a Mac): `clamacs/host/run.sh file.lisp` starts it from a checkout (`make host-app` in the submodule builds `Clamacs.app` on a Mac), and the Lisp behind it is a separate amilisp reached over the [TCP development port](#tcp-development-port-all-platforms) below, started by the editor itself or found through `CLAMACS_CLAMIGA=host:port`. The submodule's README has the details under [On the host](https://github.com/mdbergmann/clamacs#on-the-host-macos-linux).
+**On the host.** The same editor runs on macOS and Linux, in one native window with the buffers as tabs (its menus on the screen's menu bar on a Mac): `clamacs/host/run.sh file.lisp` starts it from a checkout (`make host-app` in the submodule builds `Clamacs.app` on a Mac), and the Lisp behind it is a separate amilisp reached over the [TCP development port](#tcp-development-port-all-platforms) below, started by the editor itself or found through `CLAMACS_AMILISP=host:port`. The submodule's README has the details under [On the host](https://github.com/mdbergmann/clamacs#on-the-host-macos-linux).
 
 The editor's own suites and design notes are in the submodule (`clamacs/README.md`, `clamacs/CLAUDE.md`, `clamacs/specs/clamacs-lisp.md`); the Lisp-side commands it speaks are `EXT.DEV` (`lib/dev-commands.lisp`, `tests/test_dev_commands.sh`). `make -f Makefile.cross editor-image-amiga` saves and verifies a `clamacs.img` beside a cross build in FS-UAE, `make -f Makefile.mos editor-image` does the same natively on MorphOS.
 
@@ -1015,20 +1015,20 @@ Start it from inside amilisp (put these two lines in `S:.amilisprc` to have ever
 
 ```lisp
 (require "amiga/arexx")
-(amiga.arexx:start)          ; => "CLAMIGA"
+(amiga.arexx:start)          ; => "AMILISP"
 ```
 
-The port is served by its own thread, so it answers even while the REPL is busy. A second amilisp claims `CLAMIGA.1`, `CLAMIGA.2`, and so on; `(amiga.arexx:port-name)` reports the name, `(amiga.arexx:stop)` shuts it down. `start` also registers `stop` as an exit hook, so a `(quit)` or the end of a `--non-interactive` run takes the port down with the process instead of leaving a dead task on it.
+The port is served by its own thread, so it answers even while the REPL is busy. A second amilisp claims `AMILISP.1`, `AMILISP.2`, and so on; `(amiga.arexx:port-name)` reports the name, `(amiga.arexx:stop)` shuts it down. `start` also registers `stop` as an exit hook, so a `(quit)` or the end of a `--non-interactive` run takes the port down with the process instead of leaving a dead task on it.
 
 From an editor macro:
 
 ```rexx
 OPTIONS RESULTS
 OPTIONS FAILAT 21                          /* see the note below */
-ADDRESS CLAMIGA 'LOAD Work:src/foo.lisp'
+ADDRESS AMILISP 'LOAD Work:src/foo.lisp'
 IF RC = 0 THEN SAY RESULT
 ELSE DO
-    ADDRESS CLAMIGA 'LASTRESULT'
+    ADDRESS AMILISP 'LASTRESULT'
     SAY RESULT
 END
 ```
@@ -1070,7 +1070,7 @@ Work:src/foo.lisp:40: ERROR: Too many arguments to DRAW: expected 2, got 3
 | `INSPECT <form>` | Evaluate the form and inspect its value: a header `<TYPE> <depth> <part-count>`, the object, then `<n>: <label> = <value>` per part (at most `ext.dev:*max-inspect-parts*`, 200). `*`, `**` and `***` are the REPL thread's |
 | `PART <n>`, `POP` | Descend into part `<n>` of the object being inspected, or come back up; each answers like `INSPECT` |
 
-A command string starting with `(` is evaluated directly, so `ADDRESS CLAMIGA '(room)'` works too. The introspection commands resolve names in the command package without interning: an unknown symbol or package is rc 10 with the reason.
+A command string starting with `(` is evaluated directly, so `ADDRESS AMILISP '(room)'` works too. The introspection commands resolve names in the command package without interning: an unknown symbol or package is rc 10 with the reason.
 
 **The REPL** is for an editor with a listener window. `EVAL` answers with everything a form printed, after the fact; a REPL wants the output as it happens, wants a `READ-LINE` to ask the editor, and must not tie up the port while a form runs. So `REPL-ATTACH` starts a second thread and the conversation becomes two-way: the port answers the editor's commands at once, and the REPL thread sends commands to the editor's port — `OUTPUT <text>` for each line (or 1 KB) of output, `READLINE` when the form reads standard input (the editor answers with `REPL-INPUT`), and `RESULT <rc> <package>` followed by the printed values, one per line, or the error text, when the form is done. The listener's `*`, `+` and friends are kept, `IN-PACKAGE` at either end is seen by the other, and arglist and completion keep working while a form runs. A form that exhausts the heap ends the REPL thread, which no handler can prevent; `RESULT` still arrives, with rc 10 and the error, and a new REPL thread has taken the old one's place by then. The REPL support (`lib/dev-repl.lisp`) is loaded on first use; `ext.dev:*repl-send*` is the function that delivers to the editor, which the host tests replace with a Lisp function playing the editor.
 
@@ -1185,7 +1185,7 @@ rest are parsed and accepted as conforming no-ops.
   per function, not one per call site), or a large body called from
   several places keep a closure, as does everything under
   `(optimize (space 2))`, `(debug 3)`, or a `notinline` declaration; an
-  inlined call has no frame of its own in a backtrace. `CLAMIGA_NO_LOCAL_INLINE=1` turns it off process-wide.
+  inlined call has no frame of its own in a backtrace. `AMILISP_NO_LOCAL_INLINE=1` turns it off process-wide.
   See `tests/test_local_inline.sh` for what is and is not inlined.
 - **`type`, `ftype`, `ignore`, `ignorable`, `dynamic-extent`** — accepted but
   currently no-ops (no type propagation, unused-variable warnings, or
@@ -1213,24 +1213,24 @@ after its members (`LOAD_CALL_GLOBAL`, `GLOAD_JNIL`, `STORE_POP`, ...).
 **When it applies**: at **compile time only** — inside `defun`, `compile`,
 `compile-file`, and source `load` — whenever the function's effective
 `speed` is ≥ 1, i.e. always unless a `declaim`/`proclaim` baseline or the
-`CLAMIGA_FORCE_SPEED=0` environment variable (which pins the effective
+`AMILISP_FORCE_SPEED=0` environment variable (which pins the effective
 `speed` for the whole process, overriding declarations — handy for A/B
-testing any workload) sets it to 0. `CLAMIGA_NO_FUSE=1` keeps the
+testing any workload) sets it to 0. `AMILISP_NO_FUSE=1` keeps the
 rewrites but leaves the opcode pairs unfused, for the same A/B purpose.
 
 **FASL caches**: the optimization is baked into the compiled bytecode, so a
 `.fasl` stays optimized for everyone who loads it, regardless of their
 current settings. The flip side: **loading a cached FASL never re-runs the
 compiler**, so code compiled at `speed 0` stays as emitted until it is
-actually recompiled — changing `speed` (or `CLAMIGA_FORCE_SPEED`)
+actually recompiled — changing `speed` (or `AMILISP_FORCE_SPEED`)
 afterwards has no effect on a warm cache. To push an already-compiled
 library through the pass, clear its FASL cache first (for ASDF/Quicklisp
-systems on the host: `~/.cache/common-lisp/cl-amiga-*`) and reload.
+systems on the host: `~/.cache/common-lisp/amilisp-*`) and reload.
 
 `tests/test_peephole.c` demonstrates every rewrite and fusion pattern and
 guard, `tests/test_tier4_phase3.sh` pins the fused shapes through
 `disassemble`, and `tests/peephole-corpus.lisp` + `tests/test_peephole_diff.sh`
-run the same code with the pass forced off and on (`CLAMIGA_FORCE_SPEED=0`
+run the same code with the pass forced off and on (`AMILISP_FORCE_SPEED=0`
 vs `1`, `2`, `3`) and require identical output. The design rationale and
 rewrite-soundness arguments live in the `src/core/peephole.c` header
 comment and `specs/performance.md` §1.8 and §4.3.
@@ -1287,7 +1287,7 @@ that is never called, so free variables need not be bound:
 (jitexpand (+ x 1))
 ```
 
-`clamiga::%jit-disassemble` is the underlying function if you already have the
+`amilisp::%jit-disassemble` is the underlying function if you already have the
 function object. A function the JIT declined to translate prints `(no native
 code — function runs through the bytecode interpreter)`, which makes this the
 quickest way to find out whether the JIT took a given definition (see
@@ -1307,11 +1307,11 @@ AmiLisp has two JIT backends that translate bytecode functions to native machine
 
 On AmigaOS the m68k backend translates a function once it turns hot. The VM dispatcher jumps straight into the native body instead of interpreting bytecode. The translator (a single-pass bytecode walker) covers a broad core of the instruction set: integer arithmetic and comparisons (with fixnum fast paths), branches, `cons`/`car`/`cdr`/`rplaca`/`rplacd`/list building, struct slot access, function calls and tail calls (a chain of tail calls between functions runs in constant stack, as interpreted), closures, multiple-value flow, non-local exits (`block`/`return-from`, `catch`/`throw`, `unwind-protect`, `tagbody`/`go`, handlers/restarts), dynamic binding, `&optional`, `&rest` and `&key` parameters, and AmigaOS FFI (`amiga-call`). Opcodes it doesn't handle yet — and frames too large for a 16-bit displacement — fall back to the interpreter transparently. Native functions push an ordinary call frame, so backtraces and error messages list them like interpreted ones, at the line of the call they are in; their arguments are not always shown.
 
-A function is compiled on its 8th call, or on its first when it contains a loop. Code compiled under `(optimize (speed 3))` is compiled at definition. Code that runs once, like most of what runs while a program loads, stays bytecode and costs no native-code memory. Functions restored from a heap image are compiled again as they turn hot. `(clamiga::%jit-set-hot-threshold n)` sets the call count (it returns the previous one), and `--jit-eager` (threshold 0) compiles every function at definition.
+A function is compiled on its 8th call, or on its first when it contains a loop. Code compiled under `(optimize (speed 3))` is compiled at definition. Code that runs once, like most of what runs while a program loads, stays bytecode and costs no native-code memory. Functions restored from a heap image are compiled again as they turn hot. `(amilisp::%jit-set-hot-threshold n)` sets the call count (it returns the previous one), and `--jit-eager` (threshold 0) compiles every function at definition.
 
-The JIT is on by default. Pass `--no-jit` to keep functions bytecode-only (useful for A/B benchmarks or isolating a bug). At runtime, `(clamiga::%jit-set-active nil|t)` toggles the JIT around individual `defun`s; a function defined while it is off stays bytecode. Builds without a backend — x86-64 hosts, Windows and MorphOS — compile the JIT out entirely and run the bytecode VM; its entry points become inline no-ops.
+The JIT is on by default. Pass `--no-jit` to keep functions bytecode-only (useful for A/B benchmarks or isolating a bug). At runtime, `(amilisp::%jit-set-active nil|t)` toggles the JIT around individual `defun`s; a function defined while it is off stays bytecode. Builds without a backend — x86-64 hosts, Windows and MorphOS — compile the JIT out entirely and run the bytecode VM; its entry points become inline no-ops.
 
-**arm64 macOS and Linux hosts** build a second backend, a template JIT for AArch64 ([specs/native-backend-a64.md](specs/native-backend-a64.md)), with the same compile-when-hot policy and switches. Fixnum arithmetic and comparisons, `car`/`cdr`, structure slots and special variables run as inline machine code, everything else through the interpreter's own helpers, so results are the interpreter's: a fixnum loop runs about 14× faster than bytecode, and a native function calls another native one directly, about 6× faster than bytecode ([docs/benchmarks.md](docs/benchmarks.md)). `clamiga::%jit-set-direct-calls nil` (or `CLAMIGA_JIT_DIRECT=0`) sends every call through the helper path instead. Every lambda list compiles, `&optional`, `&rest` and `&key` included. Native functions keep an ordinary call frame, so backtraces, error locations and `frame` show them like interpreted ones. `make host JIT=0` builds without it; `make test-jit-eager` runs the test suite with every function compiled. Its tests are `tests/test_jit_a64_walk.sh`, which also runs the behavioural checks of `tests/amiga/test-jit.lisp`.
+**arm64 macOS and Linux hosts** build a second backend, a template JIT for AArch64 ([specs/native-backend-a64.md](specs/native-backend-a64.md)), with the same compile-when-hot policy and switches. Fixnum arithmetic and comparisons, `car`/`cdr`, structure slots and special variables run as inline machine code, everything else through the interpreter's own helpers, so results are the interpreter's: a fixnum loop runs about 14× faster than bytecode, and a native function calls another native one directly, about 6× faster than bytecode ([docs/benchmarks.md](docs/benchmarks.md)). `amilisp::%jit-set-direct-calls nil` (or `AMILISP_JIT_DIRECT=0`) sends every call through the helper path instead. Every lambda list compiles, `&optional`, `&rest` and `&key` included. Native functions keep an ordinary call frame, so backtraces, error locations and `frame` show them like interpreted ones. `make host JIT=0` builds without it; `make test-jit-eager` runs the test suite with every function compiled. Its tests are `tests/test_jit_a64_walk.sh`, which also runs the behavioural checks of `tests/amiga/test-jit.lisp`.
 
 To see the machine code for a definition — or to find out whether the JIT translated it at all — use `(jitexpand ...)`; see [Disassembly](#disassembly).
 
@@ -1325,7 +1325,7 @@ Measured on the high-end FS-UAE config (A4000 / 68040 / Picasso96). The A/B micr
 | `struct-loop` | 2× struct-slot read per iter   |   260 ms |  20 ms |  13.0×  |
 | `arith-chain` | chained binary ops             |   300 ms |  40 ms |   7.5×  |
 
-Compute-bound code sees the largest wins. A call from native code to another native function whose lambda list the call fits jumps straight into that function's code. Builtins and FFI stubs are dispatched directly from native code as well, so call-heavy generic code also runs ahead of the interpreter. `trunk/bench-jit-call.lisp` is the per-call A/B suite: on the FS-UAE 68040 config, a loop iteration that calls a native function takes about 1 us, against 13 us in the interpreter (an `&optional` callee 1.3 us against 17 us, an `&key` callee 3 us against 20 us). Only calls into functions the JIT declined stay near interpreter cost. `CLAMIGA_JIT_DIRECT=0` turns the direct calls off for A/B runs (see [docs/clamiga.md](docs/clamiga.md)). On the real-world `examples/amiga/gfx/bouncing-lines.lisp` demo (FFI-dominated — five lines drawn through `graphics.library` each frame), the JIT reaches **~615 FPS** versus **~500 FPS** on the bytecode VM — a smaller lead, since the frame time is mostly FFI calls rather than arithmetic. The remaining gap to compiled ACE BASIC (~1900 FPS through the same ROM graphics calls) is the structural cost of a dynamic, GC'd, tagged-value language — per-argument unboxing, dispatch and symbol lookup per call, GC safepoints — not codegen.
+Compute-bound code sees the largest wins. A call from native code to another native function whose lambda list the call fits jumps straight into that function's code. Builtins and FFI stubs are dispatched directly from native code as well, so call-heavy generic code also runs ahead of the interpreter. `trunk/bench-jit-call.lisp` is the per-call A/B suite: on the FS-UAE 68040 config, a loop iteration that calls a native function takes about 1 us, against 13 us in the interpreter (an `&optional` callee 1.3 us against 17 us, an `&key` callee 3 us against 20 us). Only calls into functions the JIT declined stay near interpreter cost. `AMILISP_JIT_DIRECT=0` turns the direct calls off for A/B runs (see [docs/amilisp.md](docs/amilisp.md)). On the real-world `examples/amiga/gfx/bouncing-lines.lisp` demo (FFI-dominated — five lines drawn through `graphics.library` each frame), the JIT reaches **~615 FPS** versus **~500 FPS** on the bytecode VM — a smaller lead, since the frame time is mostly FFI calls rather than arithmetic. The remaining gap to compiled ACE BASIC (~1900 FPS through the same ROM graphics calls) is the structural cost of a dynamic, GC'd, tagged-value language — per-argument unboxing, dispatch and symbol lookup per call, GC safepoints — not codegen.
 
 The Amiga test suite passes on the JIT config; per-opcode JIT coverage (counter-bump, value-correctness, and unwind-recovery assertions) lives in `tests/amiga/test-jit.lisp`.
 
@@ -1382,10 +1382,10 @@ directly (the `atomics` fork does). See `tests/test_atomics.c` /
 
 Two built-in hang-triage diagnostics: `(mp:dump-thread-waits)` prints every
 live thread's current wait state (which lock/condvar it is blocked on), and
-setting `CLAMIGA_LOCK_DIAG=<ms>` in the environment makes any blocking
+setting `AMILISP_LOCK_DIAG=<ms>` in the environment makes any blocking
 `mp:acquire-lock` that waits past the threshold report the contended lock by
 name, the current holder thread and what *it* is blocked on, and the total
-wait once the lock is finally acquired (`CLAMIGA_LOCK_DIAG=1` selects the
+wait once the lock is finally acquired (`AMILISP_LOCK_DIAG=1` selects the
 1000 ms default). See `tests/test_lock_diag.sh` for the exact output format.
 
 `mp:*thread-death-hooks*` is a list of functions called with the thread and
@@ -1409,7 +1409,7 @@ returns the current setting. See `tests/test_stream.c`
 `eval_socket_stream_timeout_*`) and `tests/amiga/run-tests.lisp` for usage.
 
 On AmigaOS/MorphOS all socket I/O runs through a dedicated reactor process;
-setting `CLAMIGA_SOCK_DIAG=1` in the environment (`SetEnv CLAMIGA_SOCK_DIAG 1`)
+setting `AMILISP_SOCK_DIAG=1` in the environment (`SetEnv AMILISP_SOCK_DIAG 1`)
 traces every request through the client↔reactor handshake on stderr — posted,
 received, parked, resumed, replied, reply received, plus DNS lookups — so a
 hanging socket operation's last trace line names the handoff that was lost.
@@ -1422,7 +1422,7 @@ AmigaOS — with `(ext:tls-available-p)` as the capability gate. drakma and
 Hunchentoot get HTTPS through the bundled cl+ssl facade
 (`lib/shims/cl+ssl`, auto-registered on `asdf:*central-registry*` when
 ASDF loads, shadowing any Quicklisp/ocicl-installed cl+ssl; opt out with
-`CLAMIGA_NO_SHIMS=1` — Amiga: `SetEnv CLAMIGA_NO_SHIMS 1` — e.g. to run
+`AMILISP_NO_SHIMS=1` — Amiga: `SetEnv AMILISP_NO_SHIMS 1` — e.g. to run
 the real cl+ssl on the host, where its CFFI stack works). See
 [docs/ext.md](docs/ext.md#tls) and the runnable examples in
 `tests/tls-loopback.lisp` / `tests/amiga/tls-tests.lisp` /
@@ -1489,10 +1489,10 @@ fills.  The generational machinery needs an MMU and is compiled out on
 AmigaOS and MorphOS: those binaries run the Immix-style collector
 described below.
 
-- `CLAMIGA_GENGC=0` (environment) selects the classic collector on the host
+- `AMILISP_GENGC=0` (environment) selects the classic collector on the host
   (useful for A/B measurements; behavior is identical, only pause costs
   differ).
-- `CLAMIGA_HDR_INDEX=0` (environment) drops the block-start index the classic
+- `AMILISP_HDR_INDEX=0` (environment) drops the block-start index the classic
   collector keeps for the m68k JIT's native-stack scan; collections taken
   inside JIT'd code then pay a full arena walk in the mark phase (an A/B
   switch, behavior is identical).  `(ext:%gc-audit-hdr-index)` checks the
@@ -1554,7 +1554,7 @@ gone from the system pool until the machine is rebooted.
 
 Two diagnostics report on it:
 
-- `CLAMIGA_MEM_DIAG=1` (environment) prints, at exit, how much off-heap memory
+- `AMILISP_MEM_DIAG=1` (environment) prints, at exit, how much off-heap memory
   each shutdown stage handed back and — on AmigaOS — how much free system
   memory changed across the whole run.  Compare it with `Avail` before and
   after.  A small, constant residue is the shell's own bookkeeping; a figure
@@ -1680,8 +1680,8 @@ changes from launch to launch, so on an affected machine the warning shows
 on some launches and not on others — a quiet launch is not a clean bill of
 health.
 `(ext:%cpu-store-selftest &optional rounds)` repeats the test and returns
-the number of lost stores; `CLAMIGA_CPU_CHECK=0` in the environment skips
-the startup check, and `CLAMIGA_CPU_CHECK=<n>` (a positive number) makes any
+the number of lost stores; `AMILISP_CPU_CHECK=0` in the environment skips
+the startup check, and `AMILISP_CPU_CHECK=<n>` (a positive number) makes any
 CPU report `n` lost stores — a marked, simulated warning, for trying
 `#+cpu-lost-stores` code on a sound machine.  A session started from a heap
 image gets the verdict of the machine it runs on, not of the one that saved
@@ -2311,7 +2311,7 @@ program that touches 150 of its names adds ~15 KB more, and the FASL is
 one byte-vector unit instead of thousands of definitions.  Everything
 stays ordinary CL: `do-symbols`, `do-external-symbols`, `unintern` and friends build
 the whole table on demand (the package is then a plain package), so
-nothing observable changes except memory.  `(clamiga::%binding-table-info
+nothing observable changes except memory.  `(amilisp::%binding-table-info
 "AMIGA.RAW.INTUITION")` reports entries, table bytes and symbols built so
 far.  A first `require` from source packs the table once, which a 68020
 feels; `make fasl-amiga` precompiles all of `lib/amiga/` on the host (see
@@ -2385,7 +2385,7 @@ its own reference page under [`docs/`](docs/README.md):
 | `FFI` | Foreign pointers, typed peek/poke, libffi calls & callbacks | [docs/ffi.md](docs/ffi.md) |
 | `GRAY` | Gray-streams protocol (define stream classes in Lisp) | [docs/gray.md](docs/gray.md) |
 | `MOP` | CLOS Metaobject Protocol (AMOP / closer-mop subset) | [docs/mop.md](docs/mop.md) |
-| `CLAMIGA` | IEEE float bits, package-local nicknames, JIT/trace toggles | [docs/clamiga.md](docs/clamiga.md) |
+| `AMILISP` | IEEE float bits, package-local nicknames, JIT/trace toggles | [docs/amilisp.md](docs/amilisp.md) |
 | `AMIGA`, `AMIGA.*` | Raw library calls, FFI tag lists, the generated OS bindings, Intuition, Graphics, GadTools, ReAction, MUI, ARexx, audio | [docs/amiga.md](docs/amiga.md) |
 | `EXT.DEV`, `EXT.DEV.TCP` | The development-command layer behind the ARexx and TCP ports (what Clamacs speaks) | [ARexx port](#arexx-port-amigaos--morphos), [TCP port](#tcp-development-port-all-platforms) |
 
@@ -2429,7 +2429,7 @@ example of the mapping.
   mode on top (see [Garbage collection](#garbage-collection)),
   and each thread there allocates from a private chunk (TLAB) refilled from
   the shared heap, so concurrent allocation doesn't serialize on a global lock
-  (`CLAMIGA_TLAB_CHUNK=<bytes>` tunes the chunk size, `0` disables; see
+  (`AMILISP_TLAB_CHUNK=<bytes>` tunes the chunk size, `0` disables; see
   `tests/test_gc_threaded.c`).
 - **Threads** — kernel threads with a VM each, per-thread dynamic bindings and
   stop-the-world collection at safepoints (pthreads on the hosts, exec
@@ -2528,7 +2528,7 @@ examples/
     mui/            MUI examples (hello, the MUI 3.8 SDK demos, custom classes, hooks)
     reaction/       ReAction GUI examples ported from the NDK 3.2 (buttons, checkbox, chooser, ...)
 clamacs/          Clamacs, the native MUI editor/IDE, with a macOS/Linux host variant (git submodule, shipped in the binary release)
-docs/             Package reference (EXT, MP, FFI, GRAY, MOP, CLAMIGA, AMIGA), benchmark logs, screenshots
+docs/             Package reference (EXT, MP, FFI, GRAY, MOP, AMILISP, AMIGA), benchmark logs, screenshots
 README-FIRST.md   Getting-started page of the binary release
 icons/            Workbench icons and IconX launchers of the binary release
 tests/

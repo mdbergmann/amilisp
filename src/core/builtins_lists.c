@@ -1154,7 +1154,7 @@ void cl_builtins_lists_init(void)
     defun("RASSOC", bi_rassoc, 2, -1);
     defun("GETF", bi_getf, 2, 3);
     defun("GET-PROPERTIES", bi_get_properties, 2, 2);
-    cl_register_builtin("%SETF-GETF", bi_setf_getf, 3, 3, cl_package_clamiga);
+    cl_register_builtin("%SETF-GETF", bi_setf_getf, 3, 3, cl_package_amilisp);
     defun("SUBST", bi_subst, 3, -1);
     defun("SUBLIS", bi_sublis, 2, -1);
     defun("ADJOIN", bi_adjoin, 2, -1);
@@ -1174,7 +1174,7 @@ void cl_builtins_lists_init(void)
     /* Phase 8 Step 1 */
     defun("LIST*", bi_list_star, 1, -1);
     defun("MAKE-LIST", bi_make_list, 1, -1);
-    cl_register_builtin("%REMF", bi_remf, 2, 2, cl_package_clamiga);
+    cl_register_builtin("%REMF", bi_remf, 2, 2, cl_package_amilisp);
 
     /* Mapping variants */
     defun("MAPC", bi_mapc, 2, -1);

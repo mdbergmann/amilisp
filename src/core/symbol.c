@@ -509,12 +509,12 @@ void cl_symbol_init(void)
     SYM_FUNCTION      = cl_intern_in("FUNCTION", 8, cl_package_cl);
     SYM_BLOCK         = cl_intern_in("BLOCK", 5, cl_package_cl);
     SYM_RETURN_FROM   = cl_intern_in("RETURN-FROM", 11, cl_package_cl);
-    /* Backquote-related markers — interned in CLAMIGA so the reader's
-     * synthetic forms don't pollute COMMON-LISP exports.  CL :use CLAMIGA
+    /* Backquote-related markers — interned in AMILISP so the reader's
+     * synthetic forms don't pollute COMMON-LISP exports.  CL :use AMILISP
      * so unqualified references continue to resolve. */
-    SYM_QUASIQUOTE    = cl_intern_in("QUASIQUOTE", 10, cl_package_clamiga);
-    SYM_UNQUOTE       = cl_intern_in("UNQUOTE", 7, cl_package_clamiga);
-    SYM_UNQUOTE_SPLICING = cl_intern_in("UNQUOTE-SPLICING", 16, cl_package_clamiga);
+    SYM_QUASIQUOTE    = cl_intern_in("QUASIQUOTE", 10, cl_package_amilisp);
+    SYM_UNQUOTE       = cl_intern_in("UNQUOTE", 7, cl_package_amilisp);
+    SYM_UNQUOTE_SPLICING = cl_intern_in("UNQUOTE-SPLICING", 16, cl_package_amilisp);
     SYM_AMP_REST      = cl_intern_in("&REST", 5, cl_package_cl);
     SYM_AMP_OPTIONAL  = cl_intern_in("&OPTIONAL", 9, cl_package_cl);
     SYM_AMP_BODY      = cl_intern_in("&BODY", 5, cl_package_cl);
@@ -555,8 +555,8 @@ void cl_symbol_init(void)
     SYM_DEFPARAMETER         = cl_intern_in("DEFPARAMETER", 12, cl_package_cl);
     SYM_DEFCONSTANT          = cl_intern_in("DEFCONSTANT", 11, cl_package_cl);
     /* NAMED-LAMBDA is a compiler internal, not part of ANSI CL —
-     * keep it in CLAMIGA. */
-    SYM_NAMED_LAMBDA         = cl_intern_in("NAMED-LAMBDA", 12, cl_package_clamiga);
+     * keep it in AMILISP. */
+    SYM_NAMED_LAMBDA         = cl_intern_in("NAMED-LAMBDA", 12, cl_package_amilisp);
     SYM_SETF                 = cl_intern_in("SETF", 4, cl_package_cl);
     SYM_EVAL_WHEN            = cl_intern_in("EVAL-WHEN", 9, cl_package_cl);
     SYM_LOAD_TIME_VALUE      = cl_intern_in("LOAD-TIME-VALUE", 15, cl_package_cl);
@@ -804,8 +804,8 @@ void cl_symbol_init(void)
     }
 
     /* *PRINT-OBJECT-HOOK* — called for struct printing, returns string or NIL.
-     * Implementation-specific, intern in CLAMIGA. */
-    SYM_PRINT_OBJECT_HOOK = cl_intern_in("*PRINT-OBJECT-HOOK*", 19, cl_package_clamiga);
+     * Implementation-specific, intern in AMILISP. */
+    SYM_PRINT_OBJECT_HOOK = cl_intern_in("*PRINT-OBJECT-HOOK*", 19, cl_package_amilisp);
     {
         CL_Symbol *s = (CL_Symbol *)CL_OBJ_TO_PTR(SYM_PRINT_OBJECT_HOOK);
         s->flags |= CL_SYM_SPECIAL; s->value = CL_NIL;
@@ -1330,7 +1330,7 @@ void cl_symbol_init(void)
     cl_gc_register_root(&KW_AMIGAOS);
     cl_gc_register_root(&KW_M68K);
 
-    /* CLAMIGA::%EXPANDING-FORM / CLAMIGA::%ERROR-EXPANDING-FORM (see
+    /* AMILISP::%EXPANDING-FORM / AMILISP::%ERROR-EXPANDING-FORM (see
      * error.h) — hidden TLV keys for the macroexpansion error context.
      * Interned here (not in cl_error_init, which runs before packages
      * exist) and never reassigned afterward, so registering them as GC
@@ -1338,10 +1338,10 @@ void cl_symbol_init(void)
      * above. */
     cl_expanding_form_sym = cl_intern_in("%EXPANDING-FORM",
                                           (uint32_t)(sizeof("%EXPANDING-FORM") - 1),
-                                          cl_package_clamiga);
+                                          cl_package_amilisp);
     cl_error_expanding_form_sym = cl_intern_in("%ERROR-EXPANDING-FORM",
                                                 (uint32_t)(sizeof("%ERROR-EXPANDING-FORM") - 1),
-                                                cl_package_clamiga);
+                                                cl_package_amilisp);
     cl_gc_register_root(&cl_expanding_form_sym);
     cl_gc_register_root(&cl_error_expanding_form_sym);
 

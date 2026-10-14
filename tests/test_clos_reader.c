@@ -26,7 +26,7 @@
  * that image is permanently demoted and these tests would pass vacuously on
  * the slow path.  Hence a separate binary.
  *
- * CLAMIGA:*READER-GFS* records promotion, so each test below asserts the fast
+ * AMILISP:*READER-GFS* records promotion, so each test below asserts the fast
  * path is genuinely engaged before exercising it.
  */
 
@@ -76,7 +76,7 @@ static const char *eval_print(const char *str)
 TEST(reader_gf_promoted_and_reads)
 {
     eval_print("(defclass rg-p () ((x :initform 1 :reader rg-px)))");
-    ASSERT_STR_EQ(eval_print("(and (gethash #'rg-px clamiga:*reader-gfs*) t)"), "T");
+    ASSERT_STR_EQ(eval_print("(and (gethash #'rg-px amilisp:*reader-gfs*) t)"), "T");
     ASSERT_STR_EQ(eval_print("(rg-px (make-instance 'rg-p))"), "1");
 }
 
@@ -103,14 +103,14 @@ TEST(reader_gf_polymorphic_ic_caches_all_classes)
      * the IC on every alternation). */
     eval_print("(defclass rg-ppa () ((x :initform :a :reader rg-ppx)))");
     eval_print("(defclass rg-ppb () ((pad :initform 0) (x :initform :b :reader rg-ppx)))");
-    ASSERT_STR_EQ(eval_print("(and (gethash #'rg-ppx clamiga:*reader-gfs*) t)"), "T");
+    ASSERT_STR_EQ(eval_print("(and (gethash #'rg-ppx amilisp:*reader-gfs*) t)"), "T");
     ASSERT_STR_EQ(eval_print(
         "(let ((a (make-instance 'rg-ppa)) (b (make-instance 'rg-ppb)))"
         "  (rg-ppx a) (rg-ppx b)"
-        "  (let ((ic (clamiga::gf-inline-cache #'rg-ppx)) (acc nil))"
+        "  (let ((ic (amilisp::gf-inline-cache #'rg-ppx)) (acc nil))"
         "    (dotimes (i 5) (push (rg-ppx a) acc) (push (rg-ppx b) acc))"
         "    (list (length ic)"
-        "          (eq ic (clamiga::gf-inline-cache #'rg-ppx))"
+        "          (eq ic (amilisp::gf-inline-cache #'rg-ppx))"
         "          (remove-duplicates (nreverse acc)))))"),
         "(2 T (:A :B))");
 }
@@ -134,7 +134,7 @@ TEST(reader_gf_polymorphic_eviction_cap)
         "    (dolist (o os)"
         "      (push (rg-ex o) acc)"
         "      (setq maxlen (max maxlen"
-        "                        (length (clamiga::gf-inline-cache #'rg-ex))))))"
+        "                        (length (amilisp::gf-inline-cache #'rg-ex))))))"
         "  (list maxlen (nreverse acc)))"),
         "(4 (1 2 3 4 5 1 2 3 4 5 1 2 3 4 5))");
 }
@@ -167,7 +167,7 @@ TEST(reader_gf_nil_value_is_not_unbound)
     /* The VM path has no caller-supplied MISS sentinel; a slot holding NIL
      * must not be mistaken for the unbound marker. */
     eval_print("(defclass rg-niln () ((x :initform nil :reader rg-nilx)))");
-    ASSERT_STR_EQ(eval_print("(and (gethash #'rg-nilx clamiga:*reader-gfs*) t)"), "T");
+    ASSERT_STR_EQ(eval_print("(and (gethash #'rg-nilx amilisp:*reader-gfs*) t)"), "T");
     ASSERT_STR_EQ(eval_print("(rg-nilx (make-instance 'rg-niln))"), "NIL");
     ASSERT_STR_EQ(eval_print("(rg-nilx (make-instance 'rg-niln))"), "NIL");
 }
@@ -179,7 +179,7 @@ TEST(reader_gf_unbound_slot_signals)
      * UNBOUND-SLOT naming the slot and the instance every time, and never leak
      * the marker as a value.  Signalled twice: cold cache, then warm. */
     eval_print("(defclass rg-u () ((x :reader rg-ux)))");
-    ASSERT_STR_EQ(eval_print("(and (gethash #'rg-ux clamiga:*reader-gfs*) t)"), "T");
+    ASSERT_STR_EQ(eval_print("(and (gethash #'rg-ux amilisp:*reader-gfs*) t)"), "T");
     ASSERT_STR_EQ(eval_print(
         "(let ((o (make-instance 'rg-u))) "
         "  (handler-case (rg-ux o) "
@@ -209,7 +209,7 @@ TEST(reader_gf_around_method_demotes)
     eval_print("(defclass rg-s () ((x :initform 10 :reader rg-sx)))");
     ASSERT_STR_EQ(eval_print("(rg-sx (make-instance 'rg-s))"), "10");
     eval_print("(defmethod rg-sx :around ((o rg-s)) (* 100 (call-next-method)))");
-    ASSERT_STR_EQ(eval_print("(and (gethash #'rg-sx clamiga:*reader-gfs*) t)"), "NIL");
+    ASSERT_STR_EQ(eval_print("(and (gethash #'rg-sx amilisp:*reader-gfs*) t)"), "NIL");
     ASSERT_STR_EQ(eval_print("(rg-sx (make-instance 'rg-s))"), "1000");
 }
 
@@ -219,7 +219,7 @@ TEST(reader_gf_foreign_primary_demotes)
     ASSERT_STR_EQ(eval_print("(rg-tx (make-instance 'rg-t1))"), "7");
     eval_print("(defclass rg-t2 () ())");
     eval_print("(defmethod rg-tx ((o rg-t2)) :from-t2)");
-    ASSERT_STR_EQ(eval_print("(and (gethash #'rg-tx clamiga:*reader-gfs*) t)"), "NIL");
+    ASSERT_STR_EQ(eval_print("(and (gethash #'rg-tx amilisp:*reader-gfs*) t)"), "NIL");
     ASSERT_STR_EQ(eval_print("(rg-tx (make-instance 'rg-t2))"), ":FROM-T2");
     ASSERT_STR_EQ(eval_print("(rg-tx (make-instance 'rg-t1))"), "7");
 }
@@ -271,15 +271,15 @@ TEST(reader_gf_trampoline_probes)
                "                     (u :reader rg-tpu)))");
     eval_print("(defclass rg-tp2 () ((pad :initform 0)"
                "                     (x :initform 2 :reader rg-tpx)))");
-    ASSERT_STR_EQ(eval_print("(and (gethash #'rg-tpx clamiga:*reader-gfs*) t)"), "T");
+    ASSERT_STR_EQ(eval_print("(and (gethash #'rg-tpx amilisp:*reader-gfs*) t)"), "T");
     ASSERT_STR_EQ(eval_print(
         "(let ((a (make-instance 'rg-tp1)) (b (make-instance 'rg-tp2)))"
         "  (rg-tpx a) (rg-tpx b)"  /* fill the IC for both classes */
-        "  (let ((ic (clamiga::gf-inline-cache #'rg-tpx)) (acc nil))"
+        "  (let ((ic (amilisp::gf-inline-cache #'rg-tpx)) (acc nil))"
         "    (dotimes (i 5)"
         "      (push (funcall #'rg-tpx a) acc)"
         "      (push (apply #'rg-tpx (list b)) acc))"
-        "    (list (eq ic (clamiga::gf-inline-cache #'rg-tpx))"
+        "    (list (eq ic (amilisp::gf-inline-cache #'rg-tpx))"
         "          (remove-duplicates (nreverse acc))"
         "          (mapcar #'rg-tpx (list a b a b)))))"),
         "(T (1 2) (1 2 1 2))");
@@ -297,7 +297,7 @@ TEST(reader_gf_trampoline_probes)
     /* demotion must disarm the trampoline probes too: after an :around
      * method, funcall/apply/mapcar have to run the full method chain */
     eval_print("(defmethod rg-tpx :around ((o rg-tp1)) (* 100 (call-next-method)))");
-    ASSERT_STR_EQ(eval_print("(and (gethash #'rg-tpx clamiga:*reader-gfs*) t)"), "NIL");
+    ASSERT_STR_EQ(eval_print("(and (gethash #'rg-tpx amilisp:*reader-gfs*) t)"), "NIL");
     ASSERT_STR_EQ(eval_print(
         "(let ((a (make-instance 'rg-tp1)) (b (make-instance 'rg-tp2)))"
         "  (list (funcall #'rg-tpx a)"
@@ -314,7 +314,7 @@ TEST(reader_gf_set_funcallable_instance_function_wins)
     ASSERT_STR_EQ(eval_print("(rg-sfix (make-instance 'rg-sfi))"), ":ORIG");
     eval_print("(set-funcallable-instance-function"
                "  #'rg-sfix (lambda (o) (declare (ignore o)) :hijacked))");
-    ASSERT_STR_EQ(eval_print("(and (gethash #'rg-sfix clamiga:*reader-gfs*) t)"), "NIL");
+    ASSERT_STR_EQ(eval_print("(and (gethash #'rg-sfix amilisp:*reader-gfs*) t)"), "NIL");
     ASSERT_STR_EQ(eval_print("(rg-sfix (make-instance 'rg-sfi))"), ":HIJACKED");
     ASSERT_STR_EQ(eval_print("(rg-sfix (make-instance 'rg-sfi))"), ":HIJACKED");
     /* an unrelated reader keeps its fast path */
@@ -326,14 +326,14 @@ TEST(reader_gf_set_funcallable_instance_function_wins)
  * The mirror machinery for (setf (x obj) v): a GF whose whole method set is
  * DEFCLASS-generated writer methods for one slot is promoted, its IC entries
  * encode the slot index as (- -1 idx) — always negative — and OP_CALL's
- * 2-arg probe stores directly.  CLAMIGA:*WRITER-GFS* records promotion.
+ * 2-arg probe stores directly.  AMILISP:*WRITER-GFS* records promotion.
  * Same latch caveat as the reader tests: everything here must run before
  * reader_gf_slot_value_using_class_demotes_all. */
 
 TEST(writer_gf_promoted_and_stores)
 {
     eval_print("(defclass wg-p () ((x :initform 1 :accessor wg-px)))");
-    ASSERT_STR_EQ(eval_print("(and (gethash #'(setf wg-px) clamiga:*writer-gfs*) t)"), "T");
+    ASSERT_STR_EQ(eval_print("(and (gethash #'(setf wg-px) amilisp:*writer-gfs*) t)"), "T");
     ASSERT_STR_EQ(eval_print(
         "(let ((o (make-instance 'wg-p)))"
         "  (list (wg-px o) (setf (wg-px o) 42) (wg-px o)))"), "(1 42 42)");
@@ -343,7 +343,7 @@ TEST(writer_gf_writer_option_promoted)
 {
     /* :writer names the GF directly (no setf wrapper); it takes (VAL OBJ). */
     eval_print("(defclass wg-wo () ((x :initform 0 :writer wg-set-x :reader wg-wox)))");
-    ASSERT_STR_EQ(eval_print("(and (gethash #'wg-set-x clamiga:*writer-gfs*) t)"), "T");
+    ASSERT_STR_EQ(eval_print("(and (gethash #'wg-set-x amilisp:*writer-gfs*) t)"), "T");
     ASSERT_STR_EQ(eval_print(
         "(let ((o (make-instance 'wg-wo)))"
         "  (list (wg-set-x 7 o) (wg-wox o)))"), "(7 7)");
@@ -359,10 +359,10 @@ TEST(writer_gf_polymorphic_differing_slot_indices)
     ASSERT_STR_EQ(eval_print(
         "(let ((a (make-instance 'wg-qa)) (b (make-instance 'wg-qb)))"
         "  (setf (wg-qx a) 1) (setf (wg-qx b) 2)"
-        "  (let ((ic (clamiga::gf-inline-cache #'(setf wg-qx))))"
+        "  (let ((ic (amilisp::gf-inline-cache #'(setf wg-qx))))"
         "    (dotimes (i 5) (setf (wg-qx a) i) (setf (wg-qx b) (* 10 i)))"
         "    (list (length ic)"
-        "          (eq ic (clamiga::gf-inline-cache #'(setf wg-qx)))"
+        "          (eq ic (amilisp::gf-inline-cache #'(setf wg-qx)))"
         "          (wg-qx a) (wg-qx b)"
         "          (slot-value b 'pad))))"),  /* neighbour slot untouched */
         "(2 T 4 40 0)");
@@ -410,16 +410,16 @@ TEST(writer_gf_trampoline_probes)
      * 2-arg writer probes; the spine staying EQ proves cache hits. */
     eval_print("(defclass wg-tp1 () ((x :initform 0 :accessor wg-tpx)))");
     eval_print("(defclass wg-tp2 () ((pad :initform 0) (x :initform 0 :accessor wg-tpx)))");
-    ASSERT_STR_EQ(eval_print("(and (gethash #'(setf wg-tpx) clamiga:*writer-gfs*) t)"), "T");
+    ASSERT_STR_EQ(eval_print("(and (gethash #'(setf wg-tpx) amilisp:*writer-gfs*) t)"), "T");
     ASSERT_STR_EQ(eval_print(
         "(let ((a (make-instance 'wg-tp1)) (b (make-instance 'wg-tp2)))"
         "  (setf (wg-tpx a) 0) (setf (wg-tpx b) 0)"  /* fill the IC */
-        "  (let ((ic (clamiga::gf-inline-cache #'(setf wg-tpx))))"
+        "  (let ((ic (amilisp::gf-inline-cache #'(setf wg-tpx))))"
         "    (dotimes (i 5)"
         "      (funcall #'(setf wg-tpx) i a)"
         "      (apply #'(setf wg-tpx) (* 10 i) (list b)))"
         "    (funcall #'apply #'(setf wg-tpx) (list 99 a))"
-        "    (list (eq ic (clamiga::gf-inline-cache #'(setf wg-tpx)))"
+        "    (list (eq ic (amilisp::gf-inline-cache #'(setf wg-tpx)))"
         "          (wg-tpx a) (wg-tpx b))))"),
         "(T 99 40)");
 }
@@ -433,7 +433,7 @@ TEST(writer_gf_after_method_demotes)
     eval_print("(let ((o (make-instance 'wg-s))) (setf (wg-sx o) 1))");
     eval_print("(defmethod (setf wg-sx) :after (val (o wg-s))"
                "  (push val (slot-value o 'log)))");
-    ASSERT_STR_EQ(eval_print("(and (gethash #'(setf wg-sx) clamiga:*writer-gfs*) t)"), "NIL");
+    ASSERT_STR_EQ(eval_print("(and (gethash #'(setf wg-sx) amilisp:*writer-gfs*) t)"), "NIL");
     ASSERT_STR_EQ(eval_print(
         "(let ((o (make-instance 'wg-s)))"
         "  (setf (wg-sx o) 7)"
@@ -473,7 +473,7 @@ TEST(writer_gf_set_funcallable_instance_function_wins)
     eval_print("(setf (wg-sfix (make-instance 'wg-sfi)) 1)");
     eval_print("(set-funcallable-instance-function"
                "  #'(setf wg-sfix) (lambda (v o) (declare (ignore v o)) :hijacked))");
-    ASSERT_STR_EQ(eval_print("(and (gethash #'(setf wg-sfix) clamiga:*writer-gfs*) t)"), "NIL");
+    ASSERT_STR_EQ(eval_print("(and (gethash #'(setf wg-sfix) amilisp:*writer-gfs*) t)"), "NIL");
     ASSERT_STR_EQ(eval_print(
         "(funcall #'(setf wg-sfix) 9 (make-instance 'wg-sfi))"), ":HIJACKED");
     /* the hijacked function does not store — proof slot 3 was reached and
@@ -489,21 +489,21 @@ TEST(writer_gf_set_funcallable_instance_function_wins)
  * every reader GF permanently. */
 TEST(reader_gf_slot_value_using_class_demotes_all)
 {
-    ASSERT_STR_EQ(eval_print("clamiga:*slot-access-protocol-extended-p*"), "NIL");
+    ASSERT_STR_EQ(eval_print("amilisp:*slot-access-protocol-extended-p*"), "NIL");
     eval_print("(defclass rg-tracked () ((x :initform 3 :reader rg-tkx)))");
     eval_print("(defclass wg-tracked () ((x :initform 0 :accessor wg-tkx)))");
     ASSERT_STR_EQ(eval_print("(rg-tkx (make-instance 'rg-tracked))"), "3");
     eval_print("(setf (wg-tkx (make-instance 'wg-tracked)) 1)"); /* warm the IC */
-    ASSERT_STR_EQ(eval_print("(and (gethash #'(setf wg-tkx) clamiga:*writer-gfs*) t)"), "T");
+    ASSERT_STR_EQ(eval_print("(and (gethash #'(setf wg-tkx) amilisp:*writer-gfs*) t)"), "T");
     eval_print("(defmethod slot-value-using-class :around"
                "    ((c standard-class) obj slotd)"
                "  (let ((v (call-next-method)))"
                "    (if (numberp v) (* 1000 v) v)))");
-    ASSERT_STR_EQ(eval_print("clamiga:*slot-access-protocol-extended-p*"), "T");
-    ASSERT_STR_EQ(eval_print("(and (gethash #'rg-tkx clamiga:*reader-gfs*) t)"), "NIL");
-    ASSERT_STR_EQ(eval_print("(and (gethash #'rg-px clamiga:*reader-gfs*) t)"), "NIL");
+    ASSERT_STR_EQ(eval_print("amilisp:*slot-access-protocol-extended-p*"), "T");
+    ASSERT_STR_EQ(eval_print("(and (gethash #'rg-tkx amilisp:*reader-gfs*) t)"), "NIL");
+    ASSERT_STR_EQ(eval_print("(and (gethash #'rg-px amilisp:*reader-gfs*) t)"), "NIL");
     /* the latch demotes writer GFs too */
-    ASSERT_STR_EQ(eval_print("(and (gethash #'(setf wg-tkx) clamiga:*writer-gfs*) t)"), "NIL");
+    ASSERT_STR_EQ(eval_print("(and (gethash #'(setf wg-tkx) amilisp:*writer-gfs*) t)"), "NIL");
     /* a demoted writer still stores (through the full protocol); the read
      * back shows the user's SLOT-VALUE-USING-CLASS method being honoured */
     ASSERT_STR_EQ(eval_print(

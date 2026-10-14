@@ -27,7 +27,7 @@
 #
 # Run: sh tests/test_finish_output_flush.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then
@@ -119,7 +119,7 @@ cat > "$tmp" <<EOF
 (format t "console-ok~%")
 EOF
 
-"$TIMEOUT" 60 "$CLAMIGA" --no-userinit --non-interactive --load "$tmp" < /dev/null > "$out" 2>&1
+"$TIMEOUT" 60 "$AMILISP" --no-userinit --non-interactive --load "$tmp" < /dev/null > "$out" 2>&1
 
 for c in 1 2 3 4 5 6 7; do
     if ! grep -q "^case$c=PAYLOAD\$" "$out"; then

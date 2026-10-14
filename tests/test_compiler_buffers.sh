@@ -23,7 +23,7 @@
 #      pool gets every block back.
 #   4. Constants growth: character and string constants past the initial
 #      table and past the keep size come back EQL / EQ to the source objects
-#      (under CLAMIGA_GC_STRESS the strings move on every allocation, so the
+#      (under AMILISP_GC_STRESS the strings move on every allocation, so the
 #      grown table must be what the collector forwards); past 8192 a clean
 #      error, and the pool gets its blocks back.
 #   5. Several threads compiling large functions at once.
@@ -31,10 +31,10 @@
 #
 # Also run under the gc-stress binary (make test-gc-stress).
 
-CLAMIGA="${1:-build/host/amilisp}"
-case "$CLAMIGA" in
+AMILISP="${1:-build/host/amilisp}"
+case "$AMILISP" in
   /*) ;;
-  *) CLAMIGA="$(pwd)/$CLAMIGA" ;;
+  *) AMILISP="$(pwd)/$AMILISP" ;;
 esac
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
@@ -47,8 +47,8 @@ WORK="$TMPDIR/clamiga_compbuf_$$"
 mkdir -p "$WORK"
 trap 'rm -rf "$WORK"' EXIT
 
-if [ ! -x "$CLAMIGA" ]; then
-    echo "  SKIP  compiler buffers: no binary at $CLAMIGA"
+if [ ! -x "$AMILISP" ]; then
+    echo "  SKIP  compiler buffers: no binary at $AMILISP"
     echo "0 passed, 0 failed, 0 total"
     exit 0
 fi
@@ -57,7 +57,7 @@ fi
 # keeps the constants modest and leaves out the 8300-constant overflow: that
 # one only stores characters (immediates, nothing for the collector to move)
 # and the ordinary run covers it.
-if [ -n "${CLAMIGA_GC_STRESS:-}" ]; then
+if [ -n "${AMILISP_GC_STRESS:-}" ]; then
     NCONST=1100
     THREAD_ITERS=2
     CONST_OVERFLOW=0
@@ -69,9 +69,9 @@ fi
 
 run() {
     if [ -n "$TIMEOUT" ]; then
-        "$TIMEOUT" 300 "$CLAMIGA" --no-userinit --non-interactive --load "$1" 2>&1 </dev/null
+        "$TIMEOUT" 300 "$AMILISP" --no-userinit --non-interactive --load "$1" 2>&1 </dev/null
     else
-        "$CLAMIGA" --no-userinit --non-interactive --load "$1" 2>&1 </dev/null
+        "$AMILISP" --no-userinit --non-interactive --load "$1" 2>&1 </dev/null
     fi
 }
 

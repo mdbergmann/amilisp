@@ -27,7 +27,7 @@
 #      GF's cache — an invariant this optimization now depends on, so it
 #      gets a test of its own.
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 
@@ -39,8 +39,8 @@ WORK="$TMPDIR/clamiga_tier4p1_$$"
 mkdir -p "$WORK"
 trap 'rm -rf "$WORK"' EXIT
 
-if [ ! -x "$CLAMIGA" ]; then
-    echo "  SKIP  tier4 phase1: no binary at $CLAMIGA"
+if [ ! -x "$AMILISP" ]; then
+    echo "  SKIP  tier4 phase1: no binary at $AMILISP"
     echo "0 passed, 0 failed, 0 total"
     exit 0
 fi
@@ -48,9 +48,9 @@ fi
 # Loop counts.  The point of the repeat loops is to WARM the caches under
 # test, which takes a few dozen iterations, not thousands; the large counts
 # are only there to make an ordinary run also exercise collection pressure.
-# Under CLAMIGA_GC_STRESS every single allocation forces a full compaction,
+# Under AMILISP_GC_STRESS every single allocation forces a full compaction,
 # so the same coverage has to come from far fewer iterations.
-if [ -n "${CLAMIGA_GC_STRESS:-}" ]; then
+if [ -n "${AMILISP_GC_STRESS:-}" ]; then
     WARM=40; GFN=8; CONSN=200; RESTN=40
 else
     WARM=2000; GFN=200; CONSN=20000; RESTN=300
@@ -59,10 +59,10 @@ GFN2=$((GFN * 2))
 
 run() {
     if [ -n "$TIMEOUT" ]; then
-        "$TIMEOUT" 60 "$CLAMIGA" --no-userinit --heap 48M \
+        "$TIMEOUT" 60 "$AMILISP" --no-userinit --heap 48M \
             --non-interactive --load "$1" 2>&1
     else
-        "$CLAMIGA" --no-userinit --heap 48M --non-interactive --load "$1" 2>&1
+        "$AMILISP" --no-userinit --heap 48M --non-interactive --load "$1" 2>&1
     fi
 }
 

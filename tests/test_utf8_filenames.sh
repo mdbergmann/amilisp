@@ -15,13 +15,13 @@
 #
 # Run: sh tests/test_utf8_filenames.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 TMP="${TMPDIR:-/tmp}/clamiga_utf8names_$$"
 mkdir -p "$TMP"
 trap 'rm -rf "$TMP"' EXIT
 
 cat > "$TMP/driver.lisp" <<'LISP'
-(let* ((dir (or (ext:getenv "CLAMIGA_UTF8_TEST_DIR") "."))
+(let* ((dir (or (ext:getenv "AMILISP_UTF8_TEST_DIR") "."))
        (path (concatenate 'string dir "/" "日本語ファイル.txt")))
   (with-open-file (s path :direction :output :if-exists :supersede)
     (write-string "content" s))
@@ -33,7 +33,7 @@ cat > "$TMP/driver.lisp" <<'LISP'
             (if (and found (search "?" (namestring found))) "YES" "NO"))))
 LISP
 
-CLAMIGA_UTF8_TEST_DIR="$TMP" "$CLAMIGA" --no-userinit --non-interactive \
+AMILISP_UTF8_TEST_DIR="$TMP" "$AMILISP" --no-userinit --non-interactive \
     --load "$TMP/driver.lisp" </dev/null > "$TMP/out" 2>&1
 out=$(tr -d '\r' < "$TMP/out")
 

@@ -15,7 +15,7 @@
  * catch/throw, unwind-protect, block/return-from) survives relocation.
  *
  * The cross-implementation differential harness lives in
- * tests/test_peephole_diff.sh (same corpus at CLAMIGA_FORCE_SPEED=0 vs 1,
+ * tests/test_peephole_diff.sh (same corpus at AMILISP_FORCE_SPEED=0 vs 1,
  * 2 and 3); the fused shapes are pinned through DISASSEMBLE by
  * tests/test_tier4_phase3.sh. */
 
@@ -1091,7 +1091,7 @@ TEST(default_speed_fuses_speed0_does_not)
     /* The pass gates on the compile's speed high-water mark, so a body
      * (declare (optimize (speed 0))) cannot switch it off from inside a
      * function whose baseline is 1; the process-wide pin (what
-     * CLAMIGA_FORCE_SPEED=0 sets) can. */
+     * AMILISP_FORCE_SPEED=0 sets) can. */
     extern int cl_optimize_force_speed;
     CL_Obj f1 = cl_eval_string("(lambda (x y) " TWO_BINDINGS_BODY ")");
     CL_Obj f0;

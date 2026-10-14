@@ -1,13 +1,13 @@
 #!/bin/sh
 # Differential test for the bytecode peephole post-pass (spec 1.8).
 #
-# Runs tests/peephole-corpus.lisp with CLAMIGA_FORCE_SPEED=0 (pass disabled
+# Runs tests/peephole-corpus.lisp with AMILISP_FORCE_SPEED=0 (pass disabled
 # everywhere), =1 (the default: rewrites + superinstruction fusion), =2 and
 # =3 (forced on for every compile in the process) and requires byte-identical
 # output.  A mis-relocated jump, broken NLX
 # landing pad, or over-eager deletion shows up as a diff (or a crash).
 #
-# CLAMIGA_FORCE_SPEED pins the effective (optimize (speed N)) for the whole
+# AMILISP_FORCE_SPEED pins the effective (optimize (speed N)) for the whole
 # process, overriding declaim/declare — so ANY corpus works unmodified;
 # growing test coverage automatically grows peephole coverage.
 #
@@ -16,7 +16,7 @@
 # Also runs under the gc-stress binary (make test-gc-stress) to exercise the
 # speed-3 compile path under forced compaction.
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 CORPUS="$(dirname "$0")/peephole-corpus.lisp"
 
 # macOS has no `timeout`; coreutils installs it as `gtimeout` (same detection
@@ -37,15 +37,15 @@ trap 'rm -rf "$WORK"' EXIT
 passed=0
 failed=0
 
-if [ ! -x "$CLAMIGA" ]; then
-    echo "  SKIP  peephole diff: no binary at $CLAMIGA"
+if [ ! -x "$AMILISP" ]; then
+    echo "  SKIP  peephole diff: no binary at $AMILISP"
     echo "0 passed, 0 failed, 0 total"
     exit 0
 fi
 
 run_at_speed() {
     speed="$1"; out="$2"
-    CLAMIGA_FORCE_SPEED="$speed" "$TIMEOUT" 120 "$CLAMIGA" --no-userinit \
+    AMILISP_FORCE_SPEED="$speed" "$TIMEOUT" 120 "$AMILISP" --no-userinit \
         --non-interactive --load "$CORPUS" >"$out.raw" 2>&1
     rc=$?
     # strip "; [boot] N ms" style progress lines — timing noise, not results

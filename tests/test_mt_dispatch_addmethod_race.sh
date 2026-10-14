@@ -49,7 +49,7 @@
 #
 # Run: sh tests/test_mt_dispatch_addmethod_race.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then
@@ -164,7 +164,7 @@ cat > "$tmp" <<'EOF'
     (let ((v (handler-case (wgf2 n) (error () :FAIL))))
       (unless (eql v n) (setf missing (+ missing 1)))))
   (format t "MT-INTERN methods=~a missing=~a~%"
-          (length (clamiga::gf-methods #'wgf2)) missing))
+          (length (amilisp::gf-methods #'wgf2)) missing))
 EOF
 
 # Pre-fix this errors hundreds of times per run (deterministic); the fixed
@@ -174,7 +174,7 @@ RUNS=5
 i=0
 while [ "$i" -lt "$RUNS" ]; do
     i=$((i + 1))
-    out=$("$TIMEOUT" 60 "$CLAMIGA" --no-userinit --heap 10M --non-interactive --load "$tmp" </dev/null 2>&1)
+    out=$("$TIMEOUT" 60 "$AMILISP" --no-userinit --heap 10M --non-interactive --load "$tmp" </dev/null 2>&1)
     ec=$?
     if [ "$ec" -eq 124 ]; then
         echo "  FAIL mt_dispatch_addmethod_race (run $i/$RUNS timed out)"

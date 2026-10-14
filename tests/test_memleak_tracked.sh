@@ -3,7 +3,7 @@
 #
 # Requires a -DDEBUG_MEM_TRACK binary (see `make test-memleak`), where every
 # platform_alloc is recorded with the file and line that made it and
-# CLAMIGA_MEM_DIAG=1 prints whatever is still outstanding at exit.
+# AMILISP_MEM_DIAG=1 prints whatever is still outstanding at exit.
 #
 # Why this is a real test and not hygiene: AmigaOS does not reclaim a
 # process's memory.  A block amilisp fails to free is Fast RAM gone from the
@@ -16,13 +16,13 @@
 #
 # Run: sh tests/test_memleak_tracked.sh build/host-memtrack/amilisp
 
-CLAMIGA="${1:-build/host-memtrack/amilisp}"
-case "$CLAMIGA" in
+AMILISP="${1:-build/host-memtrack/amilisp}"
+case "$AMILISP" in
   /*) ;;
-  *) CLAMIGA="$(pwd)/$CLAMIGA" ;;
+  *) AMILISP="$(pwd)/$AMILISP" ;;
 esac
 # A Windows program is found by its extension (the delivered executable).
-case "$CLAMIGA" in
+case "$AMILISP" in
   *.exe) EXE_SUFFIX=.exe ;;
   *) EXE_SUFFIX= ;;
 esac
@@ -35,7 +35,7 @@ trap 'rm -rf "$WORK"' EXIT
 
 # Confirm we were handed a tracked build — otherwise every check below would
 # pass vacuously (no report line at all is not "no leak").
-probe=$(CLAMIGA_MEM_DIAG=1 "$CLAMIGA" --no-userinit --eval '(quit)' --non-interactive </dev/null 2>&1)
+probe=$(AMILISP_MEM_DIAG=1 "$AMILISP" --no-userinit --eval '(quit)' --non-interactive </dev/null 2>&1)
 case "$probe" in
   *"[mem] leak report:"*) ;;
   *)
@@ -54,7 +54,7 @@ run_case() {
     file=$2
     shift 2
     total=$((total + 1))
-    out=$(CLAMIGA_MEM_DIAG=1 "$CLAMIGA" --no-userinit "$@" --load "$file" </dev/null 2>&1)
+    out=$(AMILISP_MEM_DIAG=1 "$AMILISP" --no-userinit "$@" --load "$file" </dev/null 2>&1)
     report=$(echo "$out" | sed -n 's/^\[mem\] leak report: \([0-9][0-9]*\) block(s), \([0-9][0-9]*\) bytes.*/\1 \2/p' | tail -1)
     blocks=$(echo "$report" | cut -d' ' -f1)
     bytes=$(echo "$report" | cut -d' ' -f2)
@@ -355,10 +355,10 @@ run_case "no_leak_after_method_dispatchers" "$WORK/dispfilter.lisp"
 # %JIT-COMPILE-STUB returns NIL and the scenario is a plain churn.
 cat > "$WORK/jitstub.lisp" <<'LISPEOF'
 (defun jit-leak-a () 1)
-(clamiga::%jit-compile-stub #'jit-leak-a)
-(clamiga::%jit-compile-stub #'jit-leak-a)
+(amilisp::%jit-compile-stub #'jit-leak-a)
+(amilisp::%jit-compile-stub #'jit-leak-a)
 (dotimes (i 50)
-  (clamiga::%jit-compile-stub (compile nil `(lambda () ,i))))
+  (amilisp::%jit-compile-stub (compile nil `(lambda () ,i))))
 (defun jit-leak-a () 2)
 (gc)
 (quit)
@@ -372,9 +372,9 @@ run_case "no_leak_after_jit_stubs" "$WORK/jitstub.lisp"
 # a function with more than 16 helper and data addresses grows the literal
 # table.  Without the backend this is a plain churn.
 cat > "$WORK/jitwalk.lisp" <<'LISPEOF'
-(clamiga::%jit-set-hot-threshold 0)
+(amilisp::%jit-set-hot-threshold 0)
 (defun jit-walk-probe () 1)
-(defvar *jit-walk-backend* (clamiga::%jit-compile-stub #'jit-walk-probe))
+(defvar *jit-walk-backend* (amilisp::%jit-compile-stub #'jit-walk-probe))
 (defvar *jit-walk-g* 0)
 (defun jit-walk-loop (n) (let ((s 0)) (dotimes (i n s) (setq s (+ s i)))))
 (defun jit-walk-many (x)
@@ -383,8 +383,8 @@ cat > "$WORK/jitwalk.lisp" <<'LISPEOF'
         (symbol-function 'car) (list 1 2 3) (eq x x) (not x) 'a "b" 3.5))
 (defun jit-walk-declined (x &optional y) (catch 'k (list x y)))
 (when (and *jit-walk-backend*
-           (not (and (clamiga::%jit-dump-bytes #'jit-walk-loop)
-                     (clamiga::%jit-dump-bytes #'jit-walk-many))))
+           (not (and (amilisp::%jit-dump-bytes #'jit-walk-loop)
+                     (amilisp::%jit-dump-bytes #'jit-walk-many))))
   (format t "SCENARIO-FAILED: the walker compiled nothing~%"))
 (jit-walk-loop 1000)
 (jit-walk-many '(1 . 2))
@@ -440,7 +440,7 @@ run_exe_case() {
     want=$2
     shift 2
     total=$((total + 1))
-    out=$(CLAMIGA_MEM_DIAG=1 "$WORK/leak-exe$EXE_SUFFIX" "$@" </dev/null 2>&1)
+    out=$(AMILISP_MEM_DIAG=1 "$WORK/leak-exe$EXE_SUFFIX" "$@" </dev/null 2>&1)
     rc=$?
     report=$(echo "$out" | sed -n 's/^\[mem\] leak report: \([0-9][0-9]*\) block(s), \([0-9][0-9]*\) bytes.*/\1 \2/p' | tail -1)
     case "$out" in
@@ -473,7 +473,7 @@ exe_size=$(wc -c < "$WORK/leak-exe$EXE_SUFFIX")
 head -c $((exe_size - 120)) "$WORK/leak-exe$EXE_SUFFIX" > "$WORK/leak-cut$EXE_SUFFIX"
 tail -c 20 "$WORK/leak-exe$EXE_SUFFIX" >> "$WORK/leak-cut$EXE_SUFFIX"
 chmod +x "$WORK/leak-cut$EXE_SUFFIX"
-out=$(CLAMIGA_MEM_DIAG=1 "$WORK/leak-cut$EXE_SUFFIX" </dev/null 2>&1)
+out=$(AMILISP_MEM_DIAG=1 "$WORK/leak-cut$EXE_SUFFIX" </dev/null 2>&1)
 rc=$?
 report=$(echo "$out" | sed -n 's/^\[mem\] leak report: \([0-9][0-9]*\) block(s), \([0-9][0-9]*\) bytes.*/\1 \2/p' | tail -1)
 case "$rc:$report:$out" in
@@ -499,7 +499,7 @@ run_fail_case() {
     while [ "$1" != "--" ]; do envs="$envs $1"; shift; done
     shift
     total=$((total + 1))
-    out=$(env CLAMIGA_MEM_DIAG=1 $envs "$CLAMIGA" --no-userinit --non-interactive "$@" </dev/null 2>&1)
+    out=$(env AMILISP_MEM_DIAG=1 $envs "$AMILISP" --no-userinit --non-interactive "$@" </dev/null 2>&1)
     rc=$?
     report=$(echo "$out" | sed -n 's/^\[mem\] leak report: \([0-9][0-9]*\) block(s), \([0-9][0-9]*\) bytes.*/\1 \2/p' | tail -1)
     case "$out" in
@@ -522,13 +522,13 @@ run_fail_case() {
     fi
 }
 
-# The arena refused (the tracer's CLAMIGA_MEM_FAIL_OVER stands in for a
-# fragmented Fast RAM; CLAMIGA_GENGC=0 so the arena comes from platform_alloc
+# The arena refused (the tracer's AMILISP_MEM_FAIL_OVER stands in for a
+# fragmented Fast RAM; AMILISP_GENGC=0 so the arena comes from platform_alloc
 # as on AmigaOS), with an image staged and without.
 run_fail_case "no_leak_when_heap_allocation_fails" "Failed to allocate 8388608-byte heap" \
-    CLAMIGA_GENGC=0 CLAMIGA_MEM_FAIL_OVER=8388608 -- --no-image --heap 8M --eval '(quit)'
+    AMILISP_GENGC=0 AMILISP_MEM_FAIL_OVER=8388608 -- --no-image --heap 8M --eval '(quit)'
 run_fail_case "no_leak_when_heap_allocation_fails_with_image" "Failed to allocate 8388608-byte heap" \
-    CLAMIGA_GENGC=0 CLAMIGA_MEM_FAIL_OVER=8388608 -- --image "$WORK/leak.img" --heap 8M --eval '(quit)'
+    AMILISP_GENGC=0 AMILISP_MEM_FAIL_OVER=8388608 -- --image "$WORK/leak.img" --heap 8M --eval '(quit)'
 
 # An explicit --image whose header stages but whose payload is refused at
 # restore (truncated): the arena and the whole C init exist by then, and the

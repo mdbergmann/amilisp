@@ -60,7 +60,7 @@ through `AMIGA.AREXX` below, which builds the handler thread on top of them.
 
 | Signature | Kind | Description |
 |-----------|------|-------------|
-| `(arexx-open &optional basename)` | function | Create the public port, claiming `basename` (upcased, default `"CLAMIGA"`) or the first free `BASENAME.<n>`; returns the name claimed. Must be called from the thread that will wait on it |
+| `(arexx-open &optional basename)` | function | Create the public port, claiming `basename` (upcased, default `"AMILISP"`) or the first free `BASENAME.<n>`; returns the name claimed. Must be called from the thread that will wait on it |
 | `(arexx-close)` | function | Remove the port, replying to anything still queued |
 | `(arexx-port-name)` | function | Name the port is registered under, or `NIL` |
 | `(arexx-wait)` | function | Block until a command arrives; returns the command string, or `NIL` when woken by `arexx-request-stop` |
@@ -106,7 +106,7 @@ gadget class from input.device) returns 0 and is reported with a warning.
 |-----------|------|-------------|
 | `(defcfun name library-base offset (&rest reg-spec) &key void result doc)` | macro | Define `name` as a binding for the library function at `offset` in `library-base`; `reg-spec` alternates register keywords and parameter names (`(:a1 rastport :d0 x …)`); `:result` chooses how d0 comes back — `:unsigned` (default), `:void`, `:pointer` (foreign pointer, NIL for NULL), `:signed`, `:bool`, `:u16`/`:i16`/`:u8`/`:i8` (`:void t` is the legacy spelling of `:result :void`); more than seven registers fall back to a `defun` over `amiga:call-library`; `:doc` is the docstring.  The function cell receives an *FFI stub* (a compact binding descriptor — a function for every CL purpose; `(ffi::%ffi-stub-info #'name)` lists its fields); a direct call compiles to the library-call opcode in the caller |
 | `*defcfun-docstrings*` | variable | When NIL, `defcfun` drops its `:doc` string (default T); `scripts/compile-lib-fasls.sh --no-docstrings` — i.e. `make fasl-amiga` and the binary release — binds it for the Amiga FASLs to save heap on the target |
-| `(define-binding-table package (&key base version) &body rows)` | macro | A whole module's bindings as one packed table attached to `package`, materialised on first reference: `(:const "NAME" value)`, `(:var "NAME" value)` (`value` an integer of any size or an ASCII string of at most 255 characters — `mui.h`'s `MUIC_Window "Window.mui"`), `(:fn "NAME" lvo (:a0 …) :result [:not-morphos\|:morphos] [min-version])` (a `defcfun`), `(:struct "NAME" size ("FIELD" type offset) …)` (a `defcstruct`), `(:field "NAME" type offset)`, `(:name "NAME")` (export only); `base`/`version` name the library-base and `lib_Version` variables the `:fn` rows and version guards use.  Names are strings taken literally.  `(clamiga::%binding-table-info pkg)` / `(clamiga::%binding-table-entries pkg)` inspect a table |
+| `(define-binding-table package (&key base version) &body rows)` | macro | A whole module's bindings as one packed table attached to `package`, materialised on first reference: `(:const "NAME" value)`, `(:var "NAME" value)` (`value` an integer of any size or an ASCII string of at most 255 characters — `mui.h`'s `MUIC_Window "Window.mui"`), `(:fn "NAME" lvo (:a0 …) :result [:not-morphos\|:morphos] [min-version])` (a `defcfun`), `(:struct "NAME" size ("FIELD" type offset) …)` (a `defcstruct`), `(:field "NAME" type offset)`, `(:name "NAME")` (export only); `base`/`version` name the library-base and `lib_Version` variables the `:fn` rows and version guards use.  Names are strings taken literally.  `(amilisp::%binding-table-info pkg)` / `(amilisp::%binding-table-entries pkg)` inspect a table |
 
 The generated modules under `lib/amiga/raw/` (`(require "amiga/raw/<lib>")`,
 packages `AMIGA.RAW.<LIB>`) are built on these: one `define-binding-table`
@@ -738,7 +738,7 @@ REPL is busy.
 
 ```lisp
 (require "amiga/arexx")
-(amiga.arexx:start)          ; => "CLAMIGA"
+(amiga.arexx:start)          ; => "AMILISP"
 ```
 
 | Signature | Kind | Description |
@@ -748,7 +748,7 @@ REPL is busy.
 | `(running-p)` | function | Whether the port is open and its thread alive |
 | `(port-name)` | function | Name the port is registered under, or `NIL` |
 | `(send port command &key result-size)` | function | Drive another application's ARexx port (or our own) — returns `(values rc result-string)` |
-| `*default-port-name*` | variable | Base name `START` claims (`"CLAMIGA"`) |
+| `*default-port-name*` | variable | Base name `START` claims (`"AMILISP"`) |
 | `*handler-thread*` | variable | The `MP` thread serving the port |
 
 The commands themselves (`PING`, `VERSION`, `LOAD`, `COMPILE-FILE`, `EVAL`,

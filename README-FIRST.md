@@ -114,8 +114,8 @@ Start launches the `amilisp` the editor itself runs on (`bin/aos3/amilisp`,
 `bin/aos3-fpu/amilisp` or `bin/mos/amilisp`, the one beside its
 `clamacs.img`) with a 128K stack, your `S:.amilisprc` loaded, and tells it
 to open its ARexx port -- no rc file is needed for this.  For a bare helper
-without your rc put `(setq *clamiga-options* '("--no-userinit"))` into
-`S:.clamacsrc`; `*clamiga-heap*` sets its heap (see clamacs.guide).
+without your rc put `(setq *amilisp-options* '("--no-userinit"))` into
+`S:.clamacsrc`; `*amilisp-heap*` sets its heap (see clamacs.guide).
 
 **Start amilisp first, Clamacs second.**  The editor connects to a amilisp
 that already has its port open.  amilisp does not open the port by itself,
@@ -128,7 +128,7 @@ none):
 ```
 
 Every amilisp started from then on -- from the `AmiLisp` icon or a shell --
-opens the port `CLAMIGA` (a second instance takes `CLAMIGA.1`, and so on);
+opens the port `AMILISP` (a second instance takes `AMILISP.1`, and so on);
 for the current session only, type the same two forms at the REPL.  Note
 that a session with the port open cannot `EXT:SAVE-IMAGE` -- the port runs
 on a thread -- so save images and executables from a amilisp started with
@@ -165,7 +165,7 @@ The core library and everything under `lib/amiga/` (including the
 generated raw OS bindings) ship precompiled (`*.fasl`, loaded directly --
 the sources sit next to them for reference); the remaining modules
 (asdf, quicklisp) are Lisp sources that compile on your machine the first
-time they are required and are cached under `S:cl-amiga/faslcache/`, so
+time they are required and are cached under `S:amilisp/faslcache/`, so
 later loads are fast.
 
 ## Documentation
@@ -181,7 +181,7 @@ pages work, across the drawers.
 - [clamacs.guide](clamacs/README.md) -- the Clamacs editor/IDE
 - [docs/README.guide](docs/README.md) -- the index of the package
   reference: EXT (sockets, TLS, GC, images, introspection), MP (threads),
-  FFI, GRAY (Gray streams), MOP, CLAMIGA, and the AMIGA.* GUI bindings --
+  FFI, GRAY (Gray streams), MOP, AMILISP, and the AMIGA.* GUI bindings --
   every function documented with its call signature
 
 ## Examples

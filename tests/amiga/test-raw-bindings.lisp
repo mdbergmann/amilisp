@@ -145,7 +145,7 @@
 ;; a module's package carries its table after REQUIRE, and only the names
 ;; this file has touched so far exist as symbols (a few dozen of ~1500)
 (check "raw-bindtab-intuition-lazy" t
-  (let ((info (clamiga::%binding-table-info "AMIGA.RAW.INTUITION")))
+  (let ((info (amilisp::%binding-table-info "AMIGA.RAW.INTUITION")))
     (and info
          (> (getf info :entries) 1400)
          (< (getf info :symbols) 200)
@@ -165,7 +165,7 @@
 ;; the table rows decode back to what the generator emitted
 (check "raw-bindtab-rows" t
   (let ((row (find-if (lambda (r) (and (eq (first r) :fn) (string= (second r) "OPEN-WINDOW-TAG-LIST")))
-                      (clamiga::%binding-table-entries "AMIGA.RAW.INTUITION"))))
+                      (amilisp::%binding-table-entries "AMIGA.RAW.INTUITION"))))
     (equal (cddr row) '(-606 (:a0 :a1) :pointer))))
 
 ;;; --- dos.library: shadowed names, BPTRs, an end-to-end file round trip

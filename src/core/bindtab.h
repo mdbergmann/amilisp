@@ -165,7 +165,7 @@ uint32_t cl_bindtab_shed_all(uint32_t *bytes_out);
  * reader's unknown-qualified-symbol error says. */
 int cl_bindtab_shed_p(CL_Obj package);
 
-/* CLAMIGA builtins: %MAKE-BINDING-TABLE, %REGISTER-BINDING-TABLE,
+/* AMILISP builtins: %MAKE-BINDING-TABLE, %REGISTER-BINDING-TABLE,
  * %BINDING-TABLE-ENTRIES, %BINDING-TABLE-INFO, %BINDING-TABLE-MATERIALIZE-ALL,
  * %SHED-BINDING-TABLES */
 void cl_builtins_bindtab_init(void);

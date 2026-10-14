@@ -19,12 +19,12 @@
 # directly without the accumulated-heap slowdown of the C test harness.
 # Run: sh tests/test_compile_file_package.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 passed=0
 failed=0
 TMP="${TMPDIR:-/tmp}/clamiga-cfpkg-$$"
 mkdir -p "$TMP"
-cleanup() { rm -rf "$TMP" "$HOME/.cache/common-lisp/cl-amiga-"*"$TMP"* 2>/dev/null; }
+cleanup() { rm -rf "$TMP" "$HOME/.cache/common-lisp/amilisp-"*"$TMP"* 2>/dev/null; }
 trap cleanup EXIT
 
 run_case() {
@@ -41,7 +41,7 @@ run_case() {
       (format t "~&RESULT=~a~%" (if $check :pass :fail)))
   (error (e) (format t "~&RESULT=error ~a~%" e)))
 EOF
-    out=$(CLAMIGA_NO_USERINIT=1 "$CLAMIGA" --no-userinit --non-interactive \
+    out=$(AMILISP_NO_USERINIT=1 "$AMILISP" --no-userinit --non-interactive \
               --load "$driver" </dev/null 2>&1)
     res=$(printf '%s\n' "$out" | sed -n 's/^RESULT=//p' | head -1)
     if [ "$res" = ":PASS" ] || [ "$res" = "PASS" ]; then

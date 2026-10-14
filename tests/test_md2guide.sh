@@ -31,7 +31,7 @@
 #
 # Run: sh tests/test_md2guide.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 ROOT=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT" || exit 1
 . tests/shpath.sh
@@ -48,7 +48,7 @@ WORK_NATIVE=$(native_path "$WORK")
 
 run_convert() {
     # run_convert <inputs-as-lisp-alist> <output-dir>  -> stdout+stderr, rc in $rc
-    CLAMIGA_NO_USERINIT=1 "$CLAMIGA" --no-userinit --non-interactive \
+    AMILISP_NO_USERINIT=1 "$AMILISP" --no-userinit --non-interactive \
         --load tools/docs/md2guide.lisp \
         --eval "(md2guide:cli '($1) \"$2/\" \"0.0.0\" \"01.01.2000\")" </dev/null 2>&1
 }
@@ -102,17 +102,17 @@ expect_error unterminated-fence  3 "unterminated code fence"
 # Not under GC stress: converting the 2000-line README with a compaction
 # before every allocation takes a quarter of an hour, and the fixture set
 # above already drives every allocating path of the converter.
-if [ "${CLAMIGA_GC_STRESS:-0}" = 1 ]; then
-    echo "  skip  real_docs (CLAMIGA_GC_STRESS=1: fixture set only)"
+if [ "${AMILISP_GC_STRESS:-0}" = 1 ]; then
+    echo "  skip  real_docs (AMILISP_GC_STRESS=1: fixture set only)"
     echo ""
     echo "$passed passed, $failed failed, $total total"
     if [ "$failed" -gt 0 ]; then echo "FAIL"; exit 1; else echo "PASS"; exit 0; fi
 fi
-out=$(sh tools/docs/md2guide.sh "$CLAMIGA" "$WORK/rel" 2>&1)
+out=$(sh tools/docs/md2guide.sh "$AMILISP" "$WORK/rel" 2>&1)
 rc=$?
 if [ "$rc" -eq 0 ]; then ok "real_docs_convert"; else fail "real_docs_convert" "$out"; fi
 # the release layout: the root guides at the top, the reference under docs/
-for g in README-FIRST amilisp docs/README docs/ext docs/mp docs/ffi docs/gray docs/mop docs/clamiga docs/amiga; do
+for g in README-FIRST amilisp docs/README docs/ext docs/mp docs/ffi docs/gray docs/mop docs/amilisp docs/amiga; do
     [ -s "$WORK/rel/$g.guide" ] || fail "real_docs_present_$g" "missing $WORK/rel/$g.guide"
 done
 if [ -f clamacs/README.md ]; then
@@ -169,7 +169,7 @@ cd "$ROOT" || exit 1
 if [ -z "$bad" ]; then ok "structure"; else fail "structure" "$bad"; fi
 # the index page links to every reference page (siblings: bare names)
 bad=""
-for g in ext mp ffi gray mop clamiga amiga; do
+for g in ext mp ffi gray mop amilisp amiga; do
     grep -q "LINK \"$g.guide/main\"" "$WORK/rel/docs/README.guide" || bad="$bad README.guide:no-link-to-$g"
 done
 [ -z "$bad" ] && ok "index_links_every_page" || fail "index_links_every_page" "$bad"

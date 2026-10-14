@@ -17,7 +17,7 @@
 #
 # Run: sh tests/test_compiler_chain_unwind.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then
@@ -83,7 +83,7 @@ fail() {
     exit 1
 }
 
-out=$("$TIMEOUT" 60 "$CLAMIGA" --no-userinit --non-interactive --load "$tmp" \
+out=$("$TIMEOUT" 60 "$AMILISP" --no-userinit --non-interactive --load "$tmp" \
       </dev/null 2>&1)
 status=$?
 [ $status -eq 0 ] || fail "exit $status: hang or crash"

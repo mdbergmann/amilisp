@@ -164,10 +164,10 @@ echo "boot v1" > "$guard_bindir/boot.fasl"
 
 run_guard() {
   ( cd "$REPO_ROOT" && \
-    CLAMIGA="$guard_bin" \
+    AMILISP="$guard_bin" \
     LOGDIR="$guard_log" \
-    CLAMIGA_FASL_CACHE_PARENT="$guard_cache" \
-    CLAMIGA_BOOT_FASLS="$guard_bindir/boot.fasl" \
+    AMILISP_FASL_CACHE_PARENT="$guard_cache" \
+    AMILISP_BOOT_FASLS="$guard_bindir/boot.fasl" \
     sh "$RUNNER" >/dev/null 2>&1 )
 }
 

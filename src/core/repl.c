@@ -27,7 +27,7 @@ static int pkg_name_len(void)
         CL_String *name = (CL_String *)CL_OBJ_TO_PTR(pkg->name);
         return (int)name->length;
     }
-    return 8; /* strlen("CL-AMIGA") */
+    return 7; /* strlen("AMILISP") */
 }
 
 /* Print REPL prompt showing current package name */
@@ -39,7 +39,7 @@ static void repl_prompt(void)
         CL_String *name = (CL_String *)CL_OBJ_TO_PTR(pkg->name);
         cl_write_cstring_to_stdout(name->data);
     } else {
-        cl_write_cstring_to_stdout("CL-AMIGA");
+        cl_write_cstring_to_stdout("AMILISP");
     }
     cl_write_cstring_to_stdout("> ");
     cl_color_reset();
@@ -222,13 +222,13 @@ static void load_user_init(void)
     static const char *paths[3];
     const char *home;
     /* Escape hatch for hermetic environments (the test suite, CI): when
-       CLAMIGA_NO_USERINIT is set to a non-empty value, never read the
+       AMILISP_NO_USERINIT is set to a non-empty value, never read the
        developer's ~/.amilisprc.  C unit tests call cl_repl_init() directly and
        cannot pass the --no-userinit CLI flag, so they rely on this env var
        instead.  An empty value counts as unset so a child can override an
-       inherited export via `CLAMIGA_NO_USERINIT= ...`. */
+       inherited export via `AMILISP_NO_USERINIT= ...`. */
     {
-        const char *e = getenv("CLAMIGA_NO_USERINIT");
+        const char *e = platform_getenv_s("AMILISP_NO_USERINIT");
         if (e != NULL && e[0] != '\0') {
             return;
         }
@@ -966,9 +966,9 @@ static void report_boot_load_failure(const char *path)
 /* Load boot from one (fasl, src) path pair.  Returns 1 if boot was loaded
    (from the FASL or, failing that, the source), 0 if neither file was present
    or loadable.  Factored out so the cwd-relative, Amiga PROGDIR:, and host
-   $CLAMIGA_HOME locations are all tried with identical semantics (stale-FASL
+   $AMILISP_HOME locations are all tried with identical semantics (stale-FASL
    header validation + recompile-after-source).  cmd buffers are sized for
-   absolute paths built from $CLAMIGA_HOME. */
+   absolute paths built from $AMILISP_HOME. */
 static int try_load_boot_pair(const char *fasl_path, const char *src_path)
 {
     int boot_loaded = 0;
@@ -1077,16 +1077,16 @@ void cl_repl_init_no_userinit(int no_userinit)
         pkg_sym->value = cl_package_cl;
     }
 
-    /* Pre-intern boot.lisp / clos.lisp internal helper names in CLAMIGA so
+    /* Pre-intern boot.lisp / clos.lisp internal helper names in AMILISP so
        that when boot/clos load (with *package* = CL) the reader resolves
-       %FOO to the inherited CLAMIGA symbol rather than interning a fresh
-       CL::%FOO.  CLAMIGA's exports are inherited by CL and CL-USER (see
+       %FOO to the inherited AMILISP symbol rather than interning a fresh
+       CL::%FOO.  AMILISP's exports are inherited by CL and CL-USER (see
        cl_package_init), so unqualified %FOO references work everywhere
        without source-level qualification.  The point of this is to keep
        these helpers OUT of CL's external-symbol set — boot/clos define
        ~140 such helpers and their leakage breaks the ANSI
        NO-EXTRA-SYMBOLS-EXPORTED-FROM-COMMON-LISP test. */
-    cl_intern_clos_internals_in_clamiga();
+    cl_intern_clos_internals_in_amilisp();
 
     /* Export all CL symbols defined so far (from symbol_init + builtins_init).
        This must happen BEFORE any eval_string or boot.lisp loading that runs
@@ -1149,12 +1149,12 @@ void cl_repl_init_no_userinit(int no_userinit)
 #else
         /* Host fallback: when amilisp is launched from a directory other than
            its source root (e.g. an editor/Sly session whose cwd follows the
-           file buffer), cwd-relative "lib/" won't exist.  Honour $CLAMIGA_HOME
+           file buffer), cwd-relative "lib/" won't exist.  Honour $AMILISP_HOME
            so the bundled lib/ is still found without forcing the process
            working directory — keeping the cwd free to track the buffer.  On
            Amiga the PROGDIR: pair above already plays this role. */
         if (!boot_loaded) {
-            const char *home = getenv("CLAMIGA_HOME");
+            const char *home = platform_getenv_s("AMILISP_HOME");
             if (home && home[0]) {
                 char fasl_path[700], src_path[700];
                 size_t hlen = strlen(home);
@@ -1202,11 +1202,11 @@ void cl_repl_init_no_userinit(int no_userinit)
                 ";        Run amilisp from (or install it into) its distribution\n"
                 ";        directory so lib/ sits next to the binary.\n"
 #else
-                ";        Searched lib/ under the current directory, $CLAMIGA_HOME/lib/,\n"
+                ";        Searched lib/ under the current directory, $AMILISP_HOME/lib/,\n"
                 ";        and - relative to the amilisp executable - lib/,\n"
                 ";        ../lib/amilisp/ (installed layout) and ../../lib/ (in-repo build).\n"
-                ";        Set CLAMIGA_HOME to your cl-amiga checkout/installation, e.g.\n"
-                ";            export CLAMIGA_HOME=/path/to/cl-amiga\n"
+                ";        Set AMILISP_HOME to your cl-amiga checkout/installation, e.g.\n"
+                ";            export AMILISP_HOME=/path/to/cl-amiga\n"
 #endif
                 ";        Continuing without the standard library - most Common Lisp\n"
                 ";        features and REQUIRE will not work.\n");

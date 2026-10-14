@@ -26,7 +26,7 @@ struct CL_Compiler_s;
 void cl_peephole_optimize(struct CL_Compiler_s *c);
 
 /* Process-wide switch for the superinstruction fusion step alone
- * (CLAMIGA_NO_FUSE=1 clears it in main.c): the deleting rewrites still run,
+ * (AMILISP_NO_FUSE=1 clears it in main.c): the deleting rewrites still run,
  * the compiler's own opcodes are left unfused.  For A/B runs and bisects. */
 extern int cl_peephole_fuse_enabled;
 

@@ -10,9 +10,9 @@
 # "Unbound variable: FORMAT-CONTROL" (cl-ppcre errors.fasl, 2026-08-11).
 # Run: sh tests/test_mt_package_isolation.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 # Absolute path — case 2 runs with cwd inside the scratch dir.
-CLAMIGA=$(cd "$(dirname "$CLAMIGA")" && pwd)/$(basename "$CLAMIGA")
+AMILISP=$(cd "$(dirname "$AMILISP")" && pwd)/$(basename "$AMILISP")
 passed=0
 failed=0
 total=0
@@ -45,7 +45,7 @@ cat > "$WORK/mt-pkg-hold.lisp" <<'LISPEOF'
 (quit)
 LISPEOF
 
-out=$("$CLAMIGA" --no-userinit --load "$WORK/mt-pkg-hold.lisp" </dev/null 2>&1)
+out=$("$AMILISP" --no-userinit --load "$WORK/mt-pkg-hold.lisp" </dev/null 2>&1)
 
 total=$((total + 1))
 case "$out" in
@@ -112,7 +112,7 @@ cat > "$WORK/mt-pkg-compile.lisp" <<'LISPEOF'
 (quit)
 LISPEOF
 
-out=$(cd "$WORK" && "$CLAMIGA" --no-userinit --load "$WORK/mt-pkg-compile.lisp" </dev/null 2>&1)
+out=$(cd "$WORK" && "$AMILISP" --no-userinit --load "$WORK/mt-pkg-compile.lisp" </dev/null 2>&1)
 
 total=$((total + 1))
 case "$out" in

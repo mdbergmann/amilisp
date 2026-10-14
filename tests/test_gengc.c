@@ -10,7 +10,7 @@
  *     bitmap -> precise page scan), and the old slot must be forwarded
  *   - protected C roots are forwarded across minors
  *   - a major (compaction) resets the watermark and re-arms protection
- *   - CLAMIGA_GENGC=0 pins the classic collector
+ *   - AMILISP_GENGC=0 pins the classic collector
  *   - heap re-init tears gen state down cleanly (stale-static bug class)
  *
  * On classic-only builds (no CL_GENGC) the whole suite compiles to a
@@ -31,7 +31,7 @@
 
 static void setup(void)
 {
-    unsetenv("CLAMIGA_GENGC");
+    unsetenv("AMILISP_GENGC");
     platform_init();
     cl_thread_init();
     cl_error_init();
@@ -219,7 +219,7 @@ TEST(gc_count_advances_on_minor_and_epoch_dedup_applies)
 TEST(env_kill_switch_pins_classic_collector)
 {
     cl_mem_shutdown();
-    setenv("CLAMIGA_GENGC", "0", 1);
+    setenv("AMILISP_GENGC", "0", 1);
     cl_mem_init(4 * 1024 * 1024);
     ASSERT_EQ_INT(cl_gengc_enabled(), 0);
     ASSERT_EQ_INT(cl_gc_minor(cl_heap.gc_count), 0);  /* refused */
@@ -228,7 +228,7 @@ TEST(env_kill_switch_pins_classic_collector)
     cl_gc();
     /* Restore gen mode with a fresh heap. */
     cl_mem_shutdown();
-    unsetenv("CLAMIGA_GENGC");
+    unsetenv("AMILISP_GENGC");
     cl_mem_init(4 * 1024 * 1024);
     ASSERT_EQ_INT(cl_gengc_enabled(), 1);
 }

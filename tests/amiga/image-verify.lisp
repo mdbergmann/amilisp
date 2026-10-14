@@ -24,8 +24,8 @@
 ; again once it turns hot (IMG-FIB 12 is 465 calls).  Before 0.12 nothing in
 ; an image was ever compiled again.
 (img-check "restored function compiled once hot" t
-           (if (clamiga::%jit-active-p)
-               (and (clamiga::%jit-dump-bytes #'img-fib) t)
+           (if (amilisp::%jit-active-p)
+               (and (amilisp::%jit-dump-bytes #'img-fib) t)
                t))
 (img-check "macro" 42 (img-twice 21))
 (img-check "clos dispatch" "Rex speaks" (img-speak *img-pet*))
@@ -52,9 +52,9 @@
 ; table shed.  Names referenced before the save are ordinary symbols; the
 ; rest do not exist, and the reader says why instead of implying a typo.
 (img-check "shed table keeps its marker" t
-           (getf (clamiga::%binding-table-info "IMG-BT") :shed))
+           (getf (amilisp::%binding-table-info "IMG-BT") :shed))
 (img-check "shed table reports no entries" 0
-           (getf (clamiga::%binding-table-info "IMG-BT") :entries))
+           (getf (amilisp::%binding-table-info "IMG-BT") :entries))
 (img-check "touched constant survives the shed" 11 (symbol-value *img-bt-kept*))
 (img-check "touched name keeps its identity" t
            (eq *img-bt-kept* (find-symbol "+KEPT+" "IMG-BT")))
@@ -68,8 +68,8 @@
            (handler-case (progn (read-from-string "img-bt:+gone+") nil)
              (error (c) (and (search "shed by SAVE-IMAGE" (format nil "~a" c)) t))))
 (img-check "eager flip on a shed package is a no-op" t
-           (progn (clamiga::%binding-table-materialize-all "IMG-BT")
-                  (getf (clamiga::%binding-table-info "IMG-BT") :shed)))
+           (progn (amilisp::%binding-table-materialize-all "IMG-BT")
+                  (getf (amilisp::%binding-table-info "IMG-BT") :shed)))
 
 ; Process-derived state is re-derived on restore: this leg runs from
 ; AmiLisp:tests (call-on-ustartup), the save leg ran from AmiLisp:.

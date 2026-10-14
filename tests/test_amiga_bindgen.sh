@@ -29,7 +29,7 @@
 #
 # Run: sh tests/test_amiga_bindgen.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 FIX="$ROOT/tests/fixtures/bindgen"
 CHECK="$ROOT/tests/test_amiga_bindgen.lisp"
@@ -41,11 +41,11 @@ fail=0
 run_checks() {
     # $1 = mode, $2 = RAWDIR, $3 = "morphos" to push :MORPHOS first (or empty)
     if [ "$3" = morphos ]; then
-        out=$(BINDGEN_CHECK="$1" RAWDIR="$2" "$CLAMIGA" --no-userinit --non-interactive \
+        out=$(BINDGEN_CHECK="$1" RAWDIR="$2" "$AMILISP" --no-userinit --non-interactive \
               --heap 256M --eval "(push :morphos *features*)" --load "$CHECK" \
               </dev/null 2>&1 | grep -v '^; Loading')
     else
-        out=$(BINDGEN_CHECK="$1" RAWDIR="$2" "$CLAMIGA" --no-userinit --non-interactive \
+        out=$(BINDGEN_CHECK="$1" RAWDIR="$2" "$AMILISP" --no-userinit --non-interactive \
               --heap 256M --load "$CHECK" </dev/null 2>&1 | grep -v '^; Loading')
     fi
     # ok/FAIL lines, plus anything amilisp's LOAD recovery printed (a check
@@ -76,7 +76,7 @@ gen_log=$(BINDGEN_NDK_SFD="$FIX/sfd" BINDGEN_NDK_INCLUDE="$FIX/include" \
           BINDGEN_MOS_MUI_INCLUDE_H="$FIX/mos-mui-include_h" \
           BINDGEN_MCC_INCLUDE_H="$FIX/mcc-include_h" \
           BINDGEN_OUT="$GEN_OUT" \
-          "$CLAMIGA" --no-userinit --non-interactive --heap 64M \
+          "$AMILISP" --no-userinit --non-interactive --heap 64M \
           --load "$ROOT/scripts/gen-amiga-bindings.lisp" </dev/null 2>&1 | grep -v '^; Loading')
 echo "$gen_log" | sed 's/^/  /'
 if ! echo "$gen_log" | grep -q '^9 modules:'; then
@@ -143,7 +143,7 @@ gen_log2=$(BINDGEN_NDK_SFD="$FIX/sfd" BINDGEN_NDK_INCLUDE="$FIX/include" \
            BINDGEN_NDK_INCLUDE_H="$FIX/include_h" \
            BINDGEN_MOS_SFD="$FIX/mos-sfd" BINDGEN_MOS_ONLY=mosonly,muimaster \
            BINDGEN_OUT="$GEN_OUT2" \
-           "$CLAMIGA" --no-userinit --non-interactive --heap 64M \
+           "$AMILISP" --no-userinit --non-interactive --heap 64M \
            --load "$ROOT/scripts/gen-amiga-bindings.lisp" </dev/null 2>&1 | grep -v '^; Loading')
 if ! echo "$gen_log2" | grep -q '^MUI SDK: none'; then
     echo "  FAIL: a run without BINDGEN_MUI_SFD must say 'MUI SDK: none'"
@@ -189,7 +189,7 @@ gen_log3=$(BINDGEN_NDK_SFD="$FIX/sfd" BINDGEN_NDK_INCLUDE="$FIX/include" \
            BINDGEN_MUI_SFD="$FIX/mui-sfd" BINDGEN_MUI_INCLUDE_H="$FIX/mui-include_h" \
            BINDGEN_MOS_MUI_INCLUDE_H="$FIX/mui-conflict_h" \
            BINDGEN_OUT="$GEN_OUT3" \
-           "$CLAMIGA" --no-userinit --non-interactive --heap 64M \
+           "$AMILISP" --no-userinit --non-interactive --heap 64M \
            --load "$ROOT/scripts/gen-amiga-bindings.lisp" </dev/null 2>&1 | grep -v '^; Loading')
 if ! echo "$gen_log3" | grep -q '^CONFLICT MUIA_Window_CloseRequest: baseline 2151868526, 305419896 from the MorphOS SDK'; then
     echo "  FAIL: expected the conflicting MUIA_Window_CloseRequest to be named"

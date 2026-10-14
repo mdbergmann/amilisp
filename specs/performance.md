@@ -260,14 +260,14 @@ these deltas from the plan:
   costs a missed optimization, never a miscompile.
 - Gate: high-water mark of the effective speed during the compile (`CL_Compiler.peep_speed_max`),
   because body `(declare (optimize ...))` is scope-restored before finalization.
-- **Differential harness**: `CLAMIGA_FORCE_SPEED=0..3` pins the effective speed process-wide
-  (like `CLAMIGA_GC_STRESS`), so ANY corpus/suite A/Bs the pass unmodified.
+- **Differential harness**: `AMILISP_FORCE_SPEED=0..3` pins the effective speed process-wide
+  (like `AMILISP_GC_STRESS`), so ANY corpus/suite A/Bs the pass unmodified.
   `tests/test_peephole_diff.sh` runs `tests/peephole-corpus.lisp` at 0/2/3 and requires identical
   output; wired into `make test` and (under forced compaction) `make test-gc-stress`.
   `tests/test_peephole.c` covers every pattern, every bail-out, and decoder exhaustiveness over
   the full opcode list.
 
-**Measured** (host, M3 Ultra, `CLAMIGA_FORCE_SPEED=3` vs default speed 1, bench-opt best-of-3):
+**Measured** (host, M3 Ultra, `AMILISP_FORCE_SPEED=3` vs default speed 1, bench-opt best-of-3):
 vm.fixnum-loop 58→53 ms, vm.local-shuffle 49→45 ms, vm.call-return 57→50 ms,
 safety1.svref-loop 44→39 ms — ~8–12% on VM-dispatch-heavy loops; see docs/benchmarks.md.
 
@@ -621,7 +621,7 @@ twice per slot access by the SLOT-VALUE compiler macro), MV_RESET 3%.
 | with-lock-held, uncontended | 117 | 44 | = unwind-protect + acquire + release |
 | typep on a class | 88 | 51 | |
 
-`CLAMIGA_FORCE_SPEED=3` changes **no row** — the emit-time and peephole work of
+`AMILISP_FORCE_SPEED=3` changes **no row** — the emit-time and peephole work of
 1.3/1.8 is exhausted; the remaining cost is in the runtime C and the protocol.
 
 ### 4.1 Phase 1 — remove the taxes ✅ DONE (2026-09-08)
@@ -743,7 +743,7 @@ planning phase 3 against it.
    the saved-pending record happens only when an error is actually
    pending.  `cl_nlx_jump()` is now the only way to transfer to a frame.
 3. **handler-case codegen** ✅ — `HANDLER-CASE` expands to the special
-   form `CLAMIGA::%HANDLER-CASE` (`OP_HANDLER_CASE_PUSH` / `_POP`): one
+   form `AMILISP::%HANDLER-CASE` (`OP_HANDLER_CASE_PUSH` / `_POP`): one
    NLX frame plus one handler binding per clause whose "handler" is the
    clause index as a fixnum; `cl_signal_condition` transfers to the frame
    instead of calling a function (through interposed cleanups as pending
@@ -787,7 +787,7 @@ planning phase 3 against it.
    when called once.  `(optimize (space > speed))` or `(debug 3)` keeps
    the closures (and the local's backtrace frame — an inlined call has
    none, the error line still points into the body);
-   `CLAMIGA_NO_LOCAL_INLINE=1` does so process-wide.  A macro that
+   `AMILISP_NO_LOCAL_INLINE=1` does so process-wide.  A macro that
    expands differently between the analysis and the compile is reported
    as a clear compile error, never compiled as a call through the empty
    slot.  What it saves per `flet` entry: the closure allocation; per
@@ -851,9 +851,9 @@ shaped the phase:
   gated on `peep_speed_max >= 1`, was `>= 2`).  Third-party code — sento
   included — compiles at the default `(speed 1)`, so a `speed >= 2` gate
   would have left the acceptance workload untouched.  `(speed 0)` and
-  `CLAMIGA_FORCE_SPEED=0` keep the bytecode as emitted, which is what the
+  `AMILISP_FORCE_SPEED=0` keep the bytecode as emitted, which is what the
   differential harness diffs against (now at 0 vs 1, 2 and 3);
-  `CLAMIGA_NO_FUSE=1` keeps the rewrites but not the fusion.
+  `AMILISP_NO_FUSE=1` keeps the rewrites but not the fusion.
 - **The table came from a pair profile, not from the single-opcode counts
   of 4.0.**  `PROFILE_OPCODES` builds now count adjacent pairs
   (`cl_op_pair_counts`, dumped by `%op-counts-dump`); the sento message
@@ -936,7 +936,7 @@ differential corpus carries multi-clause handler-cases, and
 **Tests**: `tests/test_peephole.c` (47 cases: every fusion, the three
 rewrites, the pinned table, the line map, the speed policy),
 `tests/test_tier4_phase3.sh` (78 checks: shapes through DISASSEMBLE at
-speed 1 / speed 0 / `CLAMIGA_NO_FUSE`, semantics and error paths of every
+speed 1 / speed 0 / `AMILISP_NO_FUSE`, semantics and error paths of every
 fused opcode, dynamic bindings, backtrace lines, multi-clause
 `handler-case`, `compile-file` round trip, allocation loops; also under
 `make test-gc-stress`), the "Tier-4 phase 3" block of
@@ -1001,7 +1001,7 @@ from 104 to 66 ms and the new `string-scan` row from 26 to 16 ms (ECL
 **Tests**: `tests/test_scan_opcodes.sh` (135 checks in its summary
 line — 134 `check_contains`/`check_absent` calls plus the inline count of
 `JTRUE`s in a `CASE`: every shape through DISASSEMBLE at speed 1 /
-speed 0 / `CLAMIGA_NO_FUSE`, every string and vector representation
+speed 0 / `AMILISP_NO_FUSE`, every string and vector representation
 through `AREF`, the builtin error texts including `SVREF` on a string,
 `CMP_BR` on every number kind and both polarities, `PUSH`/`POP` value and
 order on every kind of place, `INCF`/`DECF` on every kind of place, the

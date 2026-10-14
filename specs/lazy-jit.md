@@ -37,10 +37,10 @@ bytecode.
 - A function compiled under `(optimize (speed 3))` — anywhere in the
   lambda, a local `DECLARE` included — is compiled at definition.
 - A function defined while the JIT is off (`--no-jit`,
-  `(clamiga::%jit-set-active nil)`) stays bytecode for good, which keeps
+  `(amilisp::%jit-set-active nil)`) stays bytecode for good, which keeps
   the A/B-benchmark idiom working.
 - Threshold 0 is eager mode, the old behaviour: `--jit-eager`, or
-  `(clamiga::%jit-set-hot-threshold 0)` (returns the previous value).
+  `(amilisp::%jit-set-hot-threshold 0)` (returns the previous value).
   The m68k tests that inspect native code right after a `DEFUN` bind it
   (`tests/amiga/test-jit.lisp`); the rest of `run-tests.lisp` runs at
   speed 3 and is eager through the hint.

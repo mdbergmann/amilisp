@@ -14283,10 +14283,10 @@ If the FASL file doesn't exist (compile-file skipped caching), load from source.
 ;;; and a shipped lib/asdf.fasl — and is read at load time, so nothing is
 ;;; baked in when this file is compiled.
 ;;;
-;;; Opt out with CLAMIGA_NO_SHIMS=1 (e.g. to run the real cl+ssl on the
+;;; Opt out with AMILISP_NO_SHIMS=1 (e.g. to run the real cl+ssl on the
 ;;; host, where the native FFI can support it).
 #+cl-amiga
-(unless (equal (ext:getenv "CLAMIGA_NO_SHIMS") "1")
+(unless (equal (ext:getenv "AMILISP_NO_SHIMS") "1")
   (let ((here (or *load-truename* *load-pathname*)))
     (when here
       (dolist (shim '("cl+ssl" "swank"))

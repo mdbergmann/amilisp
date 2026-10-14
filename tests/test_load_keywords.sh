@@ -12,7 +12,7 @@
 #
 # Run: sh tests/test_load_keywords.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0
@@ -21,7 +21,7 @@ MISSING="/nonexistent/path_that_cannot_exist_$$.lisp"
 
 # run amilisp in batch mode with *load-verbose* suppressed
 run_quiet() {
-    echo "(setf *load-verbose* nil) $1" | "$CLAMIGA" --no-userinit --batch 2>&1
+    echo "(setf *load-verbose* nil) $1" | "$AMILISP" --no-userinit --batch 2>&1
 }
 
 check_contains() {

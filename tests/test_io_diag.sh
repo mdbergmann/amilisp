@@ -1,5 +1,5 @@
 #!/bin/sh
-# Platform file-I/O trace (CLAMIGA_IO_DIAG): every file operation must print
+# Platform file-I/O trace (AMILISP_IO_DIAG): every file operation must print
 # an "[IO] <t>ms <op> ..." entry line to stderr BEFORE the blocking call —
 # built so a process found hanging inside an OS file call still names the
 # operation, path, and handle it entered with (MorphOS quicklisp-install
@@ -8,7 +8,7 @@
 #
 # Run: sh tests/test_io_diag.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then
@@ -31,7 +31,7 @@ cat > "$tmp" <<EOF
 EOF
 
 # Off by default: no [IO] lines.
-"$TIMEOUT" 60 "$CLAMIGA" --non-interactive --load "$tmp" < /dev/null > "$out" 2>&1
+"$TIMEOUT" 60 "$AMILISP" --non-interactive --load "$tmp" < /dev/null > "$out" 2>&1
 if grep -q '^\[IO\] ' "$out"; then
     echo "FAIL: [IO] output with diagnostic unset"
     cat "$out"
@@ -42,7 +42,7 @@ fi
 # Match on the basename: TMPDIR can carry a trailing slash (macOS), which the
 # Lisp pathname layer normalizes out of the traced path.
 datbase=$(basename "$dat")
-CLAMIGA_IO_DIAG=1 "$TIMEOUT" 60 "$CLAMIGA" --non-interactive --load "$tmp" < /dev/null > "$out" 2>&1
+AMILISP_IO_DIAG=1 "$TIMEOUT" 60 "$AMILISP" --non-interactive --load "$tmp" < /dev/null > "$out" 2>&1
 if ! grep -q "^\[IO\] [0-9]*ms open \".*$datbase\" mode=" "$out"; then
     echo "FAIL: no [IO] open line for the payload file"
     cat "$out"

@@ -20,23 +20,23 @@
 
 (defun %time-call (thunk)
   "Run THUNK once, return (values result elapsed-ms bytes-consed gc-cycles)."
-  (let ((t0 (clamiga::%get-internal-time))
-        (b0 (clamiga::%get-bytes-consed))
-        (g0 (clamiga::%get-gc-count)))
+  (let ((t0 (amilisp::%get-internal-time))
+        (b0 (amilisp::%get-bytes-consed))
+        (g0 (amilisp::%get-gc-count)))
     (let ((r (funcall thunk)))
       (values r
-              (- (clamiga::%get-internal-time) t0)
-              (- (clamiga::%get-bytes-consed) b0)
-              (- (clamiga::%get-gc-count) g0)))))
+              (- (amilisp::%get-internal-time) t0)
+              (- (amilisp::%get-bytes-consed) b0)
+              (- (amilisp::%get-gc-count) g0)))))
 
 (defun %run-compare (label defining-form thunk)
   ;; --- bytecode ---
-  (clamiga::%jit-set-active nil)
+  (amilisp::%jit-set-active nil)
   (eval defining-form)
   (funcall thunk)                       ; warmup
   (multiple-value-bind (r-bc t-bc b-bc g-bc) (%time-call thunk)
     ;; --- jit ---
-    (clamiga::%jit-set-active t)
+    (amilisp::%jit-set-active t)
     (eval defining-form)
     (funcall thunk)                     ; warmup
     (multiple-value-bind (r-jit t-jit b-jit g-jit) (%time-call thunk)

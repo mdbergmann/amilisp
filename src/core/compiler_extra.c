@@ -1595,7 +1595,7 @@ void compile_defsetf(CL_Compiler *c, CL_Obj form)
      * lambda list (NIL) followed by a store-variable list.  The short
      * form's updater is always a (non-NIL) symbol, so a cons in the 3rd
      * slot — or NIL with trailing forms — unambiguously marks the long
-     * form.  Delegate to the Lisp helper clamiga::%defsetf-long, which
+     * form.  Delegate to the Lisp helper amilisp::%defsetf-long, which
      * expands into a define-setf-expander so subforms are evaluated once
      * and &optional/&key defaults in the lambda list are honored. */
     if (CL_CONS_P(third) ||
@@ -1604,7 +1604,7 @@ void compile_defsetf(CL_Compiler *c, CL_Obj form)
         /* GC SAFETY: cl_intern_in can allocate — protect form so the
          * cl_cdr(form) read below sees the forwarded list. */
         CL_GC_PROTECT(form);
-        sym = cl_intern_in("%DEFSETF-LONG", 13, cl_package_clamiga);
+        sym = cl_intern_in("%DEFSETF-LONG", 13, cl_package_amilisp);
         CL_GC_PROTECT(sym);
         new_form = cl_cons(sym, cl_cdr(form));
         CL_GC_UNPROTECT(2);  /* sym, form */
@@ -1696,7 +1696,7 @@ void compile_deftype(CL_Compiler *c, CL_Obj form)
  * time.  The compile-time side effect (setting the symbol flag while
  * compiling) does not survive when the form is later loaded from a
  * precompiled FASL in a fresh session, so the marking must also happen via
- * emitted bytecode.  BUILTIN is interned in the CLAMIGA package.
+ * emitted bytecode.  BUILTIN is interned in the AMILISP package.
  *
  * GC SAFETY: building (BUILTIN (QUOTE NAME)) conses three cells via allocating
  * calls; every intermediate is protected across the next allocation so a
@@ -1711,7 +1711,7 @@ static void emit_quoted_call(CL_Compiler *c, const char *builtin,
     quoted = cl_cons(SYM_QUOTE, inner);
     CL_GC_UNPROTECT(1);            /* inner (now reachable from quoted) */
     CL_GC_PROTECT(quoted);
-    b_sym = cl_intern_in(builtin, builtin_len, cl_package_clamiga);
+    b_sym = cl_intern_in(builtin, builtin_len, cl_package_amilisp);
     CL_GC_PROTECT(b_sym);
     b_arg = cl_cons(quoted, CL_NIL);
     CL_GC_PROTECT(b_arg);
@@ -1751,7 +1751,7 @@ static CL_Obj body_docstring(CL_Obj body)
     return CL_NIL;
 }
 
-/* Emit (CLAMIGA::%SET-DOCUMENTATION 'NAME 'DOC-TYPE DOC) and discard its
+/* Emit (AMILISP::%SET-DOCUMENTATION 'NAME 'DOC-TYPE DOC) and discard its
  * value; a no-op when DOC is not a string or EXT:*CAPTURE-DOCUMENTATION*
  * is NIL.
  *
@@ -1791,7 +1791,7 @@ static void emit_doc_call(CL_Compiler *c, CL_Obj name,
     CL_GC_PROTECT(args);                            /* 4 */
     args = cl_cons(q_type, args);
     args = cl_cons(q_name, args);
-    sym = cl_intern_in("%SET-DOCUMENTATION", 18, cl_package_clamiga);
+    sym = cl_intern_in("%SET-DOCUMENTATION", 18, cl_package_amilisp);
     CL_GC_PROTECT(sym);
     form = cl_cons(sym, args);
     CL_GC_UNPROTECT(1);                             /* sym */
@@ -2079,7 +2079,7 @@ void compile_defun(CL_Compiler *c, CL_Obj form)
         CL_GC_PROTECT(accessor);
 
         /* Hidden symbol %SETF-<package>::<name> for storing the function.
-         * Interned in CLAMIGA, package-qualified so same-named accessors in
+         * Interned in AMILISP, package-qualified so same-named accessors in
          * different packages don't collide; matches compile_setf_place's
          * late-binding path (both go through cl_setf_store_symbol). */
         store_sym = cl_setf_store_symbol(accessor);
@@ -2258,14 +2258,14 @@ void compile_defmacro(CL_Compiler *c, CL_Obj form)
                     lambda_list = after;
                 else
                     ((CL_Cons *)CL_OBJ_TO_PTR(prev))->cdr = after;
-                /* Wrap body: (let ((env-var (CLAMIGA::%MACROEXPAND-ENV))) ...body)
+                /* Wrap body: (let ((env-var (AMILISP::%MACROEXPAND-ENV))) ...body)
                  * GC SAFETY: sequenced conses with env_var protected — the
                  * intern/cons calls can compact and env_var is re-read across
                  * them (body is protected at function entry). */
                 if (CL_SYMBOL_P(env_var)) {
                     CL_Obj capture_sym, capture_call, binding, bindings, let_form;
                     CL_GC_PROTECT(env_var);
-                    capture_sym = cl_intern_in("%MACROEXPAND-ENV", 16, cl_package_clamiga);
+                    capture_sym = cl_intern_in("%MACROEXPAND-ENV", 16, cl_package_amilisp);
                     capture_call = cl_cons(capture_sym, CL_NIL);
                     binding = cl_cons(capture_call, CL_NIL);
                     binding = cl_cons(env_var, binding);
@@ -2428,7 +2428,7 @@ void compile_defmacro(CL_Compiler *c, CL_Obj form)
      * Build:
      *   (let ((#:inner <lambda_form>))
      *     (lambda (#:form #:env)
-     *       (clamiga::%call-macro-expander #:inner #:form #:env)))
+     *       (amilisp::%call-macro-expander #:inner #:form #:env)))
      * The wrapper's 2-required-arg signature makes 0/1/3+ arg calls
      * to (macro-function ...) signal PROGRAM-ERROR (via CL_ERR_ARGS),
      * matching CLHS for PUSH.ERROR.1 / PUSHNEW.ERROR.4 / REMF.ERROR.1. */
@@ -2442,8 +2442,8 @@ void compile_defmacro(CL_Compiler *c, CL_Obj form)
         CL_GC_PROTECT(form_gs);
         env_gs = defmacro_gensym();
         CL_GC_PROTECT(env_gs);
-        cme_sym = cl_intern_in("%CALL-MACRO-EXPANDER", 20, cl_package_clamiga);
-        /* (clamiga::%call-macro-expander #:inner #:form #:env) */
+        cme_sym = cl_intern_in("%CALL-MACRO-EXPANDER", 20, cl_package_amilisp);
+        /* (amilisp::%call-macro-expander #:inner #:form #:env) */
         inner_call = cl_cons(env_gs, CL_NIL);
         inner_call = cl_cons(form_gs, inner_call);
         inner_call = cl_cons(inner_gs, inner_call);
@@ -2853,14 +2853,14 @@ void compile_trace(CL_Compiler *c, CL_Obj form)
 
     if (CL_NULL_P(args)) {
         /* (trace) with no args: call %TRACED-FUNCTIONS */
-        int idx = cl_add_constant(c, cl_intern_in("%TRACED-FUNCTIONS", 17, cl_package_clamiga));
+        int idx = cl_add_constant(c, cl_intern_in("%TRACED-FUNCTIONS", 17, cl_package_amilisp));
         cl_emit(c, OP_FLOAD);
         cl_emit_u16(c, (uint16_t)idx);
         cl_emit_call(c, OP_CALL, 0);
         return;
     }
 
-    trace_fn_idx = cl_add_constant(c, cl_intern_in("%TRACE-FUNCTION", 15, cl_package_clamiga));
+    trace_fn_idx = cl_add_constant(c, cl_intern_in("%TRACE-FUNCTION", 15, cl_package_amilisp));
     a = args;
     while (!CL_NULL_P(a)) {
         CL_Obj name = cl_car(a);
@@ -2888,14 +2888,14 @@ void compile_untrace(CL_Compiler *c, CL_Obj form)
 
     if (CL_NULL_P(args)) {
         /* (untrace) with no args: call %UNTRACE-ALL */
-        int idx = cl_add_constant(c, cl_intern_in("%UNTRACE-ALL", 12, cl_package_clamiga));
+        int idx = cl_add_constant(c, cl_intern_in("%UNTRACE-ALL", 12, cl_package_amilisp));
         cl_emit(c, OP_FLOAD);
         cl_emit_u16(c, (uint16_t)idx);
         cl_emit_call(c, OP_CALL, 0);
         return;
     }
 
-    untrace_fn_idx = cl_add_constant(c, cl_intern_in("%UNTRACE-FUNCTION", 17, cl_package_clamiga));
+    untrace_fn_idx = cl_add_constant(c, cl_intern_in("%UNTRACE-FUNCTION", 17, cl_package_amilisp));
     a = args;
     while (!CL_NULL_P(a)) {
         CL_Obj name = cl_car(a);
@@ -2932,11 +2932,11 @@ void compile_time(CL_Compiler *c, CL_Obj form)
     start_gc_slot = alloc_temp_slot(c->env);
     result_slot = alloc_temp_slot(c->env);
 
-    get_time_idx = cl_add_constant(c, cl_intern_in("%GET-INTERNAL-TIME", 18, cl_package_clamiga));
-    get_run_idx = cl_add_constant(c, cl_intern_in("%GET-RUN-TIME", 13, cl_package_clamiga));
-    get_consed_idx = cl_add_constant(c, cl_intern_in("%GET-BYTES-CONSED", 17, cl_package_clamiga));
-    get_gc_idx = cl_add_constant(c, cl_intern_in("%GET-GC-COUNT", 13, cl_package_clamiga));
-    report_idx = cl_add_constant(c, cl_intern_in("%TIME-REPORT", 12, cl_package_clamiga));
+    get_time_idx = cl_add_constant(c, cl_intern_in("%GET-INTERNAL-TIME", 18, cl_package_amilisp));
+    get_run_idx = cl_add_constant(c, cl_intern_in("%GET-RUN-TIME", 13, cl_package_amilisp));
+    get_consed_idx = cl_add_constant(c, cl_intern_in("%GET-BYTES-CONSED", 17, cl_package_amilisp));
+    get_gc_idx = cl_add_constant(c, cl_intern_in("%GET-GC-COUNT", 13, cl_package_amilisp));
+    report_idx = cl_add_constant(c, cl_intern_in("%TIME-REPORT", 12, cl_package_amilisp));
 
     /* Capture start time */
     cl_emit(c, OP_FLOAD);
@@ -3042,12 +3042,12 @@ void compile_in_package(CL_Compiler *c, CL_Obj form)
     /* Fallback: package not known at compile time.  This happens when a
      * top-level form bundles `(load <file>)` and `(in-package :PKG)` so that
      * PKG is created by the load only at run time.  Emit a runtime call to
-     * clamiga::%set-current-package so the lookup-and-error happens at the
+     * amilisp::%set-current-package so the lookup-and-error happens at the
      * point this form is actually executed. */
     {
         CL_Obj name_str_obj = cl_make_string(name_str, name_len);
         CL_Obj setter_sym = cl_intern_in("%SET-CURRENT-PACKAGE", 20,
-                                         cl_package_clamiga);
+                                         cl_package_amilisp);
         int setter_idx = cl_add_constant(c, setter_sym);
         int name_idx = cl_add_constant(c, name_str_obj);
         cl_emit(c, OP_FLOAD);

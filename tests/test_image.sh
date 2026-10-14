@@ -29,10 +29,10 @@
 #
 # Run: sh tests/test_image.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
-case "$CLAMIGA" in
+AMILISP="${1:-build/host/amilisp}"
+case "$AMILISP" in
     /*) : ;;
-    *) CLAMIGA="$(pwd)/$CLAMIGA" ;;
+    *) AMILISP="$(pwd)/$AMILISP" ;;
 esac
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
@@ -137,7 +137,7 @@ cat > verify.lisp <<'EOF'
                                 (ffi:free-foreign m)))
                             (handler-case (im-lc 1 2)
                               (error (e) (if (search "not open" (format nil "~a" e)) :not-open e)))))
-(format t "BT=~a~%" (list (getf (clamiga::%binding-table-info "IM-BT") :entries)
+(format t "BT=~a~%" (list (getf (amilisp::%binding-table-info "IM-BT") :entries)
                           (eq *im-bt-before* 'im-bt:+before+)
                           (multiple-value-bind (s st) (find-symbol "+AFTER+" "IM-BT") (list st (symbol-value s)))
                           (getf (ffi::%ffi-stub-info #'im-bt:im-bt-call) :lvo)
@@ -147,14 +147,14 @@ cat > verify.lisp <<'EOF'
 (format t "GC-OK=~a~%" (im-fib 10))
 EOF
 
-out=$("$TIMEOUT" 60 "$CLAMIGA" $CLI --heap 8M --non-interactive \
+out=$("$TIMEOUT" 60 "$AMILISP" $CLI --heap 8M --non-interactive \
     --load state.lisp --eval '(ext:save-image "session.img")' </dev/null 2>&1)
 ec=$?
 check "save_full_boot_session" 0 "$ec" "$out" STATE-LOADED "Image saved"
 
 # --- Restore and verify every state class --------------------------------
 
-out=$("$TIMEOUT" 60 "$CLAMIGA" --no-userinit --image session.img \
+out=$("$TIMEOUT" 60 "$AMILISP" --no-userinit --image session.img \
     --non-interactive --load verify.lisp </dev/null 2>&1)
 ec=$?
 check "restore_verifies_state" 0 "$ec" "$out" \
@@ -164,14 +164,14 @@ check "restore_verifies_state" 0 "$ec" "$out" \
 
 # --- Restore into a larger heap ------------------------------------------
 
-out=$("$TIMEOUT" 60 "$CLAMIGA" --no-userinit --image session.img --heap 48M \
+out=$("$TIMEOUT" 60 "$AMILISP" --no-userinit --image session.img --heap 48M \
     --non-interactive --eval '(format t "BIGHEAP=~a~%" (im-fib 12))' </dev/null 2>&1)
 ec=$?
 check "restore_into_larger_heap" 0 "$ec" "$out" "BIGHEAP=144"
 
 # --- :quit t: dump after the form, skip later actions, run exit hooks ----
 
-out=$("$TIMEOUT" 60 "$CLAMIGA" $CLI --heap 8M --non-interactive \
+out=$("$TIMEOUT" 60 "$AMILISP" $CLI --heap 8M --non-interactive \
     --eval '(ext:add-exit-hook (lambda () (format t "EXIT-HOOK~%")))' \
     --eval '(defvar *im-q* 7)' \
     --eval '(ext:save-image "quit.img" :quit t)' \
@@ -181,7 +181,7 @@ check "save_quit_writes_and_exits" 0 "$ec" "$out" "Image saved" "EXIT-HOOK"
 desc="save_quit_skips_later_actions"
 check_absent "$desc" "$out" "NOT-REACHED"
 
-out=$("$TIMEOUT" 60 "$CLAMIGA" --no-userinit --image quit.img \
+out=$("$TIMEOUT" 60 "$AMILISP" --no-userinit --image quit.img \
     --non-interactive --eval '(format t "QVAR=~a~%" *im-q*)' </dev/null 2>&1)
 ec=$?
 check "quit_image_restores" 0 "$ec" "$out" "QVAR=7"
@@ -189,11 +189,11 @@ check "quit_image_restores" 0 "$ec" "$out" "QVAR=7"
 # --- Deferred dump at the (batch) REPL: session continues after save -----
 
 out=$(printf '(defvar *im-r* 5)\n(ext:save-image "repl.img")\n(format t "AFTER-SAVE=~a~%%" (+ *im-r* 1))\n(quit)\n' \
-    | "$TIMEOUT" 60 "$CLAMIGA" $CLI --heap 8M --batch 2>&1)
+    | "$TIMEOUT" 60 "$AMILISP" $CLI --heap 8M --batch 2>&1)
 ec=$?
 check "repl_save_session_continues" 0 "$ec" "$out" "Image saved" "AFTER-SAVE=6"
 
-out=$("$TIMEOUT" 60 "$CLAMIGA" --no-userinit --image repl.img \
+out=$("$TIMEOUT" 60 "$AMILISP" --no-userinit --image repl.img \
     --non-interactive --eval '(format t "RVAR=~a~%" *im-r*)' </dev/null 2>&1)
 ec=$?
 check "repl_image_restores" 0 "$ec" "$out" "RVAR=5"
@@ -226,12 +226,12 @@ cat > lockimg.lisp <<'EOF'
 (mp:release-lock *im-lk*)
 (mp:release-lock *im-lk*)
 EOF
-out=$("$TIMEOUT" 60 "$CLAMIGA" $CLI --heap 8M --non-interactive \
+out=$("$TIMEOUT" 60 "$AMILISP" $CLI --heap 8M --non-interactive \
     --load lockimg.lisp </dev/null 2>&1)
 ec=$?
 check "save_with_held_lock" 0 "$ec" "$out" "PRE-SAVE waiters=0 held=T" "Image saved"
 
-out=$("$TIMEOUT" 60 "$CLAMIGA" --no-userinit --image locks.img --non-interactive \
+out=$("$TIMEOUT" 60 "$AMILISP" --no-userinit --image locks.img --non-interactive \
     --eval '(format t "POST-RESTORE waiters=~a held=~a ok=~a~%" (mp::%condvar-waiters *im-cv*) (mp::%lock-held-p *im-lk*) (progn (mp:acquire-lock *im-lk*) (mp:acquire-lock *im-lk*) (mp:condition-notify *im-cv*) (mp:release-lock *im-lk*) (mp:release-lock *im-lk*) (mp:join-thread (mp:make-thread (lambda () (mp:acquire-lock *im-lk* nil))))))' </dev/null 2>&1)
 ec=$?
 check "restored_lock_and_condvar_are_free" 0 "$ec" "$out" "POST-RESTORE waiters=0 held=NIL ok=T"
@@ -254,7 +254,7 @@ cat > thrimg.lisp <<'EOF2'
 (mp:join-thread *im-anon*)
 (format t "SAVED-P ~a~%" (probe-file "threads.img"))
 EOF2
-out=$("$TIMEOUT" 60 "$CLAMIGA" $CLI --heap 8M --non-interactive \
+out=$("$TIMEOUT" 60 "$AMILISP" $CLI --heap 8M --non-interactive \
     --load thrimg.lisp </dev/null 2>&1)
 ec=$?
 check "save_refused_names_live_threads" 0 "$ec" "$out" \
@@ -271,14 +271,14 @@ esac
 # Flip a fingerprint byte (offset 12 is inside the 32-byte fingerprint).
 cp session.img corrupt.img
 printf '\377' | dd of=corrupt.img bs=1 seek=12 count=1 conv=notrunc 2>/dev/null
-out=$("$TIMEOUT" 60 "$CLAMIGA" --no-userinit --image corrupt.img \
+out=$("$TIMEOUT" 60 "$AMILISP" --no-userinit --image corrupt.img \
     --non-interactive --eval '(print 1)' </dev/null 2>&1)
 ec=$?
 check "corrupt_image_refused" 1 "$ec" "$out" "different build"
 
 # Truncated file: refused, exit 1.
 head -c 50000 session.img > trunc.img
-out=$("$TIMEOUT" 60 "$CLAMIGA" --no-userinit --image trunc.img \
+out=$("$TIMEOUT" 60 "$AMILISP" --no-userinit --image trunc.img \
     --non-interactive --eval '(print 1)' </dev/null 2>&1)
 ec=$?
 check "truncated_image_refused" 1 "$ec" "$out" "corrupt"
@@ -286,12 +286,12 @@ check "truncated_image_refused" 1 "$ec" "$out" "corrupt"
 # --- Auto-discovery of amilisp.img in the cwd ----------------------------
 
 cp session.img amilisp.img
-out=$("$TIMEOUT" 60 "$CLAMIGA" --no-userinit --non-interactive \
+out=$("$TIMEOUT" 60 "$AMILISP" --no-userinit --non-interactive \
     --eval '(format t "DISC=~a~%" ext:*image-restored-p*)' </dev/null 2>&1)
 ec=$?
 check "auto_discovery_cwd" 0 "$ec" "$out" "DISC=T"
 
-out=$("$TIMEOUT" 60 "$CLAMIGA" --no-userinit --no-image --non-interactive \
+out=$("$TIMEOUT" 60 "$AMILISP" --no-userinit --no-image --non-interactive \
     --eval '(format t "NODISC=~a~%" ext:*image-restored-p*)' </dev/null 2>&1)
 ec=$?
 check "no_image_bypasses_discovery" 0 "$ec" "$out" "NODISC=NIL"
@@ -299,7 +299,7 @@ check "no_image_bypasses_discovery" 0 "$ec" "$out" "NODISC=NIL"
 # A corrupt discovered image falls back to a normal boot (exit 0), unlike
 # an explicit --image.
 cp corrupt.img amilisp.img
-out=$("$TIMEOUT" 60 "$CLAMIGA" --no-userinit --non-interactive \
+out=$("$TIMEOUT" 60 "$AMILISP" --no-userinit --non-interactive \
     --eval '(format t "FALLBACK=~a~%" ext:*image-restored-p*)' </dev/null 2>&1)
 ec=$?
 check "corrupt_discovery_falls_back" 0 "$ec" "$out" "FALLBACK=NIL" "different build"
@@ -308,7 +308,7 @@ rm -f amilisp.img
 # The pre-rename name: a clamiga.img saved before the runtime became
 # AmiLisp (0.12) is still discovered at every location ...
 cp session.img clamiga.img
-out=$("$TIMEOUT" 60 "$CLAMIGA" --no-userinit --non-interactive \
+out=$("$TIMEOUT" 60 "$AMILISP" --no-userinit --non-interactive \
     --eval '(format t "DISC-OLD=~a~%" ext:*image-restored-p*)' </dev/null 2>&1)
 ec=$?
 check "auto_discovery_pre_rename_name" 0 "$ec" "$out" "DISC-OLD=T"
@@ -316,7 +316,7 @@ check "auto_discovery_pre_rename_name" 0 "$ec" "$out" "DISC-OLD=T"
 # clamiga.img would have forced a fallback boot had it been tried first).
 cp corrupt.img clamiga.img
 cp session.img amilisp.img
-out=$("$TIMEOUT" 60 "$CLAMIGA" --no-userinit --non-interactive \
+out=$("$TIMEOUT" 60 "$AMILISP" --no-userinit --non-interactive \
     --eval '(format t "DISC-NEW-FIRST=~a~%" ext:*image-restored-p*)' </dev/null 2>&1)
 ec=$?
 check "auto_discovery_new_name_first" 0 "$ec" "$out" "DISC-NEW-FIRST=T"
@@ -326,7 +326,7 @@ rm -f amilisp.img clamiga.img
 # in <prefix>/lib/amilisp/, beside the runtime library it belongs to — the
 # same executable-relative locations the lib/ search uses.
 mkdir -p prefix/bin prefix/lib/amilisp
-cp "$CLAMIGA" prefix/bin/amilisp
+cp "$AMILISP" prefix/bin/amilisp
 cp session.img prefix/lib/amilisp/amilisp.img
 out=$(cd prefix && "$TIMEOUT" 60 bin/amilisp --no-userinit --non-interactive \
     --eval '(format t "DISC-FHS=~a~%" ext:*image-restored-p*)' </dev/null 2>&1)
@@ -335,7 +335,7 @@ check "auto_discovery_installed_layout" 0 "$ec" "$out" "DISC-FHS=T"
 
 # ... and the prefix layout as installed before the rename: <prefix>/lib/clamiga/clamiga.img
 mkdir -p prefix-old/bin prefix-old/lib/clamiga
-cp "$CLAMIGA" prefix-old/bin/amilisp
+cp "$AMILISP" prefix-old/bin/amilisp
 cp session.img prefix-old/lib/clamiga/clamiga.img
 out=$(cd prefix-old && "$TIMEOUT" 60 bin/amilisp --no-userinit --non-interactive \
     --eval '(format t "DISC-FHS-OLD=~a~%" ext:*image-restored-p*)' </dev/null 2>&1)
@@ -351,13 +351,13 @@ check "auto_discovery_pre_rename_installed_layout" 0 "$ec" "$out" "DISC-FHS-OLD=
 # the same (random) sequence on every restore.  Save in dpd-a/, restore
 # from dpd-b/.
 mkdir -p dpd-a dpd-b
-out=$(cd dpd-a && "$TIMEOUT" 60 "$CLAMIGA" $CLI --non-interactive \
+out=$(cd dpd-a && "$TIMEOUT" 60 "$AMILISP" $CLI --non-interactive \
     --eval '(format t "RND-NEXT=~a~%" (random 1000000 (make-random-state nil)))' \
     --eval '(ext:save-image "dpd.img")' </dev/null 2>&1)
 ec=$?
 check "process_state_save_in_dir_a" 0 "$ec" "$out" "RND-NEXT=" "Image saved"
 rnd_saved=$(echo "$out" | sed -n 's/^RND-NEXT=//p')
-out=$(cd dpd-b && "$TIMEOUT" 60 "$CLAMIGA" --no-userinit --image ../dpd-a/dpd.img \
+out=$(cd dpd-b && "$TIMEOUT" 60 "$AMILISP" --no-userinit --image ../dpd-a/dpd.img \
     --non-interactive \
     --eval '(format t "DPD=~a~%" (namestring *default-pathname-defaults*))' \
     --eval '(format t "RND-FIRST=~a~%" (random 1000000))' </dev/null 2>&1)
@@ -378,7 +378,7 @@ mkdir -p rc-home
 cat > rc-home/.amilisprc <<'EOF'
 (format t "RC-RESTORED=~a~%" ext:*image-restored-p*)
 EOF
-out=$(HOME="$WORK/rc-home" CLAMIGA_NO_USERINIT= "$TIMEOUT" 60 "$CLAMIGA" \
+out=$(HOME="$WORK/rc-home" AMILISP_NO_USERINIT= "$TIMEOUT" 60 "$AMILISP" \
     --image session.img --non-interactive \
     --eval '(format t "RC-DONE~%")' </dev/null 2>&1)
 ec=$?
@@ -399,12 +399,12 @@ cat > shake-state.lisp <<'EOF'
 (eval (list* 'amiga.ffi:define-binding-table "SH-BT" '((:base *sh-base*))
              (loop for i below 400 collect (list :const (format nil "+SH-C~D+" i) i))))
 (defvar *sh-touched* 'sh-bt:+sh-c7+)
-(format t "SHAKE-STATE=~a~%" (getf (clamiga::%binding-table-info "SH-BT") :entries))
+(format t "SHAKE-STATE=~a~%" (getf (amilisp::%binding-table-info "SH-BT") :entries))
 EOF
 
 cat > shake-verify.lisp <<'EOF'
-(format t "SH-INFO=~a~%" (list (getf (clamiga::%binding-table-info "SH-BT") :shed)
-                               (getf (clamiga::%binding-table-info "SH-BT") :entries)))
+(format t "SH-INFO=~a~%" (list (getf (amilisp::%binding-table-info "SH-BT") :shed)
+                               (getf (amilisp::%binding-table-info "SH-BT") :entries)))
 (format t "SH-TOUCHED=~a~%" (list (eq *sh-touched* 'sh-bt:+sh-c7+) sh-bt:+sh-c7+))
 (format t "SH-UNTOUCHED=~a~%" (multiple-value-list (find-symbol "+SH-C9+" "SH-BT")))
 (format t "SH-READ=~a~%" (handler-case (read-from-string "sh-bt:+sh-c9+")
@@ -412,7 +412,7 @@ cat > shake-verify.lisp <<'EOF'
                                           :hinted :plain))))
 EOF
 
-out=$("$TIMEOUT" 60 "$CLAMIGA" $CLI --heap 8M --non-interactive \
+out=$("$TIMEOUT" 60 "$AMILISP" $CLI --heap 8M --non-interactive \
     --load shake-state.lisp \
     --eval '(ext:save-image "shake-plain.img" :quit t)' </dev/null 2>&1)
 ec=$?
@@ -420,7 +420,7 @@ check "shake_baseline_save" 0 "$ec" "$out" "SHAKE-STATE=400" "Image saved"
 desc="save_without_shake_keeps_the_tables"
 check_absent "$desc" "$out" "shed"
 
-out=$("$TIMEOUT" 60 "$CLAMIGA" $CLI --heap 8M --non-interactive \
+out=$("$TIMEOUT" 60 "$AMILISP" $CLI --heap 8M --non-interactive \
     --load shake-state.lisp \
     --eval '(ext:save-image "shake-shaken.img" :quit t :shake-bindings t)' </dev/null 2>&1)
 ec=$?
@@ -436,21 +436,21 @@ else
     fail "$desc" "shaken image $sz_shaken not smaller than $sz_plain" ""
 fi
 
-out=$("$TIMEOUT" 60 "$CLAMIGA" --no-userinit --image shake-shaken.img \
+out=$("$TIMEOUT" 60 "$AMILISP" --no-userinit --image shake-shaken.img \
     --non-interactive --load shake-verify.lisp </dev/null 2>&1)
 ec=$?
 check "shaken_image_closed_at_referenced_names" 0 "$ec" "$out" \
     "SH-INFO=(T 0)" "SH-TOUCHED=(T 7)" "SH-UNTOUCHED=(NIL NIL)" "SH-READ=HINTED"
 
 # The unshaken twin is the control: the same untouched name still resolves.
-out=$("$TIMEOUT" 60 "$CLAMIGA" --no-userinit --image shake-plain.img \
+out=$("$TIMEOUT" 60 "$AMILISP" --no-userinit --image shake-plain.img \
     --non-interactive --load shake-verify.lisp </dev/null 2>&1)
 ec=$?
 check "unshaken_image_still_materialises_on_demand" 0 "$ec" "$out" \
     "SH-INFO=(NIL 400)" "SH-UNTOUCHED=(+SH-C9+ EXTERNAL)" "SH-READ=+SH-C9+"
 
 # Nothing lazy loaded: a clean no-op, not an error and not a stray message.
-out=$("$TIMEOUT" 60 "$CLAMIGA" $CLI --heap 8M --non-interactive \
+out=$("$TIMEOUT" 60 "$AMILISP" $CLI --heap 8M --non-interactive \
     --eval '(defvar *im-n* 3)' \
     --eval '(ext:save-image "noshake.img" :quit t :shake-bindings t)' </dev/null 2>&1)
 ec=$?
@@ -458,13 +458,13 @@ check "shake_bindings_without_any_table_is_a_no_op" 0 "$ec" "$out" "Image saved"
 desc="no_op_shake_says_nothing"
 check_absent "$desc" "$out" "shed"
 
-out=$("$TIMEOUT" 60 "$CLAMIGA" --no-userinit --image noshake.img \
+out=$("$TIMEOUT" 60 "$AMILISP" --no-userinit --image noshake.img \
     --non-interactive --eval '(format t "NOSHAKE=~a~%" *im-n*)' </dev/null 2>&1)
 ec=$?
 check "no_op_shake_image_restores" 0 "$ec" "$out" "NOSHAKE=3"
 
 # An unknown keyword names the ones that exist.
-out=$("$TIMEOUT" 60 "$CLAMIGA" $CLI --heap 8M --non-interactive \
+out=$("$TIMEOUT" 60 "$AMILISP" $CLI --heap 8M --non-interactive \
     --eval '(handler-case (ext:save-image "x.img" :bogus t)
               (error (e) (format t "KWERR=~a~%" e)))' </dev/null 2>&1)
 ec=$?
@@ -486,7 +486,7 @@ cat > im-src-beta.lisp <<'EOF'
 (defun im-src-b1 (x) (- x 1))
 EOF
 
-out=$("$TIMEOUT" 60 "$CLAMIGA" $CLI --heap 8M --non-interactive \
+out=$("$TIMEOUT" 60 "$AMILISP" $CLI --heap 8M --non-interactive \
     --load im-src-alpha.lisp --load im-src-beta.lisp \
     --eval '(defun im-src-repl (x) x)' \
     --eval '(ext:save-image "src.img" :quit t)' </dev/null 2>&1)
@@ -504,7 +504,7 @@ fi
 
 # The file of each function (the nested lambda's too) and, for one of them,
 # the whole location -- only the file is the image's business.
-out=$("$TIMEOUT" 60 "$CLAMIGA" --no-userinit --image src.img --non-interactive \
+out=$("$TIMEOUT" 60 "$AMILISP" --no-userinit --image src.img --non-interactive \
     --eval '(format t "SRC=~s~%" (mapcar (lambda (f)
                                           (let ((loc (ext:function-source-location f)))
                                             (if (consp loc) (car loc) loc)))
@@ -570,14 +570,14 @@ EOF
 
 # Loaded twice: DEFVAR keeps the value and the registry keeps one entry per
 # variable, so the restore runs each form exactly once.
-out=$("$TIMEOUT" 60 "$CLAMIGA" $CLI --heap 8M --non-interactive \
+out=$("$TIMEOUT" 60 "$AMILISP" $CLI --heap 8M --non-interactive \
     --load libvar-state.lisp --load libvar-state.lisp \
     --eval '(ext:save-image "libvar.img")' </dev/null 2>&1)
 ec=$?
 check "library_variables_save" 0 "$ec" "$out" \
     "LV-LOADED=(0 4097 LOADED LOADED)" "Image saved"
 
-out=$(HOME="$WORK/lv-home" CLAMIGA_NO_USERINIT= "$TIMEOUT" 60 "$CLAMIGA" \
+out=$(HOME="$WORK/lv-home" AMILISP_NO_USERINIT= "$TIMEOUT" 60 "$AMILISP" \
     --image libvar.img --non-interactive --load libvar-verify.lisp </dev/null 2>&1)
 ec=$?
 check "library_variables_rederived_before_clamigarc" 0 "$ec" "$out" \

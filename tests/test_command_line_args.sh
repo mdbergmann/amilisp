@@ -21,10 +21,10 @@
 #
 # Run: sh tests/test_command_line_args.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/amilisp}"
-case "$CLAMIGA" in
+AMILISP="${1:-build/host/amilisp}"
+case "$AMILISP" in
     /*|[A-Za-z]:/*) ;;
-    *) CLAMIGA="$(pwd)/$CLAMIGA" ;;
+    *) AMILISP="$(pwd)/$AMILISP" ;;
 esac
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
@@ -55,7 +55,7 @@ check() {
 }
 
 run() {
-    "$TIMEOUT" 30 "$CLAMIGA" "$@" </dev/null 2>&1 | tr -d '\r'
+    "$TIMEOUT" 30 "$AMILISP" "$@" </dev/null 2>&1 | tr -d '\r'
 }
 
 # one line, single blanks, no leading/trailing blank
@@ -92,7 +92,7 @@ cat > script.lisp <<'EOF'
 EOF
 out=$(run $CLI --script script.lisp -- one two)
 check "--script sees the arguments" 'SCRIPT-ARGS ("one" "two")' "$(printf '%s' "$out" | grep SCRIPT-ARGS)"
-out=$(printf '(format t "BATCH-ARGS ~S~%%" ext:*command-line-args*)\n' | "$TIMEOUT" 30 "$CLAMIGA" $CLI --batch -- three 2>&1 | tr -d '\r' | grep BATCH-ARGS)
+out=$(printf '(format t "BATCH-ARGS ~S~%%" ext:*command-line-args*)\n' | "$TIMEOUT" 30 "$AMILISP" $CLI --batch -- three 2>&1 | tr -d '\r' | grep BATCH-ARGS)
 check "--batch sees the arguments" 'BATCH-ARGS ("three")' "$out"
 
 # --- set before the user init file runs ------------------------------------
@@ -100,9 +100,9 @@ mkdir -p home
 cat > home/.amilisprc <<'EOF'
 (format t "RC-ARGS ~S RC-WB ~S~%" ext:*command-line-args* ext:*workbench-started-p*)
 EOF
-# (make test exports CLAMIGA_NO_USERINIT so no test reads the developer's
+# (make test exports AMILISP_NO_USERINIT so no test reads the developer's
 # rc file; this one wants its own read, so clear it as test_userinit.sh does)
-out=$(HOME="$WORK/home" CLAMIGA_NO_USERINIT= "$TIMEOUT" 30 "$CLAMIGA" --no-image --non-interactive -- rc-arg </dev/null 2>&1 | tr -d '\r' | grep RC-ARGS)
+out=$(HOME="$WORK/home" AMILISP_NO_USERINIT= "$TIMEOUT" 30 "$AMILISP" --no-image --non-interactive -- rc-arg </dev/null 2>&1 | tr -d '\r' | grep RC-ARGS)
 check "~/.amilisprc already sees them" 'RC-ARGS ("rc-arg") RC-WB NIL' "$out"
 
 # --- image: the restoring process's arguments, before the restore hooks ----

@@ -7,7 +7,7 @@
 # CL_WIDE_STRINGS; MorphOS is wide but loads the same FASLs): they have no
 # decoder for FASL_TAG_WIDE_STRING, so a string literal with a character
 # above U+007F in a shipped module makes REQUIRE fail the whole module with
-# BAD_TAG on the Amiga.  CLAMIGA_FASL_PORTABLE=1 makes the host's
+# BAD_TAG on the Amiga.  AMILISP_FASL_PORTABLE=1 makes the host's
 # FASL writer refuse such a string at compile time instead, naming the code
 # point and the source line (src/core/fasl.c, FASL_ERR_NONPORTABLE).
 #
@@ -27,9 +27,9 @@
 #
 # Run: sh tests/test_lib_fasl_portable.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-case "$CLAMIGA" in /*) ;; *) CLAMIGA="$(pwd)/$CLAMIGA" ;; esac
+case "$AMILISP" in /*) ;; *) AMILISP="$(pwd)/$AMILISP" ;; esac
 TMPD=$(mktemp -d "${TMPDIR:-/tmp}/test_lib_fasl_portable_XXXXXX") || exit 1
 trap 'rm -rf "$TMPD"' EXIT INT TERM
 
@@ -44,12 +44,12 @@ run() {  # run [ENV=val ...] -- forms... ; prints amilisp's output
 }
 
 # ---------------------------------------------------------------- Part 1
-echo "=== test_lib_fasl_portable: the CLAMIGA_FASL_PORTABLE=1 guard ==="
+echo "=== test_lib_fasl_portable: the AMILISP_FASL_PORTABLE=1 guard ==="
 # the em dash is in a RUNTIME string (docstrings are dropped by the compiler)
 printf '(defvar *np-msg* "em dash \342\200\224 here")\n(defun np-len () (length *np-msg*))\n' > "$TMPD/np.lisp"
 printf '(defvar *ok-msg* "plain ascii -- fine")\n' > "$TMPD/ok.lisp"
 
-out=$(run CLAMIGA_NO_USERINIT=1 CLAMIGA_FASL_PORTABLE=1 "$CLAMIGA" --no-userinit --non-interactive \
+out=$(run AMILISP_NO_USERINIT=1 AMILISP_FASL_PORTABLE=1 "$AMILISP" --no-userinit --non-interactive \
         --eval "(compile-file \"$TMPD/np.lisp\" :output-file \"$TMPD/np.fasl\")" --eval '(quit)')
 if [ -e "$TMPD/np.fasl" ]; then
     fail "portable mode must not write a FASL with a non-ASCII string literal"
@@ -61,13 +61,13 @@ if echo "$out" | grep -q 'U+2014' && echo "$out" | grep -q 'src-line=1'; then
 else
     fail "diagnostic must name U+2014 and src-line=1" "$out"
 fi
-if echo "$out" | grep -q 'CLAMIGA_FASL_PORTABLE'; then
+if echo "$out" | grep -q 'AMILISP_FASL_PORTABLE'; then
     ok "diagnostic names the knob"
 else
-    fail "diagnostic must mention CLAMIGA_FASL_PORTABLE" "$out"
+    fail "diagnostic must mention AMILISP_FASL_PORTABLE" "$out"
 fi
 
-out=$(run CLAMIGA_NO_USERINIT=1 CLAMIGA_FASL_PORTABLE=1 "$CLAMIGA" --no-userinit --non-interactive \
+out=$(run AMILISP_NO_USERINIT=1 AMILISP_FASL_PORTABLE=1 "$AMILISP" --no-userinit --non-interactive \
         --eval "(compile-file \"$TMPD/ok.lisp\" :output-file \"$TMPD/ok.fasl\")" --eval '(quit)')
 if [ -s "$TMPD/ok.fasl" ]; then
     ok "portable mode: ASCII string literals compile"
@@ -75,11 +75,11 @@ else
     fail "ASCII literal must compile in portable mode" "$out"
 fi
 
-out=$(run CLAMIGA_NO_USERINIT=1 CLAMIGA_FASL_PORTABLE=0 "$CLAMIGA" --no-userinit --non-interactive \
+out=$(run AMILISP_NO_USERINIT=1 AMILISP_FASL_PORTABLE=0 "$AMILISP" --no-userinit --non-interactive \
         --eval "(compile-file \"$TMPD/np.lisp\" :output-file \"$TMPD/np.fasl\")" --eval '(quit)')
 if [ -s "$TMPD/np.fasl" ]; then
     ok "mode off: the non-ASCII literal compiles (host behaviour unchanged)"
-    out=$(run CLAMIGA_NO_USERINIT=1 "$CLAMIGA" --no-userinit --non-interactive \
+    out=$(run AMILISP_NO_USERINIT=1 "$AMILISP" --no-userinit --non-interactive \
             --eval "(load \"$TMPD/np.fasl\")" --eval '(format t "~&NP-LEN=~D~%" (np-len))' --eval '(quit)')
     if echo "$out" | grep -q '^NP-LEN=14$'; then
         ok "mode off: the wide string round-trips through the FASL on the host"
@@ -95,7 +95,7 @@ echo "=== test_lib_fasl_portable: every shipped lib module compiles portably ===
 # Mirrors scripts/make-binary-release.sh: FASL_LIBS + lib/amiga/**.
 SHIPPED="lib/boot.lisp lib/clos.lisp lib/ffi.lisp lib/gray-streams.lisp lib/dev-commands.lisp lib/dev-repl.lisp lib/dev-tcp.lisp $(find lib/amiga -name '*.lisp' | LC_ALL=C sort | tr '\n' ' ')"
 n_src=$(echo $SHIPPED | wc -w | tr -d ' ')
-out=$(sh scripts/compile-lib-fasls.sh -o "$TMPD" -b "$CLAMIGA" $SHIPPED 2>&1)
+out=$(sh scripts/compile-lib-fasls.sh -o "$TMPD" -b "$AMILISP" $SHIPPED 2>&1)
 rc=$?
 n_fasl=$(find "$TMPD/lib" -name '*.fasl' | wc -l | tr -d ' ')
 if [ $rc -eq 0 ] && [ "$n_fasl" = "$n_src" ]; then
@@ -115,7 +115,7 @@ cat > "$TMPD/deployed.lisp" <<'EOF'
 (format t "~&REACTION=~A~%" (if (find-package "AMIGA.REACTION") "ok" "missing"))
 (format t "~&GRAY=~A~%" (if (find-package "GRAY") "ok" "missing"))
 EOF
-out=$(cd "$TMPD" && run CLAMIGA_NO_USERINIT=1 CLAMIGA_HOME= "$CLAMIGA" --no-userinit --non-interactive \
+out=$(cd "$TMPD" && run AMILISP_NO_USERINIT=1 AMILISP_HOME= "$AMILISP" --no-userinit --non-interactive \
         --heap 64M --eval '(require "gray-streams")' --load deployed.lisp --eval '(quit)')
 # (amilisp prints the resolved path -- /private/var/... for a macOS /var/... TMPDIR --
 # so match on the unique temp directory name, not the full prefix)

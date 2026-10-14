@@ -21,7 +21,7 @@
 #
 # Run: sh tests/test_mt_stream_mutex_leak.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then
@@ -51,7 +51,7 @@ RUNS=3
 i=0
 while [ "$i" -lt "$RUNS" ]; do
     i=$((i + 1))
-    out=$("$TIMEOUT" 30 "$CLAMIGA" --no-userinit --heap 4M --non-interactive \
+    out=$("$TIMEOUT" 30 "$AMILISP" --no-userinit --heap 4M --non-interactive \
           --load "$tmp" </dev/null 2>&1)
     ec=$?
     if [ "$ec" -eq 124 ]; then

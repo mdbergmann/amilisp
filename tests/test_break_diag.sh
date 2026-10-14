@@ -1,7 +1,7 @@
 #!/bin/sh
 # Ctrl-C break-in + per-collection GC trace (runtime diagnostics).
 #
-# 1. CLAMIGA_GC_DIAG=1 must print one "[GC] ... pause=...us used=..." line
+# 1. AMILISP_GC_DIAG=1 must print one "[GC] ... pause=...us used=..." line
 #    per collection (both the generational and the classic collector), and
 #    must print NOTHING when the env var is unset.
 #
@@ -23,7 +23,7 @@
 #
 # Run: sh tests/test_break_diag.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then
@@ -44,22 +44,22 @@ cat > "$tmp" <<'EOF'
   (ext:gc))
 EOF
 
-"$TIMEOUT" 60 "$CLAMIGA" --non-interactive --load "$tmp" < /dev/null > "$out" 2>&1
+"$TIMEOUT" 60 "$AMILISP" --non-interactive --load "$tmp" < /dev/null > "$out" 2>&1
 if grep -q '^\[GC\] .*ms #[0-9]* .* pause=[0-9]*us used=[0-9]*K/[0-9]*K$' "$out"; then
     echo "FAIL: [GC] output with diagnostic unset"
     fail=1
 fi
 
-CLAMIGA_GC_DIAG=1 "$TIMEOUT" 60 "$CLAMIGA" --non-interactive --load "$tmp" < /dev/null > "$out" 2>&1
+AMILISP_GC_DIAG=1 "$TIMEOUT" 60 "$AMILISP" --non-interactive --load "$tmp" < /dev/null > "$out" 2>&1
 if ! grep -q '^\[GC\] [0-9]*ms #[0-9]* [a-z-]* pause=[0-9]*us used=[0-9]*K/[0-9]*K$' "$out"; then
-    echo "FAIL: no [GC] trace line with CLAMIGA_GC_DIAG=1 (default collector)"
+    echo "FAIL: no [GC] trace line with AMILISP_GC_DIAG=1 (default collector)"
     cat "$out"
     fail=1
 fi
 
-CLAMIGA_GC_DIAG=1 CLAMIGA_GENGC=0 "$TIMEOUT" 60 "$CLAMIGA" --non-interactive --load "$tmp" < /dev/null > "$out" 2>&1
+AMILISP_GC_DIAG=1 AMILISP_GENGC=0 "$TIMEOUT" 60 "$AMILISP" --non-interactive --load "$tmp" < /dev/null > "$out" 2>&1
 if ! grep -q '^\[GC\] [0-9]*ms #[0-9]* \(sweep\|immix\|compact\|compact-fallback\) pause=' "$out"; then
-    echo "FAIL: no [GC] trace line with CLAMIGA_GC_DIAG=1 (classic collector)"
+    echo "FAIL: no [GC] trace line with AMILISP_GC_DIAG=1 (classic collector)"
     cat "$out"
     fail=1
 fi
@@ -90,7 +90,7 @@ EOF
 
 # No $TIMEOUT wrapper here: the SIGINT must reach amilisp itself, not the
 # timeout process.  A manual watchdog below bounds the run instead.
-"$CLAMIGA" --non-interactive --load "$tmp" < /dev/null > "$out" 2>&1 &
+"$AMILISP" --non-interactive --load "$tmp" < /dev/null > "$out" 2>&1 &
 pid=$!
 # Wait for the loop to be running (bounded).
 n=0
@@ -156,7 +156,7 @@ expect {
 exec kill -9 [exp_pid]
 exit 0
 EOF
-    if ! "$TIMEOUT" 60 "$EXPECT" -f "$tmp" "$CLAMIGA" > "$out" 2>&1; then
+    if ! "$TIMEOUT" 60 "$EXPECT" -f "$tmp" "$AMILISP" > "$out" 2>&1; then
         echo "FAIL: interactive break/CONTINUE leg"
         cat "$out"
         fail=1

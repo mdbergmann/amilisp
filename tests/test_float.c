@@ -893,37 +893,37 @@ TEST(rounding_huge_float)
 TEST(double_float_bits_known)
 {
     /* 25.5d0 = 0x4039800000000000, 1.0d0 = 0x3FF0000000000000 */
-    ASSERT_STR_EQ(eval_print("(clamiga:double-float-bits 25.5d0)"), "4627870829588250624");
-    ASSERT_STR_EQ(eval_print("(clamiga:double-float-bits 1.0d0)"), "4607182418800017408");
-    ASSERT_STR_EQ(eval_print("(clamiga:double-float-bits 0.0d0)"), "0");
+    ASSERT_STR_EQ(eval_print("(amilisp:double-float-bits 25.5d0)"), "4627870829588250624");
+    ASSERT_STR_EQ(eval_print("(amilisp:double-float-bits 1.0d0)"), "4607182418800017408");
+    ASSERT_STR_EQ(eval_print("(amilisp:double-float-bits 0.0d0)"), "0");
 }
 
 TEST(single_float_bits_known)
 {
     /* 1.0 = 0x3F800000 = 1065353216, 25.5 = 0x41CC0000 = 1103888384 */
-    ASSERT_STR_EQ(eval_print("(clamiga:single-float-bits 1.0)"), "1065353216");
-    ASSERT_STR_EQ(eval_print("(clamiga:single-float-bits 25.5)"), "1103888384");
-    ASSERT_STR_EQ(eval_print("(clamiga:single-float-bits 0.0)"), "0");
+    ASSERT_STR_EQ(eval_print("(amilisp:single-float-bits 1.0)"), "1065353216");
+    ASSERT_STR_EQ(eval_print("(amilisp:single-float-bits 25.5)"), "1103888384");
+    ASSERT_STR_EQ(eval_print("(amilisp:single-float-bits 0.0)"), "0");
 }
 
 TEST(double_float_bits_roundtrip)
 {
-    ASSERT_STR_EQ(eval_print("(= 25.5d0 (clamiga:bits-double-float (clamiga:double-float-bits 25.5d0)))"), "T");
-    ASSERT_STR_EQ(eval_print("(= -1.5d0 (clamiga:bits-double-float (clamiga:double-float-bits -1.5d0)))"), "T");
-    ASSERT_STR_EQ(eval_print("(= 3.14159d0 (clamiga:bits-double-float (clamiga:double-float-bits 3.14159d0)))"), "T");
+    ASSERT_STR_EQ(eval_print("(= 25.5d0 (amilisp:bits-double-float (amilisp:double-float-bits 25.5d0)))"), "T");
+    ASSERT_STR_EQ(eval_print("(= -1.5d0 (amilisp:bits-double-float (amilisp:double-float-bits -1.5d0)))"), "T");
+    ASSERT_STR_EQ(eval_print("(= 3.14159d0 (amilisp:bits-double-float (amilisp:double-float-bits 3.14159d0)))"), "T");
 }
 
 TEST(single_float_bits_roundtrip)
 {
-    ASSERT_STR_EQ(eval_print("(eql 1.0 (clamiga:bits-single-float (clamiga:single-float-bits 1.0)))"), "T");
-    ASSERT_STR_EQ(eval_print("(eql -2.5 (clamiga:bits-single-float (clamiga:single-float-bits -2.5)))"), "T");
+    ASSERT_STR_EQ(eval_print("(eql 1.0 (amilisp:bits-single-float (amilisp:single-float-bits 1.0)))"), "T");
+    ASSERT_STR_EQ(eval_print("(eql -2.5 (amilisp:bits-single-float (amilisp:single-float-bits -2.5)))"), "T");
 }
 
 TEST(float_bits_signed_zero)
 {
     /* -0.0 has the sign bit set: 0x8000000000000000 / 0x80000000 */
-    ASSERT_STR_EQ(eval_print("(clamiga:double-float-bits -0.0d0)"), "9223372036854775808");
-    ASSERT_STR_EQ(eval_print("(clamiga:single-float-bits -0.0)"), "2147483648");
+    ASSERT_STR_EQ(eval_print("(amilisp:double-float-bits -0.0d0)"), "9223372036854775808");
+    ASSERT_STR_EQ(eval_print("(amilisp:single-float-bits -0.0)"), "2147483648");
 }
 
 /* ================================================================

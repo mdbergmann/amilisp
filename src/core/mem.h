@@ -45,7 +45,7 @@
  * Requires page protection (mprotect), so it is POSIX-only; the AmigaOS
  * target (no MMU assumed) compiles it out entirely and keeps the classic
  * mark-sweep-compact collector.  CL_NO_GENGC disables it at build time on
- * hosts; CLAMIGA_GENGC=0 disables at runtime (classic mode, for A/B
+ * hosts; AMILISP_GENGC=0 disables at runtime (classic mode, for A/B
  * benchmarking and as a field escape hatch). */
 #if defined(CL_GC_CLASSIC) && \
     (defined(PLATFORM_POSIX) || defined(PLATFORM_WIN32)) && !defined(CL_NO_GENGC)
@@ -197,7 +197,7 @@ int  cl_mem_try_init(uint32_t heap_size);
 void cl_mem_init(uint32_t heap_size);
 void cl_mem_shutdown(void);
 
-/* CLAMIGA_MEM_DIAG=1: report memory handed back at shutdown (set by
+/* AMILISP_MEM_DIAG=1: report memory handed back at shutdown (set by
  * cl_mem_init).  Matters most on AmigaOS, where anything not returned before
  * the process exits is lost to the system until reboot. */
 extern int cl_mem_diag;
@@ -372,7 +372,7 @@ int cl_gc_audit_roots(void);
  * scan: every arena page below the bump front must map to a real header
  * at or below its first byte.  Returns the number of violating pages
  * (0 = clean), -1 when the index is absent (generational mode, or
- * CLAMIGA_HDR_INDEX=0).  See tests/test_gc_hdr_index.c. */
+ * AMILISP_HDR_INDEX=0).  See tests/test_gc_hdr_index.c. */
 int cl_gc_audit_hdr_index(void);
 
 /* Collect, then check every object header, every child reference of

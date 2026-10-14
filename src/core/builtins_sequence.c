@@ -3036,7 +3036,7 @@ void cl_builtins_sequence_init(void)
 
     /* Phase 8 Step 3 */
     defun("ELT", bi_elt, 2, 2);
-    cl_register_builtin("%SETF-ELT", bi_setf_elt, 3, 3, cl_package_clamiga);
+    cl_register_builtin("%SETF-ELT", bi_setf_elt, 3, 3, cl_package_amilisp);
     defun("COPY-SEQ", bi_copy_seq, 1, 1);
     defun("MAP-INTO", bi_map_into, 2, -1);
 

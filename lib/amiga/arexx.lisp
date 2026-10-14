@@ -2,16 +2,16 @@
 ;;;
 ;;; Loaded via (require "amiga/arexx").
 ;;;
-;;;   (amiga.arexx:start)          ; => "CLAMIGA"
+;;;   (amiga.arexx:start)          ; => "AMILISP"
 ;;;
 ;;; From an editor macro (CygnusEd, GoldED, ...):
 ;;;
 ;;;   OPTIONS RESULTS
 ;;;   OPTIONS FAILAT 21                     /* let us see rc 10 ourselves */
-;;;   ADDRESS CLAMIGA 'LOAD Work:src/foo.lisp'
+;;;   ADDRESS AMILISP 'LOAD Work:src/foo.lisp'
 ;;;   IF RC = 0 THEN SAY RESULT
 ;;;   ELSE DO
-;;;       ADDRESS CLAMIGA 'LASTRESULT'      /* rc /= 0 means ARexx dropped */
+;;;       ADDRESS AMILISP 'LASTRESULT'      /* rc /= 0 means ARexx dropped */
 ;;;       SAY RESULT                        /* RESULT -- fetch it back */
 ;;;   END
 ;;;
@@ -40,10 +40,10 @@
 
 (in-package "AMIGA.AREXX")
 
-(defvar *default-port-name* "CLAMIGA"
+(defvar *default-port-name* "AMILISP"
   "Base name claimed by START.  ARexx upcases the name in ADDRESS, so the
 port is always registered upcased; if the name is taken (a second amilisp
-is already running) the port becomes CLAMIGA.1, CLAMIGA.2, ...")
+is already running) the port becomes AMILISP.1, AMILISP.2, ...")
 
 (defvar *handler-thread* nil)
 (defvar *port-name* nil)

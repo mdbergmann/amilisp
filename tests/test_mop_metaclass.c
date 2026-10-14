@@ -73,7 +73,7 @@ TEST(metaclass_defclass_registers_struct_type)
     /* A bare metaclass: subclass of standard-class, no extra slots. */
     eval_print("(defclass mc-abstract (standard-class) ())");
     /* Its struct type has the fixed 12 class slots. */
-    ASSERT_STR_EQ(eval_print("(length (clamiga::%struct-slot-names 'mc-abstract))"),
+    ASSERT_STR_EQ(eval_print("(length (amilisp::%struct-slot-names 'mc-abstract))"),
                   "12");
 }
 
@@ -82,7 +82,7 @@ TEST(metaclass_with_slot_has_13_slots)
     eval_print("(defclass mc-topclass (standard-class) "
                "  ((tc :initarg :tc :reader tc-of)))");
     /* 12 fixed + 1 metaclass slot. */
-    ASSERT_STR_EQ(eval_print("(length (clamiga::%struct-slot-names 'mc-topclass))"),
+    ASSERT_STR_EQ(eval_print("(length (amilisp::%struct-slot-names 'mc-topclass))"),
                   "13");
 }
 

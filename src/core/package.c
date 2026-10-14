@@ -17,7 +17,7 @@ CL_Obj cl_package_cl = CL_NIL;
 CL_Obj cl_package_cl_user = CL_NIL;
 CL_Obj cl_package_keyword = CL_NIL;
 CL_Obj cl_package_ext = CL_NIL;
-CL_Obj cl_package_clamiga = CL_NIL;
+CL_Obj cl_package_amilisp = CL_NIL;
 CL_Obj cl_package_mop = CL_NIL;
 CL_Obj cl_package_mp = CL_NIL;
 CL_Obj cl_package_ffi = CL_NIL;
@@ -967,7 +967,7 @@ void cl_package_export_all_cl_symbols(void)
 {
     export_all_present_symbols(cl_package_cl);
     export_all_present_symbols(cl_package_keyword);
-    export_all_present_symbols(cl_package_clamiga);
+    export_all_present_symbols(cl_package_amilisp);
     export_all_present_symbols(cl_package_mop);
 }
 
@@ -1031,20 +1031,20 @@ void cl_package_export_defined_cl_symbols(void)
      * pre-flagged from boot) so find-symbol returns :EXTERNAL. */
     export_symbols_where(cl_package_cl, cl_symbol_is_exportable_defined);
 
-    /* Keywords, CLAMIGA, and MOP are always fully exported */
+    /* Keywords, AMILISP, and MOP are always fully exported */
     export_all_present_symbols(cl_package_keyword);
-    export_all_present_symbols(cl_package_clamiga);
+    export_all_present_symbols(cl_package_amilisp);
     export_all_present_symbols(cl_package_mop);
 }
 
 /* Internal helpers defined later by boot.lisp and clos.lisp.  Pre-interning
- * these in CLAMIGA before those files load means the reader resolves bare
- * %FOO via CLAMIGA's exports (CL and CL-USER both :use CLAMIGA), so the
- * defun creates the function on the CLAMIGA symbol rather than interning
+ * these in AMILISP before those files load means the reader resolves bare
+ * %FOO via AMILISP's exports (CL and CL-USER both :use AMILISP), so the
+ * defun creates the function on the AMILISP symbol rather than interning
  * a fresh CL::%FOO.  Keeping them out of CL is what makes the ANSI
  * NO-EXTRA-SYMBOLS-EXPORTED-FROM-COMMON-LISP test pass.
  *
- * Names that ARE registered with cl_package_clamiga from C (in builtins.c,
+ * Names that ARE registered with cl_package_amilisp from C (in builtins.c,
  * builtins_io.c, compiler.c etc.) are intentionally omitted — those slots
  * are already filled.
  *
@@ -1206,7 +1206,7 @@ static const char *const clos_internal_names[] = {
     /* AmiLisp internal CLOS state and helpers (non-MOP).  These are
      * implementation details that boot.lisp / clos.lisp introduce while
      * loading in the CL package; pre-interning them here keeps them in
-     * CLAMIGA so they don't pollute COMMON-LISP's external symbols. */
+     * AMILISP so they don't pollute COMMON-LISP's external symbols. */
     "*%CLOS-LOAD-START*", "*%CLOS-PREV*",
     "*CNM*",
     "*CLASS-TABLE*",
@@ -1219,18 +1219,18 @@ static const char *const clos_internal_names[] = {
     "*GF-CACHE-HEALS*", "*GF-METHODS-LOCK*",
     "*METAOBJECT-DEPENDENTS*",
     "*METHOD-COMBINATIONS*",
-    /* *PRINT-OBJECT-HOOK* is interned directly in CLAMIGA by symbol.c. */
+    /* *PRINT-OBJECT-HOOK* is interned directly in AMILISP by symbol.c. */
     "*READER-GFS*", "*READER-METHOD-SLOTS*",
     "*SLOT-ACCESS-PROTOCOL-EXTENDED-P*",
     "*SLOT-UNBOUND-MARKER*",
     "*WRITER-GFS*", "*WRITER-METHOD-SLOTS*",
-    /* BODY and TEST are too generic to safely pre-intern in CLAMIGA —
+    /* BODY and TEST are too generic to safely pre-intern in AMILISP —
      * doing so would alias user-code symbols of the same name through
-     * the CL :use CLAMIGA inheritance chain.  They leak from
+     * the CL :use AMILISP inheritance chain.  They leak from
      * boot.lisp / clos.lisp macro expansions and need a source-level
      * fix (e.g. wrapping the offending macros with GENSYM).
      * CONDITIONP / CONDITION-TYPE-NAME / CONDITION-SLOT-VALUE are
-     * registered as CLAMIGA builtins by builtins_condition.c. */
+     * registered as AMILISP builtins by builtins_condition.c. */
     "GF-CACHEABLE-P", "GF-DISCRIMINATING-FUNCTION",
     "GF-DISPATCH-CACHE", "GF-EQL-VALUE-SETS",
     "GF-INLINE-CACHE",
@@ -1239,10 +1239,10 @@ static const char *const clos_internal_names[] = {
     "METHOD-COMBINATION-NAME", "METHOD-COMBINATION-OPTIONS",
     "METHOD-COMBINATION-TYPE", "METHOD-SIMPLE-PRIMARY-P",
     /* NAMED-LAMBDA, QUASIQUOTE, UNQUOTE, UNQUOTE-SPLICING are interned
-     * directly in CLAMIGA by symbol.c (cl_symbol_init) — listed there
+     * directly in AMILISP by symbol.c (cl_symbol_init) — listed there
      * to avoid duplication. */
     /* STRUCTUREP, ADD/REMOVE-PACKAGE-LOCAL-NICKNAME, PACKAGE-LOCAL-NICKNAMES
-     * are registered as CLAMIGA builtins by builtins_struct.c /
+     * are registered as AMILISP builtins by builtins_struct.c /
      * builtins_package.c. */
     NULL
 };
@@ -1321,11 +1321,11 @@ static const char *const mop_api_names[] = {
     NULL
 };
 
-void cl_intern_clos_internals_in_clamiga(void)
+void cl_intern_clos_internals_in_amilisp(void)
 {
     const char *const *p;
     for (p = clos_internal_names; *p != NULL; p++) {
-        (void)cl_intern_in(*p, (uint32_t)strlen(*p), cl_package_clamiga);
+        (void)cl_intern_in(*p, (uint32_t)strlen(*p), cl_package_amilisp);
     }
     for (p = mop_api_names; *p != NULL; p++) {
         (void)cl_intern_in(*p, (uint32_t)strlen(*p), cl_package_mop);
@@ -1358,8 +1358,8 @@ void cl_package_init(void)
     cl_package_ext = cl_make_package("EXT");
     CL_GC_PROTECT(cl_package_ext);
 
-    cl_package_clamiga = cl_make_package("CLAMIGA");
-    CL_GC_PROTECT(cl_package_clamiga);
+    cl_package_amilisp = cl_make_package("AMILISP");
+    CL_GC_PROTECT(cl_package_amilisp);
 
     cl_package_mop = cl_make_package("MOP");
     CL_GC_PROTECT(cl_package_mop);
@@ -1383,7 +1383,7 @@ void cl_package_init(void)
     cl_register_package(cl_package_keyword);
     cl_register_package(cl_package_cl_user);
     cl_register_package(cl_package_ext);
-    cl_register_package(cl_package_clamiga);
+    cl_register_package(cl_package_amilisp);
     cl_register_package(cl_package_mop);
     cl_register_package(cl_package_mp);
     cl_register_package(cl_package_ffi);
@@ -1407,11 +1407,21 @@ void cl_package_init(void)
         user_pkg = (CL_Package *)CL_OBJ_TO_PTR(cl_package_cl_user);
         user_pkg->nicknames = nick;
     }
+    /* AMILISP is the implementation package's name since the rename to
+     * AmiLisp (0.12); CLAMIGA, its name before, stays as a nickname so
+     * user code and the library forks that say clamiga:: keep working. */
+    {
+        CL_Obj nick = cl_make_string("CLAMIGA", 7);
+        CL_Package *impl_pkg;
+        nick = cl_cons(nick, CL_NIL);
+        impl_pkg = (CL_Package *)CL_OBJ_TO_PTR(cl_package_amilisp);
+        impl_pkg->nicknames = nick;
+    }
 
-    /* CL-USER uses CL, EXT, CLAMIGA, MOP, MP, FFI, AMIGA */
+    /* CL-USER uses CL, EXT, AMILISP, MOP, MP, FFI, AMIGA */
     cl_use_package(cl_package_cl, cl_package_cl_user);
     cl_use_package(cl_package_ext, cl_package_cl_user);
-    cl_use_package(cl_package_clamiga, cl_package_cl_user);
+    cl_use_package(cl_package_amilisp, cl_package_cl_user);
     cl_use_package(cl_package_mop, cl_package_cl_user);
     cl_use_package(cl_package_mp, cl_package_cl_user);
     cl_use_package(cl_package_ffi, cl_package_cl_user);
@@ -1430,14 +1440,14 @@ void cl_package_init(void)
     cl_use_package(cl_package_cl, cl_package_amiga);
     cl_use_package(cl_package_ffi, cl_package_amiga);
 
-    /* CLAMIGA uses CL; CL uses CLAMIGA so boot.lisp/clos.lisp can
+    /* AMILISP uses CL; CL uses AMILISP so boot.lisp/clos.lisp can
        access internal builtins without package qualification.  Same
        trick for MOP — clos.lisp defines MOP API symbols expecting them
        to live in MOP, but the file itself loads in CL; CL :use MOP
        makes the reader resolve unqualified MOP names to the inherited
        MOP symbol so defun/defmethod bind on the MOP symbol. */
-    cl_use_package(cl_package_cl, cl_package_clamiga);
-    cl_use_package(cl_package_clamiga, cl_package_cl);
+    cl_use_package(cl_package_cl, cl_package_amilisp);
+    cl_use_package(cl_package_amilisp, cl_package_cl);
     cl_use_package(cl_package_mop, cl_package_cl);
     cl_use_package(cl_package_cl, cl_package_mop);
 
@@ -1471,14 +1481,14 @@ void cl_package_init(void)
      * through an unrelated object's old offset, corrupting the global.
      * cl_gc_register_root does not allocate, so no GC can run in the
      * unprotected window before registration. */
-    CL_GC_UNPROTECT(9);   /* CL KEYWORD CL-USER EXT CLAMIGA MOP MP FFI AMIGA */
+    CL_GC_UNPROTECT(9);   /* CL KEYWORD CL-USER EXT AMILISP MOP MP FFI AMIGA */
 
     /* Register package globals for GC compaction forwarding */
     cl_gc_register_root(&cl_package_cl);
     cl_gc_register_root(&cl_package_cl_user);
     cl_gc_register_root(&cl_package_keyword);
     cl_gc_register_root(&cl_package_ext);
-    cl_gc_register_root(&cl_package_clamiga);
+    cl_gc_register_root(&cl_package_amilisp);
     cl_gc_register_root(&cl_package_mop);
     cl_gc_register_root(&cl_package_mp);
     cl_gc_register_root(&cl_package_ffi);

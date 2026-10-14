@@ -131,7 +131,7 @@
 ;; TABLE*).  Note the C fast paths (class-of/typep via ht_eq_lookup in
 ;; builtins_struct.c) still read it lock-free; they are exposed only
 ;; while a defclass is actually in flight on another thread.
-(defvar *class-table* (clamiga::%make-sync-hash-table 'eq))
+(defvar *class-table* (amilisp::%make-sync-hash-table 'eq))
 
 ;; Register with C for typep to check CLOS class-precedence-lists
 (%set-clos-class-table *class-table*)
@@ -641,7 +641,7 @@ directly instead of attempting a symbol lookup."
 ;; table's bucket chains corrupt under concurrent insert/rehash (observed
 ;; as silently missing entries and as a hard hang walking a cyclic
 ;; chain), same hazard %MAKE-DISPATCH-CACHE documents.
-(defvar *eql-specializer-table* (clamiga::%make-sync-hash-table 'eql))
+(defvar *eql-specializer-table* (amilisp::%make-sync-hash-table 'eql))
 
 (defvar *eql-specializer-intern-lock* (mp:make-lock "eql-specializer-intern")
   "Serializes the get-or-create in INTERN-EQL-SPECIALIZER.  The sync
@@ -1544,7 +1544,7 @@ Specialize via defmethod to provide lazy initialization."
         ;; :CLASS slot, unbound slot, extended slot-access protocol,
         ;; wrong object type — falls back to SLOT-VALUE's full protocol.
         (dolist (accessor accessors)
-          (let ((setter-name (clamiga::%setf-store-symbol accessor)))
+          (let ((setter-name (amilisp::%setf-store-symbol accessor)))
             (push `(defun ,accessor (obj)
                      ,(%accessor-reader-body 'obj slot-name))
                   accessor-defs)
@@ -1778,7 +1778,7 @@ Specialize via defmethod to provide lazy initialization."
 ;; Synchronized: DEFGENERIC/ENSURE-GENERIC-FUNCTION run on the loading
 ;; thread; concurrent loads mutate this table at once (see
 ;; *EQL-SPECIALIZER-TABLE* for the plain-table corruption hazard).
-(defvar *generic-function-table* (clamiga::%make-sync-hash-table 'equal))
+(defvar *generic-function-table* (amilisp::%make-sync-hash-table 'equal))
 
 ;;; --- call-next-method support ---
 ;;;
@@ -1807,7 +1807,7 @@ Specialize via defmethod to provide lazy initialization."
 ;;; UPDATE-DEPENDENT are defined later in this file; %NOTIFY-DEPENDENTS
 ;;; is the internal broadcaster invoked from ENSURE-CLASS, ADD-METHOD,
 ;;; REMOVE-METHOD, and ENSURE-GENERIC-FUNCTION.
-(defvar *metaobject-dependents* (clamiga::%make-sync-hash-table 'eq)
+(defvar *metaobject-dependents* (amilisp::%make-sync-hash-table 'eq)
   "EQ hash from class or generic-function metaobject to a list of
 registered dependents (via ADD-DEPENDENT).  Synchronized: read by
 %NOTIFY-DEPENDENTS on every method (un)install from any thread while
@@ -2358,7 +2358,7 @@ in T and the last :around's CALL-NEXT-METHOD reaches it without a binding."
    This guards only the slow (cache-miss) path -- the monomorphic inline-cache
    fast path in the discriminating function never touches this table, so the
    hot dispatch path pays nothing.  TEST is 'EQ or 'EQL."
-  (clamiga::%make-sync-hash-table test))
+  (amilisp::%make-sync-hash-table test))
 
 (defun %dispatch-negative-hit (gf args table key)
   "A cache lookup returned a *negative* entry (present, value NIL) meaning
@@ -2720,7 +2720,7 @@ in T and the last :around's CALL-NEXT-METHOD reaches it without a binding."
 ;;; car ((class . emf) / (class1 class2 . emf)); the reader IC's first
 ;;; element is a (TYPE-NAME . SLOT-INDEX) cons.
 
-(defvar *reader-method-slots* (clamiga::%make-sync-hash-table 'eq)
+(defvar *reader-method-slots* (amilisp::%make-sync-hash-table 'eq)
   "Method object -> slot name, for DEFCLASS-generated reader methods.
    Mutated (gethash/setf/remhash) from %INSTALL-METHOD-IN-GF /
    %UNINSTALL-METHOD-FROM-GF / %NOTE-READER-METHOD, which run whenever
@@ -2728,7 +2728,7 @@ in T and the last :around's CALL-NEXT-METHOD reaches it without a binding."
    multi-thread hazard %MAKE-DISPATCH-CACHE guards against above, so this
    table needs the same CL_HT_FLAG_SYNC treatment rather than a plain
    (lock-free) table.")
-(defvar *reader-gfs* (clamiga::%make-sync-hash-table 'eq)
+(defvar *reader-gfs* (amilisp::%make-sync-hash-table 'eq)
   "GF -> slot name, for GFs currently running the reader discriminator.
    Same concurrent-mutation hazard as *READER-METHOD-SLOTS* above.")
 
@@ -2845,10 +2845,10 @@ in T and the last :around's CALL-NEXT-METHOD reaches it without a binding."
 ;;; each other's caches (a 1-arg call to a promoted writer GF must reach
 ;;; the slow path and signal its arity error, not read the slot).
 
-(defvar *writer-method-slots* (clamiga::%make-sync-hash-table 'eq)
+(defvar *writer-method-slots* (amilisp::%make-sync-hash-table 'eq)
   "Method object -> slot name, for DEFCLASS-generated writer methods.
    Same concurrent-mutation hazard as *READER-METHOD-SLOTS*.")
-(defvar *writer-gfs* (clamiga::%make-sync-hash-table 'eq)
+(defvar *writer-gfs* (amilisp::%make-sync-hash-table 'eq)
   "GF -> slot name, for GFs currently running the writer discriminator.
    Same concurrent-mutation hazard as *READER-METHOD-SLOTS*.")
 
@@ -2968,7 +2968,7 @@ already-existing GF the installed combination is preserved."
              (setf (symbol-function name) existing))
             ((and (consp name) (eq (car name) 'setf) (consp (cdr name)))
              (let* ((accessor (cadr name))
-                    (hidden-sym (clamiga::%setf-store-symbol accessor)))
+                    (hidden-sym (amilisp::%setf-store-symbol accessor)))
                (setf (symbol-function hidden-sym) existing))))
           ;; Update method combination if explicitly supplied (or if we
           ;; can now resolve STANDARD — important for GFs created before
@@ -3020,7 +3020,7 @@ already-existing GF the installed combination is preserved."
             ;; (setf accessor) — install GF on hidden symbol
             ((and (consp name) (eq (car name) 'setf) (consp (cdr name)))
              (let* ((accessor (cadr name))
-                    (hidden-sym (clamiga::%setf-store-symbol accessor)))
+                    (hidden-sym (amilisp::%setf-store-symbol accessor)))
                (setf (symbol-function hidden-sym) gf)
                (%register-setf-function accessor hidden-sym))))
           ;; Fire the make-instance initialization protocol for custom GF
@@ -4165,7 +4165,7 @@ since user-defined method classes are out of scope."
 ;;; DEFINE-METHOD-COMBINATION registers from the loading thread while
 ;;; ENSURE-GENERIC-FUNCTION resolves from any other (see
 ;;; *EQL-SPECIALIZER-TABLE* for the plain-table corruption hazard).
-(defvar *method-combinations* (clamiga::%make-sync-hash-table 'equal))
+(defvar *method-combinations* (amilisp::%make-sync-hash-table 'equal))
 
 (defun %method-combination-key (name)
   (if (symbolp name) (symbol-name name) name))
@@ -4890,7 +4890,7 @@ protocol hook a user metaclass would override to substitute a subclass."
         (mapcar #'slot-definition-name (class-slots class))
         (%struct-slot-names (%struct-type-name object)))))
 
-(defun clamiga::%allocate-for-load (type-name)
+(defun amilisp::%allocate-for-load (type-name)
   "Allocate a bare instance of TYPE-NAME for MAKE-LOAD-FORM-SAVING-SLOTS
    reconstruction: a CLOS instance with unbound slots, or a plain
    structure with NIL slots.  The init form supplies the real values."
@@ -4916,10 +4916,10 @@ protocol hook a user metaclass would override to substitute a subclass."
         (push `(setf (slot-value ',object ',sn) ',(slot-value object sn))
               inits)))
     (values
-     `(clamiga::%allocate-for-load ',(%object-load-form-type-name object))
+     `(amilisp::%allocate-for-load ',(%object-load-form-type-name object))
      `(progn ,@(nreverse inits) ',object))))
 
-(defun clamiga::%make-load-form-active-p ()
+(defun amilisp::%make-load-form-active-p ()
   "T iff MAKE-LOAD-FORM has at least one user method.  The FASL writer's
    pre-pass calls this once per COMPILE-FILE run and skips the constant
    graph walk entirely when it returns NIL -- so every file that does not
@@ -4931,7 +4931,7 @@ protocol hook a user metaclass would override to substitute a subclass."
               (gf-methods gf)
               t))))
 
-(defun clamiga::%fasl-load-form (object)
+(defun amilisp::%fasl-load-form (object)
   "Called by the FASL writer's pre-pass.  If OBJECT has an applicable
    MAKE-LOAD-FORM method, call it and return (creation-form . init-form)
    (init-form may be NIL); otherwise return NIL so the writer keeps

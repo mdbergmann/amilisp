@@ -1,5 +1,5 @@
 #!/bin/sh
-# The call generation word from Lisp: (clamiga::%call-gen) must move across
+# The call generation word from Lisp: (amilisp::%call-gen) must move across
 # every event that could leave a m68k JIT call site with a stale cached
 # callee (specs/jit-direct-calls.md §1) -- each public way of changing a
 # function cell (DEFUN from source and from a FASL, (SETF FDEFINITION),
@@ -9,13 +9,13 @@
 # call, since nothing on the per-call path may write shared memory.
 # tests/test_call_gen.c pins the exact counts at the C level.
 #
-# Also run by `make test-gc-stress` (CLAMIGA_GC_STRESS=1: compaction on
+# Also run by `make test-gc-stress` (AMILISP_GC_STRESS=1: compaction on
 # every allocation, so every allocating form bumps -- the checks below
 # assert "moved", which a stress run must still satisfy, and the no-bump
 # check uses a call loop that does not allocate).
 # Run: sh tests/test_call_gen.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0
@@ -47,10 +47,10 @@ EOF
 
 cat > "$WORK/gen.lisp" <<EOF
 (defmacro moves (tag form)
-  \`(let ((g (clamiga::%call-gen)))
+  \`(let ((g (amilisp::%call-gen)))
      ,form
-     (format t "~A ~A~%" ,tag (if (/= g (clamiga::%call-gen)) "MOVED" "STILL"))))
-(format t "NONZERO ~A~%" (if (plusp (clamiga::%call-gen)) "YES" "NO"))
+     (format t "~A ~A~%" ,tag (if (/= g (amilisp::%call-gen)) "MOVED" "STILL"))))
+(format t "NONZERO ~A~%" (if (plusp (amilisp::%call-gen)) "YES" "NO"))
 (moves "DEFUN" (defun cg-f () 1))
 (moves "REDEFUN" (defun cg-f () 2))
 (moves "SETF-FDEFINITION" (setf (fdefinition 'cg-f) (lambda () 3)))
@@ -67,15 +67,15 @@ cat > "$WORK/gen.lisp" <<EOF
 (moves "TRACE" (trace cg-traced))
 (moves "UNTRACE" (untrace cg-traced))
 (moves "GC" (gc))
-(let ((g (clamiga::%call-gen)))
+(let ((g (amilisp::%call-gen)))
   (dotimes (i 5) (gc))
-  (format t "GC-EACH ~A~%" (if (>= (- (clamiga::%call-gen) g) 5) "YES" "NO")))
+  (format t "GC-EACH ~A~%" (if (>= (- (amilisp::%call-gen) g) 5) "YES" "NO")))
 (defun cg-leaf (x) (+ x 1))
 (defun cg-loop (n) (let ((s 0)) (dotimes (i n s) (setq s (cg-leaf s)))))
 (cg-loop 10)
-(let ((g (clamiga::%call-gen)))
+(let ((g (amilisp::%call-gen)))
   (cg-loop 10000)
-  (format t "CALLS ~A~%" (if (= g (clamiga::%call-gen)) "STILL" "MOVED")))
+  (format t "CALLS ~A~%" (if (= g (amilisp::%call-gen)) "STILL" "MOVED")))
 ;; Thread events: a caller looping on direct calls must miss and poll.
 (let* ((stop nil)
        (th (mp:make-thread (lambda () (loop until stop do (mp:thread-yield)))
@@ -85,7 +85,7 @@ cat > "$WORK/gen.lisp" <<EOF
   (moves "DESTROY" (mp:destroy-thread th))
   (setf stop t)
   (ignore-errors (mp:join-thread th)))
-(let ((st (clamiga::%jit-direct-call-stats)))
+(let ((st (amilisp::%jit-direct-call-stats)))
   ;; Without a JIT backend there are no direct-call sites: every counter
   ;; 0, the sites never enabled.  The AArch64 backend has them (on by
   ;; default; the counters are the calling thread's integers).
@@ -105,13 +105,13 @@ cat > "$WORK/gen.lisp" <<EOF
   ;; collection bumps the generation past the one it recorded.
   (format t "STATS-GEN ~A~%"
           (let ((g (getf st :gen)))
-            (if (and (integerp g) (plusp g) (<= g (clamiga::%call-gen))) "YES" "NO"))))
-(format t "DIRECT ~S~%" (list (clamiga::%jit-set-direct-calls t)
-                              (clamiga::%jit-set-direct-calls nil)))
+            (if (and (integerp g) (plusp g) (<= g (amilisp::%call-gen))) "YES" "NO"))))
+(format t "DIRECT ~S~%" (list (amilisp::%jit-set-direct-calls t)
+                              (amilisp::%jit-set-direct-calls nil)))
 (format t "GEN-DONE~%")
 EOF
 
-out=$("$CLAMIGA" --no-userinit --non-interactive --load "$WORK/gen.lisp" </dev/null 2>&1)
+out=$("$AMILISP" --no-userinit --non-interactive --load "$WORK/gen.lisp" </dev/null 2>&1)
 
 check_contains "the script ran to the end" "GEN-DONE" "$out"
 check_contains "the word starts non-zero (0 = an empty site)" "NONZERO YES" "$out"

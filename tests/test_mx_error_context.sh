@@ -8,7 +8,7 @@
 # context that mislabels a later, unrelated error.
 # Run: sh tests/test_mx_error_context.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0
@@ -48,7 +48,7 @@ check_not_contains() {
 
 # --- Error inside an expander names the form being expanded ---
 
-result=$("$CLAMIGA" --no-userinit --non-interactive \
+result=$("$AMILISP" --no-userinit --non-interactive \
     --eval '(defmacro three-req (a b c) (list (quote list) a b c))' \
     --eval '(three-req 1)' </dev/null 2>&1)
 check_contains "arity_error_reported"  "Too few arguments" "$result"
@@ -56,7 +56,7 @@ check_contains "context_names_form"    "While macroexpanding: (THREE-REQ 1)" "$r
 
 # --- Caught expansion error leaves no stale context on later errors ---
 
-result=$("$CLAMIGA" --no-userinit --non-interactive \
+result=$("$AMILISP" --no-userinit --non-interactive \
     --eval '(defmacro two-req (a b) (list (quote list) a b))' \
     --eval '(handler-case (macroexpand (quote (two-req 1))) (error () (format t "CAUGHT~%")))' \
     --eval '(car 5)' </dev/null 2>&1)
@@ -66,7 +66,7 @@ check_not_contains "no_stale_context"        "While macroexpanding" "$result"
 
 # --- Successful expansions never emit context on unrelated errors ---
 
-result=$("$CLAMIGA" --no-userinit --non-interactive \
+result=$("$AMILISP" --no-userinit --non-interactive \
     --eval '(progn (when t 1) (car 5))' </dev/null 2>&1)
 check_contains     "plain_error_reported" "ERROR:" "$result"
 check_not_contains "plain_error_no_context" "While macroexpanding" "$result"

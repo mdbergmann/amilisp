@@ -10,7 +10,7 @@
 ;;;
 ;;;   (require :asdf)
 ;;;   (load "lib/quicklisp-install.lisp")
-;;;   (cl-amiga-ql:install)
+;;;   (amilisp-ql:install)
 ;;;
 ;;; Mechanism: QUICKLISP-QUICKSTART:INSTALL downloads the QL client
 ;;; into ~/quicklisp/ and finishes by calling (QUICKLISP:SETUP), which
@@ -21,11 +21,11 @@
 ;;; retry (QUICKLISP:SETUP) — which is idempotent and proceeds with
 ;;; networking patched in.
 
-(defpackage #:cl-amiga-ql
+(defpackage #:amilisp-ql
   (:use #:cl)
   (:export #:install))
 
-(in-package #:cl-amiga-ql)
+(in-package #:amilisp-ql)
 
 (defvar *here*
   (make-pathname :name nil :type nil
@@ -42,7 +42,7 @@ Must run AFTER quicklisp.lisp is loaded -- that's what defines the QL-HTTP packa
         (proxy-var (find-symbol "*PROXY-URL*" "QL-HTTP")))
     (when (and proxy proxy-var (plusp (length proxy)))
       (set proxy-var proxy)
-      (format t "~&;; cl-amiga-ql: routing fetches through HTTP proxy ~A~%" proxy))))
+      (format t "~&;; amilisp-ql: routing fetches through HTTP proxy ~A~%" proxy))))
 
 (defun install ()
   "Install quicklisp under ~/quicklisp/ on a fresh AmiLisp system."
@@ -57,7 +57,7 @@ Must run AFTER quicklisp.lisp is loaded -- that's what defines the QL-HTTP packa
               (ql-dist (find-package "QL-DIST")))
           (unless (and ql ql-dist)
             (error c))
-          (format t "~&;; cl-amiga-ql: ~A~%~
+          (format t "~&;; amilisp-ql: ~A~%~
                      ;;             loading compat shim + retrying dist install~%"
                   c)
           (load compat)
@@ -72,7 +72,7 @@ Must run AFTER quicklisp.lisp is loaded -- that's what defines the QL-HTTP packa
                    (symbol-value (find-symbol "*INITIAL-DIST-URL*" ql))
                    :prompt nil :replace t)
           (funcall (find-symbol "SETUP" ql))))))
-  (format t "~&;; cl-amiga-ql: install complete. To use:~%~
+  (format t "~&;; amilisp-ql: install complete. To use:~%~
              ;;   (load #P\"~~/quicklisp/setup.lisp\")~%~
              ;;   (load \"lib/quicklisp-compat.lisp\")~%")
   t)

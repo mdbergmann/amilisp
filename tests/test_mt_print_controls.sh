@@ -7,7 +7,7 @@
 # samples clobbered on the macOS scheduler; post-fix: zero).
 # Run: sh tests/test_mt_print_controls.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0
@@ -34,7 +34,7 @@ cat > "$WORK/mt-print-controls.lisp" <<'LISPEOF'
 (quit)
 LISPEOF
 
-out=$("$CLAMIGA" --no-userinit --load "$WORK/mt-print-controls.lisp" </dev/null 2>&1)
+out=$("$AMILISP" --no-userinit --load "$WORK/mt-print-controls.lisp" </dev/null 2>&1)
 
 total=$((total + 1))
 case "$out" in

@@ -1530,11 +1530,11 @@ void cl_builtins_arith_init(void)
                          cl_package_cl);
 
     /* IEEE-754 raw bit access for the float-features :cl-amiga backend
-     * (jzon float serialisation). Exposed in the CLAMIGA package. */
-    cl_register_builtin("SINGLE-FLOAT-BITS", bi_single_float_bits, 1, 1, cl_package_clamiga);
-    cl_register_builtin("DOUBLE-FLOAT-BITS", bi_double_float_bits, 1, 1, cl_package_clamiga);
-    cl_register_builtin("BITS-SINGLE-FLOAT", bi_bits_single_float, 1, 1, cl_package_clamiga);
-    cl_register_builtin("BITS-DOUBLE-FLOAT", bi_bits_double_float, 1, 1, cl_package_clamiga);
+     * (jzon float serialisation). Exposed in the AMILISP package. */
+    cl_register_builtin("SINGLE-FLOAT-BITS", bi_single_float_bits, 1, 1, cl_package_amilisp);
+    cl_register_builtin("DOUBLE-FLOAT-BITS", bi_double_float_bits, 1, 1, cl_package_amilisp);
+    cl_register_builtin("BITS-SINGLE-FLOAT", bi_bits_single_float, 1, 1, cl_package_amilisp);
+    cl_register_builtin("BITS-DOUBLE-FLOAT", bi_bits_double_float, 1, 1, cl_package_amilisp);
 
     /* Initialize bignum subsystem */
     cl_bignum_init();

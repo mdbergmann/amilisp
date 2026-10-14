@@ -4,10 +4,10 @@
 # instead of leaking the fd forever.
 # Run: sh tests/test_gc_stream_finalize.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
-case "$CLAMIGA" in
+AMILISP="${1:-build/host/amilisp}"
+case "$AMILISP" in
   /*) ;;
-  *) CLAMIGA="$(pwd)/$CLAMIGA" ;;
+  *) AMILISP="$(pwd)/$AMILISP" ;;
 esac
 passed=0
 failed=0
@@ -28,7 +28,7 @@ cat > "$WORK/finalize.lisp" <<LISPEOF
 (quit)
 LISPEOF
 
-out=$("$CLAMIGA" --no-userinit --load "$WORK/finalize.lisp" </dev/null 2>&1)
+out=$("$AMILISP" --no-userinit --load "$WORK/finalize.lisp" </dev/null 2>&1)
 
 total=$((total + 1))
 case "$out" in
@@ -64,7 +64,7 @@ cat > "$WORK/finalize-socket.lisp" <<LISPEOF
 (quit)
 LISPEOF
 
-out=$("$CLAMIGA" --no-userinit --load "$WORK/finalize-socket.lisp" </dev/null 2>&1)
+out=$("$AMILISP" --no-userinit --load "$WORK/finalize-socket.lisp" </dev/null 2>&1)
 
 total=$((total + 1))
 case "$out" in

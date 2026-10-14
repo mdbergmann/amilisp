@@ -324,7 +324,7 @@ uint32_t gc_sweeps_since_compact = 0;
 
 #ifdef CL_TLAB
 /* Chunk size: configured once per heap in gcb_init (0 = disabled).
- * CLAMIGA_TLAB_CHUNK=<bytes> overrides; scaled down on small heaps so
+ * AMILISP_TLAB_CHUNK=<bytes> overrides; scaled down on small heaps so
  * N threads' chunks can't consume a test-sized arena. */
 #ifndef CL_TLAB_CHUNK
 #define CL_TLAB_CHUNK (32u * 1024u)
@@ -924,7 +924,7 @@ int cl_gc_minor(uint32_t seen_gc_count)
 static void cl_gc_stopped(uint64_t t0)
 {
     uint64_t t1;
-    uint64_t diag_t_begin = t0;   /* CLAMIGA_GC_DIAG: pause = whole collection */
+    uint64_t diag_t_begin = t0;   /* AMILISP_GC_DIAG: pause = whole collection */
 
     /* Drop every thread's allocation cursor before any pass runs: gc_sweep
      * rebuilds the free list from unmarked regions, so an active chunk tail
@@ -1116,7 +1116,7 @@ uint8_t *gcb_arena_alloc(uint32_t size)
 
     /* Page-aligned arena so old space can be mprotect-ed.  Fall back to
      * the plain allocator (and classic GC) if mmap is unavailable. */
-    env = getenv("CLAMIGA_GENGC");
+    env = platform_getenv_s("AMILISP_GENGC");
     want_gen = !(env && env[0] == '0' && env[1] == '\0');
     arena = NULL;
     if (want_gen) {
@@ -1191,13 +1191,13 @@ void gcb_init(void)
         gc_hdr_index_init();
 
 #ifdef CL_TLAB
-    /* TLAB chunk size for this heap.  CLAMIGA_TLAB_CHUNK=<bytes> overrides
+    /* TLAB chunk size for this heap.  AMILISP_TLAB_CHUNK=<bytes> overrides
      * (0 disables); otherwise CL_TLAB_CHUNK, scaled down so per-thread
      * chunks can't dominate a small (test-sized) arena, and disabled
      * entirely when even the minimum chunk would be outsized. */
     {
         uint32_t chunk = CL_TLAB_CHUNK;
-        const char *e = getenv("CLAMIGA_TLAB_CHUNK");
+        const char *e = platform_getenv_s("AMILISP_TLAB_CHUNK");
         if (e)
             chunk = (uint32_t)atol(e);
         if (chunk) {

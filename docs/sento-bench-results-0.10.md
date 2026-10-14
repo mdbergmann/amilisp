@@ -44,7 +44,7 @@ this entry follows.
   their docs commits squashed onto `6989f7aa`; the legs were built from
   the same tree before the squash). The binary still reports `0.9.0`,
   FASL v33 — the 0.10 bump had not happened yet, so the version-keyed
-  cache directory is `cl-amiga-0.9-fasl33`.
+  cache directory is `amilisp-0.9-fasl33`.
 - **A/B binaries**: "pre-lock" built from `6989f7aa` (the 0.10 tree the
   first matrix of this entry ran on: Tier 4 complete, locks still in the
   table; reports `0.9.0`, FASL v33); 0.9 built from `224340cf` (the v0.9
@@ -62,7 +62,7 @@ this entry follows.
   did not record its compiler version. A Time Machine backup was running
   during the series; the machine was otherwise idle.
 - **Binary**: `build/host/amilisp` of each worktree, `--heap 192M`,
-  `CLAMIGA_FORCE_SPEED=3`.
+  `AMILISP_FORCE_SPEED=3`.
 - **Collector**: generational (host default), TLABs active — all four
   binaries.
 - **sento**: 3.4.5, `~/Development/MySources/cl-gserver` at `82cd1e1`,
@@ -96,11 +96,11 @@ session and prints a `CELL ... STATS` line per cell with the
 share. Run with a **cold ASDF cache** so sento and every dependency compile
 at speed 3. Rather than wiping `~/.cache/common-lisp/<version dir>` (shared
 with any other amilisp session on the machine), point
-`CLAMIGA_FASL_CACHE_DIR` at a fresh directory — the runtime namespaces it
+`AMILISP_FASL_CACHE_DIR` at a fresh directory — the runtime namespaces it
 by version and FASL format the same way, and the warm repeat reuses it:
 
 ```
-CLAMIGA_FASL_CACHE_DIR=/path/to/fresh/dir CLAMIGA_FORCE_SPEED=3 \
+AMILISP_FASL_CACHE_DIR=/path/to/fresh/dir AMILISP_FORCE_SPEED=3 \
     ./build/host/amilisp --no-userinit --heap 192M --non-interactive \
     --load trunk/sento-bench-matrix.lisp
 ```

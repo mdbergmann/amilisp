@@ -15,7 +15,7 @@
 #     amilisp.img beside the binary
 #   install-layout into a DESTDIR: binary, lib FASLs and the image (byte-
 #     identical to the built one) in place
-#   the installed binary, run from an unrelated cwd with no CLAMIGA_HOME:
+#   the installed binary, run from an unrelated cwd with no AMILISP_HOME:
 #     restores from <prefix>/lib/amilisp/amilisp.img (BOOT-IMAGE-VERIFIED,
 #     which includes REQUIRE finding the installed lib/)
 #   --no-image on the installed binary still boots from the installed FASLs
@@ -134,13 +134,13 @@ else
 fi
 
 # --- the installed amilisp starts from its image ------------------------
-# From an unrelated cwd (no amilisp.img here, no CLAMIGA_HOME): discovery has
+# From an unrelated cwd (no amilisp.img here, no AMILISP_HOME): discovery has
 # to take the <prefix>/lib/amilisp/ leg.  verify-boot-image.lisp also
 # REQUIREs a module, i.e. the installed lib/ is found from the restored
 # session.
 
 mkdir -p elsewhere
-out=$(cd elsewhere && CLAMIGA_HOME= "$TIMEOUT" 120 "$INST/bin/amilisp" \
+out=$(cd elsewhere && AMILISP_HOME= "$TIMEOUT" 120 "$INST/bin/amilisp" \
     --no-userinit --non-interactive \
     --load "$ROOT/scripts/verify-boot-image.lisp" </dev/null 2>&1)
 ec=$?
@@ -149,7 +149,7 @@ check "installed_binary_restores_from_lib_clamiga_image" 0 "$ec" "$out" \
 
 # --- --no-image still boots from the installed FASLs --------------------
 
-out=$(cd elsewhere && CLAMIGA_HOME= "$TIMEOUT" 120 "$INST/bin/amilisp" \
+out=$(cd elsewhere && AMILISP_HOME= "$TIMEOUT" 120 "$INST/bin/amilisp" \
     --no-userinit --no-image --non-interactive \
     --eval '(format t "NOIMG=~a SUM=~a~%" ext:*image-restored-p* (loop for i from 1 to 10 sum i))' \
     --eval '(progn (require "gray-streams") (format t "LIB=~a~%" (not (null (find-package "GRAY")))))' \

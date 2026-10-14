@@ -321,6 +321,19 @@ TEST(feature_names_old_and_new)
     }
 }
 
+TEST(package_old_name_is_a_nickname)
+{
+    /* AMILISP is the implementation package since the rename (0.12);
+     * CLAMIGA, its old name, is a nickname, so clamiga::x and amilisp::x
+     * read as the same symbol and user code written for the old name
+     * keeps working. */
+    CL_Obj a = reads("amilisp::%struct-setter-name");
+    CL_Obj b = reads("clamiga::%struct-setter-name");
+    ASSERT(a == b);
+    ASSERT(cl_find_package("CLAMIGA", 7) != CL_NIL);
+    ASSERT(cl_find_package("CLAMIGA", 7) == cl_find_package("AMILISP", 7));
+}
+
 TEST(feature_plus_absent)
 {
     /* :NONEXISTENT is not in *features*, so form is skipped, next is read */
@@ -1219,6 +1232,7 @@ int main(void)
     /* Feature conditionals */
     RUN(feature_plus_present);
     RUN(feature_names_old_and_new);
+    RUN(package_old_name_is_a_nickname);
     RUN(feature_plus_absent);
     RUN(feature_minus_present);
     RUN(feature_minus_absent);

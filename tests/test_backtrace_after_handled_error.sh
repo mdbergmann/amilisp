@@ -10,7 +10,7 @@
 # through the FASL cache, lost its innermost frame).
 # Run: sh tests/test_backtrace_after_handled_error.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0
@@ -65,24 +65,24 @@ leg() {
     check_contains "$tag: after a handled ERROR" "AFTER-ERROR $EXPECT_NAMES" "$out"
 }
 
-out=$("$CLAMIGA" --no-userinit --non-interactive --load "$WORK/bt.lisp" </dev/null 2>&1)
+out=$("$AMILISP" --no-userinit --non-interactive --load "$WORK/bt.lisp" </dev/null 2>&1)
 leg "--load" "$out"
 
 echo "(load \"$WORK/bt.lisp\")" > "$WORK/drv-src.lisp"
-out=$(CLAMIGA_FASL_CACHE=0 "$CLAMIGA" --no-userinit --non-interactive --load "$WORK/drv-src.lisp" </dev/null 2>&1)
+out=$(AMILISP_FASL_CACHE=0 "$AMILISP" --no-userinit --non-interactive --load "$WORK/drv-src.lisp" </dev/null 2>&1)
 leg "LOAD source" "$out"
 
 cat > "$WORK/drv-stream.lisp" <<EOF
 (with-open-file (s "$WORK/bt.lisp") (load s))
 EOF
-out=$("$CLAMIGA" --no-userinit --non-interactive --load "$WORK/drv-stream.lisp" </dev/null 2>&1)
+out=$("$AMILISP" --no-userinit --non-interactive --load "$WORK/drv-stream.lisp" </dev/null 2>&1)
 leg "LOAD stream" "$out"
 
 cat > "$WORK/drv-fasl.lisp" <<EOF
 (compile-file "$WORK/bt.lisp" :output-file "$WORK/bt.fasl")
 (load "$WORK/bt.fasl")
 EOF
-out=$("$CLAMIGA" --no-userinit --non-interactive --load "$WORK/drv-fasl.lisp" </dev/null 2>&1)
+out=$("$AMILISP" --no-userinit --non-interactive --load "$WORK/drv-fasl.lisp" </dev/null 2>&1)
 leg "LOAD FASL" "$out"
 
 echo "$passed passed, $failed failed, $total total"

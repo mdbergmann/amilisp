@@ -4512,8 +4512,8 @@ TEST(eval_class_of_array_vs_vector)
     ASSERT_STR_EQ(eval_print("(vectorp (make-array 5))"), "T");
     ASSERT_STR_EQ(eval_print("(vectorp (make-array '(2 3)))"), "NIL");
     /* %class-of should return VECTOR for 1D, ARRAY for 2D+ */
-    ASSERT_STR_EQ(eval_print("(clamiga::%class-of (vector 1 2))"), "VECTOR");
-    ASSERT_STR_EQ(eval_print("(clamiga::%class-of (make-array '(2 3)))"), "ARRAY");
+    ASSERT_STR_EQ(eval_print("(amilisp::%class-of (vector 1 2))"), "VECTOR");
+    ASSERT_STR_EQ(eval_print("(amilisp::%class-of (make-array '(2 3)))"), "ARRAY");
 }
 
 TEST(eval_array_row_major_index)

@@ -13,7 +13,7 @@
 #
 # Run: sh tests/test_compile_file_stderr.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 TMP="${TMPDIR:-/tmp}/clamiga-cfstderr-$$"
 mkdir -p "$TMP"
 cleanup() { rm -rf "$TMP" 2>/dev/null; }
@@ -24,7 +24,7 @@ printf '(defparameter *cfstderr-probe* 42)\n' > "$TMP/src.lisp"
 failed=0
 
 # Case 1: default (non-verbose) compile-file — stderr must stay empty.
-"$CLAMIGA" --no-userinit --non-interactive \
+"$AMILISP" --no-userinit --non-interactive \
     --eval "(compile-file \"$TMP/src.lisp\" :output-file \"$TMP/src.fasl\" :verbose nil)" \
     >"$TMP/out1.log" 2>"$TMP/err1.log"
 if [ -s "$TMP/err1.log" ]; then
@@ -34,7 +34,7 @@ if [ -s "$TMP/err1.log" ]; then
 fi
 
 # Case 2: verbose compile-file — messages belong on stdout, stderr stays empty.
-"$CLAMIGA" --no-userinit --non-interactive \
+"$AMILISP" --no-userinit --non-interactive \
     --eval "(compile-file \"$TMP/src.lisp\" :output-file \"$TMP/src2.fasl\" :verbose t)" \
     >"$TMP/out2.log" 2>"$TMP/err2.log"
 if [ -s "$TMP/err2.log" ]; then

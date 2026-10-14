@@ -11,7 +11,7 @@ extern CL_Obj cl_package_cl;       /* COMMON-LISP package */
 extern CL_Obj cl_package_cl_user;  /* COMMON-LISP-USER package */
 extern CL_Obj cl_package_keyword;  /* KEYWORD package */
 extern CL_Obj cl_package_ext;      /* EXT (implementation extensions) package */
-extern CL_Obj cl_package_clamiga;  /* CLAMIGA (implementation internals) package */
+extern CL_Obj cl_package_amilisp;  /* AMILISP (implementation internals) package */
 extern CL_Obj cl_package_mop;      /* MOP (CLOS Metaobject Protocol) package */
 extern CL_Obj cl_package_mp;      /* MP (multiprocessing) package */
 extern CL_Obj cl_package_ffi;    /* FFI (foreign function interface) package */
@@ -129,9 +129,9 @@ void cl_package_export_all_cl_symbols(void);
 void cl_package_export_defined_cl_symbols(void);
 
 /* Pre-intern the %-prefixed internal helper names that boot.lisp and
-   clos.lisp define, in the CLAMIGA package.  Must be called before
+   clos.lisp define, in the AMILISP package.  Must be called before
    boot.lisp loads — see comment at the call site in repl.c. */
-void cl_intern_clos_internals_in_clamiga(void);
+void cl_intern_clos_internals_in_amilisp(void);
 
 /* Refresh the CALLING thread's cl_current_package slot from its dynamic
    *PACKAGE* binding (TLV if set, else the symbol's global value).  Must be

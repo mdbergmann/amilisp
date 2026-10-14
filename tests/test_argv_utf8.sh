@@ -11,7 +11,7 @@
 #
 # Run: sh tests/test_argv_utf8.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 passed=0
 failed=0
 
@@ -38,14 +38,14 @@ check() {
 # UTF-16 command line down to the ANSI code page before main() saw it, and
 # every octet came through as 63 ('?') — the argument destroyed beyond
 # recovery rather than merely re-interpreted.
-result=$("$CLAMIGA" --no-userinit --non-interactive     --eval '(princ (map (quote list) (function char-code) "日本"))'     </dev/null 2>&1 | tr -d '
+result=$("$AMILISP" --no-userinit --non-interactive     --eval '(princ (map (quote list) (function char-code) "日本"))'     </dev/null 2>&1 | tr -d '
 ')
 check "eval_argument_octets_survive" "(230 151 165 230 156 172)" "$result"
 
 # U+1F600, four octets F0 9F 98 80 — also proves the UTF-16 surrogate pair is
 # rejoined into one codepoint before the UTF-8 conversion instead of being
 # encoded twice.
-result=$("$CLAMIGA" --no-userinit --non-interactive     --eval '(princ (map (quote list) (function char-code) "😀"))'     </dev/null 2>&1 | tr -d '
+result=$("$AMILISP" --no-userinit --non-interactive     --eval '(princ (map (quote list) (function char-code) "😀"))'     </dev/null 2>&1 | tr -d '
 ')
 check "eval_argument_astral_octets_survive" "(240 159 152 128)" "$result"
 

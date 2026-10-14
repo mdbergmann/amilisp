@@ -13,7 +13,7 @@
 /* Emit bytecode that unconditionally signals an arity error for the
  * destructuring-bind guards: CLHS requires an error when the supplied list
  * does not match the structure of the lambda list (too few or too many
- * elements).  HELPER_SYM is a cached, GC-rooted CLAMIGA runtime builtin
+ * elements).  HELPER_SYM is a cached, GC-rooted AMILISP runtime builtin
  * (cl_dbind_too_few_sym / cl_dbind_too_many_sym) that does the signalling.
  * The call never returns, so bytecode following a guard runs only when the
  * guard passed. */
@@ -1285,7 +1285,7 @@ static int nlx_scan(CL_Obj form, int mode, CL_Obj tag, int anon)
         goto done;
     }
 
-    /* (clamiga::%handler-case form (type ([var]) . body)...) — the clause
+    /* (amilisp::%handler-case form (type ([var]) . body)...) — the clause
      * CAR is a type spec and the CADR a variable list, not code: scan the
      * form and each clause BODY only (same reasoning as handler-bind). */
     if (cl_handler_case_sym != CL_NIL && head == cl_handler_case_sym) {
@@ -2028,7 +2028,7 @@ static CL_Obj hc_nth_clause(CL_Obj form, int k)
 
 void compile_handler_case(CL_Compiler *c, CL_Obj form)
 {
-    /* (clamiga::%handler-case form (typespec ([var]) declaration* form*)...)
+    /* (amilisp::%handler-case form (typespec ([var]) declaration* form*)...)
      *
      * What boot.lisp's HANDLER-CASE macro expands to, after rewriting a
      * :no-error clause away (CLHS 9.2.23's own expansion).  It used to expand
@@ -2270,7 +2270,7 @@ void compile_unwind_protect(CL_Compiler *c, CL_Obj form)
  * value must be one object per function, not one per call site), and —
  * to bound code growth — a body over CL_LOCAL_INLINE_MAX_SIZE conses
  * called from more than one site.  (optimize (space > speed)) or (debug 3)
- * turns it off for the form; CLAMIGA_NO_LOCAL_INLINE=1 for the process.
+ * turns it off for the form; AMILISP_NO_LOCAL_INLINE=1 for the process.
  *
  * The analysis is what makes the closure-free binding safe; two guards in
  * compiler.c (inline_local_misuse) report the case it cannot foresee — a
@@ -3944,7 +3944,7 @@ void cl_macrolet_install_expanders(CL_CompEnv *env, CL_Obj bindings)
                         /* (let ((env-var (%macroexpand-env))) . mbody), one
                          * allocation per statement (mem.h, cl_list2) */
                         CL_Obj f = cl_intern_in("%MACROEXPAND-ENV", 16,
-                                                cl_package_clamiga);
+                                                cl_package_amilisp);
                         f = cl_cons(f, CL_NIL);
                         f = cl_list2(env_var, f);
                         f = cl_cons(f, CL_NIL);
@@ -4071,7 +4071,7 @@ void cl_macrolet_install_expanders(CL_CompEnv *env, CL_Obj bindings)
                 env_gs = defmacro_gensym();
                 CL_GC_PROTECT(env_gs);
                 cme_sym = cl_intern_in("%CALL-MACRO-EXPANDER", 20,
-                                       cl_package_clamiga);
+                                       cl_package_amilisp);
                 inner_call = cl_cons(env_gs, CL_NIL);
                 inner_call = cl_cons(form_gs, inner_call);
                 inner_call = cl_cons(inner_gs, inner_call);

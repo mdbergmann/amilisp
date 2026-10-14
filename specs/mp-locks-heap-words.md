@@ -240,7 +240,7 @@ lock-then-broadcast dance and its 20 × 10 ms trylock loop.
 
 A thread destroyed while *holding* a lock leaves `state` pointing at a
 dead thread id, as today's leaked mutex does; later acquirers park until
-the process ends. The `CLAMIGA_LOCK_DIAG` report already says "held by an
+the process ends. The `AMILISP_LOCK_DIAG` report already says "held by an
 already-exited thread"; that stays. (An exit-path release of held locks
 would be a behaviour change and is out of scope.)
 
@@ -274,7 +274,7 @@ would be a behaviour change and is out of scope.)
 
 ### Diagnostics
 
-- `CLAMIGA_LOCK_DIAG` reports read the owner and depth from the object
+- `AMILISP_LOCK_DIAG` reports read the owner and depth from the object
   and use a *timed* park (the threshold, then the repeat cadence) only
   when the variable is set; otherwise parks are untimed.
 - `MP:DUMP-THREAD-WAITS` prints the names of `wait_obj` / `wait_lock`
@@ -366,7 +366,7 @@ New, each a regression test for one clause of the design:
   bounded time, no backstop to hide behind.
 - **Compaction while parked** (gc-stress): threads parked on a lock and a
   condvar while the main thread forces compactions with
-  `CLAMIGA_GC_STRESS=1`; after the wake the woken thread's lock is the
+  `AMILISP_GC_STRESS=1`; after the wake the woken thread's lock is the
   forwarded object and the waiter count is zero.
 - **Off-heap**: one million `make-lock` / `make-condition-variable` calls
   leave nothing outstanding in `tests/test_memleak_tracked.sh`.
@@ -494,7 +494,7 @@ ever on master).
   → CAS it on (retry on failure); then park.  That is
   `futex_wait(&val, 2)`'s own re-check, done by hand.  Pinned by
   `tests/test_mt_lock_barge_race.sh` through a race hook
-  (`CLAMIGA_RACE_LOCK_MARK_DELAY_MS`, `DEBUG_THREAD_RACE_HOOKS` build);
+  (`AMILISP_RACE_LOCK_MARK_DELAY_MS`, `DEBUG_THREAD_RACE_HOOKS` build);
   ordinary timing soaks from Lisp did not reproduce it in minutes.
 - The contended release stores 0 with a release fence *before* the
   store (and the fence after it that orders the store against the
@@ -523,7 +523,7 @@ ever on master).
 - `SAVE-IMAGE` refuses while workers run, so an image cannot carry a
   registered waiter; the image test saves a recursive lock held at
   depth 2 and a condvar that was waited on and notified.
-- `CLAMIGA_LOCK_DIAG` reports name the lock (no id any more) and find the
+- `AMILISP_LOCK_DIAG` reports name the lock (no id any more) and find the
   holder by serial; `MP:DUMP-THREAD-WAITS` prints wait-object names.
 - Test hooks `mp::%condvar-waiters` and `mp::%lock-held-p` (internal).
 - The bordeaux-threads fork's `%acquire-lock`, `%acquire-recursive-lock`
@@ -587,5 +587,5 @@ bit back.  Soft-float and FPU=1 binaries build clean.  MorphOS shares
 Pre-existing on this machine, base and branch alike: `make
 test-mt-thread-exit-race`'s start-up self-test reports "worker never
 registered"; it is unrelated to this change (the race binary now
-honours `CLAMIGA_RACE_SELFTEST=0` so it can run the barge test).
+honours `AMILISP_RACE_SELFTEST=0` so it can run the barge test).
 

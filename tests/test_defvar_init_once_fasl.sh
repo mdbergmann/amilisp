@@ -4,7 +4,7 @@
 #
 # OP_DEFVAR checked boundness only when STORING, so the form itself ran on
 # every load: its side effects repeated although the value stayed.  The fix
-# tests (CLAMIGA::%GLOBALLY-BOUND-P 'name) first and jumps over the form; the
+# tests (AMILISP::%GLOBALLY-BOUND-P 'name) first and jumps over the form; the
 # bound branch still runs OP_DEFVAR so that a variable bound by a plain SETQ
 # before the FASL is loaded becomes special at load time.  The same change
 # took the value form of DEFVAR / DEFPARAMETER / DEFCONSTANT out of tail
@@ -16,12 +16,12 @@
 #
 # Run: sh tests/test_defvar_init_once_fasl.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 passed=0
 failed=0
 TMP="${TMPDIR:-/tmp}/clamiga-dvonce-$$"
 mkdir -p "$TMP"
-cleanup() { rm -rf "$TMP" "$HOME/.cache/common-lisp/cl-amiga-"*"$TMP"* 2>/dev/null; }
+cleanup() { rm -rf "$TMP" "$HOME/.cache/common-lisp/amilisp-"*"$TMP"* 2>/dev/null; }
 trap cleanup EXIT
 
 SRC="$TMP/dvonce.lisp"
@@ -40,7 +40,7 @@ COMPILE_DRIVER="$TMP/compile.lisp"
 cat > "$COMPILE_DRIVER" <<EOF
 (compile-file "$SRC" :output-file "$FASL")
 EOF
-CLAMIGA_NO_USERINIT=1 "$CLAMIGA" --no-userinit --non-interactive \
+AMILISP_NO_USERINIT=1 "$AMILISP" --no-userinit --non-interactive \
     --load "$COMPILE_DRIVER" </dev/null >/dev/null 2>&1
 
 check() {  # name expected actual
@@ -75,7 +75,7 @@ cat > "$LOAD_DRIVER" <<EOF
 (format t "~&TAILP=~s ~s~%" (dvonce-tail-par) *dvonce-tail-p*)
 (format t "~&TAILC=~s ~s~%" (dvonce-tail-con) +dvonce-tail-c+)
 EOF
-out=$(CLAMIGA_NO_USERINIT=1 "$CLAMIGA" --no-userinit --non-interactive \
+out=$(AMILISP_NO_USERINIT=1 "$AMILISP" --no-userinit --non-interactive \
           --load "$LOAD_DRIVER" </dev/null 2>&1)
 
 field() { printf '%s\n' "$out" | sed -n "s/^$1=//p" | head -1; }

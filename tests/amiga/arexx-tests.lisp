@@ -10,14 +10,14 @@
 ; End-to-end over the real host protocol: AMIGA.AREXX:SEND builds an actual
 ; RXCOMM message with an argstring in ARG0 and waits for the reply, exactly
 ; as the ARexx interpreter does -- so this exercises the port without needing
-; RexxMast or a second process.  The port name is deliberately NOT "CLAMIGA":
+; RexxMast or a second process.  The port name is deliberately NOT "AMILISP":
 ; a developer may have a real dev port open on the same machine.
 
 (require "amiga/arexx")
 
 (handler-case
     (progn
-      (with-open-file (s "T:clamiga-arexx-test.lisp"
+      (with-open-file (s "T:amilisp-arexx-test.lisp"
                          :direction :output :if-exists :supersede)
         (format s "(defvar *arexx-test-one* t)~%")
         (format s "(error \"arexx test error one\")~%")
@@ -95,7 +95,7 @@
         ; The headline case: a file with two bad top-level forms comes back
         ; with a diagnostic for EACH, and the good forms after them still ran.
         (multiple-value-bind (rc text)
-            (amiga.arexx:send port "LOAD T:clamiga-arexx-test.lisp")
+            (amiga.arexx:send port "LOAD T:amilisp-arexx-test.lisp")
           (check "arexx load rc is error" 10 rc)
           (check "arexx load error drops RESULT" "" text))
         (multiple-value-bind (rc text) (amiga.arexx:send port "LASTRESULT")
@@ -103,7 +103,7 @@
           (check "arexx load reports both errors" t
                  (and (search "2 error(s)" text) t))
           (check "arexx load diagnostic has file:line" t
-                 (and (search "clamiga-arexx-test.lisp:2" text) t)))
+                 (and (search "amilisp-arexx-test.lisp:2" text) t)))
         (check "arexx load ran the forms after the errors" t
                (and (boundp '*arexx-test-end*) t))
 
@@ -111,14 +111,14 @@
         ; The definitions come from a file so SOURCE-LOCATION has a line to
         ; report and the docstring went through the compiler's load-time
         ; record.
-        (with-open-file (s "T:clamiga-arexx-intro.lisp"
+        (with-open-file (s "T:amilisp-arexx-intro.lisp"
                            :direction :output :if-exists :supersede)
           (format s "(defun arexx-intro-fn (a &optional (b 2))~%")
           (format s "  \"Intro doc.\"~%")
           (format s "  (list a b))~%")
           (format s "(defmacro arexx-intro-mac (x &body body) `(progn ,x ,@body))~%"))
         (multiple-value-bind (rc text)
-            (amiga.arexx:send port "LOAD T:clamiga-arexx-intro.lisp")
+            (amiga.arexx:send port "LOAD T:amilisp-arexx-intro.lisp")
           (check "arexx intro file loads" 0 rc)
           (check "arexx intro file loads clean" t
                  (and (search "0 error(s)" text) t)))
@@ -160,12 +160,12 @@
         (multiple-value-bind (rc text) (amiga.arexx:send port "SOURCE-LOCATION arexx-intro-fn")
           (check "arexx SOURCE-LOCATION rc" 0 rc)
           (check "arexx SOURCE-LOCATION is file:line" t
-                 (and (search "clamiga-arexx-intro.lisp:1" text) t)))
+                 (and (search "amilisp-arexx-intro.lisp:1" text) t)))
         (multiple-value-bind (rc text)
             (amiga.arexx:send port "MACROEXPAND-1 (arexx-intro-mac 1 2 3)")
           (check "arexx MACROEXPAND-1 rc" 0 rc)
           (check "arexx MACROEXPAND-1 expansion" "(progn 1 2 3)" text))
-        (delete-file "T:clamiga-arexx-intro.lisp")
+        (delete-file "T:amilisp-arexx-intro.lisp")
 
         ; The REPL (lib/dev-repl.lisp): a thread of its own that talks back
         ; to the editor's port.  There is one ARexx port per process, so the
@@ -342,7 +342,7 @@
         (check "arexx send to a closed port errors" t
                (handler-case (progn (amiga.arexx:send port "PING") nil)
                  (error () t)))
-        (delete-file "T:clamiga-arexx-test.lisp")))
+        (delete-file "T:amilisp-arexx-test.lisp")))
   (error (e)
     (setq *fail-count* (+ *fail-count* 1))
     (format t "FAIL: ARexx port tests signaled: ~A~%" e)))

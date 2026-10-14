@@ -34,12 +34,12 @@ speed 3 — cached FASLs bypass the compiler, so without the wipe the forced
 speed changes almost nothing:
 
 ```
-rm -rf ~/.cache/common-lisp/cl-amiga-0.4-fasl23
-CLAMIGA_FORCE_SPEED=3 ./build/host/amilisp --no-userinit --heap 192M \
+rm -rf ~/.cache/common-lisp/amilisp-0.4-fasl23
+AMILISP_FORCE_SPEED=3 ./build/host/amilisp --no-userinit --heap 192M \
     --non-interactive --load <driver.lisp>
 ```
 
-`CLAMIGA_FORCE_SPEED=3` pins the effective `speed` for the whole process,
+`AMILISP_FORCE_SPEED=3` pins the effective `speed` for the whole process,
 overriding declaim/declare (see the peephole section in the README). The
 driver loads `trunk/load-sento-bench.lisp` and calls
 `sento.bench::run-benchmark` per cell; all six cells ran back-to-back in

@@ -13,7 +13,7 @@ commands, which call `DOCUMENTATION` and `DESCRIBE` under the hood).
 All five phases below are implemented; the audit that follows is kept as
 the record of where things stood.
 
-- Capture is a load-time `(CLAMIGA::%SET-DOCUMENTATION 'name 'doc-type
+- Capture is a load-time `(AMILISP::%SET-DOCUMENTATION 'name 'doc-type
   "...")` call emitted by the compiler for `defun` / `defmacro` /
   `defvar` / `defparameter` / `defconstant` / `deftype`
   (`compiler_extra.c`, `emit_doc_call`) and by the Lisp macros for
@@ -27,7 +27,7 @@ the record of where things stood.
   With it on, `boot.fasl` grew by 16 KB and `clos.fasl` by 50 KB.
 - Docstrings now reach the FASL as string literals, so the lib's
   docstrings were made ASCII (the em dashes and section signs) for the
-  `CLAMIGA_FASL_PORTABLE=1` writer.
+  `AMILISP_FASL_PORTABLE=1` writer.
 - `defmacro` hands the wrapper `(macro-function 'x)` returns the lambda
   list as written, so `EXT:FUNCTION-ARGLIST` (and DESCRIBE, and the editor)
   see `(a &body b)` rather than `(#:form #:env)`.

@@ -10,12 +10,12 @@
 # (the whole feature is runtime-optional), so this test never fails just
 # because OpenSSL is missing.
 #
-# Also run by the gc-stress suite (CLAMIGA_GC_STRESS=1) so the TLS builtins'
+# Also run by the gc-stress suite (AMILISP_GC_STRESS=1) so the TLS builtins'
 # allocating paths (string args, peer-cert plist) see forced compaction.
 #
 # Run: sh tests/test_tls_loopback.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then
@@ -23,12 +23,12 @@ if [ -z "$TIMEOUT" ]; then
     exit 0
 fi
 
-if [ ! -x "$CLAMIGA" ]; then
-    echo "FAIL test_tls_loopback: $CLAMIGA not found (run make host first)"
+if [ ! -x "$AMILISP" ]; then
+    echo "FAIL test_tls_loopback: $AMILISP not found (run make host first)"
     exit 1
 fi
 
-OUT=$("$TIMEOUT" 120 "$CLAMIGA" --no-userinit --non-interactive \
+OUT=$("$TIMEOUT" 120 "$AMILISP" --no-userinit --non-interactive \
       --load tests/tls-loopback.lisp </dev/null 2>&1)
 rc=$?
 

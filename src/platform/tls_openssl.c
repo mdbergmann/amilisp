@@ -188,12 +188,12 @@ static void tls_load(void)
     };
     const char *missing = NULL;
 
-    lib_crypto = tls_dlopen_first("CLAMIGA_LIBCRYPTO", crypto_names);
-    lib_ssl    = tls_dlopen_first("CLAMIGA_LIBSSL", ssl_names);
+    lib_crypto = tls_dlopen_first("AMILISP_LIBCRYPTO", crypto_names);
+    lib_ssl    = tls_dlopen_first("AMILISP_LIBSSL", ssl_names);
     if (!lib_ssl || !lib_crypto) {
         snprintf(tls_load_err, sizeof(tls_load_err),
                  "no OpenSSL 1.1.1/3.x found (install openssl, or point "
-                 "CLAMIGA_LIBSSL/CLAMIGA_LIBCRYPTO at libssl/libcrypto)");
+                 "AMILISP_LIBSSL/AMILISP_LIBCRYPTO at libssl/libcrypto)");
         return;
     }
 

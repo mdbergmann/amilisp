@@ -17,7 +17,7 @@
 #
 # Run: sh tests/test_mt_thread_death_hook.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then
@@ -74,7 +74,7 @@ cat > "$tmp" <<'EOF'
 (format t "MT-DEATH-DONE~%")
 EOF
 
-out=$("$TIMEOUT" 120 "$CLAMIGA" --heap 4M --no-userinit --non-interactive --load "$tmp" </dev/null 2>&1)
+out=$("$TIMEOUT" 120 "$AMILISP" --heap 4M --no-userinit --non-interactive --load "$tmp" </dev/null 2>&1)
 status=$?
 passed=0
 fail() {

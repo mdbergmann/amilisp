@@ -9,7 +9,7 @@
 # "/Users/<builder>/Development/.../cl-amiga/lib/amiga/ahi.lisp" into every
 # Amiga backtrace through a shipped module.
 #
-# With CLAMIGA_FASL_PORTABLE=1 (what the release script, `make fasl` and
+# With AMILISP_FASL_PORTABLE=1 (what the release script, `make fasl` and
 # scripts/compile-lib-fasls.sh set) the recorded name is now relative to the
 # compiling process's current directory when the source lies under it:
 # "lib/amiga/ahi.lisp", which is also where the file sits in the deployed
@@ -23,8 +23,8 @@
 #
 # Run: sh tests/test_fasl_source_name.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
-case "$CLAMIGA" in /*|[A-Za-z]:/*) ;; *) CLAMIGA="$(pwd)/$CLAMIGA" ;; esac
+AMILISP="${1:-build/host/amilisp}"
+case "$AMILISP" in /*|[A-Za-z]:/*) ;; *) AMILISP="$(pwd)/$AMILISP" ;; esac
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then
@@ -77,16 +77,16 @@ check_absent() {
 
 compile_in_tree() {
     # $1 = source (relative to the tree or absolute), $2 = fasl, $3 = env
-    ( cd "$dir/tree" && env $3 "$TIMEOUT" 60 "$CLAMIGA" --no-userinit --non-interactive \
+    ( cd "$dir/tree" && env $3 "$TIMEOUT" 60 "$AMILISP" --no-userinit --non-interactive \
         --eval "(compile-file \"$1\" :output-file \"$2\")" </dev/null >/dev/null 2>&1 )
     [ -s "$2" ]
 }
 
 # 1. portable, under cwd: relative
-compile_in_tree "lib/mod/thing.lisp" "$dir/f1.fasl" "CLAMIGA_FASL_PORTABLE=1" \
+compile_in_tree "lib/mod/thing.lisp" "$dir/f1.fasl" "AMILISP_FASL_PORTABLE=1" \
     || { echo "FAIL: compile 1 produced no FASL"; exit 1; }
 driver "$dir/f1.fasl" > "$dir/d1.lisp"
-( cd "$dir/elsewhere" && "$TIMEOUT" 60 "$CLAMIGA" --no-userinit --non-interactive \
+( cd "$dir/elsewhere" && "$TIMEOUT" 60 "$AMILISP" --no-userinit --non-interactive \
     --load "$dir/d1.lisp" </dev/null > "$dir/o1.txt" 2>&1 )
 check "portable: source-location is relative to the compile cwd" \
       "^SRCLOC lib/mod/thing.lisp$" "$dir/o1.txt"
@@ -96,19 +96,19 @@ check_absent "portable: no build-host absolute path in the backtrace" \
       "SRCNAME-FN ($dir" "$dir/o1.txt"
 
 # 2. portable, outside cwd: absolute kept
-compile_in_tree "$dir/elsewhere/thing.lisp" "$dir/f2.fasl" "CLAMIGA_FASL_PORTABLE=1" \
+compile_in_tree "$dir/elsewhere/thing.lisp" "$dir/f2.fasl" "AMILISP_FASL_PORTABLE=1" \
     || { echo "FAIL: compile 2 produced no FASL"; exit 1; }
 driver "$dir/f2.fasl" > "$dir/d2.lisp"
-"$TIMEOUT" 60 "$CLAMIGA" --no-userinit --non-interactive \
+"$TIMEOUT" 60 "$AMILISP" --no-userinit --non-interactive \
     --load "$dir/d2.lisp" </dev/null > "$dir/o2.txt" 2>&1
 check "portable, source outside cwd: absolute name kept" \
       "^SRCLOC .*/elsewhere/thing.lisp$" "$dir/o2.txt"
 
 # 3. not portable, under cwd: absolute kept (the host's M-. contract)
-compile_in_tree "lib/mod/thing.lisp" "$dir/f3.fasl" "CLAMIGA_FASL_PORTABLE=0" \
+compile_in_tree "lib/mod/thing.lisp" "$dir/f3.fasl" "AMILISP_FASL_PORTABLE=0" \
     || { echo "FAIL: compile 3 produced no FASL"; exit 1; }
 driver "$dir/f3.fasl" > "$dir/d3.lisp"
-"$TIMEOUT" 60 "$CLAMIGA" --no-userinit --non-interactive \
+"$TIMEOUT" 60 "$AMILISP" --no-userinit --non-interactive \
     --load "$dir/d3.lisp" </dev/null > "$dir/o3.txt" 2>&1
 check "not portable: absolute name kept" \
       "^SRCLOC .*/tree/lib/mod/thing.lisp$" "$dir/o3.txt"

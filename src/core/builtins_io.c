@@ -368,7 +368,7 @@ static int cf_emit_fasl_deps(CL_FaslWriter *fw,
 }
 
 /* LOAD's implicit FASL cache can be switched off: --no-fasl-cache, or
- * CLAMIGA_FASL_CACHE=0 in the environment.  Every LOAD of a source file
+ * AMILISP_FASL_CACHE=0 in the environment.  Every LOAD of a source file
  * then compiles it, and nothing is read from or written to the cache.  The
  * DEPS trailer catches a changed DEFSTRUCT; a changed macro or inline
  * function in another file it cannot see, and this is the answer to that.
@@ -381,7 +381,7 @@ static int load_fasl_cache_enabled(void)
     const char *v;
 
     if (cl_load_fasl_cache_off) return 0;
-    v = platform_getenv("CLAMIGA_FASL_CACHE", envbuf, sizeof(envbuf));
+    v = platform_getenv("AMILISP_FASL_CACHE", envbuf, sizeof(envbuf));
     return !(v && v[0] == '0' && v[1] == '\0');
 }
 
@@ -1191,7 +1191,7 @@ static int make_fasl_cache_path(const char *input, char *output, uint32_t outsiz
     /* Build cache root — include FASL format version so bumping
        CL_FASL_VERSION automatically invalidates stale caches. */
 #ifdef PLATFORM_AMIGA
-    snprintf(root, sizeof(root), "S:cl-amiga/faslcache/%s-fasl%d/",
+    snprintf(root, sizeof(root), "S:amilisp/faslcache/%s-fasl%d/",
              CL_VERSION_STRING, CL_FASL_VERSION);
     /* Transform "DH0:path" -> "DH0/path" by replacing ':' with '/' */
     {
@@ -1202,7 +1202,7 @@ static int make_fasl_cache_path(const char *input, char *output, uint32_t outsiz
 #else
     {
         char envbuf[400];
-        /* CLAMIGA_FASL_CACHE_DIR overrides the default ~/.cache/common-lisp
+        /* AMILISP_FASL_CACHE_DIR overrides the default ~/.cache/common-lisp
            location. The load-and-test runner sets this per script so each
            script gets its own cache: scripts that compile the same shared
            library under different *features* (e.g. :hunchentoot-no-ssl) would
@@ -1210,9 +1210,9 @@ static int make_fasl_cache_path(const char *input, char *output, uint32_t outsiz
            keys only on source mtime, not on *features*. Still namespaced by
            CL_FASL_VERSION so a version bump invalidates it. */
         const char *override =
-            platform_getenv("CLAMIGA_FASL_CACHE_DIR", envbuf, sizeof(envbuf));
+            platform_getenv("AMILISP_FASL_CACHE_DIR", envbuf, sizeof(envbuf));
         if (override && override[0]) {
-            snprintf(root, sizeof(root), "%s/cl-amiga-%s-fasl%d/",
+            snprintf(root, sizeof(root), "%s/amilisp-%s-fasl%d/",
                      override, CL_VERSION_STRING, CL_FASL_VERSION);
         } else {
             const char *home = platform_getenv("HOME", envbuf, sizeof(envbuf));
@@ -1223,7 +1223,7 @@ static int make_fasl_cache_path(const char *input, char *output, uint32_t outsiz
                 home = platform_getenv("USERPROFILE", envbuf, sizeof(envbuf));
 #endif
             if (!home) return 0;
-            snprintf(root, sizeof(root), "%s/.cache/common-lisp/cl-amiga-%s-fasl%d/",
+            snprintf(root, sizeof(root), "%s/.cache/common-lisp/amilisp-%s-fasl%d/",
                      home, CL_VERSION_STRING, CL_FASL_VERSION);
         }
     }
@@ -2318,7 +2318,7 @@ static CL_Obj bi_macroexpand(CL_Obj *args, int n)
     return form;
 }
 
-/* CLAMIGA::%MACROEXPAND-ENV — read the current lexical environment
+/* AMILISP::%MACROEXPAND-ENV — read the current lexical environment
  * installed by cl_macroexpand_1_env before calling an expander.
  * Called from the body of a DEFMACRO / MACROLET expander to bind the
  * user's &environment parameter. */
@@ -2329,7 +2329,7 @@ static CL_Obj bi_macroexpand_env(CL_Obj *args, int n)
     return cl_current_lex_env;
 }
 
-/* CLAMIGA::%CALL-MACRO-EXPANDER inner-fn whole-form env
+/* AMILISP::%CALL-MACRO-EXPANDER inner-fn whole-form env
  *
  * Internal trampoline produced by compile_defmacro / compile_macrolet.
  * Wraps an N-arg destructuring expander in the CLHS-mandated 2-arg
@@ -2340,7 +2340,7 @@ static CL_Obj bi_macroexpand_env(CL_Obj *args, int n)
  * CL_ERR_ARGS (mapped to PROGRAM-ERROR) for 0/1/3+ arg calls.
  *
  * Threads env through cl_current_lex_env so that the inner expander's
- * &environment binding (compiled as (CLAMIGA::%MACROEXPAND-ENV)) sees
+ * &environment binding (compiled as (AMILISP::%MACROEXPAND-ENV)) sees
  * the right env.  Unpacks (cdr whole-form) into positional args for
  * the inner expander, with whole-form prepended (for &whole). */
 static CL_Obj bi_call_macro_expander(CL_Obj *args, int n)
@@ -3321,7 +3321,7 @@ static CL_Obj bi_ext_heap_stats(CL_Obj *args, int n)
 /* (ext:%gengc-stats) — generational collector diagnostics as a 6-element
  * list: (enabled-p minor-count minor-seconds promoted-bytes old-top
  * dirty-pages-last-minor).  enabled-p is T/NIL (NIL = classic collector:
- * CLAMIGA_GENGC=0, setup failure, or a fallback demotion); the rest are
+ * AMILISP_GENGC=0, setup failure, or a fallback demotion); the rest are
  * fixnums except minor-seconds (double-float).  promoted-bytes is
  * cumulative; old-top is the current old-space watermark in bytes. */
 static CL_Obj bi_ext_gengc_stats(CL_Obj *args, int n)
@@ -3404,7 +3404,7 @@ static CL_Obj bi_ext_gc_audit_roots(CL_Obj *args, int n)
 
 /* (ext:%gc-audit-hdr-index) — check the block-start index the JIT
  * native-stack scan validates candidates against (0 = clean, -1 = no
- * index: generational mode or CLAMIGA_HDR_INDEX=0).  The Amiga suite
+ * index: generational mode or AMILISP_HDR_INDEX=0).  The Amiga suite
  * runs it after the JIT GC-stress tests; a violation means a header was
  * written without the index being told, which the scan would turn into
  * a phantom mark or a missed pin. */
@@ -3977,7 +3977,7 @@ static int module_name_downcase(const char *name, uint32_t len,
    implementation-defined search.  Fills fasl_path/lisp_path (each
    MODULE_PATH_MAX bytes) and sets *have_fasl / *have_lisp to whether each exists.  The
    search order is: cwd-relative lib/, then platform fallbacks (Amiga:
-   PROGDIR: and the in-repo ancestor; host: $CLAMIGA_HOME and the
+   PROGDIR: and the in-repo ancestor; host: $AMILISP_HOME and the
    executable-relative cl_lib_rel_dirs table). */
 static void module_locate(const char *name, uint32_t len,
                           char *fasl_path, char *lisp_path,
@@ -4018,15 +4018,15 @@ static void module_locate(const char *name, uint32_t len,
     /* Host fallback: when amilisp is launched from a directory other
        than its source root (e.g. an editor/Sly session whose cwd
        follows the file buffer), cwd-relative "lib/" won't exist.
-       Honour $CLAMIGA_HOME so the bundled lib/ is still found without
+       Honour $AMILISP_HOME so the bundled lib/ is still found without
        forcing the process working directory — on Amiga PROGDIR: above
        already serves this role. */
     if (!*have_fasl && !*have_lisp) {
         char homebuf[256];
-        const char *home = platform_getenv("CLAMIGA_HOME", homebuf, sizeof(homebuf));
+        const char *home = platform_getenv("AMILISP_HOME", homebuf, sizeof(homebuf));
         if (home && home[0]) {
             size_t hlen = strlen(home);
-            /* tolerate a trailing slash on CLAMIGA_HOME */
+            /* tolerate a trailing slash on AMILISP_HOME */
             int hcut = (hlen > 0 && home[hlen - 1] == '/') ? (int)(hlen - 1) : (int)hlen;
             snprintf(fasl_path, MODULE_PATH_MAX, "%.*s/lib/%.*s.fasl",
                      hcut, home, (int)len, name);
@@ -4042,7 +4042,7 @@ static void module_locate(const char *name, uint32_t len,
        has lib/ next to the binary, an install prefix has
        ../lib/amilisp/, the in-repo build has lib/ two levels above
        build/host/amilisp — so a plain `amilisp` on $PATH works from
-       any directory without CLAMIGA_HOME. */
+       any directory without AMILISP_HOME. */
     if (!*have_fasl && !*have_lisp) {
         char prefix[300];
         if (platform_executable_prefix(prefix, (int)sizeof(prefix))) {
@@ -4217,10 +4217,10 @@ static CL_Obj bi_require(CL_Obj *args, int n)
                      "directory, PROGDIR: and two levels above the binary "
                      "(in-repo layout).",
 #else
-                     "directory, $CLAMIGA_HOME, and - relative to the amilisp "
+                     "directory, $AMILISP_HOME, and - relative to the amilisp "
                      "executable - lib/, ../lib/amilisp/ (installed layout) "
                      "and ../../lib/ (in-repo build). If amilisp runs outside "
-                     "its installation, set CLAMIGA_HOME to the cl-amiga "
+                     "its installation, set AMILISP_HOME to the cl-amiga "
                      "directory.",
 #endif
                      (int)len, name, (int)len, name, (int)len, name);
@@ -4496,7 +4496,7 @@ static CL_Obj bi_copy_rows(CL_Obj *args, int n)
 /* (ext:executable-path) => string or NIL
  * The path of the running amilisp as another process can start it:
  * "/usr/local/bin/amilisp" (symlinks resolved), "C:/.../amilisp.exe",
- * "PROGDIR:clamiga".  NIL when the platform cannot tell.  What the host
+ * "PROGDIR:amilisp".  NIL when the platform cannot tell.  What the host
  * Clamacs starts a second amilisp with. */
 static CL_Obj bi_executable_path(CL_Obj *args, int n)
 {
@@ -5234,7 +5234,7 @@ void cl_builtins_io_init(void)
     defun("PRINC", bi_princ, 1, 2);
     defun("PPRINT", bi_pprint, 1, 2);
     defun("FORMAT", bi_format, 1, -1);
-    cl_format_builtins_init();  /* registers CLAMIGA::%FORMATTER-INNER */
+    cl_format_builtins_init();  /* registers AMILISP::%FORMATTER-INNER */
 
     /* Read / Load / Eval */
     defun("READ", bi_read, 0, -1);
@@ -5244,12 +5244,12 @@ void cl_builtins_io_init(void)
     defun("MACROEXPAND-1", bi_macroexpand_1, 1, 2);
     defun("MACROEXPAND", bi_macroexpand, 1, 2);
     defun("MACRO-FUNCTION", bi_macro_function, 1, 2);
-    cl_register_builtin("%SETF-MACRO-FUNCTION", bi_set_macro_function, 2, 2, cl_package_clamiga);
+    cl_register_builtin("%SETF-MACRO-FUNCTION", bi_set_macro_function, 2, 2, cl_package_amilisp);
     defun("COMPILER-MACRO-FUNCTION", bi_compiler_macro_function, 1, 2);
     cl_register_builtin("%SETF-COMPILER-MACRO-FUNCTION",
-                        bi_set_compiler_macro_function, 2, 2, cl_package_clamiga);
-    cl_register_builtin("%MACROEXPAND-ENV", bi_macroexpand_env, 0, 0, cl_package_clamiga);
-    cl_register_builtin("%CALL-MACRO-EXPANDER", bi_call_macro_expander, 3, 3, cl_package_clamiga);
+                        bi_set_compiler_macro_function, 2, 2, cl_package_amilisp);
+    cl_register_builtin("%MACROEXPAND-ENV", bi_macroexpand_env, 0, 0, cl_package_amilisp);
+    cl_register_builtin("%CALL-MACRO-EXPANDER", bi_call_macro_expander, 3, 3, cl_package_amilisp);
 
     /* Throw (ERROR is now in builtins_condition.c) */
     defun("THROW", bi_throw, 1, 2);
@@ -5266,13 +5266,13 @@ void cl_builtins_io_init(void)
     defun("DISASSEMBLE", bi_disassemble, 1, 1);
 
     /* Timing (internal helpers for TIME special form) */
-    cl_register_builtin("%GET-INTERNAL-TIME", bi_get_internal_time, 0, 0, cl_package_clamiga);
-    cl_register_builtin("%GET-RUN-TIME",      bi_get_run_time,      0, 0, cl_package_clamiga);
-    cl_register_builtin("%BOOT-QUIET-P",      bi_boot_quiet_p,      0, 0, cl_package_clamiga);
-    cl_register_builtin("%BOOT-TRACE-CLOS",   bi_boot_trace_clos,   3, 3, cl_package_clamiga);
-    cl_register_builtin("%GET-BYTES-CONSED", bi_get_bytes_consed, 0, 0, cl_package_clamiga);
-    cl_register_builtin("%GET-GC-COUNT", bi_get_gc_count, 0, 0, cl_package_clamiga);
-    cl_register_builtin("%TIME-REPORT", bi_time_report, 3, 4, cl_package_clamiga);
+    cl_register_builtin("%GET-INTERNAL-TIME", bi_get_internal_time, 0, 0, cl_package_amilisp);
+    cl_register_builtin("%GET-RUN-TIME",      bi_get_run_time,      0, 0, cl_package_amilisp);
+    cl_register_builtin("%BOOT-QUIET-P",      bi_boot_quiet_p,      0, 0, cl_package_amilisp);
+    cl_register_builtin("%BOOT-TRACE-CLOS",   bi_boot_trace_clos,   3, 3, cl_package_amilisp);
+    cl_register_builtin("%GET-BYTES-CONSED", bi_get_bytes_consed, 0, 0, cl_package_amilisp);
+    cl_register_builtin("%GET-GC-COUNT", bi_get_gc_count, 0, 0, cl_package_amilisp);
+    cl_register_builtin("%TIME-REPORT", bi_time_report, 3, 4, cl_package_amilisp);
     defun("GET-INTERNAL-REAL-TIME", bi_get_internal_real_time, 0, 0);
     defun("GET-INTERNAL-RUN-TIME", bi_get_internal_run_time, 0, 0);
     {
@@ -5360,8 +5360,8 @@ void cl_builtins_io_init(void)
     defun("PPRINT-INDENT", bi_pprint_indent, 2, 3);
 
     /* Internal builtins for pprint-logical-block */
-    cl_register_builtin("%PP-PUSH-BLOCK", bi_pp_push_block, 0, 0, cl_package_clamiga);
-    cl_register_builtin("%PP-POP-BLOCK", bi_pp_pop_block, 0, 0, cl_package_clamiga);
+    cl_register_builtin("%PP-PUSH-BLOCK", bi_pp_push_block, 0, 0, cl_package_amilisp);
+    cl_register_builtin("%PP-POP-BLOCK", bi_pp_pop_block, 0, 0, cl_package_amilisp);
 
     /* Pprint-dispatch table */
     defun("SET-PPRINT-DISPATCH", bi_set_pprint_dispatch, 2, 4);

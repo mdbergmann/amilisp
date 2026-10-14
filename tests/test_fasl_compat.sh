@@ -3,7 +3,7 @@
 # Verifies that FASL files created in one session work correctly in another.
 # Run: make test (or sh tests/test_fasl_compat.sh build/host/amilisp)
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0
@@ -11,7 +11,7 @@ TMPDIR="${TMPDIR:-/tmp}"
 # Cache path includes the impl version and CL_FASL_VERSION ("-faslN"
 # suffix) — wildcard on both so the test matches the current build and
 # cleans every version's cache, independent of CL_VERSION_STRING bumps.
-CACHE_GLOB="$HOME/.cache/common-lisp/cl-amiga-*"
+CACHE_GLOB="$HOME/.cache/common-lisp/amilisp-*"
 
 check() {
     desc="$1"
@@ -64,7 +64,7 @@ check_not_contains() {
 # Helper: run amilisp in batch mode with *load-verbose* suppressed
 # Usage: run_quiet '(lisp expression)'
 run_quiet() {
-    echo "(setf *load-verbose* nil) $1" | "$CLAMIGA" --no-userinit --batch 2>&1
+    echo "(setf *load-verbose* nil) $1" | "$AMILISP" --no-userinit --batch 2>&1
 }
 
 # Clean FASL cache to start fresh
@@ -218,7 +218,7 @@ run_quiet '(load "'"$TMPDIR"'/fasl_test_cache.lisp")' > /dev/null
 
 # Session 2: load with *load-verbose* to verify FASL path is used
 result=$(echo '(setf *load-verbose* t) (load "'"$TMPDIR"'/fasl_test_cache.lisp") (cache-test-fn)' \
-    | "$CLAMIGA" --no-userinit --batch 2>&1)
+    | "$AMILISP" --no-userinit --batch 2>&1)
 check_contains "fasl_loaded_from_cache" ".fasl" "$result"
 check_contains "fasl_cached_result_correct" "CACHED" "$result"
 
@@ -294,11 +294,11 @@ rm -f "$TMPDIR/cf_defvar_trace.lisp" "$TMPDIR/cf_defvar_trace.fasl"
 
 # Exact repro of the original bug: compile-file + load must not error.
 cat > "$TMPDIR/cf_pkg_once.lisp" << 'LISP'
-(defvar *cf-pkg* (make-package :clamiga-bug-a-test-pkg))
+(defvar *cf-pkg* (make-package :amilisp-bug-a-test-pkg))
 LISP
 
 rm -rf $CACHE_GLOB
-result=$(run_quiet '(compile-file "'"$TMPDIR"'/cf_pkg_once.lisp" :output-file "'"$TMPDIR"'/cf_pkg_once.fasl") (load "'"$TMPDIR"'/cf_pkg_once.fasl") (not (null (find-package :clamiga-bug-a-test-pkg)))')
+result=$(run_quiet '(compile-file "'"$TMPDIR"'/cf_pkg_once.lisp" :output-file "'"$TMPDIR"'/cf_pkg_once.fasl") (load "'"$TMPDIR"'/cf_pkg_once.fasl") (not (null (find-package :amilisp-bug-a-test-pkg)))')
 check_contains "compile_file_does_not_run_make_package_twice" "T" "$result"
 check_not_contains "compile_file_no_package_already_exists_error" "already exists" "$result"
 rm -f "$TMPDIR/cf_pkg_once.lisp" "$TMPDIR/cf_pkg_once.fasl"
@@ -310,7 +310,7 @@ LISP
 
 rm -rf $CACHE_GLOB
 cf_out=$(echo "(setf *compile-verbose* nil) (compile-file \"$TMPDIR/cf_ew_ct.lisp\" :output-file \"$TMPDIR/cf_ew_ct.fasl\")" \
-    | "$CLAMIGA" --no-userinit --batch 2>&1)
+    | "$AMILISP" --no-userinit --batch 2>&1)
 check_contains "compile_file_eval_when_compile_toplevel_runs" "CF-EW-CT-RAN" "$cf_out"
 rm -f "$TMPDIR/cf_ew_ct.lisp" "$TMPDIR/cf_ew_ct.fasl"
 
@@ -321,10 +321,10 @@ LISP
 
 rm -rf $CACHE_GLOB
 cf_out=$(echo "(setf *compile-verbose* nil) (compile-file \"$TMPDIR/cf_ew_lt.lisp\" :output-file \"$TMPDIR/cf_ew_lt.fasl\")" \
-    | "$CLAMIGA" --no-userinit --batch 2>&1)
+    | "$AMILISP" --no-userinit --batch 2>&1)
 check_not_contains "compile_file_eval_when_load_toplevel_silent_at_compile" "CF-EW-LT-RAN" "$cf_out"
 load_out=$(echo "(load \"$TMPDIR/cf_ew_lt.fasl\")" \
-    | "$CLAMIGA" --no-userinit --batch 2>&1)
+    | "$AMILISP" --no-userinit --batch 2>&1)
 check_contains "compile_file_eval_when_load_toplevel_runs_at_load" "CF-EW-LT-RAN" "$load_out"
 rm -f "$TMPDIR/cf_ew_lt.lisp" "$TMPDIR/cf_ew_lt.fasl"
 

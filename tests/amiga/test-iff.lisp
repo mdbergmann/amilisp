@@ -15,9 +15,9 @@
 (format t "; iff: amiga/iff loaded~%")
 (finish-output)
 
-(defparameter *iff-fixture* "T:clamiga-iff-fixture.iff")
-(defparameter *iff-rt*      "T:clamiga-iff-roundtrip.iff")
-(defparameter *iff-bad*     "T:clamiga-iff-bad.dat")
+(defparameter *iff-fixture* "T:amilisp-iff-fixture.iff")
+(defparameter *iff-rt*      "T:amilisp-iff-roundtrip.iff")
+(defparameter *iff-bad*     "T:amilisp-iff-bad.dat")
 
 (defun iff-test-w32 (s n)
   (write-byte (ldb (byte 8 24) n) s)

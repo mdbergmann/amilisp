@@ -758,7 +758,7 @@ static int peep_not_branch(PeepCode *pc)
  * The table is the opcode-pair profile of the sento message path
  * (docs/benchmarks.md 2026-09-09): the first nine pairs were 31% of all
  * dispatches, the five added after re-profiling the fused stream another
- * 10% of what remained.  CLAMIGA_NO_FUSE=1 (main.c) leaves the pairs
+ * 10% of what remained.  AMILISP_NO_FUSE=1 (main.c) leaves the pairs
  * alone — A/B runs, bisects. */
 
 int cl_peephole_fuse_enabled = 1;
@@ -1079,7 +1079,7 @@ int cl_peephole_run(uint8_t *code, int *code_len,
 
 void cl_peephole_optimize(struct CL_Compiler_s *c)
 {
-    /* (speed 0) keeps the bytecode exactly as emitted (CLAMIGA_FORCE_SPEED=0
+    /* (speed 0) keeps the bytecode exactly as emitted (AMILISP_FORCE_SPEED=0
      * is how the differential harness gets the reference output). */
     if (c->peep_speed_max < 1) return;
     cl_peephole_run(c->code, &c->code_pos, c->constants, c->const_count,

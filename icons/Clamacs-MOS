@@ -3,7 +3,7 @@
 ; from the clamacs.img next to it (the editor, already loaded) and told to
 ; run it.  MorphOS only -- on AmigaOS 3 use Clamacs or Clamacs-FPU.  The
 ; editor talks to a running amilisp over ARexx and can start one itself
-; (PROGDIR:clamiga, i.e. the same binary).  MUI and TextEditor.mcc come with
+; (PROGDIR:amilisp, i.e. the same binary).  MUI and TextEditor.mcc come with
 ; MorphOS.  Files to edit go after `--' when started from a shell;
 ; S:.clamacsrc is loaded first.
 Stack 131072

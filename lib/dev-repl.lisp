@@ -412,19 +412,19 @@ checks on the REPL thread itself."
 
 ;;; On the m68k build a function the JIT compiled natively pushes no VM
 ;;; frame of its own, so EXT:BACKTRACE and EXT:FRAME-LOCALS do not see it
-;;; unless the JIT's per-call shadow frames are on (CLAMIGA::%JIT-SET-FRAMES;
+;;; unless the JIT's per-call shadow frames are on (AMILISP::%JIT-SET-FRAMES;
 ;;; a few percent on call-heavy code, which a debugging session accepts;
 ;;; such a frame shows the arguments, not the LET-bound locals).  Turned on
 ;;; for a DEBUG attach and put back on detach; a no-op on the host build.
 (defvar *repl-jit-frames-before* nil)
 
 (defun %repl-jit-frames (on)
-  (let ((setter (find-symbol "%JIT-SET-FRAMES" "CLAMIGA")))
+  (let ((setter (find-symbol "%JIT-SET-FRAMES" "AMILISP")))
     (when (and setter (fboundp setter))
       (funcall setter on))))
 
 (defun %repl-jit-frames-p ()
-  (let ((getter (find-symbol "%JIT-FRAMES-P" "CLAMIGA")))
+  (let ((getter (find-symbol "%JIT-FRAMES-P" "AMILISP")))
     (and getter (fboundp getter) (funcall getter))))
 
 (defun %repl-spawn (port debug)

@@ -9,7 +9,7 @@
 ;;; archives, and works around AmiLisp compiler limitations.
 
 ;; Load Gray Streams implementation (needed by trivial-gray-streams).
-;; REQUIRE resolves lib/ against the CWD and falls back to $CLAMIGA_HOME,
+;; REQUIRE resolves lib/ against the CWD and falls back to $AMILISP_HOME,
 ;; so this works when amilisp is launched outside the source root (editor,
 ;; ICL) — a cwd-relative LOAD here would not.
 (require "gray-streams")

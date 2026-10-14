@@ -2054,7 +2054,7 @@ void cl_builtins_strings_init(void)
     defun("STRING-LEFT-TRIM", bi_string_left_trim, 2, 2);
     defun("STRING-RIGHT-TRIM", bi_string_right_trim, 2, 2);
     defun("SUBSEQ", bi_subseq, 2, 3);
-    cl_register_builtin("%SETF-SUBSEQ", bi_setf_subseq, 3, 4, cl_package_clamiga);
+    cl_register_builtin("%SETF-SUBSEQ", bi_setf_subseq, 3, 4, cl_package_amilisp);
     defun("CONCATENATE", bi_concatenate, 1, -1);
     defun("CHAR", bi_char_accessor, 2, 2);
     defun("SCHAR", bi_schar_accessor, 2, 2);

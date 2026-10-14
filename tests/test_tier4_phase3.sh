@@ -12,8 +12,8 @@
 #
 # Covered:
 #   1. Shapes: each fused opcode appears for its source pattern at the
-#      default speed; none appears with CLAMIGA_FORCE_SPEED=0; with
-#      CLAMIGA_NO_FUSE=1 the pairs stay apart while the rewrites still run;
+#      default speed; none appears with AMILISP_FORCE_SPEED=0; with
+#      AMILISP_NO_FUSE=1 the pairs stay apart while the rewrites still run;
 #      the function-end STORE and the JMP-to-RET are gone.
 #   2. Semantics of every fused opcode, including the error paths that must
 #      survive fusion (a struct accessor on a non-struct, an unbound special,
@@ -30,9 +30,9 @@
 #   7. COMPILE-FILE round trip: the FASL carries the fused opcodes and the
 #      loaded functions behave the same.
 #   8. The fused paths under allocation pressure (loops), also under
-#      CLAMIGA_GC_STRESS.
+#      AMILISP_GC_STRESS.
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 
@@ -44,13 +44,13 @@ WORK="$TMPDIR/clamiga_tier4p3_$$"
 mkdir -p "$WORK"
 trap 'rm -rf "$WORK"' EXIT
 
-if [ ! -x "$CLAMIGA" ]; then
-    echo "  SKIP  tier4 phase3: no binary at $CLAMIGA"
+if [ ! -x "$AMILISP" ]; then
+    echo "  SKIP  tier4 phase3: no binary at $AMILISP"
     echo "0 passed, 0 failed, 0 total"
     exit 0
 fi
 
-if [ -n "${CLAMIGA_GC_STRESS:-}" ]; then
+if [ -n "${AMILISP_GC_STRESS:-}" ]; then
     LOOPN=60
 else
     LOOPN=20000
@@ -58,10 +58,10 @@ fi
 
 run() {
     if [ -n "$TIMEOUT" ]; then
-        "$TIMEOUT" 120 "$CLAMIGA" --no-userinit --heap 64M \
+        "$TIMEOUT" 120 "$AMILISP" --no-userinit --heap 64M \
             --non-interactive --load "$1" 2>&1 </dev/null
     else
-        "$CLAMIGA" --no-userinit --heap 64M --non-interactive --load "$1" 2>&1 </dev/null
+        "$AMILISP" --no-userinit --heap 64M --non-interactive --load "$1" 2>&1 </dev/null
     fi
 }
 
@@ -135,7 +135,7 @@ check_absent   "RETURN-FROM site returns in place: no JMP"      ": JMP" "$(echo 
 check_absent   "RETURN-FROM site returns in place: no STORE"    ": STORE" "$(echo "$out" | sed -n '/P3-EARLY/,/P3-SHAPE2/p')"
 check_contains "shapes run to completion"                       "S-DONE" "$out"
 
-out0=$(CLAMIGA_FORCE_SPEED=0 run "$WORK/shapes.lisp")
+out0=$(AMILISP_FORCE_SPEED=0 run "$WORK/shapes.lisp")
 check_absent   "speed 0: no STORE_POP"                          "STORE_POP" "$out0"
 check_absent   "speed 0: no LOAD_LOAD"                          "LOAD_LOAD" "$out0"
 check_absent   "speed 0: no LOAD_CALL_GLOBAL"                   "LOAD_CALL_GLOBAL" "$out0"
@@ -145,7 +145,7 @@ check_absent   "speed 0: no round-two opcodes"                  "LOAD_STORE_POP\
 check_contains "speed 0: the function-end STORE is as emitted"  "STORE  *[0-9]*$" "$out0"
 check_contains "speed 0: the RETURN-FROM JMP is as emitted"     ": JMP" "$(echo "$out0" | sed -n '/P3-EARLY/,/P3-SHAPE2/p')"
 
-outn=$(CLAMIGA_NO_FUSE=1 run "$WORK/shapes.lisp")
+outn=$(AMILISP_NO_FUSE=1 run "$WORK/shapes.lisp")
 check_absent   "NO_FUSE: pairs stay apart"                      "STORE_POP\|LOAD_LOAD\|LOAD_CALL_GLOBAL\|LOAD_STRUCT_REF\|_JNIL\|LOAD_MV_RESET\|LOAD_RET\|LOAD_CONST\|GLOAD_CALL_GLOBAL\|POP_LOAD" "$outn"
 check_absent   "NO_FUSE: the rewrites still ran (no JMP to RET)" ": JMP" "$(echo "$outn" | sed -n '/P3-EARLY/,/P3-SHAPE2/p')"
 
@@ -306,7 +306,7 @@ check_contains "error inside LOAD_STRUCT_REF at the form's line" '0: P3-BT-SLOT 
 # Under forced compaction the suspended caller's frame reports no line at
 # all — on the baseline binary too (pre-existing, unrelated to fusion), so
 # that check is host-only.
-if [ -z "${CLAMIGA_GC_STRESS:-}" ]; then
+if [ -z "${AMILISP_GC_STRESS:-}" ]; then
 check_contains "suspended caller at its LOAD_CALL_GLOBAL line"  '1: P3-BT-OUTER (.*lines\.lisp:8)' "$out"
 fi
 

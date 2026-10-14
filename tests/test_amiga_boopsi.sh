@@ -9,14 +9,14 @@
 #
 # Run: sh tests/test_amiga_boopsi.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 TMPD=$(mktemp -d "${TMPDIR:-/tmp}/test_amiga_boopsi_XXXXXX") || exit 1
 trap 'rm -rf "$TMPD"' EXIT INT TERM
 
 cd "$ROOT" || exit 1
 OUT="$TMPD/out.log"
-CLAMIGA_NO_USERINIT=1 "$CLAMIGA" --non-interactive --heap 64M \
+AMILISP_NO_USERINIT=1 "$AMILISP" --non-interactive --heap 64M \
     --load tests/test_amiga_boopsi.lisp > "$OUT" 2>&1
 status=$?
 

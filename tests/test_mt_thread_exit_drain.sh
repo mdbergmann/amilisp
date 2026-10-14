@@ -19,7 +19,7 @@
 #
 # Run: sh tests/test_mt_thread_exit_drain.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then
@@ -70,7 +70,7 @@ cat > "$tmp/hooks.lisp" <<'EOF'
 (format t "BADKEEP ~a~%" (handler-case (mp::%drain-os-threads -1 0) (type-error () :type-error)))
 (format t "BADMS ~a~%" (handler-case (mp::%set-thread-exit-delay :x) (type-error () :type-error)))
 EOF
-out=$($TIMEOUT 20 "$CLAMIGA" --non-interactive --no-userinit --load "$tmp/hooks.lisp" </dev/null 2>&1)
+out=$($TIMEOUT 20 "$AMILISP" --non-interactive --no-userinit --load "$tmp/hooks.lisp" </dev/null 2>&1)
 for want in "BASE 0" "TAIL 1" "SHORT 1" "DRAINED 0 WAITED" "AFTER 0" "JOIN 42" \
             "PREV 500" "IDLE 0 0" "BADKEEP TYPE-ERROR" "BADMS TYPE-ERROR"; do
     if printf '%s\n' "$out" | grep -qx "$want"; then ok "hooks: $want"
@@ -87,7 +87,7 @@ cat > "$tmp/exit.lisp" <<'EOF'
   (quit))
 EOF
 t0=$(now_ms)
-out=$($TIMEOUT 20 "$CLAMIGA" --non-interactive --no-userinit --load "$tmp/exit.lisp" </dev/null 2>&1)
+out=$($TIMEOUT 20 "$AMILISP" --non-interactive --no-userinit --load "$tmp/exit.lisp" </dev/null 2>&1)
 rc=$?
 el=$(( $(now_ms) - t0 ))
 if [ $rc -eq 0 ]; then ok "exit: rc 0"; else fail "exit: rc $rc"; fi
@@ -107,7 +107,7 @@ cat > "$tmp/stuck.lisp" <<'EOF'
   (quit))
 EOF
 t0=$(now_ms)
-out=$($TIMEOUT 20 "$CLAMIGA" --non-interactive --no-userinit --load "$tmp/stuck.lisp" </dev/null 2>&1)
+out=$($TIMEOUT 20 "$AMILISP" --non-interactive --no-userinit --load "$tmp/stuck.lisp" </dev/null 2>&1)
 rc=$?
 el=$(( $(now_ms) - t0 ))
 if [ $rc -eq 0 ]; then ok "stuck: rc 0"; else fail "stuck: rc $rc"; fi
@@ -136,7 +136,7 @@ cat > "$tmp/race.lisp" <<'EOF'
 (quit)
 EOF
 t0=$(now_ms)
-out=$($TIMEOUT 20 "$CLAMIGA" --non-interactive --no-userinit --load "$tmp/race.lisp" </dev/null 2>&1)
+out=$($TIMEOUT 20 "$AMILISP" --non-interactive --no-userinit --load "$tmp/race.lisp" </dev/null 2>&1)
 rc=$?
 el=$(( $(now_ms) - t0 ))
 if [ $rc -eq 0 ]; then ok "race: rc 0"; else fail "race: rc $rc"; fi

@@ -22,7 +22,7 @@
 #
 # Run: sh tests/test_debugger_backtrace.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then
@@ -120,7 +120,7 @@ exec kill -9 [exp_pid]
 exit 0
 EOF
 
-if ! "$TIMEOUT" 120 "$EXPECT" -f "$script" "$CLAMIGA" > "$out" 2>&1; then
+if ! "$TIMEOUT" 120 "$EXPECT" -f "$script" "$AMILISP" > "$out" 2>&1; then
     echo "FAIL: could not drive the interactive debugger"
     cat "$out"
     exit 1

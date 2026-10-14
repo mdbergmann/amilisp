@@ -13,8 +13,8 @@
 #
 # Run: sh tests/test_boot_fasl_recovery.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
-CLAMIGA_ABS=$(cd "$(dirname "$CLAMIGA")" && pwd)/$(basename "$CLAMIGA")
+AMILISP="${1:-build/host/amilisp}"
+AMILISP_ABS=$(cd "$(dirname "$AMILISP")" && pwd)/$(basename "$AMILISP")
 TMPDIR="${TMPDIR:-/tmp}"
 WORK="$TMPDIR/clamiga_boot_recover_$$"
 
@@ -46,7 +46,7 @@ total=$((total + 1))
 # crash", so a hung amilisp must not hang the test suite.
 out=$(cd "$WORK" && \
       ( echo '(format t "~&BOOT-OK ~a~%" (+ 1 2)) (quit)' \
-        | "$CLAMIGA_ABS" --no-userinit --batch 2>&1 ) &
+        | "$AMILISP_ABS" --no-userinit --batch 2>&1 ) &
       pid=$!
       ( sleep 30 && kill -9 $pid 2>/dev/null ) &
       killer=$!

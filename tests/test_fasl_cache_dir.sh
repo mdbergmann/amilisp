@@ -1,9 +1,9 @@
 #!/bin/sh
-# Regression test: CLAMIGA_FASL_CACHE_DIR overrides the FASL auto-cache location.
+# Regression test: AMILISP_FASL_CACHE_DIR overrides the FASL auto-cache location.
 #
 # COMPILE-FILE with no :output-file writes its .fasl to a per-implementation
 # auto-cache (make_fasl_cache_path in src/core/builtins_io.c), normally under
-# ~/.cache/common-lisp. The load-and-test runner sets CLAMIGA_FASL_CACHE_DIR to
+# ~/.cache/common-lisp. The load-and-test runner sets AMILISP_FASL_CACHE_DIR to
 # give each script its own cache, so scripts that compile the same library under
 # different *features* (e.g. :hunchentoot-no-ssl) can't poison one another's
 # FASLs. This verifies the override is honoured: the .fasl lands under the
@@ -12,7 +12,7 @@
 # Fully hermetic — everything stays under $TMP, the real ~/.cache is untouched.
 # Run: sh tests/test_fasl_cache_dir.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 passed=0
 failed=0
 TMP="${TMPDIR:-/tmp}/clamiga-cachedir-$$"
@@ -35,7 +35,7 @@ compile_into() {
     # $1 = cache dir override; compile $src with no :output-file
     driver="$TMP/drv.lisp"
     printf '(compile-file "%s")\n' "$src" > "$driver"
-    CLAMIGA_FASL_CACHE_DIR="$1" "$CLAMIGA" --no-userinit --non-interactive \
+    AMILISP_FASL_CACHE_DIR="$1" "$AMILISP" --no-userinit --non-interactive \
         --load "$driver" </dev/null >/dev/null 2>&1
 }
 

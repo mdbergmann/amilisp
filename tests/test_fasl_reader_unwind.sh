@@ -29,10 +29,10 @@
 #
 # Run: sh tests/test_fasl_reader_unwind.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/amilisp}"
-case "$CLAMIGA" in
+AMILISP="${1:-build/host/amilisp}"
+case "$AMILISP" in
     /*|[A-Za-z]:/*) ;;
-    *) CLAMIGA="$(cd "$(dirname "$CLAMIGA")" && pwd)/$(basename "$CLAMIGA")" ;;
+    *) AMILISP="$(cd "$(dirname "$AMILISP")" && pwd)/$(basename "$AMILISP")" ;;
 esac
 
 passed=0
@@ -56,8 +56,8 @@ hasnt() { echo "$out" | grep -q -- "$1" && echo no || echo yes; }
 # run DIR — load run.lisp from inside DIR; relative names keep the generated
 # Lisp free of host paths.
 run() {
-    out=$(cd "$1" && CLAMIGA_FASL_CACHE_DIR="$1/cache" \
-          "$CLAMIGA" --no-userinit --non-interactive --load run.lisp \
+    out=$(cd "$1" && AMILISP_FASL_CACHE_DIR="$1/cache" \
+          "$AMILISP" --no-userinit --non-interactive --load run.lisp \
           </dev/null 2>&1)
 }
 
@@ -308,7 +308,7 @@ out=$(cd "$d" && printf '%s\n' \
         '(handler-case (load "ctxboom.lisp") (error () nil))' \
         '(defun ctx-repl-fn () 1)' \
         '(format t "REPL-CTX ~S~%" (ext:function-source-location (function ctx-repl-fn)))' \
-      | "$CLAMIGA" --no-userinit --no-fasl-cache 2>&1)
+      | "$AMILISP" --no-userinit --no-fasl-cache 2>&1)
 check "repl_function_after_abandoned_load_has_no_file"   "$(has 'REPL-CTX :NOT-AVAILABLE')"
 
 echo ""

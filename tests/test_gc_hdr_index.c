@@ -35,7 +35,7 @@
  * exposes to the Amiga suite, where the JIT actually runs).  The scan
  * itself is exercised with the fake-JIT-window technique of
  * test_jit_gc_scan.c: a volatile array below jit_stack_top carries the
- * "spilled" candidates.  Index on and off (CLAMIGA_HDR_INDEX=0, the
+ * "spilled" candidates.  Index on and off (AMILISP_HDR_INDEX=0, the
  * fallback full walk) must agree.
  */
 
@@ -46,11 +46,11 @@ static void setup_with(const char *hdr_index)
     /* Classic collector: the index and the free-list snapshot the scan
      * validates against are classic-mode machinery (gen mode keeps no
      * free list and never runs the JIT). */
-    setenv("CLAMIGA_GENGC", "0", 1);
+    setenv("AMILISP_GENGC", "0", 1);
     if (hdr_index)
-        setenv("CLAMIGA_HDR_INDEX", hdr_index, 1);
+        setenv("AMILISP_HDR_INDEX", hdr_index, 1);
     else
-        unsetenv("CLAMIGA_HDR_INDEX");
+        unsetenv("AMILISP_HDR_INDEX");
     platform_init();
     cl_thread_init();
     cl_error_init();
@@ -66,7 +66,7 @@ static void teardown(void)
     CT->jit_stack_top = NULL;
     cl_mem_shutdown();
     platform_shutdown();
-    unsetenv("CLAMIGA_HDR_INDEX");
+    unsetenv("AMILISP_HDR_INDEX");
 }
 
 /* Push `o` onto the rooted list *keep (both survive any GC inside). */
@@ -140,7 +140,7 @@ TEST(index_clean_through_alloc_sweep_split_compact)
     teardown();
 }
 
-/* --- CLAMIGA_HDR_INDEX=0: no index, the scan's full-walk fallback still
+/* --- AMILISP_HDR_INDEX=0: no index, the scan's full-walk fallback still
  * keeps a JIT-only-referenced object alive. --- */
 
 TEST(index_absent_when_disabled_scan_falls_back)

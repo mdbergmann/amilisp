@@ -52,9 +52,9 @@ AmigaOS (also the MorphOS route for now), so `tls-available-p` is the
 honest capability gate.  drakma and Hunchentoot consume this layer through
 the bundled cl+ssl facade (`lib/shims/cl+ssl`, auto-registered on
 `asdf:*central-registry*` when ASDF loads so it shadows any
-Quicklisp/ocicl-installed cl+ssl).  Setting `CLAMIGA_NO_SHIMS` to `1` in
+Quicklisp/ocicl-installed cl+ssl).  Setting `AMILISP_NO_SHIMS` to `1` in
 the environment before starting amilisp disables the registration — host:
-`CLAMIGA_NO_SHIMS=1 amilisp`, Amiga shell: `SetEnv CLAMIGA_NO_SHIMS 1` —
+`AMILISP_NO_SHIMS=1 amilisp`, Amiga shell: `SetEnv AMILISP_NO_SHIMS 1` —
 e.g. to run the real cl+ssl on the host, where its CFFI stack works.
 End-to-end examples: `tests/tls-loopback.lisp`
 (host), `tests/amiga/tls-tests.lisp` (Amiga), `tests/test_tls.c`
@@ -88,7 +88,7 @@ End-to-end examples: `tests/tls-loopback.lisp`
 |-----------|------|-------------|
 | `(gc)` | function | Force a garbage collection (and compaction when fragmented) |
 | `(getenv name)` | function | Read an environment variable |
-| `(executable-path)` | function | The running amilisp as a path another process can start it by (`/usr/local/bin/amilisp`, `PROGDIR:clamiga`), or `nil` |
+| `(executable-path)` | function | The running amilisp as a path another process can start it by (`/usr/local/bin/amilisp`, `PROGDIR:amilisp`), or `nil` |
 | `(getcwd)` | function | Current working directory |
 | `(system-command command)` | function | Run a host/AmigaOS shell command |
 | `(defglobal name value &optional doc)` | macro | Define a global (non-dynamic) variable |
@@ -166,7 +166,7 @@ for build scripts.
 
 Restore explicitly with `amilisp --image mysession.img`, or implicitly: a
 file named `amilisp.img` in the current directory (or next to the binary,
-under `$CLAMIGA_HOME`, or in an install prefix's `lib/amilisp/`) is
+under `$AMILISP_HOME`, or in an install prefix's `lib/amilisp/`) is
 auto-discovered at startup; `--no-image` skips that.  An image saved with
 a small `--heap` restores fine into a larger one.
 

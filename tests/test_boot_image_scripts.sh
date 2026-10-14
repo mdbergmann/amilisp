@@ -25,10 +25,10 @@
 #
 # Run: sh tests/test_boot_image_scripts.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
-case "$CLAMIGA" in
+AMILISP="${1:-build/host/amilisp}"
+case "$AMILISP" in
     /*) : ;;
-    *) CLAMIGA="$(pwd)/$CLAMIGA" ;;
+    *) AMILISP="$(pwd)/$AMILISP" ;;
 esac
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 
@@ -78,12 +78,12 @@ check() {
 # --- Release-shaped layout: bin/aos3/amilisp, lib/ two levels up ---------
 
 mkdir -p rel/bin/aos3 rel/lib
-cp "$CLAMIGA" rel/bin/aos3/amilisp
+cp "$AMILISP" rel/bin/aos3/amilisp
 cp "$ROOT"/lib/*.fasl "$ROOT"/lib/*.lisp rel/lib/
 
 # --- save-boot-image.lisp from the binary's directory --------------------
 
-out=$(cd rel/bin/aos3 && CLAMIGA_HOME= "$TIMEOUT" 120 ./amilisp \
+out=$(cd rel/bin/aos3 && AMILISP_HOME= "$TIMEOUT" 120 ./amilisp \
     --no-userinit --no-image --heap 16M --non-interactive \
     --load "$ROOT/scripts/save-boot-image.lisp" </dev/null 2>&1)
 ec=$?
@@ -97,7 +97,7 @@ fi
 # --- verify-boot-image.lisp from the release root ------------------------
 # No amilisp.img in the cwd: the restore must come from bin/aos3/.
 
-out=$(cd rel && CLAMIGA_HOME= "$TIMEOUT" 120 bin/aos3/amilisp \
+out=$(cd rel && AMILISP_HOME= "$TIMEOUT" 120 bin/aos3/amilisp \
     --no-userinit --heap 16M --non-interactive \
     --load "$ROOT/scripts/verify-boot-image.lisp" </dev/null 2>&1)
 ec=$?
@@ -111,7 +111,7 @@ fi
 
 # --- verify must not pass a FASL-boot fallback ---------------------------
 
-out=$(cd rel && CLAMIGA_HOME= "$TIMEOUT" 120 bin/aos3/amilisp \
+out=$(cd rel && AMILISP_HOME= "$TIMEOUT" 120 bin/aos3/amilisp \
     --no-userinit --no-image --heap 16M --non-interactive \
     --load "$ROOT/scripts/verify-boot-image.lisp" </dev/null 2>&1)
 ec=$?
@@ -127,7 +127,7 @@ fi
 # --- save refuses from a restored session (forgotten --no-image) ---------
 
 cp rel/bin/aos3/amilisp.img before.img
-out=$(cd rel/bin/aos3 && CLAMIGA_HOME= "$TIMEOUT" 120 ./amilisp \
+out=$(cd rel/bin/aos3 && AMILISP_HOME= "$TIMEOUT" 120 ./amilisp \
     --no-userinit --heap 16M --non-interactive \
     --load "$ROOT/scripts/save-boot-image.lisp" </dev/null 2>&1)
 ec=$?

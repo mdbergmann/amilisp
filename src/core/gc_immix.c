@@ -340,7 +340,7 @@ void im_debug_badmark(uint32_t off)
 #ifdef DEBUG_GC_STRESS
     if (im_stress_k > 1)
         fprintf(stderr, "  immix: stressed allocation #%ld (every %ldth compacts; "
-                "CLAMIGA_GC_STRESS_AT=<index> names the code there)\n",
+                "AMILISP_GC_STRESS_AT=<index> names the code there)\n",
                 im_stress_n, im_stress_k);
 #endif
     for (k = 0; k < n; k++) {
@@ -877,7 +877,7 @@ int gcb_marks_exact(void)
 }
 
 #ifdef DEBUG_GC_STRESS
-/* The second stress knob (CLAMIGA_GC_STRESS_IMMIX=K, with CLAMIGA_GC_STRESS
+/* The second stress knob (AMILISP_GC_STRESS_IMMIX=K, with AMILISP_GC_STRESS
  * set): of every K stressed allocations, one runs the compaction and the
  * other K-1 run a line-sweep cycle, so the holes, the claims (truncation,
  * split, index re-pointing), the finalizable list and the sense flip get
@@ -887,7 +887,7 @@ int gcb_marks_exact(void)
 void im_stress_collect(void)
 {
     if (im_stress_k == -2) {
-        const char *e = getenv("CLAMIGA_GC_STRESS_IMMIX");
+        const char *e = platform_getenv_s("AMILISP_GC_STRESS_IMMIX");
         im_stress_k = e ? atol(e) : 0;
     }
     if (im_stress_k > 1 && (++im_stress_n % im_stress_k) != 0)

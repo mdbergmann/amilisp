@@ -19,10 +19,10 @@
 #
 # Run: sh tests/test_fasl_literal_identity.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/amilisp}"
-case "$CLAMIGA" in
+AMILISP="${1:-build/host/amilisp}"
+case "$AMILISP" in
     /*|[A-Za-z]:/*) ;;
-    *) CLAMIGA="$(cd "$(dirname "$CLAMIGA")" && pwd)/$(basename "$CLAMIGA")" ;;
+    *) AMILISP="$(cd "$(dirname "$AMILISP")" && pwd)/$(basename "$AMILISP")" ;;
 esac
 
 passed=0
@@ -89,8 +89,8 @@ cat > "$TMP/run.lisp" <<'EOF'
 (ext:gc)
 (li-report "GC")
 EOF
-out=$(cd "$TMP" && CLAMIGA_FASL_CACHE_DIR="$TMP/cache" \
-      "$CLAMIGA" --no-userinit --non-interactive --load run.lisp </dev/null 2>&1)
+out=$(cd "$TMP" && AMILISP_FASL_CACHE_DIR="$TMP/cache" \
+      "$AMILISP" --no-userinit --non-interactive --load run.lisp </dev/null 2>&1)
 
 for leg in SRC CACHE FASL GC; do
     check "${leg}_shared_string_is_one_object"       "$(has "^$leg S (T \"s\")")"

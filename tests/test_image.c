@@ -305,7 +305,7 @@ TEST(builtin_registry_resolves_and_misses)
     ASSERT(cl_builtin_registry_lookup("EXT", 3, "SAVE-IMAGE", 10) != NULL);
     ASSERT(cl_builtin_registry_lookup("MP", 2, "MAKE-LOCK", 9) != NULL);
     /* The compiler's inlined-macro stub must be relinkable by name. */
-    ASSERT(cl_builtin_registry_lookup("CLAMIGA", 7,
+    ASSERT(cl_builtin_registry_lookup("AMILISP", 7,
                                       "%INLINED-MACRO-STUB", 19) != NULL);
     ASSERT(cl_builtin_registry_lookup("COMMON-LISP", 11,
                                       "NO-SUCH-BUILTIN-XYZ", 19) == NULL);

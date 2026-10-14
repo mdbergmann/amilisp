@@ -367,11 +367,11 @@ TEST(struct_type_list)
 TEST(struct_slot_index_builtin)
 {
     eval_print("(defstruct si1 (a 1) (b 2) (c 3))");
-    ASSERT_STR_EQ(eval_print("(clamiga::%struct-slot-index 'si1 'a)"), "0");
-    ASSERT_STR_EQ(eval_print("(clamiga::%struct-slot-index 'si1 'b)"), "1");
-    ASSERT_STR_EQ(eval_print("(clamiga::%struct-slot-index 'si1 'c)"), "2");
-    ASSERT_STR_EQ(eval_print("(clamiga::%struct-slot-index 'si1 'nope)"), "NIL");
-    ASSERT_STR_EQ(eval_print("(clamiga::%struct-slot-index 'si1-no-such-type 'a)"), "NIL");
+    ASSERT_STR_EQ(eval_print("(amilisp::%struct-slot-index 'si1 'a)"), "0");
+    ASSERT_STR_EQ(eval_print("(amilisp::%struct-slot-index 'si1 'b)"), "1");
+    ASSERT_STR_EQ(eval_print("(amilisp::%struct-slot-index 'si1 'c)"), "2");
+    ASSERT_STR_EQ(eval_print("(amilisp::%struct-slot-index 'si1 'nope)"), "NIL");
+    ASSERT_STR_EQ(eval_print("(amilisp::%struct-slot-index 'si1-no-such-type 'a)"), "NIL");
 }
 
 TEST(struct_registry_buried_type)
@@ -385,11 +385,11 @@ TEST(struct_registry_buried_type)
     eval_print("(defstruct si2 (x 0) (y 0))");
     for (i = 0; i < 80; i++) {
         snprintf(buf, sizeof(buf),
-                 "(clamiga::%%register-struct-type (make-symbol \"SI2-F%d\")"
+                 "(amilisp::%%register-struct-type (make-symbol \"SI2-F%d\")"
                  " 1 nil '((f nil)))", i);
         eval_print(buf);
     }
-    ASSERT_STR_EQ(eval_print("(clamiga::%struct-slot-index 'si2 'y)"), "1");
+    ASSERT_STR_EQ(eval_print("(amilisp::%struct-slot-index 'si2 'y)"), "1");
     ASSERT_STR_EQ(eval_print("(typep (make-si2) 'si2)"), "T");
     ASSERT_STR_EQ(eval_print("(si2-y (make-si2 :x 1 :y 2))"), "2");
 }
@@ -398,12 +398,12 @@ TEST(struct_registry_redefinition_newest_wins)
 {
     /* Re-registering a name prepends a fresh entry; lookups must see
      * the NEWEST entry — the linear walk's first-match semantics. */
-    eval_print("(clamiga::%register-struct-type 'si3 1 nil '((a nil)))");
-    eval_print("(clamiga::%register-struct-type 'si3 3 nil"
+    eval_print("(amilisp::%register-struct-type 'si3 1 nil '((a nil)))");
+    eval_print("(amilisp::%register-struct-type 'si3 3 nil"
                " '((p nil) (q nil) (r nil)))");
-    ASSERT_STR_EQ(eval_print("(clamiga::%struct-slot-count 'si3)"), "3");
-    ASSERT_STR_EQ(eval_print("(clamiga::%struct-slot-index 'si3 'r)"), "2");
-    ASSERT_STR_EQ(eval_print("(clamiga::%struct-slot-index 'si3 'a)"), "NIL");
+    ASSERT_STR_EQ(eval_print("(amilisp::%struct-slot-count 'si3)"), "3");
+    ASSERT_STR_EQ(eval_print("(amilisp::%struct-slot-index 'si3 'r)"), "2");
+    ASSERT_STR_EQ(eval_print("(amilisp::%struct-slot-index 'si3 'a)"), "NIL");
 }
 
 /* --- Fused fast-path slot access (spec 3.1, second half) --- */
@@ -414,19 +414,19 @@ TEST(struct_slot_value_fastpath_builtin)
     eval_print("(defstruct fp1 (a 10) (b 20))");
     eval_print("(defparameter *fp-miss* (make-symbol \"MISS\"))");
     ASSERT_STR_EQ(eval_print(
-        "(clamiga::%struct-slot-value (make-fp1) 'b *fp-miss*)"), "20");
+        "(amilisp::%struct-slot-value (make-fp1) 'b *fp-miss*)"), "20");
     /* Miss: no such slot -> the sentinel, never an error. */
     ASSERT_STR_EQ(eval_print(
-        "(eq (clamiga::%struct-slot-value (make-fp1) 'nope *fp-miss*)"
+        "(eq (amilisp::%struct-slot-value (make-fp1) 'nope *fp-miss*)"
         " *fp-miss*)"), "T");
     /* Miss: not a struct (fixnum, list, NIL). */
     ASSERT_STR_EQ(eval_print(
-        "(eq (clamiga::%struct-slot-value 42 'a *fp-miss*) *fp-miss*)"), "T");
+        "(eq (amilisp::%struct-slot-value 42 'a *fp-miss*) *fp-miss*)"), "T");
     ASSERT_STR_EQ(eval_print(
-        "(eq (clamiga::%struct-slot-value '(1 2) 'a *fp-miss*) *fp-miss*)"),
+        "(eq (amilisp::%struct-slot-value '(1 2) 'a *fp-miss*) *fp-miss*)"),
         "T");
     ASSERT_STR_EQ(eval_print(
-        "(eq (clamiga::%struct-slot-value nil 'a *fp-miss*) *fp-miss*)"), "T");
+        "(eq (amilisp::%struct-slot-value nil 'a *fp-miss*) *fp-miss*)"), "T");
 }
 
 TEST(struct_slot_store_fastpath_builtin)
@@ -435,13 +435,13 @@ TEST(struct_slot_store_fastpath_builtin)
     eval_print("(defparameter *fp2* (make-fp2))");
     /* Hit: stores and returns T. */
     ASSERT_STR_EQ(eval_print(
-        "(clamiga::%struct-slot-store *fp2* 'x 99)"), "T");
+        "(amilisp::%struct-slot-store *fp2* 'x 99)"), "T");
     ASSERT_STR_EQ(eval_print("(fp2-x *fp2*)"), "99");
     /* Miss: no such slot / not a struct -> NIL, nothing stored. */
     ASSERT_STR_EQ(eval_print(
-        "(clamiga::%struct-slot-store *fp2* 'nope 5)"), "NIL");
+        "(amilisp::%struct-slot-store *fp2* 'nope 5)"), "NIL");
     ASSERT_STR_EQ(eval_print(
-        "(clamiga::%struct-slot-store 42 'x 5)"), "NIL");
+        "(amilisp::%struct-slot-store 42 'x 5)"), "NIL");
     ASSERT_STR_EQ(eval_print("(fp2-x *fp2*)"), "99");
 }
 
@@ -456,21 +456,21 @@ TEST(gf_ic_emf_probe)
     eval_print("(defparameter *fp3* (make-fp3))");
     /* Cold cache: probe misses, call still dispatches correctly. */
     ASSERT_STR_EQ(eval_print(
-        "(functionp (clamiga::%gf-ic-emf"
+        "(functionp (amilisp::%gf-ic-emf"
         " (gethash 'fp-probe *generic-function-table*) *fp3*))"),
         "NIL");
     ASSERT_STR_EQ(eval_print("(fp-probe *fp3*)"), "7");
     /* Populated by the first dispatch: probe now returns the EMF. */
     ASSERT_STR_EQ(eval_print(
-        "(functionp (clamiga::%gf-ic-emf"
+        "(functionp (amilisp::%gf-ic-emf"
         " (gethash 'fp-probe *generic-function-table*) *fp3*))"),
         "T");
     /* Wrong receiver class: miss. */
     ASSERT_STR_EQ(eval_print(
-        "(clamiga::%gf-ic-emf"
+        "(amilisp::%gf-ic-emf"
         " (gethash 'fp-probe *generic-function-table*) 42)"), "NIL");
     /* Non-GF first argument: miss, not an error. */
-    ASSERT_STR_EQ(eval_print("(clamiga::%gf-ic-emf 42 *fp3*)"), "NIL");
+    ASSERT_STR_EQ(eval_print("(amilisp::%gf-ic-emf 42 *fp3*)"), "NIL");
 }
 
 TEST(struct_registry_index_survives_compaction)
@@ -479,13 +479,13 @@ TEST(struct_registry_index_survives_compaction)
      * caches; the GC hook marks it dirty and the next lookup must
      * rebuild and still resolve correctly. */
     eval_print("(defstruct si4 (v 41))");
-    ASSERT_STR_EQ(eval_print("(clamiga::%struct-slot-index 'si4 'v)"), "0");
+    ASSERT_STR_EQ(eval_print("(amilisp::%struct-slot-index 'si4 'v)"), "0");
     cl_gc_compact();
-    ASSERT_STR_EQ(eval_print("(clamiga::%struct-slot-index 'si4 'v)"), "0");
+    ASSERT_STR_EQ(eval_print("(amilisp::%struct-slot-index 'si4 'v)"), "0");
     ASSERT_STR_EQ(eval_print("(typep (make-si4) 'si4)"), "T");
     cl_gc_compact();
     ASSERT_STR_EQ(eval_print("(si4-v (make-si4))"), "41");
-    ASSERT_STR_EQ(eval_print("(clamiga::%struct-slot-index 'si4 'nope)"), "NIL");
+    ASSERT_STR_EQ(eval_print("(amilisp::%struct-slot-index 'si4 'nope)"), "NIL");
 }
 
 int main(void)

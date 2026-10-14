@@ -36,20 +36,20 @@
 
 ;;; --- callees pinned to one state, whatever the caller's ---
 
-(defvar *bjc-jit-was* (clamiga::%jit-active-p))
+(defvar *bjc-jit-was* (amilisp::%jit-active-p))
 
-(clamiga::%jit-set-active nil)
+(amilisp::%jit-set-active nil)
 (defun bjc-bc-add (a b) (+ a b))                ; always bytecode
 (defun bjc-bc-key (code mods) (logior code (ash mods 16)))
 
-(clamiga::%jit-set-active t)
+(amilisp::%jit-set-active t)
 (defun bjc-nat-add (a b) (+ a b))               ; native when the JIT is built in
 (defun bjc-nat-key (code mods) (logior code (ash mods 16)))
 (defun bjc-opt-add (a &optional (b 1)) (+ a b)) ; native: the &optional prologue
 (defun bjc-rest-add (a &rest r) (+ a (car r)))   ; native: the &rest prologue
 (defun bjc-key-add (a &key (b 1)) (+ a b))       ; native: the &key prologue
 
-(clamiga::%jit-set-active *bjc-jit-was*)
+(amilisp::%jit-set-active *bjc-jit-was*)
 
 (defvar *bjc-fn* #'bjc-nat-add)
 
@@ -57,23 +57,23 @@
 
 (defun bjc-time (thunk)
   (let ((t0 (get-internal-real-time))
-        (g0 (clamiga::%get-gc-count)))
+        (g0 (amilisp::%get-gc-count)))
     (let ((r (funcall thunk)))
       (values r
               (round (* 1000 (- (get-internal-real-time) t0))
                      internal-time-units-per-second)
-              (- (clamiga::%get-gc-count) g0)))))
+              (- (amilisp::%get-gc-count) g0)))))
 
 (defun bjc-compare (label defining-form thunk)
-  (clamiga::%jit-set-active nil)
+  (amilisp::%jit-set-active nil)
   (eval defining-form)
   (funcall thunk)
   (multiple-value-bind (r-bc t-bc g-bc) (bjc-time thunk)
-    (clamiga::%jit-set-active t)
+    (amilisp::%jit-set-active t)
     (eval defining-form)
     (funcall thunk)
     (multiple-value-bind (r-jit t-jit g-jit) (bjc-time thunk)
-      (clamiga::%jit-set-active *bjc-jit-was*)
+      (amilisp::%jit-set-active *bjc-jit-was*)
       (format t "BENCH-JIT-CALL ~28A bc=~6D ms  jit=~6D ms  per-iter bc=~6,2F us jit=~6,2F us  gc=~D/~D~A~%"
               label t-bc t-jit
               (/ (* t-bc 1000.0) *bjc-n*) (/ (* t-jit 1000.0) *bjc-n*)

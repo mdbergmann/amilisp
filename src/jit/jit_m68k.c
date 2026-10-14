@@ -70,10 +70,10 @@ void cl_jit_backend_init(void)
      * direct call's hit path): backtraces list them, as on arm64. */
     cl_jit_set_shadow_frames(1);
     {
-        /* CLAMIGA_JIT_DIRECT=0: no native-to-native direct calls (A/B runs,
+        /* AMILISP_JIT_DIRECT=0: no native-to-native direct calls (A/B runs,
          * bisection); %JIT-SET-DIRECT-CALLS toggles it at run time. */
         char envbuf[8];
-        const char *v = platform_getenv("CLAMIGA_JIT_DIRECT", envbuf, sizeof(envbuf));
+        const char *v = platform_getenv("AMILISP_JIT_DIRECT", envbuf, sizeof(envbuf));
         if (v != NULL && v[0] == '0')
             cl_jit_set_direct_calls(0);
     }
@@ -4574,7 +4574,7 @@ void cl_jit_backend_compile(CL_Bytecode *bc, int replace)
  * walker use.  Anything else falls through to ".word $xxxx" so the user
  * still sees the raw word.
  *
- * Exposed to Lisp as `clamiga::%JIT-DISASSEMBLE`; the `jitexpand` macro
+ * Exposed to Lisp as `amilisp::%JIT-DISASSEMBLE`; the `jitexpand` macro
  * in lib/boot.lisp wraps the common case.
  */
 

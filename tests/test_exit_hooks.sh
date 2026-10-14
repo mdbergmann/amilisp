@@ -19,7 +19,7 @@
 #
 # Run: sh tests/test_exit_hooks.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 
 # Every case is also a "does it hang at exit?" check, so a timeout binary is a
 # prerequisite (macOS ships it as gtimeout via coreutils).
@@ -77,7 +77,7 @@ check() {
 
 # --- Exit path 1: --non-interactive falls off the end of its actions ---
 # Also pins the ordering: ADD-EXIT-HOOK pushes, so B (added last) runs first.
-out=$("$TIMEOUT" 20 "$CLAMIGA" $CLI --non-interactive \
+out=$("$TIMEOUT" 20 "$AMILISP" $CLI --non-interactive \
     --eval '(ext:add-exit-hook (lambda () (format t "HOOK-A~%")))' \
     --eval '(ext:add-exit-hook (lambda () (format t "HOOK-B~%")))' \
     --eval '(format t "BODY-DONE~%")' </dev/null 2>&1)
@@ -92,7 +92,7 @@ else
 fi
 
 # --- Exit path 2: (QUIT n) — hooks run, and the exit code survives them ---
-out=$("$TIMEOUT" 20 "$CLAMIGA" $CLI --non-interactive \
+out=$("$TIMEOUT" 20 "$AMILISP" $CLI --non-interactive \
     --eval '(ext:add-exit-hook (lambda () (format t "QUIT-HOOK~%")))' \
     --eval '(quit 3)' </dev/null 2>&1)
 check "quit_runs_hooks_and_keeps_exit_code" 3 "$?" "$out" QUIT-HOOK
@@ -102,24 +102,24 @@ cat > "$WORK/script.lisp" <<'EOF'
 (ext:add-exit-hook (lambda () (format t "SCRIPT-HOOK~%")))
 (format t "SCRIPT-BODY~%")
 EOF
-out=$("$TIMEOUT" 20 "$CLAMIGA" $CLI --script "$WORK/script.lisp" </dev/null 2>&1)
+out=$("$TIMEOUT" 20 "$AMILISP" $CLI --script "$WORK/script.lisp" </dev/null 2>&1)
 check "script_mode_runs_hooks_at_exit" 0 "$?" "$out" SCRIPT-BODY SCRIPT-HOOK
 
 # --- Exit path 4: batch REPL reaching EOF on stdin ---
 out=$(printf '(ext:add-exit-hook (lambda () (format t "EOF-HOOK~%%")))\n' \
-      | "$TIMEOUT" 20 "$CLAMIGA" $CLI --batch 2>&1)
+      | "$TIMEOUT" 20 "$AMILISP" $CLI --batch 2>&1)
 check "batch_repl_eof_runs_hooks" 0 "$?" "$out" EOF-HOOK
 
 # --- Exit path 4b: the interactive REPL (cl_repl, not cl_repl_batch) on EOF ---
 out=$(printf '(ext:add-exit-hook (lambda () (format t "REPL-HOOK~%%")))\n' \
-      | "$TIMEOUT" 20 "$CLAMIGA" $CLI 2>&1)
+      | "$TIMEOUT" 20 "$AMILISP" $CLI 2>&1)
 check "interactive_repl_eof_runs_hooks" 0 "$?" "$out" "Bye." REPL-HOOK
 
 # --- Hooks run while the streams are still alive: a hook can write a file ---
 # This is the whole point of running them at the head of the shutdown funnel,
 # before cl_stream_shutdown().
 rm -f "$WORK/hook-out.txt"
-out=$("$TIMEOUT" 20 "$CLAMIGA" $CLI --non-interactive \
+out=$("$TIMEOUT" 20 "$AMILISP" $CLI --non-interactive \
     --eval "(ext:add-exit-hook
               (lambda ()
                 (with-open-file (s \"$WORK_LISP/hook-out.txt\"
@@ -140,7 +140,7 @@ else
 fi
 
 # --- An erroring hook is reported, and the rest still run ---
-out=$("$TIMEOUT" 20 "$CLAMIGA" $CLI --non-interactive \
+out=$("$TIMEOUT" 20 "$AMILISP" $CLI --non-interactive \
     --eval '(ext:add-exit-hook (lambda () (format t "SURVIVOR~%")))' \
     --eval '(ext:add-exit-hook (lambda () (error "hook blew up")))' \
     --eval '(ext:add-exit-hook (quote no-such-function-at-all))' \
@@ -150,7 +150,7 @@ check "erroring_hook_reported_and_others_still_run" 0 "$?" "$out" \
     "Undefined function: NO-SUCH-FUNCTION-AT-ALL"
 
 # --- A hook that quits ends the sequence; its exit code wins ---
-out=$("$TIMEOUT" 20 "$CLAMIGA" $CLI --non-interactive \
+out=$("$TIMEOUT" 20 "$AMILISP" $CLI --non-interactive \
     --eval '(ext:add-exit-hook (lambda () (format t "NOT-REACHED~%")))' \
     --eval '(ext:add-exit-hook (lambda () (format t "QUITTER~%") (quit 5)))' \
     --eval '(quit 0)' </dev/null 2>&1)
@@ -165,7 +165,7 @@ else
 fi
 
 # --- No hooks registered: shutdown is unchanged (and does not hang) ---
-out=$("$TIMEOUT" 20 "$CLAMIGA" $CLI --non-interactive \
+out=$("$TIMEOUT" 20 "$AMILISP" $CLI --non-interactive \
     --eval '(format t "NO-HOOKS~%")' </dev/null 2>&1)
 check "no_hooks_registered_exits_cleanly" 0 "$?" "$out" NO-HOOKS
 

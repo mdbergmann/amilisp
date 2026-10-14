@@ -12,7 +12,7 @@
 #include <dos/dosextens.h>  /* struct FileHandle (drain of RunCommand's arg-line stuffing) */
 #include <string.h>
 #include <stdlib.h>   /* malloc/realloc (platform_directory) */
-#include <stdio.h>    /* CLAMIGA_SOCK_DIAG / CLAMIGA_IO_DIAG traces (fprintf/stderr) */
+#include <stdio.h>    /* AMILISP_SOCK_DIAG / AMILISP_IO_DIAG traces (fprintf/stderr) */
 #include <stdarg.h>   /* io_diag varargs */
 
 /* GC stop-the-world cooperation (defined in core/thread.c).  Forward-declared
@@ -318,9 +318,9 @@ int platform_stdin_is_interactive(void)
     return IsInteractive(in) ? 1 : 0;
 }
 
-/* ---- Platform file-I/O trace (CLAMIGA_IO_DIAG) ----
+/* ---- Platform file-I/O trace (AMILISP_IO_DIAG) ----
  *
- * Setting the CLAMIGA_IO_DIAG environment variable (any non-empty value)
+ * Setting the AMILISP_IO_DIAG environment variable (any non-empty value)
  * prints one stderr line as each potentially-blocking DOS file call
  * (Open/Read/Write/Close/Lock/Delete/Rename) is ENTERED — deliberately
  * before the call, so a process found hanging in WAIT state inside
@@ -329,14 +329,14 @@ int platform_stdin_is_interactive(void)
  * a compacting GC) is then visible in the last trace line — a garbage
  * path in Open/Lock also explains a silent "please insert volume"
  * requester wait.  Runtime diagnostic, zero cost when unset (same
- * pattern as CLAMIGA_SOCK_DIAG / CLAMIGA_GC_DIAG). */
+ * pattern as AMILISP_SOCK_DIAG / AMILISP_GC_DIAG). */
 static int32_t io_diag_cached = -2;   /* -2 = env not read; 0 = off; 1 = on */
 
 static int io_diag_on(void)
 {
     if (io_diag_cached == -2) {
         char envbuf[16];
-        const char *s = platform_getenv("CLAMIGA_IO_DIAG", envbuf,
+        const char *s = platform_getenv("AMILISP_IO_DIAG", envbuf,
                                         (int)sizeof(envbuf));
         io_diag_cached = (s && *s) ? 1 : 0;
     }
@@ -942,7 +942,7 @@ int platform_mkdir(const char *path)
     return -1;
 }
 
-const char *platform_getenv(const char *name, char *buf, int bufsize)
+const char *platform_getenv_raw(const char *name, char *buf, int bufsize)
 {
     LONG len = GetVar((STRPTR)name, buf, bufsize, 0);
     if (len < 0) return NULL;
@@ -1407,15 +1407,15 @@ typedef struct SockReq {
     volatile int            result;    /* readfill: bytes (0=EOF, -2=timeout); else 0=ok/-1=err/-2=timeout */
     volatile PlatformSocket out_slot;  /* connect/listen/accept: new slot */
     volatile int            out_port;  /* listen: bound port */
-    uint32_t       seq;          /* trace id (CLAMIGA_SOCK_DIAG); 0 when tracing is off */
+    uint32_t       seq;          /* trace id (AMILISP_SOCK_DIAG); 0 when tracing is off */
     const PlatformTLSParams *tls_params; /* TLS_START: handshake parameters
                                           * (caller-stack struct; valid for the
                                           * whole call since the caller blocks) */
 } SockReq;
 
-/* ---- Reactor request trace (CLAMIGA_SOCK_DIAG) ----
+/* ---- Reactor request trace (AMILISP_SOCK_DIAG) ----
  *
- * Setting the CLAMIGA_SOCK_DIAG environment variable (any non-empty value)
+ * Setting the AMILISP_SOCK_DIAG environment variable (any non-empty value)
  * traces every request through the client<->reactor handshake on stderr,
  * one line per handoff:
  *
@@ -1438,8 +1438,8 @@ typedef struct SockReq {
  *   "tx" without "<"          — reply posted, client never woke (lost reply signal)
  *
  * Runtime diagnostic, not DEBUG-flag instrumentation: always compiled, zero
- * cost when the env var is unset (same pattern as CLAMIGA_STW_DIAG /
- * CLAMIGA_LOCK_DIAG).  Reactor- and client-side lines can interleave; each
+ * cost when the env var is unset (same pattern as AMILISP_STW_DIAG /
+ * AMILISP_LOCK_DIAG).  Reactor- and client-side lines can interleave; each
  * line is a single fprintf so it stays whole. */
 static int32_t sock_diag_cached = -2;   /* -2 = env not read; 0 = off; 1 = on */
 static volatile uint32_t sock_diag_seq = 0;
@@ -1448,7 +1448,7 @@ static int sock_diag_on(void)
 {
     if (sock_diag_cached == -2) {
         char envbuf[16];
-        const char *s = platform_getenv("CLAMIGA_SOCK_DIAG", envbuf,
+        const char *s = platform_getenv("AMILISP_SOCK_DIAG", envbuf,
                                         (int)sizeof(envbuf));
         sock_diag_cached = (s && *s) ? 1 : 0;
     }

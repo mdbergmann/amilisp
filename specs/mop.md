@@ -167,7 +167,7 @@ Low priority — few libraries actually use it; skip unless something needs it.
 Fork `closer-mop` to `lib/local-projects/closer-mop/` with `#+clamiga` branches that map to our bindings, or ship an ASDF system `closer-mop-clamiga` that provides the package.
 
 **Deliverables:**
-- `closer-mop-packages.lisp` patched to recognize `:clamiga` feature.
+- `closer-mop-packages.lisp` patched to recognize `:amilisp` feature.
 - `closer-mop.lisp` (implementation file) gets amilisp branches for each protocol function.
 - Minimal file: most symbols resolve to our CL package since we now export them at MOP names.
 - Add to `lib/quicklisp-compat.lisp` as a preloadable system if appropriate.

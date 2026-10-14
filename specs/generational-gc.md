@@ -179,7 +179,7 @@ objects, visit each CL_Obj child slot via the existing
 | Area | Handling |
 |------|----------|
 | TLABs | carve from nursery bump only; reset each GC (existing hook) |
-| gc-stress (`CLAMIGA_GC_STRESS`) | forces a *minor* GC before every alloc + periodic major — unprotected-local bugs for young objects surface identically (moving nursery); existing stress suite must stay green |
+| gc-stress (`AMILISP_GC_STRESS`) | forces a *minor* GC before every alloc + periodic major — unprotected-local bugs for young objects surface identically (moving nursery); existing stress suite must stay green |
 | EQ/EQL hashtables | minor rehash restricted to young tables + tables on dirty pages (a table that gained a young key was written → dirty) |
 | srcloc / TLV / outbuf side tables | forward via existing per-table hooks, ranged to nursery; outbuf reclaim majors-only |
 | FASL reader/writer dedup tables | marked via existing hooks (young entries traced); forwarded on minor like registered roots |
@@ -187,7 +187,7 @@ objects, visit each CL_Obj child slot via the existing
 | `cl_mem_init` re-init | unprotect everything before teardown; reset bitmap/crossing map/old_top/handler state (documented stale-static bug class) |
 | DEBUG_GC verify passes | adapted: minor-cycle variants check the nursery range; full-heap verifies run on majors |
 | Amiga / m68k JIT | **compiled out entirely** (`CL_GENGC` requires POSIX; Amiga keeps mark-sweep-compact + JIT pinning untouched) |
-| Kill switch | `CLAMIGA_GENGC=0` env → boot in classic mode (A/B benchmarking, field escape hatch) |
+| Kill switch | `AMILISP_GENGC=0` env → boot in classic mode (A/B benchmarking, field escape hatch) |
 | Fallback | mmap/mprotect/sigaction failure at boot → classic mode with a loud one-line notice |
 
 ## Phase A — quick wins (independent, land first)
@@ -256,7 +256,7 @@ Deltas and decisions made during implementation:
   is exactly the classic collector's state.
 - **Classic-mechanics tests** (free-list probe bounds, sweep-forever
   escape, JIT free-snapshot scan, epoch-dedup semantics) pin
-  CLAMIGA_GENGC=0; everything else in the suite runs under gen mode.
+  AMILISP_GENGC=0; everything else in the suite runs under gen mode.
 - Old space is protected page-truncated; the old/nursery straddling page
   stays writable and is marked always-dirty for the next minor.
 - The minor's fwd table is nursery-ranged via gc_fwd_base; gc_forward
@@ -285,4 +285,4 @@ Deltas and decisions made during implementation:
 
 Measured results: see docs/benchmarks.md (2026-07-15 generational GC
 entry) — sento pinned/tell +13%, pinned/ask +26% vs the same binary with
-CLAMIGA_GENGC=0.
+AMILISP_GENGC=0.

@@ -17,7 +17,7 @@
 #
 # Run: sh tests/test_load_exit.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 
 # Both assertions need a timeout binary to bound the "does it hang?" check.
 # Skip cleanly when absent (matches the repo's skip-when-prereq-missing rule).
@@ -68,7 +68,7 @@ fifo=$(mktemp -u "${TMPDIR:-/tmp}/clamiga_fifo_XXXXXX")
 mkfifo "$fifo"
 sleep 12 >"$fifo" &
 sleep_pid=$!
-out=$("$TIMEOUT" 10 "$CLAMIGA" --no-userinit --heap 8M --non-interactive --load "$tmp" <"$fifo" 2>&1)
+out=$("$TIMEOUT" 10 "$AMILISP" --no-userinit --heap 8M --non-interactive --load "$tmp" <"$fifo" 2>&1)
 ec=$?
 kill "$sleep_pid" 2>/dev/null
 wait "$sleep_pid" 2>/dev/null
@@ -76,7 +76,7 @@ rm -f "$fifo"; fifo=""
 check "non_interactive_does_not_block_on_open_stdin" "$ec" "$out"
 
 # --- Assert B: </dev/null gives the post-load REPL an immediate EOF ---
-out=$("$TIMEOUT" 10 "$CLAMIGA" --no-userinit --heap 8M --load "$tmp" </dev/null 2>&1)
+out=$("$TIMEOUT" 10 "$AMILISP" --no-userinit --heap 8M --load "$tmp" </dev/null 2>&1)
 check "devnull_stdin_exits_post_load_repl" "$?" "$out"
 
 echo ""

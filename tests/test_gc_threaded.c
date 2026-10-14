@@ -300,13 +300,13 @@ TEST(concurrent_alloc_with_gc)
 
 static void reinit_classic(void)
 {
-    setenv("CLAMIGA_GENGC", "0", 1);
+    setenv("AMILISP_GENGC", "0", 1);
     reinit_heap(4 * 1024 * 1024);
 }
 
 static void reinit_default(void)
 {
-    unsetenv("CLAMIGA_GENGC");
+    unsetenv("AMILISP_GENGC");
     reinit_heap(4 * 1024 * 1024);
 }
 

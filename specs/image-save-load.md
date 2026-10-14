@@ -272,7 +272,7 @@ usual) — the recommended mode for build scripts.
 
 - `amilisp --image FILE` — explicit.
 - Auto-discovery, mirroring the `lib/boot.fasl` search in repl.c
-  (cwd → CLAMIGA_HOME → exedir → exedir/../lib/amilisp → exedir/../..):
+  (cwd → AMILISP_HOME → exedir → exedir/../lib/amilisp → exedir/../..):
   `amilisp.img` next to `lib/` is used when present.  `--no-image`
   bypasses it.
 
@@ -471,7 +471,7 @@ Per the project rules — tests are the spec, every path host + Amiga:
    and FPU=1) and host.
 4. gc-stress (`make test-gc-stress`): the relink walk and blob re-attach
    allocate (interned source paths don't, but restored-session first-GC
-   does) — run a save→restore→workload cycle under CLAMIGA_GC_STRESS=1 so
+   does) — run a save→restore→workload cycle under AMILISP_GC_STRESS=1 so
    the first compaction after restore exercises forwarding over a
    restored heap; plus save-under-stress.
 5. Root audit: debug check comparing the writer's enumeration against

@@ -7,8 +7,8 @@
 ;; Usage (cold cache, so the whole dependency stack compiles at the
 ;; forced speed — cached FASLs bypass the compiler):
 ;;
-;;   rm -rf ~/.cache/common-lisp/cl-amiga-<version>-fasl<N>
-;;   CLAMIGA_FORCE_SPEED=3 ./build/host/amilisp --no-userinit --heap 192M \
+;;   rm -rf ~/.cache/common-lisp/amilisp-<version>-fasl<N>
+;;   AMILISP_FORCE_SPEED=3 ./build/host/amilisp --no-userinit --heap 192M \
 ;;       --non-interactive --load trunk/sento-bench-matrix.lisp
 ;;
 ;; ATOMICS_DIR=<dir>[:<dir>...]: each directory is pushed onto
@@ -53,7 +53,7 @@
 (load "trunk/load-sento-bench.lisp")
 
 (format t "~%--- lisp-implementation-version: ~A ---~%" (lisp-implementation-version))
-(format t "--- CLAMIGA_FORCE_SPEED=~A ---~%" (env "CLAMIGA_FORCE_SPEED"))
+(format t "--- AMILISP_FORCE_SPEED=~A ---~%" (env "AMILISP_FORCE_SPEED"))
 (format t "--- atomics loaded from: ~A ---~%" (asdf:system-source-file "atomics"))
 (format t "--- bordeaux-threads loaded from: ~A ---~%" (asdf:system-source-file "bordeaux-threads"))
 (format t "--- sento loaded from: ~A ---~%" (asdf:system-source-file "sento"))

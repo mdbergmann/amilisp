@@ -82,9 +82,9 @@
 #                           Quicklisp/ocicl searchers), so they shadow any
 #                           package-manager copy with no installation step.
 #   Source-shipped files compile on the target on first (require ...) and are
-#   cached under S:cl-amiga/faslcache/, so the cost is paid once.
+#   cached under S:amilisp/faslcache/, so the cost is paid once.
 #
-#   Every FASL is compiled with CLAMIGA_FASL_PORTABLE=1: the m68k AmigaOS
+#   Every FASL is compiled with AMILISP_FASL_PORTABLE=1: the m68k AmigaOS
 #   binaries are byte-string builds with no decoder for FASL_TAG_WIDE_STRING
 #   (MorphOS is a wide build but loads the same FASLs), so a
 #   non-ASCII string literal in a shipped module fails the build HERE with
@@ -263,7 +263,7 @@ fi
 
 # lib: FASL-portable modules, compiled by the just-built host binary so
 # CL_FASL_VERSION matches the packaged binaries exactly.  The script compiles
-# with CLAMIGA_FASL_PORTABLE=1 and refuses a module whose compile printed an
+# with AMILISP_FASL_PORTABLE=1 and refuses a module whose compile printed an
 # error or produced no FASL (see its header).
 FASL_LIBS="boot clos ffi gray-streams dev-commands dev-repl dev-tcp"
 echo "--- compile-file $FASL_LIBS -> $REL/lib/*.fasl ---"
@@ -292,7 +292,7 @@ sh scripts/compile-lib-fasls.sh -o "$STAGE" -b "$HOST_BIN" --no-docstrings \
 
 # lib/clamacs: the Clamacs editor (clamacs/lisp/, specs/clamacs-lisp.md
 # over there) as sources plus the FASLs compiled from them in load order by
-# the host binary, portable like lib/amiga's (CLAMIGA_FASL_PORTABLE=1:
+# the host binary, portable like lib/amiga's (AMILISP_FASL_PORTABLE=1:
 # a string literal the Amiga could not load fails here).  Its load.lisp
 # takes a FASL beside a source, so a `--no-image` start (or a refused
 # image) loads the editor without compiling it on the target.  The two
@@ -307,7 +307,7 @@ mkdir -p "$STAGE/lib/clamacs"
 cp clamacs/lisp/*.lisp clamacs/scripts/save-editor-image.lisp \
    clamacs/scripts/verify-editor-image.lisp "$STAGE/lib/clamacs/"
 CLAMACS_LOG="$OUT/lib-clamacs.log"
-( cd "$STAGE" && CLAMIGA_NO_USERINIT=1 CLAMIGA_FASL_PORTABLE=1 $TIMEOUT "$HOST_BIN" --no-userinit \
+( cd "$STAGE" && AMILISP_NO_USERINIT=1 AMILISP_FASL_PORTABLE=1 $TIMEOUT "$HOST_BIN" --no-userinit \
     --no-image --non-interactive --heap 32M \
     --eval '(defvar cl-user::*clamacs-frontend-files* (list "frontend-mui" "transport-arexx"))' \
     --eval '(defvar cl-user::*clamacs-compile-fasls* t)' \
@@ -373,9 +373,9 @@ done
 
 # docs: package API reference only (no benchmarks/screenshots), plus the
 # editor's README as docs/clamacs.md.
-cp docs/README.md docs/amiga.md docs/clamiga.md docs/ext.md docs/ffi.md \
+cp docs/README.md docs/amiga.md docs/amilisp.md docs/ext.md docs/ffi.md \
    docs/gray.md docs/mop.md docs/mp.md docs/package-symbols.txt \
-   docs/clamiga-documented-symbols.txt "$STAGE/docs/"
+   docs/amilisp-documented-symbols.txt "$STAGE/docs/"
 cp clamacs/README.md "$STAGE/docs/clamacs.md"
 
 # examples, as-is
@@ -459,20 +459,20 @@ if [ "$SMOKE" = 1 ]; then
     # root with the same check script, and require the main smoke run below
     # to have come from it.
     rm -f "$SMOKEDIR/rel/bin/aos3/amilisp.img"
-    ( cd "$SMOKEDIR/rel/bin/aos3" && CLAMIGA_NO_USERINIT=1 CLAMIGA_HOME= $TIMEOUT \
+    ( cd "$SMOKEDIR/rel/bin/aos3" && AMILISP_NO_USERINIT=1 AMILISP_HOME= $TIMEOUT \
         ./amilisp --no-userinit --no-image --non-interactive \
         --load "$ROOT/scripts/save-boot-image.lisp" ) > "$OUT/smoke-image.log" 2>&1 \
       && [ -s "$SMOKEDIR/rel/bin/aos3/amilisp.img" ] || {
         echo "ERROR: host image save in the release layout failed — see $OUT/smoke-image.log" >&2
         exit 1; }
-    ( cd "$SMOKEDIR/rel" && CLAMIGA_NO_USERINIT=1 CLAMIGA_HOME= $TIMEOUT \
+    ( cd "$SMOKEDIR/rel" && AMILISP_NO_USERINIT=1 AMILISP_HOME= $TIMEOUT \
         bin/aos3/amilisp --no-userinit --non-interactive \
         --load "$ROOT/scripts/verify-boot-image.lisp" ) >> "$OUT/smoke-image.log" 2>&1 \
       && grep -q "^BOOT-IMAGE-VERIFIED" "$OUT/smoke-image.log" || {
         echo "ERROR: release layout did not start from bin/aos3/amilisp.img — see $OUT/smoke-image.log" >&2
         exit 1; }
     ( cd "$SMOKEDIR" && \
-      CLAMIGA_NO_USERINIT=1 CLAMIGA_HOME= $TIMEOUT \
+      AMILISP_NO_USERINIT=1 AMILISP_HOME= $TIMEOUT \
         "$SMOKEDIR/rel/bin/aos3/amilisp" --non-interactive --heap 48M \
         --eval '(format t "IMAGE-RESTORED ~a~%" ext:*image-restored-p*)' \
         --eval '(require "gray-streams")' \
@@ -495,7 +495,7 @@ if [ "$SMOKE" = 1 ]; then
         exit 1; }
     # --no-image: the FASL boot must still bring the layout up — it is the
     # fallback when an image is refused.
-    ( cd "$SMOKEDIR" && CLAMIGA_NO_USERINIT=1 CLAMIGA_HOME= $TIMEOUT \
+    ( cd "$SMOKEDIR" && AMILISP_NO_USERINIT=1 AMILISP_HOME= $TIMEOUT \
         "$SMOKEDIR/rel/bin/aos3/amilisp" --non-interactive --no-image \
         --eval '(format t "FASL-BOOT ~a ~a~%" ext:*image-restored-p* (lisp-implementation-version))' \
         --eval '(quit)' ) | tee "$OUT/smoke-noimage.log" | grep -q "^FASL-BOOT NIL $VERSION" || {
@@ -539,8 +539,8 @@ if [ "$SMOKE" = 1 ]; then
     # The AmigaGuide docs: one per shipped page, in the package root or under
     # docs/, each a real guide file (@DATABASE first) with its Workbench icon
     # -- the converter's own checks ran during staging.
-    for g in README-FIRST cl-amiga clamacs docs/README docs/ext docs/mp docs/ffi \
-             docs/gray docs/mop docs/clamiga docs/amiga; do
+    for g in README-FIRST amilisp clamacs docs/README docs/ext docs/mp docs/ffi \
+             docs/gray docs/mop docs/amilisp docs/amiga; do
         [ "$(head -c 10 "$STAGE/$g.guide" 2>/dev/null)" = "@DATABASE " ] || {
             echo "ERROR: $g.guide missing or not an AmigaGuide file" >&2
             exit 1; }
@@ -571,7 +571,7 @@ if [ "$SMOKE" = 1 ]; then
         [ -s "$STAGE/bin/$t/clamacs.img" ] || {
             echo "ERROR: bin/$t/clamacs.img is missing or empty" >&2; exit 1; }
     done
-    ( cd "$SMOKEDIR" && CLAMIGA_NO_USERINIT=1 CLAMIGA_HOME= $TIMEOUT \
+    ( cd "$SMOKEDIR" && AMILISP_NO_USERINIT=1 AMILISP_HOME= $TIMEOUT \
         "$SMOKEDIR/rel/bin/aos3/amilisp" --non-interactive --no-image --heap 16M \
         --load "$SMOKEDIR/rel/lib/clamacs/load.lisp" \
         --eval '(format t "CLAMACS-LIB ~a ~a~%" (find-package "CLAMACS") (fboundp (find-symbol "MENU-STATE" "CLAMACS")))' \
@@ -584,14 +584,14 @@ if [ "$SMOKE" = 1 ]; then
     # clamacs.img saved beside the host binary, restored, holding the
     # editor (START itself needs MUI and is what FS-UAE verified).
     rm -f "$SMOKEDIR/rel/bin/aos3/clamacs.img"
-    ( cd "$SMOKEDIR/rel/bin/aos3" && CLAMIGA_NO_USERINIT=1 CLAMIGA_HOME= $TIMEOUT \
+    ( cd "$SMOKEDIR/rel/bin/aos3" && AMILISP_NO_USERINIT=1 AMILISP_HOME= $TIMEOUT \
         ./amilisp --no-userinit --no-image --non-interactive --heap 16M \
         --load ../../lib/clamacs/load.lisp \
         --load ../../lib/clamacs/save-editor-image.lisp ) >> "$OUT/smoke-clamacs.log" 2>&1 \
       && [ -s "$SMOKEDIR/rel/bin/aos3/clamacs.img" ] || {
         echo "ERROR: host Clamacs image save in the release layout failed — see $OUT/smoke-clamacs.log" >&2
         exit 1; }
-    ( cd "$SMOKEDIR/rel" && CLAMIGA_NO_USERINIT=1 CLAMIGA_HOME= $TIMEOUT \
+    ( cd "$SMOKEDIR/rel" && AMILISP_NO_USERINIT=1 AMILISP_HOME= $TIMEOUT \
         bin/aos3/amilisp --no-userinit --non-interactive --heap 16M \
         --image bin/aos3/clamacs.img \
         --eval '(format t "CLAMACS-IMAGE ~a ~a~%" ext:*image-restored-p* (fboundp (find-symbol "MENU-STATE" "CLAMACS")))' \

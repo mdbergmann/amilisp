@@ -14,12 +14,12 @@
 #
 # Run: sh tests/test_make_load_form.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/amilisp}"
+AMILISP="${1:-build/host/amilisp}"
 passed=0
 failed=0
 TMP="${TMPDIR:-/tmp}/clamiga-mlf-$$"
 mkdir -p "$TMP"
-cleanup() { rm -rf "$TMP" "$HOME/.cache/common-lisp/cl-amiga-"*"$TMP"* 2>/dev/null; }
+cleanup() { rm -rf "$TMP" "$HOME/.cache/common-lisp/amilisp-"*"$TMP"* 2>/dev/null; }
 trap cleanup EXIT
 
 # run_case DESC SRC CHECK
@@ -41,7 +41,7 @@ run_case() {
            (format t "~&COMPILED=ok~%"))
   (error (e) (format t "~&COMPILED=error ~a~%" e)))
 EOF
-    cout=$(CLAMIGA_NO_USERINIT=1 "$CLAMIGA" --no-userinit --non-interactive \
+    cout=$(AMILISP_NO_USERINIT=1 "$AMILISP" --no-userinit --non-interactive \
                --load "$comp_driver" </dev/null 2>&1)
     if ! printf '%s\n' "$cout" | grep -q "COMPILED=ok"; then
         echo "  FAIL  $desc (compile failed)"
@@ -58,7 +58,7 @@ EOF
            (format t "~&RESULT=~a~%" (if $check :pass :fail)))
   (error (e) (format t "~&RESULT=error ~a~%" e)))
 EOF
-    out=$(CLAMIGA_NO_USERINIT=1 "$CLAMIGA" --no-userinit --non-interactive \
+    out=$(AMILISP_NO_USERINIT=1 "$AMILISP" --no-userinit --non-interactive \
               --load "$load_driver" </dev/null 2>&1)
     res=$(printf '%s\n' "$out" | sed -n 's/^RESULT=//p' | head -1)
     if [ "$res" = ":PASS" ] || [ "$res" = "PASS" ]; then
