@@ -648,9 +648,11 @@ index, so `CLAMIGA_GC_STRESS_AT=<index>` names the code at the compaction.
 `Makefile.cross` and `Makefile.mos` take the host's `GC=` knob.  The m68k
 cross build defaults to **Immix** (`build/cross/`; `GC=classic` goes to
 `build/cross-classic/`, composing with `FPU=1`/`WIDE=1` as
-`cross-fpu-classic` and so on); the MorphOS build keeps classic as its
-default (`GC=immix` builds to `build/morphos-immix/`) until it has run
-there — the box was off.  The object dir suffix names the *non-default*
+`cross-fpu-classic` and so on); the MorphOS build kept classic as its
+default (`GC=immix` built to `build/morphos-immix/`) until it had run
+there — the box was off — and flipped to Immix on 2026-10-14 after the
+run below (`GC=classic` now builds to `build/morphos-classic/`).  The
+object dir suffix names the *non-default*
 backend so `scripts/make-binary-release.sh` and every helper that knows
 `build/cross` keep working; make does not track `CFLAGS`, so the switch
 of a default needs a `make -f Makefile.cross clean` once.
@@ -722,8 +724,9 @@ on 2.1 MB.  MorphOS (its first Immix run): 38.0 → 7.5 µs/step bare,
 34.0 → 12.3 loaded, cycles 40–60 ms against 140–440; the Amiga suite
 gives the same 4625 of 4629 under either collector (the three known
 MorphOS-only sprite checks and the launcher's missing `--` arguments).
-The MorphOS default is still classic in `Makefile.mos`; the numbers
-say it should flip, and that is a one-line decision.
+On those numbers the MorphOS default flipped to Immix the same day
+(`Makefile.mos`, `GC ?= immix`; the box rebuilt both variants clean and
+re-ran its suite on the new default).
 
 ### As landed — the mark-loop pass (2026-10-14)
 

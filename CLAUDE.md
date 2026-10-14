@@ -77,7 +77,7 @@ Cross-compile for Amiga and test via FS-UAE:
 make -f Makefile.cross amiga        # Cross-compile to build/cross/clamiga (m68k-amigaos-gcc)
 make -f Makefile.cross amiga FPU=1  # Hard-float variant to build/cross-fpu/clamiga (requires FPU)
 make -f Makefile.cross amiga WIDE=1 # Wide-string variant (CHAR-CODE-LIMIT > 65533, for flexi-streams/drakma); composes with FPU=1; releases stay narrow
-make -f Makefile.cross amiga GC=classic # Classic mark-sweep collector variant to build/cross-classic (the m68k default is Immix, specs/gc-backend-immix.md); composes with FPU=1/WIDE=1; Makefile.mos takes the same knob (its default stays classic)
+make -f Makefile.cross amiga GC=classic # Classic mark-sweep collector variant to build/cross-classic (the m68k default is Immix, specs/gc-backend-immix.md); composes with FPU=1/WIDE=1; Makefile.mos takes the same knob with the same default (GC=classic -> build/morphos-classic)
 make -f Makefile.cross test-amiga   # Cross-compile, copy binary, launch FS-UAE, verify results
 make -f Makefile.cross examples-amiga # Run the GUI examples (gfx/ + reaction/) unattended in FS-UAE, screenshots to build/amiga/shots/
 make -f Makefile.cross image-amiga  # Save + verify a bare-boot clamiga.img beside the cross binary in FS-UAE (images are per-build; composes with FPU=1)

@@ -4,7 +4,7 @@
 # Run from a MorphOS shell (or a MorphOS GCC environment):
 #
 #     make -f Makefile.mos              # build build/morphos/clamiga
-#     make -f Makefile.mos GC=immix     # the Immix collector, build/morphos-immix/
+#     make -f Makefile.mos GC=classic   # the classic collector, build/morphos-classic/
 #     make -f Makefile.mos clean
 #
 # Notes / design:
@@ -68,19 +68,25 @@ LDLIBS  ?= -lm
 SRCDIR   = src
 BUILDDIR = build/morphos
 
-# GC=classic|immix selects the collector (specs/gc-backend-immix.md), the
-# same knob as the host and cross Makefiles: one backend per binary.  An
-# immix build gets its own object dir so the two never mix.
-GC ?= classic
-ifeq ($(GC),classic)
-GC_DEF = -DCL_GC_CLASSIC
-GC_SRC = $(SRCDIR)/core/gc_classic.c
-else ifeq ($(GC),immix)
+# GC=immix|classic selects the collector (specs/gc-backend-immix.md), the
+# same knob as the host and cross Makefiles: one backend per binary.
+# immix is the MorphOS default since 2026-10-14 (docs/gc-phase0-results.md,
+# "Real hardware": on the box the allocation churn's mutator runs 5x
+# faster bare and 2.8x with the editor loaded, the suite is the same
+# under either collector); classic is the mark-sweep-compact collector
+# the MorphOS builds ran before, and gets its own object dir so the two
+# never mix.  After changing the default, `make -f Makefile.mos clean`:
+# make does not track CFLAGS.
+GC ?= immix
+ifeq ($(GC),immix)
 GC_DEF = -DCL_GC_IMMIX
 GC_SRC = $(SRCDIR)/core/gc_immix.c
-BUILDDIR := $(BUILDDIR)-immix
+else ifeq ($(GC),classic)
+GC_DEF = -DCL_GC_CLASSIC
+GC_SRC = $(SRCDIR)/core/gc_classic.c
+BUILDDIR := $(BUILDDIR)-classic
 else
-$(error GC=$(GC): unknown GC backend (classic or immix))
+$(error GC=$(GC): unknown GC backend (immix or classic))
 endif
 CFLAGS += $(GC_DEF)
 
