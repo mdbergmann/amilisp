@@ -452,3 +452,150 @@ Host (M3 Ultra, 32 MB live, best of three on a quiet machine): classic
 (6.6 / 8.5), the classic one with no change to its hot path, so the
 difference is the machine's state on the day, not the trims; the gap
 between the two is what matters, and it went from 1.9 to 0.8 ms.
+
+# Real hardware — Immix against classic (2026-10-14)
+
+The Phase 3 measurement and the mark bench on the two machines that were
+off on 2026-10-13, with both binaries built from the same tree (the
+per-visit trims, `c569c96d`).  Everything the FS-UAE rows showed holds
+on the hardware; the numbers below are the ones a user of either machine
+will see.
+
+## Vampire (68080 FPGA, 500 MB Fast, OS 3.2)
+
+`build/cross/clamiga` (Immix) and `build/cross-classic/clamiga`, dropped
+beside the 0.11 snapshot's `lib/` (`--no-image`, 8 MB heap); Clamacs
+loaded from that tree's FASLs in 3.7 s.  The phase timers tick at 20 ms
+on this machine, so a 20 ms difference is one quantum.  The classic
+rows are the same tree's classic, i.e. *with* the mark-loop pass — the
+2026-10-08 Vampire rows above are the pre-pass baseline.
+
+| | mark | sweep | compact | wall / cycle | free-list steps / cycle |
+|---|--:|--:|--:|--:|--:|
+| **classic** bare explicit, 2nd–4th (433 K live) | 20–40 ms | 0–20 ms | — | 20–40 ms | 0 |
+| **immix** bare explicit, 2nd–4th (433 K live) | 20–40 | 0–20 | — | 20–40 | — |
+| **classic** bare churn, cycle 1 (bump phase) | 60 | 200 | — | 2.9 s | 5.7 K |
+| **classic** bare churn, cycles 2–6 (free-list phase) | 60–80 | 180–200 | — | **8.2–9.6 s** | 331 K |
+| **immix** bare churn, cycles 1–6 | 80–100 | 0–20 | — | **2.4–2.8 s** | — |
+| **classic** bare `(ext:gc-compact)` | — | — | 300 | | |
+| **immix** bare `(ext:gc-compact)` | — | — | **1260** | | |
+| **classic** loaded, 1st gc after the FASL load (bump 2.4 M) | 60 | **2660** | — | 2.7 s | 0 |
+| **immix** loaded, 1st gc after the FASL load (bump 2.4 M) | 80 | **2760** | — | 2.8 s | — |
+| **classic** loaded explicit, 2nd–4th (1.8 M live) | 80 | 20–40 | — | 120 ms | 0 |
+| **immix** loaded explicit, 2nd–4th (1.8 M live) | 80 | 0 | — | **80 ms** | — |
+| **classic** loaded churn, cycle 1 (bump phase) | 120 | 180 | — | 2.3 s | 3.8 K |
+| **classic** loaded churn, cycles 2–6 (free-list phase) | 120–140 | 160 | — | **4.6–7.7 s** | 243–254 K |
+| **immix** loaded churn, cycles 1–6 | 120–140 | 0–20 | — | **1.9–2.2 s** | — |
+| **classic** loaded `(ext:gc-compact)` | — | — | 680 | | |
+| **immix** loaded `(ext:gc-compact)` | — | — | **1500** | | |
+| **classic** loaded explicit after compaction | 60 | 20 | — | 80–100 ms | 0 |
+| **immix** loaded explicit after compaction | 60–80 | 0–20 | — | 80–100 ms | — |
+
+Churn totals:
+
+| | steps | wall | collector | mutator µs/step |
+|---|--:|--:|--:|--:|
+| classic bare | 37,400 | 47.5 s | 1.5 s (3.2 %) | **1,229** |
+| immix bare | 37,400 | 14.7 s | 0.5 s (3.7 %) | **379** |
+| classic loaded | 28,000 | 30.9 s | 1.7 s (5.6 %) | **1,041** |
+| immix loaded | 29,200 | 12.1 s | 0.8 s (7.0 %) | **384** |
+
+The mark alone (`trunk/gc-mark-bench.lisp`, 640 units = 2.1 MB live,
+mean of five explicit cycles): classic **64 ms**, Immix **96 ms** per
+cycle (30.7 and 45.3 ms per live MB).
+
+What the rows say:
+
+1. **The same 3× on the mutator as in FS-UAE** (1,229 → 379 µs/step
+   bare, 1,041 → 384 loaded) and the same flat cycle: 2.4–2.8 s against
+   2.9 s once and 8.2–9.6 s thereafter bare, 1.9–2.2 s against 2.3 then
+   4.6–7.7 s loaded.  The whole bare churn is 14.7 s instead of 47.5.
+2. **The sweep is gone from the pause**: 0–20 ms against 160–200 on the
+   8 MB heap.  The quiet-heap pause with the editor resident is 80 ms
+   against 120, all mark.
+3. **The mark-loop pass shows on the hardware too**: the classic mark
+   under the loaded churn is 120–140 ms against 240–260 on 2026-10-08
+   (same machine, same script, pre-pass binary), bare 60–80 against
+   140–160.  The 80 ms per live MB of Phase 0 is now 31 (classic) and
+   45 (Immix) on the mark bench.
+4. **The Immix mark costs 50 % more than classic here** (96 against
+   64 ms on 2.1 MB), the same ratio as the cycle-exact 68020 (2,572
+   against 1,656).  Under churn the 20 ms quantum hides it (80–100
+   against 60–80 bare; 120–140 both loaded).  It is the design cost the
+   trims left — see the mark-loop pass above.
+5. **Compaction is 4× slower** (1,260 / 1,500 ms against 300 / 680), as
+   on the emulator and for the same reason; no churn run asked for one.
+6. **The first collection after a FASL load is the same 2.7–2.8 s on
+   both** — the finalization storm (§Vampire 4 of Phase 0) is off-heap
+   and no collector's business.
+7. **The Amiga suite under Immix on the box**: the first run froze the
+   machine (hard, with a tone) at the AHI playback checks of
+   `tests/amiga/test-ahi.lisp`, after 4,243 passes — the first time
+   those checks had run on this machine, which also runs under the
+   lost-store CPU condition the startup self-test flags (core 10760), so
+   the freeze is the box's, not the collector's, until a classic run
+   says otherwise.  The re-run with the AHI file skipped passed
+   **5,181 of 5,188** in 18 minutes; the seven non-passes are the
+   deployment and the machine, not the collector: `lib/boot.lisp` is not
+   in the release tree (two file checks), `tools/docs/` is not deployed
+   (md2guide), no CA bundle for TLS, the launcher passes no `--`
+   arguments, a screenshot-matches-screen check on a 1280×720 true-colour
+   Workbench, and a `floor` double remainder of 3.8e-13 on the FPGA FPU.
+   The classic binary on the same tree and runner: **5,180 of 5,188** in
+   16 minutes, the same seven plus the `audio-short-sample-completes`
+   flake FS-UAE shows too.
+
+## MorphOS box (PPC, MorphOS 3.20, 1.7 GB)
+
+The checkout on the box at the branch's tree, `make -f Makefile.mos` and
+`make -f Makefile.mos GC=immix` (the first Immix binary this machine has
+run); same script, 8 MB heap, Clamacs loaded from the submodule's
+sources (the Immix run compiled them into the FASL cache, 1.7 s; the
+classic run after it loaded the cache in 0.2 s).  This machine is
+20–30× the Vampire, so the 20 ms timer quantum swallows every phase on
+a quiet heap: the per-phase columns read 0 or 20 and are not shown; the
+wall per cycle and the mutator cost are what the box can measure.
+
+| | wall / cycle | free-list steps / cycle |
+|---|--:|--:|
+| **classic** bare churn, cycle 1 (bump phase) | 60 ms | 5.6 K |
+| **classic** bare churn, cycles 2–6 (free-list phase) | **200–440 ms** | 331 K |
+| **immix** bare churn, cycles 1–6 | **40–60 ms** | — |
+| **classic** loaded churn, cycle 1 (bump phase) | 60 ms | 7.9 K |
+| **classic** loaded churn, cycles 2–6 (free-list phase) | **140–280 ms** | 254 K |
+| **immix** loaded churn, cycles 1–6 | **40–60 ms** | — |
+| `(ext:gc-compact)`, bare / loaded | classic 20 / 20, immix 20 / 40 | |
+
+Churn totals:
+
+| | steps | wall | mutator µs/step |
+|---|--:|--:|--:|
+| classic bare | 37,400 | 1.48 s | **38.0** |
+| immix bare | 37,400 | 0.30 s | **7.5** |
+| classic loaded | 28,800 | 1.04 s | **34.0** |
+| immix loaded | 24,400 | 0.34 s | **12.3** |
+
+The mark alone: on 2.1 MB live both binaries sit under the quantum
+(4 / 8 ms per cycle from one tick in five).  On **24.7 MB live**
+(`*mark-bench-mb*` 24, 128 MB heap): classic **28 ms**, Immix **36 ms** per
+cycle — 1.2 and 1.5 ms per live MB, the same direction as the 68k with
+a quantum's worth of uncertainty on the ratio.
+
+What the rows say:
+
+1. **The allocation tax is the biggest of the three machines here**:
+   5.1× on the bare mutator (38.0 → 7.5 µs/step), 2.8× loaded, and the
+   free-list phase is 3–7× the bump phase per cycle (200–440 ms against
+   60) where Immix stays at 40–60 ms throughout.  On a fast CPU the
+   free-list probe is a larger share of a cheap allocation, so the
+   relative win grows.
+2. **The collector itself is below the quantum on this box**: a 2 MB
+   mark is single-digit milliseconds, a 25 MB one 30 ms.  The pause a
+   MorphOS user can notice is the free-list allocation between cycles,
+   not the cycle — the one thing Immix removes.
+3. Compaction, the rare path, is 20–40 ms either way at this heap size.
+4. **The Amiga suite on the box, both binaries**: 4625 of 4629 under
+   Immix in 115 s, 4625 of 4629 under classic in 110 s, the same four
+   non-passes in both — the three MorphOS-only `gfx-sprite-*` checks
+   known since 2026-08 and `*command-line-args*`, which the launch
+   script did not feed.  The first Immix run this machine has had.

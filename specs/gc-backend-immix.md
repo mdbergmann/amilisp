@@ -713,6 +713,18 @@ has not run Immix; the Clamacs typing-latency spike was not taken.  The
 policy constants were not tuned — no churn run asked for a compaction,
 so there was nothing to tune against.
 
+*2026-10-14, the real hardware* (`docs/gc-phase0-results.md`, "Real
+hardware"): both machines ran both binaries of the trimmed tree.  Vampire:
+mutator 1,229 → 379 µs/step bare and 1,041 → 384 loaded, the churn cycle
+flat at 2.4–2.8 s against 8.2–9.6 s once classic leaves the bump front,
+the idle editor pause 80 ms against 120; the mark alone 96 against 64 ms
+on 2.1 MB.  MorphOS (its first Immix run): 38.0 → 7.5 µs/step bare,
+34.0 → 12.3 loaded, cycles 40–60 ms against 140–440; the Amiga suite
+gives the same 4625 of 4629 under either collector (the three known
+MorphOS-only sprite checks and the launcher's missing `--` arguments).
+The MorphOS default is still classic in `Makefile.mos`; the numbers
+say it should flip, and that is a one-line decision.
+
 ### As landed — the mark-loop pass (2026-10-14)
 
 The "next lever" named by Phase 0 and again by Phase 3, taken on the
