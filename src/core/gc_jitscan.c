@@ -192,8 +192,8 @@ static int gc_hdr_is_block_start(uint32_t offset, GC_HdrCursor *cur)
 
 #ifdef CL_GC_IMMIX
 /* Is `off` the start of an OBJECT below the bump front — a block start
- * that is not a dead block?  The backend's push validation (Immix:
- * GCB_PUSH_REJECT) asks this for every child a trace from a conservative
+ * that is not a dead block?  The validating drain (Immix:
+ * GCB_PUSH_REJECT_C) asks this for every child a trace from a conservative
  * or rescanned root pushes.  Bounded by the index like the scan's own
  * check; without an index it walks the chain from the start.  The cursor
  * persists across calls: a trace's pushes are mostly ascending within a

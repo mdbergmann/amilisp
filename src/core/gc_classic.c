@@ -756,7 +756,7 @@ static int gen_walk_dirty_objects(int mode)
                 return 0;              /* desync — refuse the minor */
             if (off > last_start) {    /* spanning objects visit once */
                 if (mode == 0) {
-                    gc_mark_children(ptr, CL_HDR_TYPE(ptr));
+                    gc_mark_children(ptr, CL_HDR_TYPE(ptr), 0);
                 } else {
                     gc_update_children(ptr, CL_HDR_TYPE(ptr));
                     if (CL_HDR_TYPE(ptr) == TYPE_HASHTABLE &&

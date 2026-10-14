@@ -10,7 +10,8 @@ design text below.  Phase 3 (the m68k/MorphOS builds) landed 2026-10-13:
 Immix is the m68k default — see "As landed (Phase 3)" for the numbers,
 the one multi-threading bug it surfaced, and what stays open.  The
 mark-loop pass (the trace itself, every backend) landed 2026-10-14 —
-see "As landed — the mark-loop pass".
+see "As landed — the mark-loop pass", and its "per-visit trims" the
+same day.
 Companion: `specs/generational-gc.md` (the host collector this leaves alone).
 
 ## Why
@@ -609,7 +610,8 @@ object keeps its header for as long as the neighbour lives and reads
 have its garbage slots traced.  The conservative scan therefore runs
 after the precise trace has drained, and the pushes of the trace it
 starts — and of the overflow rescan — are validated as object starts
-through the block-start index (`GCB_PUSH_REJECT`; `tests/test_jit_gc_scan.c`,
+through the block-start index (`GCB_PUSH_REJECT_C`, the validating drain;
+`tests/test_jit_gc_scan.c`,
 "scan_traces_a_corpse_without_marking_interiors").  The compactor
 normalises every bit before its trace only when a cycle has run since the
 last normalisation (`gcb_marks_exact`), so the gc-stress regime pays no
@@ -749,8 +751,8 @@ The restructured trace:
 - **The per-walk context** (`GcMarkCtx`, gc_internal.h): what the visit
   reads on every reference — the arena base and size, the stack, its
   top and capacity, and the backend's own words (`GCB_MARK_CTX_FIELDS`:
-  for Immix the mark sense, the epoch, the line map, the live byte
-  count and the validation flag, all constant for the trace) — is
+  for Immix the mark sense, the epoch, the line map and the live byte
+  count, all constant for the trace) — is
   loaded once per drain or children walk and kept in locals, written
   back at the end (`GCB_MARK_CTX_LOAD/STORE`, `GCB_HDR_MARKED_C`,
   `GCB_HDR_SET_MARK_C`, `GCB_ON_MARK_C`, `GCB_PUSH_REJECT_C`).  The
@@ -766,6 +768,38 @@ strings, small vectors and a hash table, five explicit collections;
 68020 with 2.1 MB live the mark goes from 5.44 to 1.65 s per cycle
 under classic and from 7.62 to 2.77 s under Immix.  Cost: the m68k
 binary grows by the inlined visits — about 6 KB classic, 12 KB Immix.
+
+**The per-visit trims (2026-10-14, after the pass).**  Of what the
+Immix visit still did over classic's, two items left the loop:
+
+- **Validation is a compile-time constant of the drain.**  The flag
+  `gc_mark_validating` and the context word are gone; `gc_mark_drain`
+  is instantiated twice from one always-inline body (`gc_mark_drain`
+  for the precise trace and the generational minor,
+  `gc_mark_drain_validating` for the two phases that can push garbage:
+  after the conservative JIT scan and in the overflow rescan — each
+  preceded by `GCB_VALIDATE_BEGIN()`, which resets the object-start
+  cursor).  `gc_mark_children` takes the flag as a parameter — a
+  register test per slot of a non-cons object, so the per-type walk
+  with its inlined visits (most of the trace's text) exists once; the
+  cons, which the drains scan inline, has the constant.  Under classic
+  `GCB_PUSH_REJECT_C` is 0 and both drains are the same code.
+- **The mark is set by flipping the bit** (`GCB_HDR_SET_MARK_C`, Immix):
+  the visit calls it only for an object `GCB_HDR_MARKED_C` just found
+  unmarked, whose bit therefore equals the sense — one instruction, no
+  second constant across the loop.  The classic definition notes the
+  precondition; the general `GCB_HDR_SET_MARK` keeps both operands.
+- **The live byte count stays** (`marked += size` per object).  An
+  experiment binary that derived it from the line map at sweep time
+  measured the add at 32 ms of 2,572 per cycle on the 68020 (1.2 %),
+  and the line-level count is a different number — every live line in
+  full, 7 % over the object total on the bench's heap — and the very
+  quantity `im_policy_after_cycle` subtracts from the hole total to
+  see line-level fragmentation.  Without it that test can never fire.
+
+Numbers in `docs/gc-phase0-results.md`, "The Immix per-visit trims":
+Immix 2,768 → 2,572 ms per cycle on the 68020 (classic 1,656); m68k
+text +28 bytes Immix, +396 classic.
 
 ### Optional Phase 4 — opportunistic evacuation
 

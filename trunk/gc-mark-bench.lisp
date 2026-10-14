@@ -8,6 +8,9 @@
 ;;;
 ;;; Optional, before loading:
 ;;;   (defparameter cl-user::*mark-bench-mb* 4)   ; live set to build (MB, default 2)
+;;;   (defparameter cl-user::*mark-bench-units* 640)  ; build exactly this many
+;;;     units instead (the same objects for every binary, whatever its live
+;;;     byte accounting says — for A/B runs of the collector itself)
 ;;;   (defparameter cl-user::*mark-bench-load* "path")  ; a file to LOAD first
 ;;;     (lib/clamacs/load.lisp: the editor's live set instead of a synthetic one)
 ;;;
@@ -39,9 +42,10 @@
 (defun gc-count ()
   (nth 0 (ext:%gc-time-stats)))
 
-(defun build-live-set (target-mb)
+(defun build-live-set (target-mb units)
   "Grow *LIVE* until the heap carries TARGET-MB of live data (as the
-collector sees it after a cycle)."
+collector sees it after a cycle), or, when UNITS is given, until exactly
+that many units are built."
   (let ((target-kb (* 1024 target-mb))
         (ht (make-hash-table :test 'equal))
         (i 0))
@@ -58,7 +62,7 @@ collector sees it after a cycle)."
       (incf i)
       (when (zerop (mod i 64))
         (ext:gc)
-        (when (>= (live-kb) target-kb)
+        (when (if units (>= i units) (>= (live-kb) target-kb))
           (return))))
     (say "live set: ~D units, ~D KB live after a cycle" i (live-kb))))
 
@@ -68,7 +72,9 @@ collector sees it after a cycle)."
                       (symbol-value 'cl-user::*mark-bench-load*)))
       (target-mb (if (boundp 'cl-user::*mark-bench-mb*)
                      (symbol-value 'cl-user::*mark-bench-mb*)
-                     2)))
+                     2))
+      (units (and (boundp 'cl-user::*mark-bench-units*)
+                  (symbol-value 'cl-user::*mark-bench-units*))))
   (say "=== gc-mark-bench start: ~A ~A" (lisp-implementation-type) (lisp-implementation-version))
   (cond (load-file
          (say "loading ~A" load-file)
@@ -76,7 +82,7 @@ collector sees it after a cycle)."
          (ext:gc)
          (say "live set: ~A, ~D KB live after a cycle" load-file (live-kb)))
         (t
-         (build-live-set target-mb)))
+         (build-live-set target-mb units)))
   (let ((live-kb (live-kb))
         (total 0d0)
         (n 5))

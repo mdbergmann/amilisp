@@ -124,8 +124,9 @@ typedef struct {
 
 void gc_mark_stack_release(void);
 void gc_mark_obj(CL_Obj obj);                /* a root: mark it, queue its children */
-void gc_mark_children(void *ptr, uint8_t type);
+void gc_mark_children(void *ptr, uint8_t type, int validate);
 void gc_mark_drain(void);                    /* scan everything queued */
+void gc_mark_drain_validating(void);         /* same, every child validated */
 void gc_mark(void);
 
 /* Root enumeration in slot-visitor form (see gc_trace.c): the one list of

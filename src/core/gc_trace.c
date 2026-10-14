@@ -253,12 +253,15 @@ static int gc_mark_grow_or_drop(void)
  * per visited slot, with the globals re-read in each, was most of the
  * mark (~110 instructions per cons against the ~40 of this form).
  *
- * VALIDATE is a compile-time constant at every expansion: children go
- * through the backend's push validation (GCB_PUSH_REJECT_C — Immix
- * refuses a word that is not an object start while the trace runs from
- * the conservative JIT roots or the overflow rescan), the root set does
- * not (the JIT scan validates its own candidates, with the block-start
- * index). */
+ * VALIDATE is a compile-time constant at every expansion — never a word
+ * read at run time, so the precise trace (the bulk of every mark) has
+ * no trace of it.  The validating drain (gc_mark_drain_validating) puts
+ * every child through the backend's test (GCB_PUSH_REJECT_C — Immix
+ * refuses a word that is not an object start, because that drain runs
+ * from the conservative JIT roots and in the overflow rescan, which can
+ * start at a stale-marked corpse whose slots are garbage).  The root set
+ * is never validated (the JIT scan validates its own candidates, with
+ * the block-start index). */
 CL_ALWAYS_INLINE void gc_mark_visit(GcMarkCtx *c, CL_Obj obj, int validate)
 {
     uint8_t *ptr;
@@ -279,7 +282,7 @@ CL_ALWAYS_INLINE void gc_mark_visit(GcMarkCtx *c, CL_Obj obj, int validate)
     if (!GC_MARK_PLAUSIBLE(obj, ptr))
         gc_mark_implausible(obj);
 #endif
-    GCB_HDR_SET_MARK_C(c, ptr);
+    GCB_HDR_SET_MARK_C(c, ptr);         /* known unmarked: see gc_backend.h */
     /* The backend's per-object hook (gc_backend.h) — the marked check
      * above guarantees exactly one call per object per cycle. */
     GCB_ON_MARK_C(c, obj, ptr);
@@ -310,13 +313,18 @@ void gc_mark_obj(CL_Obj obj)
 }
 
 /* Visit every CL_Obj slot of one object (the per-type walk is the X-macro
- * in gc_internal.h, shared with the compactor's forwarding pass). */
-void gc_mark_children(void *ptr, uint8_t type)
+ * in gc_internal.h, shared with the compactor's forwarding pass).
+ * VALIDATE is a run-time parameter here, one register test per slot:
+ * this walk is instantiated once for both drains, because the per-type
+ * switch with its inlined visits is most of the trace's text, and the
+ * cons — the bulk of any live set — never comes through it (the drains
+ * scan it inline, with the constant). */
+void gc_mark_children(void *ptr, uint8_t type, int validate)
 {
     GcMarkCtx ctx;      /* not `c`: the walk's cons case declares one */
     GC_DBG_PARENT(ptr);
     gc_mark_ctx_load(&ctx);
-#define GC_VISIT(slot) gc_mark_visit(&ctx, (slot), 1)
+#define GC_VISIT(slot) gc_mark_visit(&ctx, (slot), validate)
 #define GC_BYTECODE_TAIL(bc) ((void)(bc))
     /* Pin this live output stream's outbuf slot so the post-mark reclaim
      * (cl_stream_outbuf_gc_reclaim) doesn't free a buffer still in use. */
@@ -338,8 +346,15 @@ void gc_mark_children(void *ptr, uint8_t type)
  * per-type switch; pushing car then cdr pops the cdr first, so a list
  * spine is walked with the stack one or two entries deep.  Any other
  * type goes through gc_mark_children, which works on the globals, so
- * the context is written back before and re-read after. */
-void gc_mark_drain(void)
+ * the context is written back before and re-read after.
+ *
+ * Two instantiations, VALIDATE a constant in each: gc_mark_drain is the
+ * precise trace (the roots, the generational minor), where every slot
+ * holds an object or an immediate and nothing is checked;
+ * gc_mark_drain_validating is the one for the two phases that can push
+ * garbage (gc_mark: after the conservative JIT scan, and the overflow
+ * rescan).  Under classic the two are the same code. */
+CL_ALWAYS_INLINE void gc_mark_drain_impl(int validate)
 {
     GcMarkCtx c;
     gc_mark_ctx_load(&c);
@@ -350,17 +365,27 @@ void gc_mark_drain(void)
         if (type == TYPE_CONS) {
             CL_Cons *cons = (CL_Cons *)ptr;
             GC_DBG_PARENT(ptr);
-            gc_mark_visit(&c, cons->car, 1);
-            gc_mark_visit(&c, cons->cdr, 1);
+            gc_mark_visit(&c, cons->car, validate);
+            gc_mark_visit(&c, cons->cdr, validate);
         } else {
             gc_mark_ctx_store(&c);
-            gc_mark_children(ptr, type);
+            gc_mark_children(ptr, type, validate);
             c.top   = gc_mark_top;
             c.stack = gc_mark_stack;
             c.cap   = gc_mark_stack_cap;
         }
     }
     gc_mark_ctx_store(&c);
+}
+
+void gc_mark_drain(void)
+{
+    gc_mark_drain_impl(0);
+}
+
+void gc_mark_drain_validating(void)
+{
+    gc_mark_drain_impl(1);
 }
 
 /* --- Root enumeration, slot-visitor form ---------------------------------
@@ -763,16 +788,16 @@ void gc_mark(void)
      * drained: a candidate the precise roots reach is already marked and
      * only gets pinned, and the few that are not — an object held only in
      * a spilled JIT operand, or a stale spill naming a corpse — are traced
-     * with the backend's push validation on (Immix: every child must be a
-     * real object start, so a corpse's garbage slots retain at most real
-     * objects for a cycle and never set a bit inside one; classic has no
-     * corpses and the hook compiles out).  Marking order does not change
-     * the mark set, so the classic result is the same as before the
+     * by the validating drain (Immix: every child must be a real object
+     * start, so a corpse's garbage slots retain at most real objects for
+     * a cycle and never set a bit inside one; classic has no corpses and
+     * that drain is the plain one).  Marking order does not change the
+     * mark set, so the classic result is the same as before the
      * reordering. */
-    GCB_MARK_VALIDATE(1);
+    GCB_VALIDATE_BEGIN();
     for (t = cl_thread_list; t; t = t->next)
         gc_scan_jit_native_stack(t);
-    gc_mark_drain();
+    gc_mark_drain_validating();
 
     /* Handle mark stack overflow: re-scan heap for marked objects whose
      * children may not have been pushed (an object the full stack could
@@ -781,8 +806,8 @@ void gc_mark(void)
      * is O(arena) and recovers at most ~one-stack-full of dropped children,
      * so this is the quadratic last resort, not the normal path.  The pass
      * counter feeds ext:%gc-mark-stats so the fallback is observable.
-     * Validation stays on: a stale-marked corpse (Immix) on the chain
-     * would otherwise push its garbage slots. */
+     * The validating walk and drain: a stale-marked corpse (Immix) on
+     * the chain would otherwise push its garbage slots. */
     while (gc_mark_overflow) {
         GcWalk w;
         uint32_t off, size;
@@ -795,12 +820,11 @@ void gc_mark(void)
             uint8_t *ptr = cl_heap.arena + off;
             if (type != CL_TYPE_DEAD && GCB_HDR_MARKED(ptr)) {
                 /* Re-visit the children — the marked ones are filtered */
-                gc_mark_children(ptr, type);
+                gc_mark_children(ptr, type, 1);
             }
         }
-        gc_mark_drain();
+        gc_mark_drain_validating();
     }
-    GCB_MARK_VALIDATE(0);
 }
 
 /* --- Sweep Phase --- */

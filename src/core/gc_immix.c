@@ -81,7 +81,6 @@ uint32_t gc_hdr_xor = 0;            /* mark sense: 0 or CL_HDR_MARK_BIT */
 uint8_t *im_line_map = NULL;        /* one byte per line */
 uint8_t  im_epoch = 1;              /* current epoch, 1..255 */
 uint32_t im_marked_bytes = 0;       /* live bytes found by the last trace */
-int      gc_mark_validating = 0;    /* gc_mark_push validates object starts */
 
 static uint32_t im_nlines = 0;      /* whole lines in the arena */
 static uint32_t im_scan = 1;        /* the chunk cursor's scan position */
@@ -736,7 +735,6 @@ void gcb_init(void)
     im_epoch = 1;
     gc_hdr_xor = 0;
     im_marked_bytes = 0;
-    gc_mark_validating = 0;
     im_normalised = 1;
     im_want_compact = 0;
     im_fin_incomplete = 0;

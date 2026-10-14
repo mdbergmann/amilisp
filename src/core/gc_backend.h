@@ -134,24 +134,28 @@ int gcb_marks_exact(void);
  * block carries CL_TYPE_DEAD); classic accepts every block start. */
 #define GCB_SCAN_REJECT(off)  0
 
-/* gc_mark_push is about to push `obj` (an in-arena, non-immediate word).
- * Immix validates it as an object start while the trace runs from the
- * conservative JIT roots or the overflow rescan — those can start at a
- * stale-marked corpse whose slots are garbage; classic never needs to. */
-#define GCB_PUSH_REJECT(obj)  0
-#define GCB_MARK_VALIDATE(on) ((void)0)
+/* The validating trace (gc_mark_drain_validating, gc_trace.c) is about
+ * to visit `obj` (an in-arena, non-immediate word) as a child.  Immix
+ * refuses a word that is not an object start: that trace runs from the
+ * conservative JIT roots and in the overflow rescan, which can start at
+ * a stale-marked corpse whose slots are garbage.  Classic has no corpses
+ * and refuses nothing — the validating drain compiles to the plain one.
+ * GCB_VALIDATE_BEGIN runs once before each validating phase. */
+#define GCB_PUSH_REJECT_C(c, obj)   0
+#define GCB_VALIDATE_BEGIN()        ((void)0)
 
 /* The trace's per-walk cache (GcMarkCtx, gc_internal.h): the words the
  * inline visit reads on every reference, loaded once per drain or
  * children walk so the hot path reads registers, not globals.  Classic
- * caches nothing of its own; its mark bit is absolute. */
+ * caches nothing of its own; its mark bit is absolute.  The visit calls
+ * GCB_HDR_SET_MARK_C only for an object GCB_HDR_MARKED_C just found
+ * unmarked (a backend may exploit that; classic has nothing to gain). */
 #define GCB_MARK_CTX_FIELDS
 #define GCB_MARK_CTX_LOAD(c)        ((void)(c))
 #define GCB_MARK_CTX_STORE(c)       ((void)(c))
 #define GCB_HDR_MARKED_C(c, p)      GCB_HDR_MARKED(p)
 #define GCB_HDR_SET_MARK_C(c, p)    GCB_HDR_SET_MARK(p)
 #define GCB_ON_MARK_C(c, off, ptr)  GCB_ON_MARK(off, ptr)
-#define GCB_PUSH_REJECT_C(c, obj)   0
 
 /* The collection DEBUG_GC_STRESS forces before an allocation (cl_alloc):
  * the moving compaction, which is what makes an unprotected CL_Obj local
@@ -375,7 +379,7 @@ CL_ALWAYS_INLINE void *gcb_alloc_fast(uint32_t *sizep, int multi,
  * the parity of the cycle it died in) are confined to code that finds
  * objects by WALKING the chain: the compactor normalises every bit before
  * its trace, the conservative JIT scan and the overflow rescan validate
- * what they push (GCB_PUSH_REJECT), finalized corpses and holes carry
+ * what they push (GCB_PUSH_REJECT_C), finalized corpses and holes carry
  * CL_TYPE_DEAD and are refused outright (GCB_SCAN_REJECT), and the
  * DEBUG_GC verifiers run only while the marks are exact. */
 
@@ -388,7 +392,6 @@ extern uint32_t gc_hdr_xor;        /* 0 or CL_HDR_MARK_BIT: the mark sense */
 extern uint8_t *im_line_map;       /* one byte per line, see above */
 extern uint8_t  im_epoch;          /* 1..255, never 0 (0 = available) */
 extern uint32_t im_marked_bytes;   /* live bytes found by the last trace */
-extern int      gc_mark_validating;/* gc_mark_push validates object starts */
 
 #define GCB_HDR_MARKED(p) \
     ((CL_HDR(p) ^ gc_hdr_xor) & CL_HDR_MARK_BIT)
@@ -426,26 +429,32 @@ CL_ALWAYS_INLINE void im_stamp_lines(uint8_t *map, uint8_t e,
 /* The trace's per-walk cache (GcMarkCtx, gc_internal.h).  The mark
  * sense, the epoch and the line map are constant for the whole trace
  * (the sense flips and the epoch advances between cycles); the live
- * byte count accumulates here and is added back at the store; the
- * push-validation flag is read once per walk (it changes only between
- * the trace's phases, never inside a drain). */
+ * byte count accumulates here and is added back at the store.  Whether
+ * a child is validated is not a word here: it is a compile-time
+ * constant of the drain that expands the visit (gc_trace.c). */
 #define GCB_MARK_CTX_FIELDS \
-    uint32_t xor_; uint8_t *map; uint32_t marked; int validate; uint8_t epoch;
+    uint32_t xor_; uint8_t *map; uint32_t marked; uint8_t epoch;
 #define GCB_MARK_CTX_LOAD(c) \
     ((c)->xor_ = gc_hdr_xor, (c)->map = im_line_map, (c)->epoch = im_epoch, \
-     (c)->marked = 0, (c)->validate = gc_mark_validating)
+     (c)->marked = 0)
 #define GCB_MARK_CTX_STORE(c) \
     (im_marked_bytes += (c)->marked, (c)->marked = 0)
 #define GCB_HDR_MARKED_C(c, p) \
     ((CL_HDR(p) ^ (c)->xor_) & CL_HDR_MARK_BIT)
+/* The visit calls this only for an object GCB_HDR_MARKED_C just found
+ * unmarked, whose bit therefore EQUALS the sense: flipping the bit marks
+ * it — one instruction, and no second constant to hold across the loop
+ * (GCB_HDR_SET_MARK, for a header of unknown state, needs both). */
 #define GCB_HDR_SET_MARK_C(c, p) \
-    (CL_HDR(p) = (CL_HDR(p) & ~CL_HDR_MARK_BIT) | (CL_HDR_MARK_BIT ^ (c)->xor_))
+    (CL_HDR(p) ^= CL_HDR_MARK_BIT)
 #define GCB_ON_MARK_C(c, off, ptr) \
     do { uint32_t sz_ = CL_HDR_SIZE(ptr); \
          im_stamp_lines((c)->map, (c)->epoch, (off), sz_); \
          (c)->marked += sz_; } while (0)
+/* The validating drain's per-child test (see the classic definition):
+ * an object start below the bump front that is not a dead block. */
 #define GCB_PUSH_REJECT_C(c, obj) \
-    ((c)->validate && !gc_hdr_object_start_p(obj))
+    (!gc_hdr_object_start_p(obj))
 
 /* Finalizable objects are listed at allocation (one site), so a cycle
  * finalizes the dead ones without walking dead space. */
@@ -459,10 +468,7 @@ void im_fin_note(uint32_t off, int need_lock);
 
 int  gc_hdr_object_start_p(uint32_t off);     /* gc_jitscan.c */
 void gc_hdr_object_start_begin(void);         /* reset its walk cursor */
-#define GCB_PUSH_REJECT(obj) \
-    (gc_mark_validating && !gc_hdr_object_start_p(obj))
-#define GCB_MARK_VALIDATE(on) \
-    (gc_mark_validating = (on), gc_hdr_object_start_begin())
+#define GCB_VALIDATE_BEGIN()  gc_hdr_object_start_begin()
 
 #ifdef DEBUG_GC_STRESS
 void im_stress_collect(void);

@@ -391,3 +391,64 @@ What the rows say:
    897,484 bytes) and 12 KB (Immix, 907,572) of m68k text — the per-type
    switch expands the visit at every slot; the context made the
    expansion smaller than the global-reading form, not larger.
+
+## The Immix per-visit trims (2026-10-14, same day)
+
+The 1.1 s the Immix visit still cost over classic's was itemised and
+two of the items taken out of the loop (spec, "The per-visit trims").
+Same bench, same emulated 68020, same 640-unit live set; one run each
+(the cycles agree within 20 ms).
+
+| Immix binary | mark per cycle | over classic |
+|---|--:|--:|
+| mark-loop pass (above) | 2,768 ms | +1,120 ms |
+| + the validation test out of the precise drain | 2,612 ms | +956 ms |
+| **+ the mark set by flipping the bit** | **2,572 ms** | **+916 ms** |
+| experiment: + no live byte count (not landed) | 2,540 ms | +884 ms |
+
+Classic, same tree: 1,656 ms (1,648 before — the drain now exists twice
+and the children walk takes a flag it folds away; noise).
+
+What the rows say:
+
+1. **The validation test was worth 6 %.**  It was one register test
+   per visited slot, but the register it needed was one the 68020 does
+   not have: the drain's disassembly showed the arena size, the mark
+   sense and the line map spilled to the stack around it.  Now the
+   precise drain has no trace of it and the two phases that need it (the
+   conservative JIT roots, the overflow rescan) run a second
+   instantiation of the same loop — 552 bytes of m68k text.
+2. **The mark flip is worth another 1.5 %.**  An object the visit just
+   found unmarked has its bit equal to the sense, so one `bchg` marks
+   it; the general form needed the `~bit` mask *and* the `bit ^ sense`
+   constant, and the constant lived on the stack.
+3. **The live byte count stays.**  The experiment binary dropped the
+   per-object `marked += size` and derived the count from the line map
+   at sweep time instead: 32 ms per cycle, 1.2 %, is what one register
+   add costs here — the size it adds is already in a register for the
+   line stamp.  And the line-level count is not the same number: it
+   reports 2,319 KB live for the same 2,167 KB of objects (every live
+   line counts in full), which is exactly the quantity the compaction
+   policy subtracts from the hole total to see line-level
+   fragmentation; with the two equal, that test can never fire.  (The
+   first form of the experiment, with no count at all, never finished:
+   `ROOM` reported zero live bytes, the bench's size-driven build loop
+   never ended, and the policy asked for a compaction after every
+   cycle.)  `trunk/gc-mark-bench.lisp` gained `*mark-bench-units*` for
+   that run — a fixed live set regardless of what the binary under test
+   reports.
+
+What is left of the gap — 916 ms on 2.1 MB, 0.5 µs per object — is
+the design: the sense XOR on the marked test, the line stamp, the byte
+add.  The remaining avoidable cost is register pressure (the arena size
+and line map still sit on the stack), which `-Os` on the 68020 decides,
+not the source.
+
+m68k text: Immix 907,572 → 907,600 (+28 bytes net: the second drain
+against the shorter visit); classic 897,484 → 897,880.
+
+Host (M3 Ultra, 32 MB live, best of three on a quiet machine): classic
+5.2 ms, Immix 6.0 ms per cycle.  Both are under the pass's rows above
+(6.6 / 8.5), the classic one with no change to its hot path, so the
+difference is the machine's state on the day, not the trims; the gap
+between the two is what matters, and it went from 1.9 to 0.8 ms.
