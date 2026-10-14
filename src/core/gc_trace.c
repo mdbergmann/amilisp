@@ -139,82 +139,184 @@ void gc_mark_stack_release(void)
     gc_mark_top = 0;
 }
 
-static void gc_mark_push(CL_Obj obj)
-{
-    /* Skip immediates and out-of-bounds */
-    if (CL_NULL_P(obj) || CL_FIXNUM_P(obj) || CL_CHAR_P(obj))
-        return;
-    if (obj >= cl_heap.arena_size)
-        return;
-
-    /* A trace running from the conservative JIT roots or the overflow
-     * rescan may have started at a corpse whose slots are garbage: the
-     * backend then validates every push as a real object start (Immix;
-     * compiles out under classic, whose sweep leaves no corpse behind). */
-    if (GCB_PUSH_REJECT(obj))
-        return;
-
-    /* Skip already-marked objects — avoids duplicate pushes and makes
-     * overflow re-scan efficient (only pushes truly unmarked children) */
-    if (GCB_HDR_MARKED(CL_OBJ_TO_PTR(obj)))
-        return;
-
 #if defined(DEBUG_GC) || defined(DEBUG_GC_STRESS)
-    /* Plausibility guard with provenance — see gc_mark_obj's twin.  Checking
-     * at PUSH time (not pop) means gc_dbg_mark_parent still names the object
-     * whose slot held the bad reference. */
-    {
-        void *cptr = CL_OBJ_TO_PTR(obj);
-        if ((obj & (CL_ALIGN - 1)) != 0 || CL_HDR_SIZE(cptr) == 0 ||
-            obj + CL_HDR_SIZE(cptr) > cl_heap.bump ||
-            CL_HDR_TYPE(cptr) > GC_DBG_MAX_TYPE) {
-            fprintf(stderr,
-                    "[GC-BADMARK] gc_mark_push(0x%08x): implausible object "
-                    "start (type=%u size=%u bump=0x%08x)\n",
-                    (unsigned)obj, (unsigned)CL_HDR_TYPE(cptr),
-                    (unsigned)CL_HDR_SIZE(cptr), (unsigned)cl_heap.bump);
-            if (gc_dbg_mark_parent) {
-                fprintf(stderr,
-                        "  parent @0x%08x type=%u size=%u\n",
-                        (unsigned)((uint8_t *)gc_dbg_mark_parent - cl_heap.arena),
-                        (unsigned)CL_HDR_TYPE(gc_dbg_mark_parent),
-                        (unsigned)CL_HDR_SIZE(gc_dbg_mark_parent));
-            } else {
-                fprintf(stderr, "  parent: (root set - no parent object)\n");
-            }
-            GCB_BADMARK_REPORT(obj);
-            cl_capture_backtrace();
-            fprintf(stderr, "%s", cl_backtrace_buf);
-            fflush(stderr);
-            abort();
-        }
+/* Plausibility guard, with provenance.  Marking an offset that is not a
+ * real object start ORs CL_HDR_MARK_BIT into arbitrary object interiors
+ * (observed: a hashtable's flags word and bucket slot), which the
+ * compactor then treats as live headers — silent corruption far from the
+ * culprit.  A stale/interior/double-forwarded reference is the only way
+ * to get here; abort loudly with the offending offset so the referrer can
+ * be hunted while it is still on the stack.  The check runs when the
+ * reference is VISITED (not when the object is popped), so
+ * gc_dbg_mark_parent still names the object whose slot held it, or the
+ * root category when it came from the root set. */
+#define GC_MARK_PLAUSIBLE(obj, ptr) \
+    (((obj) & (CL_ALIGN - 1)) == 0 && CL_HDR_SIZE(ptr) != 0 && \
+     (obj) + CL_HDR_SIZE(ptr) <= cl_heap.bump && \
+     CL_HDR_TYPE(ptr) <= GC_DBG_MAX_TYPE)
+
+static void gc_mark_implausible(CL_Obj obj)
+{
+    void *ptr = CL_OBJ_TO_PTR(obj);
+    fprintf(stderr,
+            "[GC-BADMARK] gc_mark_visit(0x%08x): implausible object start "
+            "(type=%u size=%u bump=0x%08x) - interior or stale offset\n",
+            (unsigned)obj, (unsigned)CL_HDR_TYPE(ptr),
+            (unsigned)CL_HDR_SIZE(ptr), (unsigned)cl_heap.bump);
+    if (gc_dbg_mark_parent) {
+        fprintf(stderr, "  parent @0x%08x type=%u size=%u\n",
+                (unsigned)((uint8_t *)gc_dbg_mark_parent - cl_heap.arena),
+                (unsigned)CL_HDR_TYPE(gc_dbg_mark_parent),
+                (unsigned)CL_HDR_SIZE(gc_dbg_mark_parent));
+    } else {
+        fprintf(stderr, "  source: %s[%d] (root set - no parent object)\n",
+                gc_dbg_root_src, gc_dbg_root_idx);
+#ifdef DEBUG_GC
+        if (gc_dbg_root_idx >= 0 && strcmp(gc_dbg_root_src, "gc_roots") == 0 &&
+            CT->gc_root_files[gc_dbg_root_idx])
+            fprintf(stderr, "  root pushed at %s:%d\n",
+                    CT->gc_root_files[gc_dbg_root_idx],
+                    CT->gc_root_lines[gc_dbg_root_idx]);
+#endif
     }
+    GCB_BADMARK_REPORT(obj);
+    cl_capture_backtrace();
+    fprintf(stderr, "%s", cl_backtrace_buf);
+    fflush(stderr);
+    abort();
+}
+#define GC_DBG_PARENT(ptr) (gc_dbg_mark_parent = (ptr))
+#else
+#define GC_DBG_PARENT(ptr) ((void)0)
 #endif
 
-    if (gc_mark_top >= gc_mark_stack_cap && !gc_mark_stack_grow()) {
-        /* Growth impossible (cap/OOM): drop the child and let gc_mark's
-         * full-arena re-scan loop recover it.  Slow (quadratic) but correct.
-         * Warn once per process — a silent fallback here is how a 50s GC
-         * pause hides from every normal build. */
-        static int overflow_warned = 0;
-        if (!overflow_warned) {
-            overflow_warned = 1;
-            platform_write_string("GC: mark stack cannot grow "
-                                  "(OOM or cap); falling back to heap "
-                                  "re-scan - expect slow GC cycles\n");
-        }
-        gc_mark_overflow = 1;
-        return;
+/* The mark stack is full and cannot grow (cap/OOM): the object stays
+ * marked but its children are not pushed, and gc_mark's full-arena
+ * re-scan loop scans it later (it scans every marked object).  Slow
+ * (quadratic) but correct.  Warn once per process — a silent fallback
+ * here is how a 50s GC pause hides from every normal build. */
+static void gc_mark_overflow_drop(void)
+{
+    static int overflow_warned = 0;
+    if (!overflow_warned) {
+        overflow_warned = 1;
+        platform_write_string("GC: mark stack cannot grow "
+                              "(OOM or cap); falling back to heap "
+                              "re-scan - expect slow GC cycles\n");
     }
-    gc_mark_stack[gc_mark_top++] = obj;
+    gc_mark_overflow = 1;
 }
 
+/* The trace's working set, loaded from the globals once per walk and
+ * written back at its end — see GcMarkCtx (gc_internal.h). */
+CL_ALWAYS_INLINE void gc_mark_ctx_load(GcMarkCtx *c)
+{
+    c->base  = cl_arena_base;
+    c->asz   = cl_heap.arena_size;
+    c->stack = gc_mark_stack;
+    c->top   = gc_mark_top;
+    c->cap   = gc_mark_stack_cap;
+    GCB_MARK_CTX_LOAD(c);
+}
+
+CL_ALWAYS_INLINE void gc_mark_ctx_store(GcMarkCtx *c)
+{
+    gc_mark_top = c->top;
+    GCB_MARK_CTX_STORE(c);
+}
+
+/* The queue's slow path, out of line and on the globals only (so the
+ * caller's context never has its address taken): grow the stack, or
+ * drop the object (it stays marked; the re-scan finds it).  The caller
+ * has written its top back; it re-reads stack and cap on success. */
+static int gc_mark_grow_or_drop(void)
+{
+    if (gc_mark_stack_grow())
+        return 1;
+    gc_mark_overflow_drop();
+    return 0;
+}
+
+/* An object becomes marked HERE and only here: when a reference to it is
+ * visited — from the root set (gc_mark_obj) or from a parent's slot
+ * (gc_mark_children, the drain loop).  Marking at the visit, not when
+ * the object is popped, is what makes the trace cheap: the mark stack
+ * then only ever holds objects that are marked and still have children
+ * to scan, so the drain loop pops and scans with no check at all, a
+ * reference seen twice is filtered by the mark bit without a second
+ * push, and an object WITHOUT children (a string, a float, a bignum:
+ * the leaf types, GC_TYPE_HAS_CHILDREN) never touches the stack.  The
+ * immediates are one test (NIL and every tagged word share: low bits not
+ * both zero, or zero altogether); the rest is a header load, the mark,
+ * the backend's per-object hook and a store — every operand from the
+ * context, not a global.  Always inlined: on the 68020 at -Os a call
+ * per visited slot, with the globals re-read in each, was most of the
+ * mark (~110 instructions per cons against the ~40 of this form).
+ *
+ * VALIDATE is a compile-time constant at every expansion: children go
+ * through the backend's push validation (GCB_PUSH_REJECT_C — Immix
+ * refuses a word that is not an object start while the trace runs from
+ * the conservative JIT roots or the overflow rescan), the root set does
+ * not (the JIT scan validates its own candidates, with the block-start
+ * index). */
+CL_ALWAYS_INLINE void gc_mark_visit(GcMarkCtx *c, CL_Obj obj, int validate)
+{
+    uint8_t *ptr;
+
+    /* NIL, a fixnum (bit 0), a character (tag byte 0x0A), CL_UNBOUND:
+     * one test for all of them. */
+    if ((obj & CL_TAG_MASK_LO2) != 0 || obj == CL_NIL)
+        return;
+    if (obj >= c->asz)
+        return;
+    if (validate && GCB_PUSH_REJECT_C(c, obj))
+        return;
+
+    ptr = c->base + obj;
+    if (GCB_HDR_MARKED_C(c, ptr))
+        return;
+#if defined(DEBUG_GC) || defined(DEBUG_GC_STRESS)
+    if (!GC_MARK_PLAUSIBLE(obj, ptr))
+        gc_mark_implausible(obj);
+#endif
+    GCB_HDR_SET_MARK_C(c, ptr);
+    /* The backend's per-object hook (gc_backend.h) — the marked check
+     * above guarantees exactly one call per object per cycle. */
+    GCB_ON_MARK_C(c, obj, ptr);
+
+    if (!GC_TYPE_HAS_CHILDREN(CL_HDR_TYPE(ptr)))
+        return;
+    if (c->top < c->cap) {
+        c->stack[c->top++] = obj;
+    } else {
+        gc_mark_top = c->top;
+        if (gc_mark_grow_or_drop()) {
+            c->stack = gc_mark_stack;
+            c->cap   = gc_mark_stack_cap;
+            c->stack[c->top++] = obj;
+        }
+    }
+}
+
+/* A root (or a conservative JIT-scan candidate): mark it and queue its
+ * children.  The drain is gc_mark_drain — a root that could not be
+ * queued is still marked, and the overflow re-scan scans it. */
+void gc_mark_obj(CL_Obj obj)
+{
+    GcMarkCtx c;
+    gc_mark_ctx_load(&c);
+    gc_mark_visit(&c, obj, 0);
+    gc_mark_ctx_store(&c);
+}
+
+/* Visit every CL_Obj slot of one object (the per-type walk is the X-macro
+ * in gc_internal.h, shared with the compactor's forwarding pass). */
 void gc_mark_children(void *ptr, uint8_t type)
 {
-#if defined(DEBUG_GC) || defined(DEBUG_GC_STRESS)
-    gc_dbg_mark_parent = ptr;
-#endif
-#define GC_VISIT(slot) gc_mark_push(slot)
+    GcMarkCtx ctx;      /* not `c`: the walk's cons case declares one */
+    GC_DBG_PARENT(ptr);
+    gc_mark_ctx_load(&ctx);
+#define GC_VISIT(slot) gc_mark_visit(&ctx, (slot), 1)
 #define GC_BYTECODE_TAIL(bc) ((void)(bc))
     /* Pin this live output stream's outbuf slot so the post-mark reclaim
      * (cl_stream_outbuf_gc_reclaim) doesn't free a buffer still in use. */
@@ -227,59 +329,38 @@ void gc_mark_children(void *ptr, uint8_t type)
 #undef GC_VISIT
 #undef GC_BYTECODE_TAIL
 #undef GC_STREAM_TAIL
+    gc_mark_ctx_store(&ctx);
 }
 
-void gc_mark_obj(CL_Obj obj)
+/* Scan everything queued: every entry is a marked object with children
+ * (gc_mark_visit), so a pop goes straight to the slots.  The cons — the
+ * bulk of any live set — is walked here without the call into the
+ * per-type switch; pushing car then cdr pops the cdr first, so a list
+ * spine is walked with the stack one or two entries deep.  Any other
+ * type goes through gc_mark_children, which works on the globals, so
+ * the context is written back before and re-read after. */
+void gc_mark_drain(void)
 {
-    void *ptr;
-    if (CL_NULL_P(obj) || CL_FIXNUM_P(obj) || CL_CHAR_P(obj))
-        return;
-
-    /* Check if offset is within arena bounds */
-    if (obj >= cl_heap.arena_size)
-        return;
-
-    ptr = CL_OBJ_TO_PTR(obj);
-
-    if (GCB_HDR_MARKED(ptr)) return;
-#if defined(DEBUG_GC) || defined(DEBUG_GC_STRESS)
-    /* Plausibility guard: marking an offset that is not a real object start
-     * ORs CL_HDR_MARK_BIT into arbitrary object interiors (observed: a
-     * hashtable's flags word and bucket slot), which the compactor then
-     * treats as live headers — silent corruption far from the culprit.
-     * A stale/interior/double-forwarded reference is the only way to get
-     * here; abort loudly with the offending offset so the referrer can be
-     * hunted while it is still on the stack. */
-    if ((obj & (CL_ALIGN - 1)) != 0 || CL_HDR_SIZE(ptr) == 0 ||
-        obj + CL_HDR_SIZE(ptr) > cl_heap.bump ||
-        CL_HDR_TYPE(ptr) > GC_DBG_MAX_TYPE) {
-        fprintf(stderr,
-                "[GC-BADMARK] gc_mark_obj(0x%08x): implausible object start "
-                "(type=%u size=%u bump=0x%08x) - interior or stale offset\n"
-                "  source: %s[%d]%s\n",
-                (unsigned)obj, (unsigned)CL_HDR_TYPE(ptr),
-                (unsigned)CL_HDR_SIZE(ptr), (unsigned)cl_heap.bump,
-                gc_dbg_root_src, gc_dbg_root_idx,
-                gc_dbg_mark_parent ? " (via object children)" : "");
-#ifdef DEBUG_GC
-        if (gc_dbg_root_idx >= 0 && strcmp(gc_dbg_root_src, "gc_roots") == 0 &&
-            CT->gc_root_files[gc_dbg_root_idx])
-            fprintf(stderr, "  root pushed at %s:%d\n",
-                    CT->gc_root_files[gc_dbg_root_idx],
-                    CT->gc_root_lines[gc_dbg_root_idx]);
-#endif
-        GCB_BADMARK_REPORT(obj);
-        cl_capture_backtrace();
-        fprintf(stderr, "%s", cl_backtrace_buf);
-        fflush(stderr);
-        abort();
+    GcMarkCtx c;
+    gc_mark_ctx_load(&c);
+    while (c.top > 0) {
+        CL_Obj obj = c.stack[--c.top];
+        uint8_t *ptr = c.base + obj;
+        uint8_t type = (uint8_t)CL_HDR_TYPE(ptr);
+        if (type == TYPE_CONS) {
+            CL_Cons *cons = (CL_Cons *)ptr;
+            GC_DBG_PARENT(ptr);
+            gc_mark_visit(&c, cons->car, 1);
+            gc_mark_visit(&c, cons->cdr, 1);
+        } else {
+            gc_mark_ctx_store(&c);
+            gc_mark_children(ptr, type);
+            c.top   = gc_mark_top;
+            c.stack = gc_mark_stack;
+            c.cap   = gc_mark_stack_cap;
+        }
     }
-#endif
-    GCB_HDR_SET_MARK(ptr);
-    /* The backend's per-object hook (gc_backend.h) — the marked-check
-     * above guarantees exactly one call per object per cycle. */
-    GCB_ON_MARK(obj, ptr);
-    gc_mark_children(ptr, CL_HDR_TYPE(ptr));
+    gc_mark_ctx_store(&c);
 }
 
 /* --- Root enumeration, slot-visitor form ---------------------------------
@@ -639,11 +720,9 @@ void gc_visit_roots(gc_slot_fn visit)
     gc_visit_shared_roots(visit);
 }
 
-/* The mark phase's visitor: mark the slot's value.  Roots are marked
- * directly (not via gc_mark_push): gc_mark_obj sets the mark bit at once
- * and only then pushes children, so if the mark stack overflows the root
- * itself is still marked and the heap re-scan recovers its children —
- * a root dropped from the stack would never be marked at all. */
+/* The mark phase's visitor: mark the slot's value and queue its children
+ * (gc_mark_visit marks at the visit, so a root the full stack cannot
+ * take is still marked, and the heap re-scan scans its children). */
 static void gc_mark_slot(CL_Obj *slot)
 {
     gc_mark_obj(*slot);
@@ -674,13 +753,10 @@ void gc_mark(void)
     gc_visit_registered_roots(gc_mark_slot);
     gc_visit_shared_roots(gc_mark_slot);
 
-    /* Drain mark stack iteratively (children pushed by gc_mark_obj above).
-     * Do NOT clear gc_mark_overflow here — it may have been set during
-     * root marking above, and the re-scan loop below must handle it. */
-    while (gc_mark_top > 0) {
-        CL_Obj obj = gc_mark_stack[--gc_mark_top];
-        gc_mark_obj(obj);
-    }
+    /* Scan everything the roots queued.  Do NOT clear gc_mark_overflow
+     * here — it may have been set during root marking above, and the
+     * re-scan loop below must handle it. */
+    gc_mark_drain();
 
     /* The conservative scan of each thread's JIT native stack (no-op
      * unless it is parked inside JIT'd code), AFTER the precise trace has
@@ -696,13 +772,11 @@ void gc_mark(void)
     GCB_MARK_VALIDATE(1);
     for (t = cl_thread_list; t; t = t->next)
         gc_scan_jit_native_stack(t);
-    while (gc_mark_top > 0) {
-        CL_Obj obj = gc_mark_stack[--gc_mark_top];
-        gc_mark_obj(obj);
-    }
+    gc_mark_drain();
 
     /* Handle mark stack overflow: re-scan heap for marked objects whose
-     * children may not have been pushed.  Repeat until no overflow.
+     * children may not have been pushed (an object the full stack could
+     * not take is marked but unscanned).  Repeat until no overflow.
      * Only reachable when gc_mark_stack_grow failed (cap/OOM) — each pass
      * is O(arena) and recovers at most ~one-stack-full of dropped children,
      * so this is the quadratic last resort, not the normal path.  The pass
@@ -720,15 +794,11 @@ void gc_mark(void)
         while (gc_walk_next(&w, &off, &size, &type)) {
             uint8_t *ptr = cl_heap.arena + off;
             if (type != CL_TYPE_DEAD && GCB_HDR_MARKED(ptr)) {
-                /* Re-push children — gc_mark_obj will skip already-marked ones */
+                /* Re-visit the children — the marked ones are filtered */
                 gc_mark_children(ptr, type);
             }
         }
-        /* Drain anything newly pushed */
-        while (gc_mark_top > 0) {
-            CL_Obj obj = gc_mark_stack[--gc_mark_top];
-            gc_mark_obj(obj);
-        }
+        gc_mark_drain();
     }
     GCB_MARK_VALIDATE(0);
 }

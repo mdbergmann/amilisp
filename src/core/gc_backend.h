@@ -141,6 +141,18 @@ int gcb_marks_exact(void);
 #define GCB_PUSH_REJECT(obj)  0
 #define GCB_MARK_VALIDATE(on) ((void)0)
 
+/* The trace's per-walk cache (GcMarkCtx, gc_internal.h): the words the
+ * inline visit reads on every reference, loaded once per drain or
+ * children walk so the hot path reads registers, not globals.  Classic
+ * caches nothing of its own; its mark bit is absolute. */
+#define GCB_MARK_CTX_FIELDS
+#define GCB_MARK_CTX_LOAD(c)        ((void)(c))
+#define GCB_MARK_CTX_STORE(c)       ((void)(c))
+#define GCB_HDR_MARKED_C(c, p)      GCB_HDR_MARKED(p)
+#define GCB_HDR_SET_MARK_C(c, p)    GCB_HDR_SET_MARK(p)
+#define GCB_ON_MARK_C(c, off, ptr)  GCB_ON_MARK(off, ptr)
+#define GCB_PUSH_REJECT_C(c, obj)   0
+
 /* The collection DEBUG_GC_STRESS forces before an allocation (cl_alloc):
  * the moving compaction, which is what makes an unprotected CL_Obj local
  * deterministic (Immix adds a second knob that mixes in its own cycles). */
@@ -386,18 +398,54 @@ extern int      gc_mark_validating;/* gc_mark_push validates object starts */
     (CL_HDR(p) = (CL_HDR(p) & ~CL_HDR_MARK_BIT) | gc_hdr_xor)
 #define GCB_MAKE_HDR(type, size)  (CL_MAKE_HDR(type, size) | gc_hdr_xor)
 
-/* One object has just been marked: stamp its lines, count its bytes. */
-CL_ALWAYS_INLINE void im_on_mark(uint32_t off, uint32_t size)
+/* One object has just been marked: stamp its lines with the epoch.
+ * Nearly every object sits inside one line (a cons is 12 bytes, a line
+ * 128), so that case is one store with no loop — on the 68020 the
+ * general loop below costs more than the rest of the visit.  MAP and E
+ * are the caller's cached im_line_map / im_epoch (both constant for the
+ * whole trace). */
+CL_ALWAYS_INLINE void im_stamp_lines(uint8_t *map, uint8_t e,
+                                     uint32_t off, uint32_t size)
 {
     uint32_t l = off >> CL_GC_LINE_SHIFT;
     uint32_t last = (off + size - 1) >> CL_GC_LINE_SHIFT;
-    uint8_t e = im_epoch;
-    im_marked_bytes += size;
-    do {
-        im_line_map[l] = e;
-    } while (++l <= last);
+    uint8_t *m = map + l;
+    *m = e;
+    if (last != l) {
+        uint32_t n = last - l;
+        do {
+            *++m = e;
+        } while (--n);
+    }
 }
-#define GCB_ON_MARK(off, ptr)  im_on_mark((off), CL_HDR_SIZE(ptr))
+#define GCB_ON_MARK(off, ptr) \
+    do { uint32_t sz_ = CL_HDR_SIZE(ptr); \
+         im_stamp_lines(im_line_map, im_epoch, (off), sz_); \
+         im_marked_bytes += sz_; } while (0)
+
+/* The trace's per-walk cache (GcMarkCtx, gc_internal.h).  The mark
+ * sense, the epoch and the line map are constant for the whole trace
+ * (the sense flips and the epoch advances between cycles); the live
+ * byte count accumulates here and is added back at the store; the
+ * push-validation flag is read once per walk (it changes only between
+ * the trace's phases, never inside a drain). */
+#define GCB_MARK_CTX_FIELDS \
+    uint32_t xor_; uint8_t *map; uint32_t marked; int validate; uint8_t epoch;
+#define GCB_MARK_CTX_LOAD(c) \
+    ((c)->xor_ = gc_hdr_xor, (c)->map = im_line_map, (c)->epoch = im_epoch, \
+     (c)->marked = 0, (c)->validate = gc_mark_validating)
+#define GCB_MARK_CTX_STORE(c) \
+    (im_marked_bytes += (c)->marked, (c)->marked = 0)
+#define GCB_HDR_MARKED_C(c, p) \
+    ((CL_HDR(p) ^ (c)->xor_) & CL_HDR_MARK_BIT)
+#define GCB_HDR_SET_MARK_C(c, p) \
+    (CL_HDR(p) = (CL_HDR(p) & ~CL_HDR_MARK_BIT) | (CL_HDR_MARK_BIT ^ (c)->xor_))
+#define GCB_ON_MARK_C(c, off, ptr) \
+    do { uint32_t sz_ = CL_HDR_SIZE(ptr); \
+         im_stamp_lines((c)->map, (c)->epoch, (off), sz_); \
+         (c)->marked += sz_; } while (0)
+#define GCB_PUSH_REJECT_C(c, obj) \
+    ((c)->validate && !gc_hdr_object_start_p(obj))
 
 /* Finalizable objects are listed at allocation (one site), so a cycle
  * finalizes the dead ones without walking dead space. */

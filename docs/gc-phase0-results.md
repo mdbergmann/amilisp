@@ -320,3 +320,74 @@ What the rows say, with the 68040's numbers as the reference:
    end: the loaded rows above are the re-run's, its cycles 1–2 match the
    wedged run's (68.6/54.7 s against 68.4/54.5 s), and cycles 3–6 sit at
    53–55 s with the same mark and sweep.
+
+# Mark-loop pass — the trace itself (2026-10-14)
+
+Phase 0 and Phase 3 both ended at the same place: on a quiet heap the
+pause is the mark, and Immix does not touch it.  This pass is the mark
+loop alone (`src/core/gc_trace.c`, shared by every backend — see the
+spec's "As landed — the mark-loop pass" for what changed: the object is
+marked when its reference is *visited*, leaf types never enter the stack,
+the per-slot visit is inlined, the cons is scanned without the call into
+the per-type switch, and Immix stamps a one-line object with one store).
+
+What the 68020 disassembly of the Phase 3 binary showed is the reason it
+was slow: at `-Os` every slot visit was a call with four tag tests before
+it and every popped object a second call into the walk — ~110
+instructions per cons, the ~55 µs per object of Phase 0.
+
+The measurement is `trunk/gc-mark-bench.lisp`: a synthetic live set
+(lists of fixnums, lists of 8-byte strings, 16-slot vectors of conses, a
+hash table — 2.1 MB live after a cycle on the Amiga, 32 MB on the host),
+then five explicit `(ext:gc)`; the number is the mark phase of
+`(ext:%gc-time-stats)` per cycle.  Same script, same emulated machine,
+binaries of the Phase 3 tree against this one.
+
+## FS-UAE 68020 (`verify-lowend.fs-uae`, cycle-exact, no JIT), 2.1 MB live
+
+| binary | mark per cycle | per live MB | vs. before |
+|---|--:|--:|--:|
+| classic, Phase 3 tree | 5,444 ms | 2,611 ms | |
+| classic, step 1 (mark at the visit, leaf skip, inline visit) | 2,236 ms | 1,072 ms | 2.4× |
+| **classic, + step 3 (the per-walk context)** | **1,648 ms** | **790 ms** | **3.3×** |
+| Immix, Phase 3 tree | 7,624 ms | 3,603 ms | |
+| Immix, step 1 | 4,080 ms | 1,928 ms | 1.9× |
+| Immix, + step 2 (one-store line stamp) | 3,720 ms | 1,758 ms | 2.0× |
+| **Immix, + step 3 (the per-walk context)** | **2,768 ms** | **1,308 ms** | **2.75×** |
+
+Every cycle of the five is within 20 ms of the others (the emulator is
+cycle-exact), so one run per binary is the number.
+
+## Host (M3 Ultra, macOS), 32 MB live, best of three
+
+| binary | mark per cycle |
+|---|--:|
+| classic (`CLAMIGA_GENGC=0`), Phase 3 tree | 11.3 ms |
+| classic, this pass | 6.6 ms |
+| Immix, Phase 3 tree | 13.2 ms |
+| Immix, this pass | 8.5 ms |
+
+The host at `-O3 -flto` had the calls inlined already; what it gains is
+the leaf skip and the pop with no checks.  The one-store stamp is not
+visible there (8.5–8.7 ms either way).
+
+What the rows say:
+
+1. **The idle pause is 3.3× cheaper on the 68020 under classic and
+   2.75× under Immix; the Immix mark now sits at half of classic's
+   Phase 3 number.**  The loop was the cost, not the memory system: on a
+   cycle-exact machine the instruction count is the time, and the three
+   steps removed about two thirds of it per visited slot.
+2. **Step 3 is the 68020's step.**  Caching the arena base, the arena
+   size, the stack, the mark sense, the epoch and the line map in the
+   walk's locals (`GcMarkCtx`) is invisible on the host (`-O3` kept them
+   in registers already) and worth 26 % on the 68020, where every
+   absolute-address load is two extension words and a bus cycle.  The
+   remaining Immix cost per visit — the sense XOR, the stamp, the byte
+   count, the validation flag — is now 1.1 s per cycle on 2.1 MB; on the
+   68040 and the host the locality Immix buys back under churn is worth
+   more than that.
+3. **Binary size**: the inlined visit costs about 6 KB (classic,
+   897,484 bytes) and 12 KB (Immix, 907,572) of m68k text — the per-type
+   switch expands the visit at every slot; the context made the
+   expansion smaller than the global-reading form, not larger.

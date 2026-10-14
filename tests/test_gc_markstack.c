@@ -199,6 +199,112 @@ TEST(overflow_rescan_fallback_still_marks_completely)
     assert_wide_vector_intact();
 }
 
+/* ----------------------------------------------------------------
+ * The trace marks an object when a reference to it is VISITED and queues
+ * only objects that have children (gc_mark_visit, gc_trace.c).  Two
+ * invariants that gives, each pinned below:
+ *   1. A leaf (a string, a float, ...) never enters the mark stack, so a
+ *      vector of WIDE_ELEMS fresh strings costs no stack growth at all —
+ *      the pre-change trace pushed every one of them.
+ *   2. An object the full stack could not take is marked but NOT yet
+ *      scanned; the overflow re-scan must still reach ITS children.  The
+ *      earlier fallback test cannot see this (its dropped conses hold
+ *      fixnums); this one drops conses that each hold a fresh string.
+ * ---------------------------------------------------------------- */
+
+TEST(wide_vector_of_leaves_never_grows_the_stack)
+{
+    uint32_t grows0, grows, rescans;
+    char buf[200];
+
+    /* The growth the boot heap itself needs, if any, is the baseline. */
+    cl_gc();
+    cl_gc_mark_stack_stats(NULL, &grows0, NULL);
+
+    sprintf(buf,
+            "(progn (defparameter *leaves* (make-array %d))"
+            "       (dotimes (i %d) (setf (aref *leaves* i) (make-string 4 :initial-element #\\a)))"
+            "       nil)",
+            WIDE_ELEMS, WIDE_ELEMS);
+    ASSERT_STR_EQ(eval_print(buf), "NIL");
+    cl_gc();
+
+    cl_gc_mark_stack_stats(NULL, &grows, &rescans);
+    printf("    [leaves: grows before=%u after=%u]\n",
+           (unsigned)grows0, (unsigned)grows);
+    ASSERT_EQ(grows, grows0);
+    ASSERT_EQ(rescans, 0u);
+    /* ...and every string is still there, untouched. */
+    sprintf(buf,
+            "(let ((bad 0))"
+            "  (dotimes (i %d)"
+            "    (unless (string= (aref *leaves* i) \"aaaa\") (setq bad (+ bad 1))))"
+            "  bad)",
+            WIDE_ELEMS);
+    ASSERT_STR_EQ(eval_print(buf), "0");
+}
+
+/* Every slot i of *deep* holds (cons "abcd" i): the conses are what the
+ * capped stack drops, the strings are what only a scan of a DROPPED cons
+ * reaches. */
+static void build_wide_vector_of_conses_with_strings(void)
+{
+    char buf[200];
+    sprintf(buf,
+            "(progn (defparameter *deep* (make-array %d))"
+            "       (dotimes (i %d) (setf (aref *deep* i) (cons (make-string 4 :initial-element #\\b) i)))"
+            "       nil)",
+            WIDE_ELEMS, WIDE_ELEMS);
+    ASSERT_STR_EQ(eval_print(buf), "NIL");
+}
+
+static void assert_deep_strings_intact(void)
+{
+    char buf[220];
+    sprintf(buf,
+            "(let ((bad 0))"
+            "  (dotimes (i %d)"
+            "    (let ((c (aref *deep* i)))"
+            "      (unless (and (consp c) (eql (cdr c) i) (stringp (car c))"
+            "                   (string= (car c) \"bbbb\"))"
+            "        (setq bad (+ bad 1)))))"
+            "  bad)",
+            WIDE_ELEMS);
+    ASSERT_STR_EQ(eval_print(buf), "0");
+}
+
+TEST(overflow_rescan_scans_the_dropped_objects_children)
+{
+    uint32_t cap0, cap, rescans0, rescans;
+    char buf[160];
+
+    build_wide_vector_of_conses_with_strings();
+
+    cl_gc_mark_stack_stats(&cap0, NULL, &rescans0);
+    ASSERT(cap0 < (uint32_t)WIDE_ELEMS);
+    cl_gc_mark_stack_set_test_limit(cap0);
+
+    cl_gc();
+
+    cl_gc_mark_stack_stats(&cap, NULL, &rescans);
+    ASSERT_EQ(cap, cap0);
+    ASSERT(rescans > rescans0);
+
+    /* A string the re-scan missed was swept: fill the free list with
+     * strings of another letter so a dangling car READS as corrupted
+     * instead of still showing its old bytes. */
+    sprintf(buf, "(progn (dotimes (i %d) (make-string 4 :initial-element #\\z)) nil)",
+            2 * WIDE_ELEMS);
+    ASSERT_STR_EQ(eval_print(buf), "NIL");
+    assert_deep_strings_intact();
+
+    /* And through a moving collection, still capped. */
+    cl_gc_compact();
+    assert_deep_strings_intact();
+
+    cl_gc_mark_stack_set_test_limit(0);
+}
+
 int main(void)
 {
     setup();
@@ -210,6 +316,14 @@ int main(void)
      * initial buffer, so the fallback test starts below WIDE_ELEMS again. */
     setup();
     RUN(overflow_rescan_fallback_still_marks_completely);
+    teardown();
+
+    setup();
+    RUN(wide_vector_of_leaves_never_grows_the_stack);
+    teardown();
+
+    setup();
+    RUN(overflow_rescan_scans_the_dropped_objects_children);
     teardown();
     REPORT();
 }

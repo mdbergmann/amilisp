@@ -8,7 +8,9 @@ Phase 2 (the Immix backend on the host, `make host GC=immix`) landed
 2026-10-13 — see "As landed" under Part 2 for where it departs from the
 design text below.  Phase 3 (the m68k/MorphOS builds) landed 2026-10-13:
 Immix is the m68k default — see "As landed (Phase 3)" for the numbers,
-the one multi-threading bug it surfaced, and what stays open.
+the one multi-threading bug it surfaced, and what stays open.  The
+mark-loop pass (the trace itself, every backend) landed 2026-10-14 —
+see "As landed — the mark-loop pass".
 Companion: `specs/generational-gc.md` (the host collector this leaves alone).
 
 ## Why
@@ -708,6 +710,62 @@ Open after Phase 3: the real hardware (Vampire 68080, the MorphOS box)
 has not run Immix; the Clamacs typing-latency spike was not taken.  The
 policy constants were not tuned — no churn run asked for a compaction,
 so there was nothing to tune against.
+
+### As landed — the mark-loop pass (2026-10-14)
+
+The "next lever" named by Phase 0 and again by Phase 3, taken on the
+shared tracer (`gc_trace.c`), so it pays on every backend.  What the
+68020 disassembly of the Phase 3 binary showed (`-Os`): every slot of the
+per-type walk was a *call* into the push helper with four tag tests
+before it, and every popped object a second call into the walk — about
+110 instructions per cons, which is the ~55 µs per object Phase 0
+measured.  The line stamp was a minor part of it.
+
+The restructured trace:
+
+- **Mark at the visit, not at the pop.**  `gc_mark_visit` (always
+  inline) filters the immediates with one test, loads the header, skips a
+  marked object, sets the mark and runs `GCB_ON_MARK`, and queues the
+  object *only if its type has children* (`GC_TYPE_HAS_CHILDREN`, a bit
+  set over the type tag: strings, floats, bignums, byte/bit vectors,
+  random states and foreign pointers never enter the stack).  The stack
+  then holds nothing but marked objects with slots to scan, and the drain
+  loop (`gc_mark_drain`) pops and scans with no check at all, with the
+  cons case inline and every other type through `gc_mark_children`,
+  whose slot visits are the same inline function.
+- The overflow protocol keeps its shape: an object the full stack cannot
+  take is now *marked but unscanned* (before: unmarked and dropped), and
+  the full-arena re-scan, which scans every marked object, reaches its
+  children.  `tests/test_gc_markstack.c` pins both new invariants — a
+  wide vector of strings grows the stack by nothing, and under a capped
+  stack the children of the dropped objects survive a sweep and a
+  compaction.
+- `gc_mark_obj` stays the root entry (the root walk, the conservative
+  JIT scan) and now only marks and queues; `gc_mark_drain` is the one
+  drain, used by `gc_mark` and by the generational minor
+  (`gc_classic.c`), which used to pop through `gc_mark_obj`.
+- Immix: `im_stamp_lines` stamps a one-line object with a single store
+  (the general loop ran for every object before).
+- **The per-walk context** (`GcMarkCtx`, gc_internal.h): what the visit
+  reads on every reference — the arena base and size, the stack, its
+  top and capacity, and the backend's own words (`GCB_MARK_CTX_FIELDS`:
+  for Immix the mark sense, the epoch, the line map, the live byte
+  count and the validation flag, all constant for the trace) — is
+  loaded once per drain or children walk and kept in locals, written
+  back at the end (`GCB_MARK_CTX_LOAD/STORE`, `GCB_HDR_MARKED_C`,
+  `GCB_HDR_SET_MARK_C`, `GCB_ON_MARK_C`, `GCB_PUSH_REJECT_C`).  The
+  queue's slow path (grow or drop) works on the globals so the context
+  never has its address taken and the compiler scalarises it; on the
+  68020 that is the difference between an absolute-address load and a
+  register for every operand of the visit.
+
+Numbers (`trunk/gc-mark-bench.lisp`: a synthetic live set of lists,
+strings, small vectors and a hash table, five explicit collections;
+`verify/realamiga/run-gc-phase0.sh` takes `SCRIPT=` for it) are in
+`docs/gc-phase0-results.md`, "Mark-loop pass": on the cycle-exact
+68020 with 2.1 MB live the mark goes from 5.44 to 1.65 s per cycle
+under classic and from 7.62 to 2.77 s under Immix.  Cost: the m68k
+binary grows by the inlined visits — about 6 KB classic, 12 KB Immix.
 
 ### Optional Phase 4 — opportunistic evacuation
 

@@ -14,6 +14,11 @@
 #            68040 JIT machine of `make -f Makefile.cross test-amiga`;
 #            verify-lowend.fs-uae is the cycle-exact 68020 floor, where the
 #            classic run takes about 40 minutes).
+#   SCRIPT   (environment) a repo-relative Lisp file to run INSTEAD of the
+#            phase-0 pair, e.g. SCRIPT=trunk/gc-mark-bench.lisp — the
+#            mark-only measurement.  It must print a line matching
+#            "=== ... end ===" when it is through.  No Clamacs staging;
+#            the log is build/amiga/gc-phase0-<script>-<bindir>-<config>.log.
 #
 # The Amiga-side log lands in build/amiga/gc-phase0-<bindir>-<config>.log
 # (the suite log is left alone).  Both legs go through the boot-override
@@ -42,24 +47,33 @@ if pgrep -x fs-uae >/dev/null 2>&1; then
     echo "ERROR: an FS-UAE is already running — pkill fs-uae first" >&2
     exit 1
 fi
-[ -d clamacs/lisp ] || {
-    echo "ERROR: clamacs/lisp missing — git submodule update --init clamacs" >&2; exit 1; }
-
+SCRIPT="${SCRIPT:-}"
 TAG="$(basename "$BINDIR")-$(basename "$CONFIG" .fs-uae)"
+if [ -n "$SCRIPT" ]; then
+    [ -f "$SCRIPT" ] || { echo "ERROR: SCRIPT=$SCRIPT not found" >&2; exit 1; }
+    TAG="$(basename "$SCRIPT" .lisp)-$TAG"
+    AMI_SCRIPT="CLAmiga:$SCRIPT"
+else
+    [ -d clamacs/lisp ] || {
+        echo "ERROR: clamacs/lisp missing — git submodule update --init clamacs" >&2; exit 1; }
+    AMI_SCRIPT="CLAmiga:build/amiga/gc-phase0-clamacs.lisp"
+fi
 LOG="build/amiga/gc-phase0-$TAG.log"
 mkdir -p build/amiga
 rm -f "$LOG" "$LOG.uaem"
 
-# The editor's sources, staged the way the release ships them (what the
-# loaded leg of the measurement LOADs).
-rm -rf build/editor-lib && mkdir -p build/editor-lib/lib/clamacs
-cp clamacs/lisp/*.lisp build/editor-lib/lib/clamacs/
+if [ -z "$SCRIPT" ]; then
+    # The editor's sources, staged the way the release ships them (what the
+    # loaded leg of the measurement LOADs).
+    rm -rf build/editor-lib && mkdir -p build/editor-lib/lib/clamacs
+    cp clamacs/lisp/*.lisp build/editor-lib/lib/clamacs/
 
-cat > build/amiga/gc-phase0-clamacs.lisp <<'EOF'
+    cat > build/amiga/gc-phase0-clamacs.lisp <<'EOF'
 ;; Phase 0 with the editor's live set: load Clamacs first, then measure.
 (defparameter cl-user::*phase0-load* "CLAmiga:build/editor-lib/lib/clamacs/load.lisp")
 (load "CLAmiga:trunk/gc-phase0.lisp")
 EOF
+fi
 
 AMI_BIN="CLAmiga:$BINDIR/clamiga"
 AMI_LOG="CLAmiga:$LOG"
@@ -72,7 +86,7 @@ stack 128000
 cd CLAmiga:
 echo "=== gc-phase0 start: $AMI_BIN ($TAG) ===" >$AMI_LOG
 date >>$AMI_LOG
-$AMI_BIN --no-userinit --no-image --heap 8M --non-interactive --load CLAmiga:build/amiga/gc-phase0-clamacs.lisp >>$AMI_LOG
+$AMI_BIN --no-userinit --no-image --heap 8M --non-interactive --load $AMI_SCRIPT >>$AMI_LOG
 echo "=== run end ===" >>$AMI_LOG
 date >>$AMI_LOG
 C:UAEquit
@@ -90,7 +104,7 @@ if [ ! -f "$LOG" ]; then
     echo "=== gc-phase0 FAILED: $LOG was never written ===" >&2
     exit 1
 fi
-if ! grep -q "=== gc-phase0 end ===" "$LOG"; then
+if ! grep -q "=== .* end ===" "$LOG"; then
     echo "=== gc-phase0 FAILED: the script did not run to its end marker ===" >&2
     tail -n 20 "$LOG" | sed 's/^/    /'
     exit 1

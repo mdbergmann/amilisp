@@ -107,9 +107,25 @@ extern uint32_t gc_bc_offheap_bytes;
 extern uint32_t gc_bc_offheap_count;
 extern uint32_t gc_mark_stack_test_limit;
 
+/* What the inline visit (gc_mark_visit, gc_trace.c) reads on every
+ * reference, loaded from the globals once per drain or children walk
+ * and kept in locals — on the 68020 every absolute-address load is a
+ * bus cycle, and the visit runs for every slot of every live object.
+ * The stack top is written back at the end of the walk (and before any
+ * call that reads it: the grow, a nested walk). */
+typedef struct {
+    uint8_t  *base;      /* cl_arena_base */
+    uint32_t  asz;       /* cl_heap.arena_size */
+    CL_Obj   *stack;     /* gc_mark_stack */
+    uint32_t  top;       /* gc_mark_top */
+    uint32_t  cap;       /* gc_mark_stack_cap */
+    GCB_MARK_CTX_FIELDS  /* the backend's own (gc_backend.h) */
+} GcMarkCtx;
+
 void gc_mark_stack_release(void);
-void gc_mark_obj(CL_Obj obj);
+void gc_mark_obj(CL_Obj obj);                /* a root: mark it, queue its children */
 void gc_mark_children(void *ptr, uint8_t type);
+void gc_mark_drain(void);                    /* scan everything queued */
 void gc_mark(void);
 
 /* Root enumeration in slot-visitor form (see gc_trace.c): the one list of
@@ -452,8 +468,26 @@ void gc_verify_after_sweep(void);
 
 #ifdef CL_WIDE_STRINGS
 #define CL_GC_WIDE_STRING_CASE case TYPE_WIDE_STRING:
+#define CL_GC_WIDE_STRING_BIT  (1u << TYPE_WIDE_STRING)
 #else
 #define CL_GC_WIDE_STRING_CASE
+#define CL_GC_WIDE_STRING_BIT  0u
 #endif
+
+/* The leaf types — the "no CL_Obj children" cases of the walk above, as
+ * a bit set over the type tag.  The mark phase never queues a leaf
+ * (gc_mark_visit), so a string-heavy live set costs no stack traffic.
+ * Every tag is below 32 (types.h keeps the enum that small; a tag of
+ * CL_TYPE_DEAD or any other out-of-range value lands on bit 31, which is
+ * clear, so such a block is treated as "has children" and the walk's
+ * default case ignores it). */
+#define GC_LEAF_TYPE_MASK \
+    ((1u << TYPE_STRING) | (1u << TYPE_BIGNUM) | (1u << TYPE_SINGLE_FLOAT) | \
+     (1u << TYPE_DOUBLE_FLOAT) | (1u << TYPE_RANDOM_STATE) | \
+     (1u << TYPE_BIT_VECTOR) | (1u << TYPE_BYTE_VECTOR) | \
+     (1u << TYPE_FOREIGN_POINTER) | CL_GC_WIDE_STRING_BIT)
+#define GC_TYPE_HAS_CHILDREN(type) \
+    (((GC_LEAF_TYPE_MASK >> ((type) & 31u)) & 1u) == 0)
+typedef char gc_leaf_mask_covers_every_type[(CL_TYPE_MAX < 31) ? 1 : -1];
 
 #endif /* CL_GC_INTERNAL_H */

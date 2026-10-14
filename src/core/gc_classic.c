@@ -821,8 +821,7 @@ int cl_gc_minor(uint32_t seen_gc_count)
         if (multithread) cl_gc_resume_the_world();
         return 0;
     }
-    while (gc_mark_top > 0)
-        gc_mark_obj(gc_mark_stack[--gc_mark_top]);
+    gc_mark_drain();
     gen_minor_active = 0;
     if (gc_mark_overflow || gen_live_oom ||
         jit_pinned_count > 0 || gc_jit_pin_oom) {
