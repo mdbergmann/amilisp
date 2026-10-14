@@ -98,7 +98,7 @@ There are already excellent Common Lisp implementations — SBCL, CCL, ECL, Clas
 
 **Because none of them run on the Amiga** — neither the classic 68k machines nor the PPC-based next-gen systems (MorphOS, AmigaOS 4). The high-performance implementations (SBCL, CCL) are native-code compilers tied to modern architectures — x86-64, ARM, PPC — with no 68k backend and a memory footprint measured in tens of megabytes. Clasp is built on LLVM and targets C++ interop. CLISP, the closest in spirit — a compact bytecode interpreter in C — hasn't had a maintained AmigaOS build in decades.
 
-CL-Amiga is built for the constraint the others ignore: **a 68020 at 14 MHz with 4 MB of RAM (or even less).** It's a self-contained bytecode VM in portable C89/C99 with no external runtime dependencies on the Amiga — no libffi (there's a hand-written 68k trampoline), no LLVM, no C compiler needed at runtime. Values are 32-bit tagged words and heap pointers are arena-relative offsets, keeping the whole object model 32-bit-clean; a compacting GC keeps a small heap from fragmenting, and there's an optional native JIT on 68k hardware and on arm64 hosts. Yet it's ambitious enough on the language side to load ASDF, run Quicklisp, and pass the self-tests of real libraries (Alexandria, FSet, fiveam, Sento) — and it runs identically on a modern macOS, Linux or Windows host, where most development actually happens.
+CL-Amiga is built for the constraint the others ignore: **a 68020 at 14 MHz with 4 MB of RAM (or even less).** It's a self-contained bytecode VM in portable C89/C99 with no external runtime dependencies on the Amiga — no libffi (there's a hand-written 68k trampoline), no LLVM, no C compiler needed at runtime. Values are 32-bit tagged words and heap pointers are arena-relative offsets, keeping the whole object model 32-bit-clean; the Amiga and MorphOS binaries run an Immix-style mark-region collector, so allocation is always a bump and a collection never sweeps the arena (the host gets a generational collector on top), and there's an optional native JIT on 68k hardware and on arm64 hosts. Yet it's ambitious enough on the language side to load ASDF, run Quicklisp, and pass the self-tests of real libraries (Alexandria, FSet, fiveam, Sento) — and it runs identically on a modern macOS, Linux or Windows host, where most development actually happens.
 
 Because execution is bytecode, the object model is **architecture-agnostic**: the same compiled Lisp runs unchanged on 68k and PowerPC. Two targets are fully working today: classic **AmigaOS 3+** on 68020+ and a **fully native MorphOS (PPC)** build — including threading, FFI, GUI, and audio; even the compiled FASL files are compatible between the two (the MorphOS build has full Unicode strings, and its writer downgrades all-ASCII strings to the byte format the 68k build reads — only FASLs with non-ASCII string literals are PPC-side only). **AmigaOS 4** — the other PPC-based next-gen system — is a natural target on the same path. So while the design's tightest constraint is the classic Amiga, the aim is the whole Amiga family, not just the 68k machines.
 
@@ -121,7 +121,7 @@ On the Amiga side it drives the OS natively: Intuition, Graphics, GadTools, **Re
 
 - **CONS, SYMBOLS, NUMBERS, and SEQUENCES** (`load-and-test-ansi.lisp`) — passing.
 
-A broad test suite covers the implementation, including threading, CLOS, conditions, the full numeric tower, FFI, both JITs, heap images, and the AmigaOS GUI modules (Intuition, Graphics, GadTools, ReAction, MUI); the Amiga half runs unattended in FS-UAE.
+A broad test suite covers the implementation, including threading, CLOS, conditions, the full numeric tower, FFI, both JITs, both collectors, heap images, and the AmigaOS GUI modules (Intuition, Graphics, GadTools, ReAction, MUI); the Amiga half runs unattended in FS-UAE.
 
 ### Screenshots
 
@@ -2420,10 +2420,12 @@ example of the mapping.
 - **Tagged 32-bit values** (`CL_Obj = uint32_t`) — heap pointers are
   arena-relative byte offsets, so the object model is the same 32-bit layout
   on every platform.
-- **Memory-efficient** — one arena, a bump allocator with free-list fallback,
-  and a mark-and-sweep collector that compacts when fragmentation blocks an
-  allocation; designed for a 68020 @ 14 MHz with 8 MB RAM.  Hosts run a
-  generational collector on top (see [Garbage collection](#garbage-collection)),
+- **Memory-efficient** — one arena and, on AmigaOS and MorphOS, an
+  Immix-style mark-region collector: allocation bumps into 128-byte-line
+  holes, a collection sweeps only the line map, and a sliding compactor
+  runs on measured fragmentation; designed for a 68020 @ 14 MHz with 8 MB
+  RAM.  Hosts run the classic mark-sweep collector with a generational
+  mode on top (see [Garbage collection](#garbage-collection)),
   and each thread there allocates from a private chunk (TLAB) refilled from
   the shared heap, so concurrent allocation doesn't serialize on a global lock
   (`CLAMIGA_TLAB_CHUNK=<bytes>` tunes the chunk size, `0` disables; see
@@ -2443,7 +2445,8 @@ example of the mapping.
   [Heap images](#heap-images)).
 
 Design notes for the larger subsystems are in [`specs/`](specs/) — the JIT
-backends, the generational GC, heap images, the MOP, and the performance plan.
+backends, the Immix collector and the generational GC, heap images, the MOP,
+and the performance plan.
 
 ## Known Limitations and Future Work
 
@@ -2551,7 +2554,7 @@ verify/
 
 | Implementation | Approach | Amiga family (68k / PPC)? | Footprint | Notes |
 |---|---|---|---|---|
-| **CL-Amiga** | Bytecode VM in C, optional m68k/AArch64 JIT | **Yes** — its whole reason to exist (68k + native MorphOS/PPC now; OS4 next) | Tiny (core runs in a 1 MB heap) | Alpha; ANSI coverage incomplete |
+| **CL-Amiga** | Bytecode VM in C, optional m68k/AArch64 JIT, Immix-style GC | **Yes** — its whole reason to exist (68k + native MorphOS/PPC now; OS4 next) | Tiny (core runs in a 1 MB heap) | Alpha; ANSI coverage incomplete |
 | **ECL** | Lisp → C, bytecode fallback | No | Medium | Very portable/embeddable on modern hosts |
 | **CCL** | Native compiler | No (x86-64/ARM/PPC only) | Large | Fast and mature; no 68k backend |
 | **Clasp** | LLVM-based, C++ interop | No | Very large (needs LLVM) | Best for C++/scientific interop |
