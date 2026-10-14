@@ -1,6 +1,6 @@
 /*
  * tls_openssl.c — TLS backend for the POSIX host: OpenSSL 1.1.1/3.x loaded
- * at runtime via dlopen, so the clamiga binary keeps zero build- and
+ * at runtime via dlopen, so the amilisp binary keeps zero build- and
  * link-time OpenSSL dependency (TLS is a runtime-optional capability on
  * every platform: AmiSSL may be absent on an Amiga, libssl on a host).
  *

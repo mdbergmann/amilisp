@@ -2,7 +2,7 @@
 ;;;;
 ;;;; call-on-ustartup loads this file: it defines a small program and saves
 ;;;; it with (ext:save-image ... :executable t :toplevel ...), which writes
-;;;; build/amiga/exe-test -- a copy of the running clamiga with the image
+;;;; build/amiga/exe-test -- a copy of the running amilisp with the image
 ;;;; appended.  The script then starts exe-test twice:
 ;;;;
 ;;;;   from the Shell, in another directory, as
@@ -45,7 +45,7 @@
 
 (defun shell-main (args)
   (let ((problems (common-problems)))
-    ;; Verbatim: --help and --heap are the program's, not clamiga's.
+    ;; Verbatim: --help and --heap are the program's, not amilisp's.
     (unless (equal args '("--help" "--heap" "two words"))
       (push (format nil "arguments: ~S" args) problems))
     (when ext:*workbench-started-p*
@@ -57,7 +57,7 @@
     (cl-user::quit 5)))
 
 (defun wb-main (args)
-  (with-open-file (s "CLAmiga:build/amiga/exe-wb.log"
+  (with-open-file (s "AmiLisp:build/amiga/exe-wb.log"
                      :direction :output :if-exists :supersede)
     (let ((problems (common-problems))
           (suffix "build/amiga/wb-project.lisp")
@@ -84,6 +84,6 @@
 
 (push (lambda () (push :restore-hook *trace*)) ext:*restore-hooks*)
 
-(ext:save-image "CLAmiga:build/amiga/exe-test" :executable t
+(ext:save-image "AmiLisp:build/amiga/exe-test" :executable t
                 :toplevel 'exe-check:main
                 :heap-size (* 6 1024 1024) :quit t)

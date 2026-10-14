@@ -9,7 +9,7 @@
 ;;
 ;; Usage (warm ASDF cache; the cold load wants 192M):
 ;;
-;;   SENTO_LOAD_THREADS="1 2 4 8" ./build/host/clamiga --no-userinit \
+;;   SENTO_LOAD_THREADS="1 2 4 8" ./build/host/amilisp --no-userinit \
 ;;       --heap 192M --non-interactive --load trunk/sento-bench-loadthreads.lisp
 ;;
 ;; ~35 s per producer count.  Throughput of record is trivial-benchmark's

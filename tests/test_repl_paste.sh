@@ -24,9 +24,9 @@
 # for the kernel's line-at-a-time delivery — driven with expect(1) on a
 # PTY, skipped where expect isn't installed (Linux CI images, MSYS2).
 #
-# Run: sh tests/test_repl_paste.sh build/host/clamiga
+# Run: sh tests/test_repl_paste.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 EXPECT=$(command -v expect 2>/dev/null || true)
 if [ -z "$EXPECT" ]; then

@@ -1,8 +1,8 @@
 #!/bin/sh
-# The two deployment scripts behind a shipped clamiga.img, run on the host
+# The two deployment scripts behind a shipped amilisp.img, run on the host
 # in a release-shaped layout (bin/<target>/clamiga two levels below lib/):
 #
-#   scripts/save-boot-image.lisp    writes clamiga.img into the cwd (the
+#   scripts/save-boot-image.lisp    writes amilisp.img into the cwd (the
 #                                   binary's own directory) and quits
 #   scripts/verify-boot-image.lisp  from the release root: the session must
 #                                   have been restored from that image,
@@ -11,9 +11,9 @@
 #                                   otherwise (exit 1, BOOT-IMAGE-FAILED)
 #
 # Covered:
-#   save from the binary's directory -> bin/aos3/clamiga.img exists
+#   save from the binary's directory -> bin/aos3/amilisp.img exists
 #   verify from the release root: discovery takes the beside-the-binary leg
-#     (no clamiga.img in the cwd), BOOT-IMAGE-VERIFIED, exit 0
+#     (no amilisp.img in the cwd), BOOT-IMAGE-VERIFIED, exit 0
 #   verify with --no-image (the FASL-boot fallback) is a FAILURE: exit 1,
 #     names the missing restore — the script cannot green-wash a fallback
 #   save refuses (exit 1, image untouched) when the session itself came
@@ -23,9 +23,9 @@
 # The Amiga side of the same scripts is verify/realamiga/make-image.sh
 # (`make -f Makefile.cross image-amiga`), which runs them in FS-UAE.
 #
-# Run: sh tests/test_boot_image_scripts.sh build/host/clamiga
+# Run: sh tests/test_boot_image_scripts.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 case "$CLAMIGA" in
     /*) : ;;
     *) CLAMIGA="$(pwd)/$CLAMIGA" ;;
@@ -75,29 +75,29 @@ check() {
     ok
 }
 
-# --- Release-shaped layout: bin/aos3/clamiga, lib/ two levels up ---------
+# --- Release-shaped layout: bin/aos3/amilisp, lib/ two levels up ---------
 
 mkdir -p rel/bin/aos3 rel/lib
-cp "$CLAMIGA" rel/bin/aos3/clamiga
+cp "$CLAMIGA" rel/bin/aos3/amilisp
 cp "$ROOT"/lib/*.fasl "$ROOT"/lib/*.lisp rel/lib/
 
 # --- save-boot-image.lisp from the binary's directory --------------------
 
-out=$(cd rel/bin/aos3 && CLAMIGA_HOME= "$TIMEOUT" 120 ./clamiga \
+out=$(cd rel/bin/aos3 && CLAMIGA_HOME= "$TIMEOUT" 120 ./amilisp \
     --no-userinit --no-image --heap 16M --non-interactive \
     --load "$ROOT/scripts/save-boot-image.lisp" </dev/null 2>&1)
 ec=$?
-check "save_writes_image_beside_binary" 0 "$ec" "$out" "Image saved to \"clamiga.img\""
-if [ -s rel/bin/aos3/clamiga.img ]; then
+check "save_writes_image_beside_binary" 0 "$ec" "$out" "Image saved to \"amilisp.img\""
+if [ -s rel/bin/aos3/amilisp.img ]; then
     desc="image_file_exists"; ok
 else
-    fail "image_file_exists" "rel/bin/aos3/clamiga.img missing or empty" "$out"
+    fail "image_file_exists" "rel/bin/aos3/amilisp.img missing or empty" "$out"
 fi
 
 # --- verify-boot-image.lisp from the release root ------------------------
-# No clamiga.img in the cwd: the restore must come from bin/aos3/.
+# No amilisp.img in the cwd: the restore must come from bin/aos3/.
 
-out=$(cd rel && CLAMIGA_HOME= "$TIMEOUT" 120 bin/aos3/clamiga \
+out=$(cd rel && CLAMIGA_HOME= "$TIMEOUT" 120 bin/aos3/amilisp \
     --no-userinit --heap 16M --non-interactive \
     --load "$ROOT/scripts/verify-boot-image.lisp" </dev/null 2>&1)
 ec=$?
@@ -111,7 +111,7 @@ fi
 
 # --- verify must not pass a FASL-boot fallback ---------------------------
 
-out=$(cd rel && CLAMIGA_HOME= "$TIMEOUT" 120 bin/aos3/clamiga \
+out=$(cd rel && CLAMIGA_HOME= "$TIMEOUT" 120 bin/aos3/amilisp \
     --no-userinit --no-image --heap 16M --non-interactive \
     --load "$ROOT/scripts/verify-boot-image.lisp" </dev/null 2>&1)
 ec=$?
@@ -126,17 +126,17 @@ fi
 
 # --- save refuses from a restored session (forgotten --no-image) ---------
 
-cp rel/bin/aos3/clamiga.img before.img
-out=$(cd rel/bin/aos3 && CLAMIGA_HOME= "$TIMEOUT" 120 ./clamiga \
+cp rel/bin/aos3/amilisp.img before.img
+out=$(cd rel/bin/aos3 && CLAMIGA_HOME= "$TIMEOUT" 120 ./amilisp \
     --no-userinit --heap 16M --non-interactive \
     --load "$ROOT/scripts/save-boot-image.lisp" </dev/null 2>&1)
 ec=$?
 check "save_refuses_from_restored_session" 1 "$ec" "$out" \
     "SAVE-BOOT-IMAGE-FAILED: .*restored from an image"
-if cmp -s before.img rel/bin/aos3/clamiga.img; then
+if cmp -s before.img rel/bin/aos3/amilisp.img; then
     desc="refused_save_leaves_image_untouched"; ok
 else
-    fail "refused_save_leaves_image_untouched" "clamiga.img changed" "$out"
+    fail "refused_save_leaves_image_untouched" "amilisp.img changed" "$out"
 fi
 
 # --- Report --------------------------------------------------------------

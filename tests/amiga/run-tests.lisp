@@ -1,4 +1,4 @@
-; CL-Amiga Test Suite — runs in batch mode on AmigaOS
+; AmiLisp Test Suite — runs in batch mode on AmigaOS
 ; Multi-line expressions supported (paren-balanced accumulation)
 
 ; --- Test infrastructure ---
@@ -62,7 +62,7 @@
               (format t "SKIP: ~A (stress check, fresh-boot pass only)~%" ,name))
        (check ,name ,expected ,actual)))
 
-(format t "~%=== CL-Amiga Test Suite ===~%~%")
+(format t "~%=== AmiLisp Test Suite ===~%~%")
 
 ; --- Arithmetic ---
 (check "add two" 3 (+ 1 2))
@@ -602,7 +602,7 @@ y" 1))
 ; floor -- redefining a function leaked its old body for good.
 ;
 ; This matters far more here than on a host.  AmigaOS has no per-process
-; reclaim: memory clamiga never hands back is gone from the system pool until
+; reclaim: memory amilisp never hands back is gone from the system pool until
 ; the machine is rebooted.  Together with the compiler pool and the live image
 ; released at shutdown, this cost 3,743,160 bytes of Fast RAM on EVERY launch
 ; (measured with Avail on a Vampire).  See tests/test_shutdown_leak.sh.
@@ -4693,7 +4693,7 @@ y" 1))
   (handler-case (progn (close (ext:socket-listen 0 "203.0.113.1")) :listened)
     (error (c) (and (search "203.0.113.1" (princ-to-string c)) :refused))))
 ; PROGDIR: already is the binary's directory, so what follows it is the bare
-; file name -- a Shell that recorded the command as found (Work:apps/clamiga)
+; file name -- a Shell that recorded the command as found (Work:apps/amilisp)
 ; must not leave that path behind it.
 (check "executable-path is PROGDIR: plus the binary's bare file name" t
   (let ((p (ext:executable-path)))
@@ -4702,7 +4702,7 @@ y" 1))
          (string= "PROGDIR:" p :end2 8)
          (let ((tail (subseq p 8)))
            (and (not (find-if (lambda (c) (find c ":/")) tail))
-                (search "clamiga" tail :test #'char-equal)))
+                (search "amilisp" tail :test #'char-equal)))
          t)))
 ; Full round-trip driven entirely by the OS-assigned port from socket-local-port
 ; (the exact shape a Sly/SLYNK server uses to advertise its port).
@@ -5320,6 +5320,14 @@ y" 1))
 
 ; :CL-AMIGA is in *features*
 (check "features-has-cl-amiga" t (if (member :cl-amiga *features*) t nil))
+
+; the implementation's own features: the names since the rename to AmiLisp
+; (:AMILISP, :AMICL) and the ones before it (:CLAMIGA, :CL-AMIGA) are all there
+(check "features-has-amilisp" t (if (member :amilisp *features*) t nil))
+(check "features-has-amicl" t (if (member :amicl *features*) t nil))
+(check "features-has-clamiga" t (if (member :clamiga *features*) t nil))
+(check "feature-conditional-old-and-new" '(1 2 3 4)
+       (list #+amilisp 1 #+amicl 2 #+clamiga 3 #+cl-amiga 4))
 
 ; :COMMON-LISP is in *features*
 (check "features-has-common-lisp" t (if (member :common-lisp *features*) t nil))
@@ -9072,7 +9080,7 @@ y" 1))
   (mp:join-thread (mp:make-thread
                     (lambda ()
                       (handler-case
-                          (with-open-file (s "CON:0/0/400/120/clamiga-test/CLOSE"
+                          (with-open-file (s "CON:0/0/400/120/amilisp-test/CLOSE"
                                              :direction :output
                                              :if-exists :append)
                             (write-line ";; hello from worker CON:" s)
@@ -11353,7 +11361,7 @@ y" 1))
 ; AFTER the reload must still satisfy OUTPUT-STREAM-P / INPUT-STREAM-P: the
 ; methods are specialized on the class objects captured at first load, and a
 ; class redefinition keeps the metaobject (CLHS 4.3.6).  Before the fix these
-; returned NIL on the host (where .clamigarc had already loaded gray-streams).
+; returned NIL on the host (where .amilisprc had already loaded gray-streams).
 (defclass test-gs-reload-out (gray:fundamental-character-output-stream) ())
 (defmethod gray:stream-write-char ((s test-gs-reload-out) c) (declare (ignore s c)) nil)
 (defclass test-gs-reload-in (gray:fundamental-character-input-stream) ())
@@ -11965,7 +11973,7 @@ y" 1))
     (or (null c) (characterp c) (eq c :eof))))
 
 ; --- Boot logging is opt-in (--boot-log) ---
-; The suite launches clamiga WITHOUT --boot-log, so the boot must have been
+; The suite launches amilisp WITHOUT --boot-log, so the boot must have been
 ; quiet: %BOOT-QUIET-P reports T and %BOOT-TRACE-CLOS no-ops (returns NIL
 ; and writes nothing into the results log).
 (check "boot is quiet by default" t (clamiga::%boot-quiet-p))

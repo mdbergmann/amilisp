@@ -1,5 +1,5 @@
 /*
- * debugger.c — Interactive debugger for CL-Amiga
+ * debugger.c — Interactive debugger for AmiLisp
  *
  * When an unhandled error occurs in the interactive REPL, displays
  * the condition, backtrace, and available restarts, then lets the
@@ -371,7 +371,7 @@ void cl_invoke_debugger(CL_Obj condition)
      *   - CT == cl_main_thread_ptr — this is the REPL thread, the only thread
      *     that owns stdin; a SLY :spawn worker reaching here must never read,
      *   - platform_stdin_is_interactive() — stdin is a real tty, not a pipe or
-     *     /dev/null (a `tail -f /dev/null | clamiga` launcher fails this).
+     *     /dev/null (a `tail -f /dev/null | amilisp` launcher fails this).
      *
      * Otherwise (a background worker, or a non-interactive launcher) a read
      * would block forever on input no one will send — while holding a GC safe

@@ -23,7 +23,7 @@ measurement, with a same-session A/B against this entry's binary.
 - **Commit**: `e3ff53e` (branch `perf/gengc`; source identical to
   `cfd2bab`, the v0.4 version bump)
 - **Host**: macOS 26.5.2, arm64 (Apple M3 Ultra)
-- **Binary**: `build/host/clamiga`, `--heap 192M`
+- **Binary**: `build/host/amilisp`, `--heap 192M`
 - **Collector**: generational (host default), TLABs active
 - **Date**: 2026-07-15
 
@@ -35,7 +35,7 @@ speed changes almost nothing:
 
 ```
 rm -rf ~/.cache/common-lisp/cl-amiga-0.4-fasl23
-CLAMIGA_FORCE_SPEED=3 ./build/host/clamiga --no-userinit --heap 192M \
+CLAMIGA_FORCE_SPEED=3 ./build/host/amilisp --no-userinit --heap 192M \
     --non-interactive --load <driver.lisp>
 ```
 

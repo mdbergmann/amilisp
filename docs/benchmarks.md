@@ -70,7 +70,7 @@ arguments into the frame), and direct calls fill for such callees.
 `make -f Makefile.cross amiga`.  A = 483711c6 (`feat/a64-optrest`), B = this
 change.  One boot, run alternately A, B, A, B with `--no-image`.
 
-**Command**: `clamiga --no-userinit --no-image --heap 8M --non-interactive
+**Command**: `amilisp --no-userinit --no-image --heap 8M --non-interactive
 --load trunk/bench-jit-call.lisp` (200k calls per row).
 
 | row                     | A bc / JIT µs | B bc / JIT µs |
@@ -93,7 +93,7 @@ parameters no longer stays bytecode.
 **Environment**: Apple M-series, macOS, `make host`, branch
 `feat/a64-optrest` on b10b3d1d.
 
-**Command**: `./build/host/clamiga --no-userinit --heap 8M --non-interactive
+**Command**: `./build/host/amilisp --no-userinit --heap 8M --non-interactive
 --load trunk/bench-jit-call.lisp`, three runs.
 
 | row (200k calls)        | bc ms | JIT ms |
@@ -192,7 +192,7 @@ interleaved rounds, best of each.
 
 ```
 sed 's/^(clamiga::%jit-set-active nil)$//' trunk/bench-opt.lisp > /tmp/bo-jit.lisp
-CLAMIGA_JIT_HOT=0 ./build/host/clamiga --heap 64M --no-userinit --non-interactive [--no-jit] --load /tmp/bo-jit.lisp
+CLAMIGA_JIT_HOT=0 ./build/host/amilisp --heap 64M --no-userinit --non-interactive [--no-jit] --load /tmp/bo-jit.lisp
 ```
 
 | Row (ms)                 | interpreter | phase 1 | phase 2 | phase 2 vs interp |
@@ -230,7 +230,7 @@ One generation word guards all the call-site cells.  Every other callee
 takes the helper as before.
 
 **Environment**: FS-UAE A4000/68040 (`verify/realamiga/verify.fs-uae`),
-the cross-built `build/cross/clamiga` of branch `spec/jit-direct-calls`,
+the cross-built `build/cross/amilisp` of branch `spec/jit-direct-calls`,
 `--no-image --heap 8M`, `stack 128000`.  One boot runs three interleaved
 rounds of the same binary, alternating the default with
 `CLAMIGA_JIT_DIRECT=0` (the kill switch).  Medians, µs per iteration
@@ -274,7 +274,7 @@ full GCs are equal.
 
 **Reproduce**: build with `make -f Makefile.cross amiga`, then boot with a
 boot-override (see `verify/realamiga/call-on-ustartup`).  Per round it
-runs `clamiga --no-userinit --no-image --heap 8M --non-interactive --load
+runs `amilisp --no-userinit --no-image --heap 8M --non-interactive --load
 trunk/bench-jit-call.lisp` twice, once plain and once after `setenv
 CLAMIGA_JIT_DIRECT 0`, with `unsetenv` after it.
 
@@ -365,7 +365,7 @@ ran the driver as bytecode.  Tail calls from bytecode into native code
 now call and return (`specs/lazy-jit.md`, "Tail calls from bytecode").
 
 **Reproduce**: a boot-override script (see `verify/realamiga/make-image.sh`
-for the pattern) running, per policy, `clamiga --no-userinit --no-image
+for the pattern) running, per policy, `amilisp --no-userinit --no-image
 --heap 8M --non-interactive --boot-log [--jit-eager|--no-jit]` with a
 file that prints `(clamiga::%jit-native-bytes)`,
 `(clamiga::%jit-hot-compile-count)` and the timings.
@@ -458,7 +458,7 @@ the full tables: `specs/native-backend.md`, "Status (2026-09-16)".
 
 **Environment**: Vampire V4 (real 68040-class FPGA, Kickstart 47.115) and
 FS-UAE A4000/68040 (`verify/realamiga/verify.fs-uae`), `--heap 8M`,
-`stack 128000`, the cross-built `build/cross/clamiga` before (`c920aecd`)
+`stack 128000`, the cross-built `build/cross/amilisp` before (`c920aecd`)
 and with the change.  Per-iteration cost in microseconds, 200,000
 iterations per row, bytecode vs JIT columns from the same run.
 
@@ -578,7 +578,7 @@ remove it.  `trunk/bench-prims.lisp` (min of 5): `lock-acquire-release`
 nanosecond; `mt.call-x8` / `mt.dynbind-x8` unchanged at 35 / 36 ms.
 
 Reproduce: `CLAMIGA_FASL_CACHE_DIR=<fresh dir> CLAMIGA_FORCE_SPEED=3
-./build/host/clamiga --no-userinit --heap 192M --non-interactive --load
+./build/host/amilisp --no-userinit --heap 192M --non-interactive --load
 trunk/sento-bench-matrix.lisp`, one leg per binary, sequentially.
 
 ---
@@ -612,14 +612,14 @@ a larger host cap with a free list is the follow-up.
 
 ---
 
-## 2026-09-09 — General workloads: clamiga vs ECL vs SBCL
+## 2026-09-09 — General workloads: amilisp vs ECL vs SBCL
 
 **Context**: the first comparison that is not sento-shaped.
 `trunk/bench-general.lisp` times 31 WORKLOADS — the Gabriel shapes (tak,
 fib, deriv, n-queens), sorting and list processing, hash tables, strings and
 string streams, the reader, the printer, FORMAT, fixnum / float / bignum
 arithmetic, arrays, CLOS, structs, conditions, LOOP, allocation churn — and
-runs unchanged on clamiga, ECL and SBCL.  Every row returns an integer that
+runs unchanged on amilisp, ECL and SBCL.  Every row returns an integer that
 depends on all of its work, printed as `val=`; the three implementations
 must agree on it (they do, except for the bignum rows — see finding 5).
 Master at `8d8e89b3` (0.9 + Tier 4 phases 1–3), `make host`.  ECL 26.5.5
@@ -627,15 +627,15 @@ Master at `8d8e89b3` (0.9 + Tier 4 phases 1–3), `make host`.  ECL 26.5.5
 compiles natively).  All three at `(optimize (speed 1) (safety 1) (debug
 1))`, the setting third-party code is compiled with by default.
 
-**Environment**: Apple M3 Ultra, macOS 26.6.2, `--heap 64M`; clamiga compiled
+**Environment**: Apple M3 Ultra, macOS 26.6.2, `--heap 64M`; amilisp compiled
 the file from source into a scratch FASL cache each run
 (`CLAMIGA_FASL_CACHE_DIR`).  Each row is the minimum of 5 in-process
 repetitions, and each implementation ran twice in separate processes, one
 after the other on a quiet machine (the table takes the lower of the two;
-clamiga's runs agree within 2% on every row).  A `CLAMIGA_FORCE_SPEED=3` run
+amilisp's runs agree within 2% on every row).  A `CLAMIGA_FORCE_SPEED=3` run
 matched speed 1 on every row.
 
-| row | clamiga | ECL | SBCL | ECL/clamiga | SBCL/clamiga |
+| row | amilisp | ECL | SBCL | ECL/amilisp | SBCL/amilisp |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | tak | 122.0 | 33.0 | 16.3 | 3.70× | 7.48× |
 | fib | 87.0 | 44.2 | 15.3 | 1.97× | 5.69× |
@@ -671,17 +671,17 @@ matched speed 1 on every row.
 | **total** | **3593** | **2266** | **480** | **1.59×** | **7.49×** |
 | **geomean** |  |  |  | **2.22×** | **8.62×** |
 
-Milliseconds; a ratio above 1 means clamiga is slower.  † clamiga's
+Milliseconds; a ratio above 1 means amilisp is slower.  † amilisp's
 bignum-arith cell is the re-measurement on the fixed binary (finding 5);
 the first run's 33 ms was the bug's early bail-out.
 
 **Headline**: ECL is 1.59× faster in total and 2.22× by geometric mean, but
 the mean is carried by three pathological rows.  Without vector-sort, assoc
 and char-loop the geometric mean is 1.59× and the totals are at parity
-(clamiga 2,223 ms vs ECL 2,248 ms), because ECL's FORMAT and condition
+(amilisp 2,223 ms vs ECL 2,248 ms), because ECL's FORMAT and condition
 signalling are so slow.  The plain interpretive tax of the VM against native
 code is 2–3.7× (fixnum-loop 2.0, fib 2.0, tak 3.7, nqueens 3.4, deriv 3.4,
-insertion-sort 3.4, loop-collect 3.1).  clamiga beats ECL on seven rows:
+insertion-sort 3.4, loop-collect 3.1).  amilisp beats ECL on seven rows:
 format 13×, conditions 5.6×, printer 1.7×, mandel 1.4×, string-stream 1.4×,
 string-ops 1.35×, list-sort 1.14×.  SBCL is 7–8× ahead overall; its
 make-instance (210×) and float-vector (84×) rows are its constructor
@@ -714,12 +714,12 @@ optimisation and unboxed double-float arrays.
    400! is still right.  Multiplication is unaffected (`integer-length` of
    1000! is the correct 8,530), so bignum-fact's timing is the intended
    workload and only its `val` is wrong; bignum-arith's `floor` bails out
-   early, so that clamiga cell is not a measurement.  **Fixed the same
+   early, so that amilisp cell is not a measurement.  **Fixed the same
    day** (heap scratch above the stack buffers, streaming LOGCOUNT /
    LOGBITP; `tests/test_bignum.c` large-operand tests).  The two rows
    re-measured on the fixed binary, `val` now agreeing with ECL and SBCL:
    bignum-fact 54 ms (unchanged), bignum-arith 181 ms — 28× behind ECL,
-   whose integers are GMP's, because clamiga's Knuth division runs on
+   whose integers are GMP's, because amilisp's Knuth division runs on
    16-bit limbs (the multiplication already packs to 32-bit limbs on the
    host).  A 32-bit-limb division is the follow-up if bignum-heavy code
    ever matters.
@@ -730,8 +730,8 @@ optimisation and unboxed double-float arrays.
 **Reproduce**:
 
 ```
-./build/host/clamiga --no-userinit --heap 64M --non-interactive --load trunk/bench-general.lisp
-CLAMIGA_FORCE_SPEED=3 ./build/host/clamiga --no-userinit --heap 64M --non-interactive --load trunk/bench-general.lisp
+./build/host/amilisp --no-userinit --heap 64M --non-interactive --load trunk/bench-general.lisp
+CLAMIGA_FORCE_SPEED=3 ./build/host/amilisp --no-userinit --heap 64M --non-interactive --load trunk/bench-general.lisp
 ecl --norc --eval '(progn (load (compile-file "trunk/bench-general.lisp" :output-file "/tmp/bench-general.fas")) (quit))'
 sbcl --non-interactive --no-userinit --no-sysinit --load trunk/bench-general.lisp
 # Amiga: (defparameter cl-user::*bg-scale* 1/20) before loading
@@ -864,7 +864,7 @@ regression case), `make test-memleak`, `make -f Makefile.cross test-amiga` (fres
 
 **Reproduce**: `git worktree add --detach /tmp/base 17a20059 && (cd
 /tmp/base && make host)`; per run `find ~/.cache/common-lisp -name
-bench-prims.fasl -delete` then `clamiga --no-userinit --heap 64M
+bench-prims.fasl -delete` then `amilisp --no-userinit --heap 64M
 --non-interactive --load trunk/bench-prims.lisp`, alternating the three
 binaries (`CLAMIGA_NO_FUSE=1` for the middle column), minimum per row;
 the sento cells as named above; the pair profile with `make host
@@ -951,7 +951,7 @@ test-amiga` (see the follow-up commit message for the counts).
 
 **Reproduce**: `git worktree add --detach /tmp/base 563983cc && (cd
 /tmp/base && make host)`; then per run `find ~/.cache/common-lisp -name
-bench-prims.fasl -delete` before `clamiga --no-userinit --heap 64M
+bench-prims.fasl -delete` before `amilisp --no-userinit --heap 64M
 --non-interactive --load trunk/bench-prims.lisp`, alternating binaries,
 and take the minimum per row.
 
@@ -1133,10 +1133,10 @@ call rows are what catches it.
 
 ```
 # before/after microbench, minimum of N runs (single runs are too noisy)
-for i in 1 2 3 4 5; do ./build/host/clamiga --no-userinit --heap 64M \
+for i in 1 2 3 4 5; do ./build/host/amilisp --no-userinit --heap 64M \
     --non-interactive --load trunk/bench-prims.lisp; done   # take the min per row
 # acceptance cell
-./build/host/clamiga --heap 192M --load trunk/profile-sento-bench.lisp
+./build/host/amilisp --heap 192M --load trunk/profile-sento-bench.lisp
 # a fair "before": build the unmodified commit in a worktree and measure it
 # in the same session, not against a number from another day
 git worktree add --detach /tmp/base <commit> && make -C /tmp/base host
@@ -1158,7 +1158,7 @@ Homebrew, sento 3.4.4 local checkout in both.
 
 | | AVG msg/s | µs per message |
 | --- | ---: | ---: |
-| clamiga | **174,597** (dev 13,258) | 5.7 |
+| amilisp | **174,597** (dev 13,258) | 5.7 |
 | ECL (2026-07-15 entry below, 8 load threads) | 512k | 2.0 |
 
 ECL could not be re-run today: its `ql:quickload` of the bench dependencies
@@ -1166,7 +1166,7 @@ fails compiling the current serapeum (`level0/hash-tables`), so the July figure
 stands.  sento itself loads and compiles on ECL.
 
 **Recompile** `(asdf:load-system "sento" :force t)`, warm dependency cache:
-clamiga **0.39 s**, ECL **15.06 s**.
+amilisp **0.39 s**, ECL **15.06 s**.
 
 **Profile** (`sample` 25 s at steady state, on-CPU samples ≈ 38.7k): `cl_vm_run`
 self 26,646 (**69%**); `call_builtin` self 1,880 + its `cl_symbol_name` 323 +
@@ -1185,10 +1185,10 @@ STORE 10.8%, FLOAD 8.7%, CALL 7.5%, JNIL 5.7%, GLOAD 5.0% (72/message), CONST
 (10.8/message).
 
 **Per-primitive cost** (`trunk/bench-prims.lisp`, 1M iterations per row, ns
-net of the empty-loop baseline: clamiga speed 1 = 30.0, speed 3 = 24.0,
+net of the empty-loop baseline: amilisp speed 1 = 30.0, speed 3 = 24.0,
 ECL = 20.1; ECL rows are native `compile-file` output):
 
-| row | clamiga s1 | clamiga s3 | ECL |
+| row | amilisp s1 | amilisp s3 | ECL |
 | --- | ---: | ---: | ---: |
 | fixnum-add | -1 | 3 | -5 |
 | call-1arg | 18 | 20 | -7 |
@@ -1236,8 +1236,8 @@ row beyond noise.
 **Reproduce**:
 
 ```
-./build/host/clamiga --no-userinit --heap 64M --non-interactive --load trunk/bench-prims.lisp
-CLAMIGA_FORCE_SPEED=3 ./build/host/clamiga --no-userinit --heap 64M --non-interactive --load trunk/bench-prims.lisp
+./build/host/amilisp --no-userinit --heap 64M --non-interactive --load trunk/bench-prims.lisp
+CLAMIGA_FORCE_SPEED=3 ./build/host/amilisp --no-userinit --heap 64M --non-interactive --load trunk/bench-prims.lisp
 ecl --norc --eval '(progn (load (compile-file "trunk/bench-prims.lisp" :output-file "/tmp/bench-prims.fas")) (quit))'
 # profile: run trunk/profile-sento-bench.lisp in the background, wait for
 #   "BENCH STEADY STATE BEGIN", then: sample <pid> 25 -file out.sample
@@ -1286,7 +1286,7 @@ a dynamic-binding loop — a shared write on the call path shows as 3–4×
 the single-thread figure (healthy: within ~1.5×). After touching `vm.c`,
 compare the `vm.*` rows against this table.
 
-**Reproduce**: `echo '(quit)' | ./build/host/clamiga --heap 64M --load
+**Reproduce**: `echo '(quit)' | ./build/host/amilisp --heap 64M --load
 trunk/bench-opt.lisp`; sento: `trunk/sento-bench-matrix.lisp`.
 
 ---
@@ -1356,7 +1356,7 @@ minutes per log event during the item-definition phase.  Both tables now
 use the generic `CL_AlistIndex` open-addressing index (compiler.h), same
 protocol as the struct registry index.
 
-Repro: `./build/host/clamiga --heap 64M --load trunk/bench-opt.lisp`
+Repro: `./build/host/amilisp --heap 64M --load trunk/bench-opt.lisp`
 (bench registers 100 conditions + 100 deftypes first).
 
 | Benchmark (ms, best of runs) | before | after | delta |
@@ -1422,7 +1422,7 @@ elided.  See specs/performance.md § 1.3 for the design and file list.
 below (same flags; note the 07-05 numbers predate the CLOS slot-access
 specs, so only the rows below are attributable to 1.3).
 
-**Reproduce**: `echo '(quit)' | ./build/host/clamiga --heap 64M --load trunk/bench-opt.lisp`
+**Reproduce**: `echo '(quit)' | ./build/host/amilisp --heap 64M --load trunk/bench-opt.lisp`
 
 | Benchmark | before (07-05) | after | delta |
 |---|---|---|---|
@@ -1654,7 +1654,7 @@ absolute times are not comparable to a bytecode VM; the ratio is):
 |---|---|---|
 | SBCL 2.6.5 | 2.61 ns | 5.14× |
 | ECL 26.5.5 (`compile-file`) | 13.22 ns | 2.59× |
-| clamiga (this entry) | 28.5 ns | **1.20×** |
+| amilisp (this entry) | 28.5 ns | **1.20×** |
 
 Note: ECL's `--load` of *source* runs its bytecode interpreter (53 ns/access,
 a meaningless 1.05× ratio). The number above is after `compile-file`.
@@ -1714,7 +1714,7 @@ discriminator closure + method-function call — not slot resolution.
 **Reproduce**:
 
 ```
-echo '(quit)' | ./build/host/clamiga --heap 64M --load trunk/bench-opt.lisp
+echo '(quit)' | ./build/host/amilisp --heap 64M --load trunk/bench-opt.lisp
 ```
 
 ---
@@ -1761,7 +1761,7 @@ half of 3.1 (direct-index accessor closures at class finalization).
 **Reproduce**:
 
 ```
-echo '(quit)' | ./build/host/clamiga --heap 64M --load trunk/bench-opt.lisp
+echo '(quit)' | ./build/host/amilisp --heap 64M --load trunk/bench-opt.lisp
 ```
 
 ---
@@ -1799,7 +1799,7 @@ elements.
 **Reproduce**:
 
 ```
-echo '(quit)' | ./build/host/clamiga --heap 64M --load trunk/bench-opt.lisp
+echo '(quit)' | ./build/host/amilisp --heap 64M --load trunk/bench-opt.lisp
 # recompile timing: (ql:quickload "sento" :silent t) then
 #   (time (asdf:load-system "sento" :force :all))  at --heap 192M
 # profile: run the recompile in background, then: sample <pid> 20
@@ -1869,7 +1869,7 @@ Notes for later comparisons:
 **Reproduce**:
 
 ```
-echo '(quit)' | ./build/host/clamiga --heap 64M --load trunk/bench-opt.lisp
+echo '(quit)' | ./build/host/amilisp --heap 64M --load trunk/bench-opt.lisp
 ```
 
 On Amiga, scale down the repetition counts and the large-set size first:
@@ -1969,7 +1969,7 @@ iterations, 2 producer threads):
 
 ```
 # smoke (as committed):
-./build/host/clamiga --heap 192M --load trunk/run-sento-bench.lisp
+./build/host/amilisp --heap 192M --load trunk/run-sento-bench.lisp
 
 # measurement configs:
 #   (sento.bench::run-benchmark :dispatcher :pinned :duration 10
@@ -2014,8 +2014,8 @@ builtins and move little, as expected.
 **Reproduce**:
 
 ```
-./build/host/clamiga --no-userinit --heap 64M --non-interactive --load trunk/bench-opt.lisp
-CLAMIGA_FORCE_SPEED=3 ./build/host/clamiga --no-userinit --heap 64M --non-interactive --load trunk/bench-opt.lisp
+./build/host/amilisp --no-userinit --heap 64M --non-interactive --load trunk/bench-opt.lisp
+CLAMIGA_FORCE_SPEED=3 ./build/host/amilisp --no-userinit --heap 64M --non-interactive --load trunk/bench-opt.lisp
 ```
 
 ---
@@ -2054,7 +2054,7 @@ matrix as in [sento-bench-results-0.3.md](sento-bench-results-0.3.md)
   delta as indicative.
 - Cross-implementation context (same machine, same config, measured
   2026-07-15): SBCL 2.6.5 pinned/tell 1.44M msg/s, ECL 26.5.5 512k.
-  The TLAB moves clamiga from 1/10 to ~1/7.6 of SBCL on that cell.
+  The TLAB moves amilisp from 1/10 to ~1/7.6 of SBCL on that cell.
 
 **Reproduce**: run the 6-cell matrix via
 `sento.bench::run-benchmark` after `(load "trunk/load-sento-bench.lisp")`;

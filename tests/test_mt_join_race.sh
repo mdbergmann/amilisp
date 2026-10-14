@@ -18,9 +18,9 @@
 # Reproduction is probabilistic per run, so the binary runs several
 # times; any crash / hang / double-free abort in ANY run fails.
 #
-# Run: sh tests/test_mt_join_race.sh build/host/clamiga
+# Run: sh tests/test_mt_join_race.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then

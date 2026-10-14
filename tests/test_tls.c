@@ -143,7 +143,7 @@ TEST(tls_loopback_verified_handshake_and_echo)
         ASSERT(strstr(field, "CN=localhost") != NULL);
         ASSERT_EQ(0, platform_tls_peer_cert_field(client,
                      PLATFORM_TLS_CERT_ISSUER, field, sizeof(field)));
-        ASSERT(strstr(field, "CL-Amiga TLS test") != NULL);
+        ASSERT(strstr(field, "CL-Amiga TLS test") != NULL); /* the fixture cert's issuer (tests/data/tls-test-cert.pem) */
         /* Bad selector answers -1, not garbage. */
         ASSERT_EQ(-1, platform_tls_peer_cert_field(client, 99,
                                                    field, sizeof(field)));
@@ -235,7 +235,7 @@ TEST(tls_start_argument_errors)
 int main(void)
 {
     /* SSL_write/send on a peer-closed socket must not kill the test binary
-     * (the clamiga binary installs this in main.c; tests link without it).
+     * (the amilisp binary installs this in main.c; tests link without it).
      * Windows has no SIGPIPE — a send to a closed peer just fails the call. */
 #ifndef PLATFORM_WIN32
     signal(SIGPIPE, SIG_IGN);

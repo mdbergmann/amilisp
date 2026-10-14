@@ -11,7 +11,7 @@
 # say.  Comments are free to use whatever they like: this checks literals
 # only, with comments stripped first.
 #
-# Run: sh tests/test_ascii_messages.sh        (no clamiga binary needed)
+# Run: sh tests/test_ascii_messages.sh        (no amilisp binary needed)
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 status=0

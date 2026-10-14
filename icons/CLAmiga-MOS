@@ -1,7 +1,0 @@
-; CLAmiga-MOS -- double-click launcher (run by C:IconX, see CLAmiga-MOS.info).
-; Starts the native MorphOS (PowerPC) build in the console window named in
-; the icon's WINDOW tool type.  MorphOS only -- on AmigaOS 3 use CLAmiga or
-; CLAmiga-FPU.  The current directory is this drawer, where lib/ sits, and
-; the binary finds its clamiga.img and lib/ from there.
-Stack 131072
-bin/mos/clamiga

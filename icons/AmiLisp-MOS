@@ -1,0 +1,7 @@
+; AmiLisp-MOS -- double-click launcher (run by C:IconX, see AmiLisp-MOS.info).
+; Starts the native MorphOS (PowerPC) build in the console window named in
+; the icon's WINDOW tool type.  MorphOS only -- on AmigaOS 3 use AmiLisp or
+; AmiLisp-FPU.  The current directory is this drawer, where lib/ sits, and
+; the binary finds its amilisp.img and lib/ from there.
+Stack 131072
+bin/mos/amilisp

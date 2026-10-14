@@ -17,9 +17,9 @@
 #   - exit with a tail longer than the 2 s bound: the process still exits,
 #     and says how many workers it left behind.
 #
-# Run: sh tests/test_mt_thread_exit_drain.sh build/host/clamiga
+# Run: sh tests/test_mt_thread_exit_drain.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then

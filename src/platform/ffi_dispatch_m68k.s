@@ -1,4 +1,4 @@
-| ffi_dispatch_m68k.s — AmigaOS library call trampoline for CL-Amiga FFI
+| ffi_dispatch_m68k.s — AmigaOS library call trampoline for AmiLisp FFI
 |
 | uint32_t platform_amiga_call(uint32_t lib_base, int16_t offset,
 |                               uint32_t *regs, uint16_t reg_mask);

@@ -8,9 +8,9 @@
 # see tests/test_amiga_curated_vs_raw.lisp for the three checks.  It would
 # have caught AMIGA.INTUITION:+WFLG-REPORTMOUSE+ = #x4 (real value #x200).
 #
-# Run: sh tests/test_amiga_curated_vs_raw.sh build/host/clamiga
+# Run: sh tests/test_amiga_curated_vs_raw.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 CHECK="$ROOT/tests/test_amiga_curated_vs_raw.lisp"
 case "$CLAMIGA" in /*) ;; *) CLAMIGA="$(pwd)/$CLAMIGA" ;; esac

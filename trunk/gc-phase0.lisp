@@ -2,7 +2,7 @@
 ;;; classic collection cycle spend its time on THIS machine, and how much
 ;;; does the allocator pay between cycles for the free list?
 ;;;
-;;;   clamiga --heap 8M --non-interactive --load trunk/gc-phase0.lisp
+;;;   amilisp --heap 8M --non-interactive --load trunk/gc-phase0.lisp
 ;;;
 ;;; Optional, before loading: (defparameter cl-user::*phase0-load* "path")
 ;;; -- a file to LOAD first (e.g. lib/clamacs/load.lisp) so the live set is

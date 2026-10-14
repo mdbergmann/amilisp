@@ -1,6 +1,0 @@
-; CLAmiga-FPU -- double-click launcher (run by C:IconX, see CLAmiga-FPU.info).
-; Starts the hard-float AmigaOS 3 build: REQUIRES a 68881/68882 FPU or a
-; 68040/68060 with its FPU library (see README-FIRST, "Which AmigaOS
-; binary?"); without one use CLAmiga.  On MorphOS use CLAmiga-MOS.
-Stack 131072
-bin/aos3-fpu/clamiga

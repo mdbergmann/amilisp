@@ -17,9 +17,9 @@
 #      the following line -- the lookup landed on (g)'s line.  The lookup now
 #      maps ip - 1, the last byte of the call instruction.
 #
-# Run: sh tests/test_backtrace_lines.sh build/host/clamiga
+# Run: sh tests/test_backtrace_lines.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then

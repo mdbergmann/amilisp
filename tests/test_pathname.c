@@ -625,7 +625,7 @@ TEST(file_write_date_accepts_pathname)
 
 /* --- Tilde expansion --- */
 
-/* $HOME as clamiga will have spelled it.  On Windows the environment may
+/* $HOME as amilisp will have spelled it.  On Windows the environment may
  * hand back either separator (a cmd.exe session has USERPROFILE-style
  * backslashes, an MSYS shell forward ones) while every namestring leaving
  * the runtime uses '/', so normalise before comparing. */

@@ -12,7 +12,7 @@
 # non-symbol struct with a `function` slot, the setter itself) carries a
 # `symfn-raw: <reason>` comment on the same line.
 #
-# Run: sh tests/test_symfn_funnel.sh        (no clamiga binary needed)
+# Run: sh tests/test_symfn_funnel.sh        (no amilisp binary needed)
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 TMPDIR="${TMPDIR:-/tmp}"

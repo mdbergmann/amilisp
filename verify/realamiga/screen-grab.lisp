@@ -1,7 +1,7 @@
 ;;; screen-grab.lisp — FS-UAE harness helper: photograph new windows and
 ;;; screens.
 ;;;
-;;; Run detached (Run >log clamiga --load verify/realamiga/screen-grab.lisp)
+;;; Run detached (Run >log amilisp --load verify/realamiga/screen-grab.lisp)
 ;;; next to an unattended GUI run.  It watches the default public screen
 ;;; and Intuition's screen list; whenever a window it has not seen before
 ;;; appears on the public screen, or a titled custom screen opens, it

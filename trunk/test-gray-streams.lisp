@@ -5,11 +5,11 @@
 ;; OUTPUT-STREAM-P already returned T.
 ;;
 ;; Usage (host):
-;;   ./build/host/clamiga --heap 24M --load trunk/test-gray-streams.lisp
+;;   ./build/host/amilisp --heap 24M --load trunk/test-gray-streams.lisp
 ;;
 ;; Usage (Amiga, from the Amiga shell):
 ;;   stack 65536
-;;   clamiga --heap 24M --load trunk/test-gray-streams.lisp
+;;   amilisp --heap 24M --load trunk/test-gray-streams.lisp
 
 (setq *pass-count* 0)
 (setq *fail-count* 0)

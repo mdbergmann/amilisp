@@ -115,7 +115,7 @@
     ; CheckIO stays busy indefinitely.  Probe with a 10 s budget so the
     ; check self-reinstates if the emulation ever gains completion, and
     ; SKIP (not FAIL) when it doesn't: the timing is the emulation's
-    ; property, not clamiga's.
+    ; property, not amilisp's.
     #-m68k
     (progn
       (amiga.audio:play-sample audio *audio-test-chip* 400)
@@ -168,7 +168,7 @@
     ; precedence-0 request the very channel a precedence-0 holder still
     ; has, once another allocation came and went (the -50 probe above):
     ; OpenDevice returns 0 with io_Error 0 and the same ioa_AllocKey
-    ; channel -- the emulation's bookkeeping, not clamiga's.  Off m68k a
+    ; channel -- the emulation's bookkeeping, not amilisp's.  Off m68k a
     ; second handle on the same channel is therefore a SKIP, not a FAIL;
     ; a failed open or a multi-channel mask still fails everywhere, and
     ; the check reinstates itself where the emulation allocates like Paula.

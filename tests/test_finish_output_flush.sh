@@ -25,9 +25,9 @@
 # Order matters: read back BEFORE closing, since CLOSE flushes too and would
 # hide the bug; the close afterwards is only cleanup.
 #
-# Run: sh tests/test_finish_output_flush.sh build/host/clamiga
+# Run: sh tests/test_finish_output_flush.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then
@@ -42,7 +42,7 @@ tmp="$work/probe.lisp"
 out="$work/out.txt"
 trap 'rm -rf "$work"' EXIT
 
-# The directory as clamiga must see it (Windows spelling under MSYS).
+# The directory as amilisp must see it (Windows spelling under MSYS).
 wdir=$(native_path "$work")
 
 fail=0

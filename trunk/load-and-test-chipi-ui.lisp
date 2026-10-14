@@ -13,7 +13,7 @@
 ;; cl-amiga hunchentoot acceptor portability is therefore not exercised.
 ;;
 ;; Usage (host):
-;;   ./build/host/clamiga --heap 256M --load trunk/load-and-test-chipi-ui.lisp
+;;   ./build/host/amilisp --heap 256M --load trunk/load-and-test-chipi-ui.lisp
 ;;
 ;; On Amiga: --heap >= 96M and a large stack (e.g. `stack 800000`).
 

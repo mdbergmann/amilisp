@@ -27,10 +27,10 @@
 # down for that run because every single allocation now triggers a full
 # mark-sweep-compaction.
 #
-# Run: sh tests/test_mt_intern_stw.sh build/host/clamiga
-# Run under stress: CLAMIGA_GC_STRESS=1 sh tests/test_mt_intern_stw.sh build/host-gcstress/clamiga
+# Run: sh tests/test_mt_intern_stw.sh build/host/amilisp
+# Run under stress: CLAMIGA_GC_STRESS=1 sh tests/test_mt_intern_stw.sh build/host-gcstress/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then

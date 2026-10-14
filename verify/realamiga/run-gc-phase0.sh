@@ -7,7 +7,7 @@
 # classic and the Immix m68k binaries can be measured on the same emulated
 # machine and read side by side (docs/gc-phase0-results.md).
 #
-#   BINDIR   repo-relative directory holding the m68k clamiga to measure:
+#   BINDIR   repo-relative directory holding the m68k amilisp to measure:
 #            build/cross (the default, Immix), build/cross-classic
 #            (`make -f Makefile.cross amiga GC=classic`), build/cross-fpu, ...
 #   CONFIG   the FS-UAE config (default verify/realamiga/verify.fs-uae, the
@@ -36,12 +36,12 @@ CONFIG="${2:-verify/realamiga/verify.fs-uae}"
 
 case "$BINDIR" in
     /*|*:*)
-        echo "ERROR: BINDIR must be relative to the repo root — FS-UAE sees it as CLAmiga:$BINDIR" >&2
+        echo "ERROR: BINDIR must be relative to the repo root — FS-UAE sees it as AmiLisp:$BINDIR" >&2
         exit 1 ;;
 esac
 BINDIR=${BINDIR%/}
-[ -f "$BINDIR/clamiga" ] || {
-    echo "ERROR: $BINDIR/clamiga missing — make -f Makefile.cross amiga [GC=immix] first" >&2; exit 1; }
+[ -f "$BINDIR/amilisp" ] || {
+    echo "ERROR: $BINDIR/amilisp missing — make -f Makefile.cross amiga [GC=immix] first" >&2; exit 1; }
 [ -f "$CONFIG" ] || { echo "ERROR: $CONFIG not found" >&2; exit 1; }
 if pgrep -x fs-uae >/dev/null 2>&1; then
     echo "ERROR: an FS-UAE is already running — pkill fs-uae first" >&2
@@ -52,11 +52,11 @@ TAG="$(basename "$BINDIR")-$(basename "$CONFIG" .fs-uae)"
 if [ -n "$SCRIPT" ]; then
     [ -f "$SCRIPT" ] || { echo "ERROR: SCRIPT=$SCRIPT not found" >&2; exit 1; }
     TAG="$(basename "$SCRIPT" .lisp)-$TAG"
-    AMI_SCRIPT="CLAmiga:$SCRIPT"
+    AMI_SCRIPT="AmiLisp:$SCRIPT"
 else
     [ -d clamacs/lisp ] || {
         echo "ERROR: clamacs/lisp missing — git submodule update --init clamacs" >&2; exit 1; }
-    AMI_SCRIPT="CLAmiga:build/amiga/gc-phase0-clamacs.lisp"
+    AMI_SCRIPT="AmiLisp:build/amiga/gc-phase0-clamacs.lisp"
 fi
 LOG="build/amiga/gc-phase0-$TAG.log"
 mkdir -p build/amiga
@@ -70,20 +70,20 @@ if [ -z "$SCRIPT" ]; then
 
     cat > build/amiga/gc-phase0-clamacs.lisp <<'EOF'
 ;; Phase 0 with the editor's live set: load Clamacs first, then measure.
-(defparameter cl-user::*phase0-load* "CLAmiga:build/editor-lib/lib/clamacs/load.lisp")
-(load "CLAmiga:trunk/gc-phase0.lisp")
+(defparameter cl-user::*phase0-load* "AmiLisp:build/editor-lib/lib/clamacs/load.lisp")
+(load "AmiLisp:trunk/gc-phase0.lisp")
 EOF
 fi
 
-AMI_BIN="CLAmiga:$BINDIR/clamiga"
-AMI_LOG="CLAmiga:$LOG"
+AMI_BIN="AmiLisp:$BINDIR/amilisp"
+AMI_LOG="AmiLisp:$LOG"
 
 # The AmigaDOS script call-on-ustartup executes instead of the suite.  It
 # must write the "=== run end ===" marker run-fs-uae.sh watches for and
 # quit the emulator itself.
 cat > build/amiga/boot-override <<EOF
 stack 128000
-cd CLAmiga:
+cd AmiLisp:
 echo "=== gc-phase0 start: $AMI_BIN ($TAG) ===" >$AMI_LOG
 date >>$AMI_LOG
 $AMI_BIN --no-userinit --no-image --heap 8M --non-interactive --load $AMI_SCRIPT >>$AMI_LOG
@@ -92,7 +92,7 @@ date >>$AMI_LOG
 C:UAEquit
 EOF
 
-echo "=== gc-phase0: $BINDIR/clamiga on $CONFIG -> $LOG ==="
+echo "=== gc-phase0: $BINDIR/amilisp on $CONFIG -> $LOG ==="
 # A churn cycle on the 68020 floor can go 5 minutes without a line of
 # output, and the whole run close to an hour; the suite's defaults
 # (10 / 30 min) would kill a healthy measurement.

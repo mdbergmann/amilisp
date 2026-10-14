@@ -503,7 +503,7 @@ static CL_Obj bi_intern(CL_Obj *args, int nargs)
      * relocate args[0] and dangle a raw s->data pointer — interning a
      * garbage name.  A wide string (e.g. from (make-array n :element-type
      * 'character), as alexandria's SYMBOLICATE uses) is narrowed here too;
-     * clamiga's symbol table is byte-based and names are overwhelmingly
+     * amilisp's symbol table is byte-based and names are overwhelmingly
      * ASCII/Latin-1, which round-trips exactly. */
     {
         uint32_t i;

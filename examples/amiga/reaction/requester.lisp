@@ -16,7 +16,7 @@
 ;;; GET-ATTR.
 ;;;
 ;;; Run on AmigaOS 3.5+/3.2 or MorphOS (ReAction classes required):
-;;;   clamiga --load examples/amiga/reaction/requester.lisp
+;;;   amilisp --load examples/amiga/reaction/requester.lisp
 
 (require "amiga/reaction")
 (require "amiga/raw/intuition")

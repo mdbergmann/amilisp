@@ -14,9 +14,9 @@
 #   4. missing slot signals an error naming the slot
 #   5. lookups still resolve after an explicit compaction (index rebuild)
 #
-# Run: sh tests/test_struct_slot_access.sh build/host/clamiga
+# Run: sh tests/test_struct_slot_access.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0

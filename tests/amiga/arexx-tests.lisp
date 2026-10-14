@@ -51,8 +51,8 @@
 
         (multiple-value-bind (rc text) (amiga.arexx:send port "VERSION")
           (check "arexx version rc" 0 rc)
-          (check "arexx version mentions CL-Amiga" t
-                 (and (search "CL-Amiga" text) t)))
+          (check "arexx version mentions AmiLisp" t
+                 (and (search "AmiLisp" text) t)))
 
         ; A form evaluated in the running image, from the editor's side.
         (multiple-value-bind (rc text) (amiga.arexx:send port "EVAL (+ 40 2)")
@@ -62,7 +62,7 @@
         ; A form that errors -- an undefined function, the typo case -- must
         ; come back as a diagnostic (rc 10, text via LASTRESULT) and leave
         ; the handler thread on the port: the editor's C-c C-c of
-        ; (formt t "hello") must not take clamiga's console debugger or the
+        ; (formt t "hello") must not take amilisp's console debugger or the
         ; port down with it.  Runtime-raised, so the JIT's unwind through
         ; the command layer's guard is what this exercises on the m68k.
         (multiple-value-bind (rc text)

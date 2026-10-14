@@ -4,16 +4,16 @@
 # stalled wait — the contended lock (name), the waiting thread, the
 # current holder (name + wait state), and finally the total wait once the
 # lock is acquired.  Built for triaging intermittent multi-minute stalls
-# (a loader parked on a lock another thread holds) from clamiga's own
+# (a loader parked on a lock another thread holds) from amilisp's own
 # output, where MP:DUMP-THREAD-WAITS would need a watchdog to fire at
 # exactly the right moment.
 #
 # Also verifies the diagnostic is OFF by default: without the env var the
 # same contended run must print nothing.
 #
-# Run: sh tests/test_lock_diag.sh build/host/clamiga
+# Run: sh tests/test_lock_diag.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then

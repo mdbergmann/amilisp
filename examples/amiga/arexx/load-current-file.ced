@@ -1,29 +1,29 @@
-/* load-current-file.ced -- CygnusEd ARexx macro for CL-Amiga
+/* load-current-file.ced -- CygnusEd ARexx macro for AmiLisp
  *
- * Saves the current buffer, loads it into the running clamiga, and reports
+ * Saves the current buffer, loads it into the running amilisp, and reports
  * the compile diagnostics in the editor's status line (with the full text
  * in a requester when something went wrong).
  *
  * Install: copy to REXX: (S: on a stock system) and bind it to a key from
- * CygnusEd's ARexx menu.  Start the port on the clamiga side first:
+ * CygnusEd's ARexx menu.  Start the port on the amilisp side first:
  *
  *     (require "amiga/arexx")
  *     (amiga.arexx:start)
  *
- * Put those two lines in S:.clamigarc to have every session offer the port.
+ * Put those two lines in S:.amilisprc to have every session offer the port.
  */
 
 OPTIONS RESULTS
 
 /* FAILAT 21 is not optional.  ARexx aborts a macro when a command's return
  * code reaches the FAILAT threshold, and the default is 10 -- which is
- * exactly the code clamiga returns for `your file has errors'.  Without
+ * exactly the code amilisp returns for `your file has errors'.  Without
  * this the macro would die at the moment it had something to report. */
 OPTIONS FAILAT 21
 
 PORT = 'CLAMIGA'
 IF ~SHOW('P', PORT) THEN DO
-    /* A second clamiga takes CLAMIGA.1, and so on. */
+    /* A second amilisp takes CLAMIGA.1, and so on. */
     DO i = 1 TO 9
         IF SHOW('P', PORT'.'i) THEN DO
             PORT = PORT'.'i
@@ -33,11 +33,11 @@ IF ~SHOW('P', PORT) THEN DO
 END
 IF ~SHOW('P', PORT) THEN DO
     'STATUS 0'          /* CygnusEd: ask for the current file name */
-    CALL Message('CL-Amiga is not running, or its ARexx port is not started.')
+    CALL Message('AmiLisp is not running, or its ARexx port is not started.')
     EXIT 10
 END
 
-/* --- save the buffer so clamiga loads what is on screen ------------- */
+/* --- save the buffer so amilisp loads what is on screen ------------- */
 
 ADDRESS 'rexx_ced'
 'STATUS 24'             /* full path of the current file */
@@ -61,7 +61,7 @@ IF RC_LOAD = 0 THEN DO
 END
 
 /* rc /= 0, so ARexx did not give us RESULT: ask for the text explicitly.
- * This is the protocol, not a clamiga quirk -- a result string may only
+ * This is the protocol, not a amilisp quirk -- a result string may only
  * accompany a zero return code. */
 ADDRESS VALUE PORT
 'LASTRESULT'

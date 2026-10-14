@@ -594,7 +594,7 @@ TEST(stw_gc_with_thread_blocked_in_accept)
  * parked in the blocking stdin read (platform_read_line).
  *
  * This is the SLY :spawn REPL hang.  The main thread parks in
- * cl_repl()'s fgets (under a `tail -f /dev/null | clamiga` launcher it
+ * cl_repl()'s fgets (under a `tail -f /dev/null | amilisp` launcher it
  * never gets a line), while a spawned worker printing a backtrace into
  * SLDB allocates and fires the first stop-the-world GC.  Unless
  * platform_read_line brackets its fgets with the GC safe region, the

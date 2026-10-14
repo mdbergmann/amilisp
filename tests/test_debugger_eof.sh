@@ -3,7 +3,7 @@
 #
 # SBCL semantics: EOF at the debugger prompt aborts to top level and the
 # session keeps running; a second Ctrl-D at the top-level prompt exits.
-# clamiga used to unwind to top level correctly but leave stdio's sticky
+# amilisp used to unwind to top level correctly but leave stdio's sticky
 # EOF flag set, so the REPL's very next fgets returned EOF and the session
 # died ("Bye.") anyway — the debugger now clears the flag
 # (platform_clear_stdin_eof) and jumps to top level like :q.
@@ -12,9 +12,9 @@
 # needs a PTY — driven with expect(1), and skipped where it isn't installed
 # (Linux CI images, MSYS2).
 #
-# Run: sh tests/test_debugger_eof.sh build/host/clamiga
+# Run: sh tests/test_debugger_eof.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 EXPECT=$(command -v expect 2>/dev/null || true)
 if [ -z "$EXPECT" ]; then

@@ -39,6 +39,8 @@ mosdebug.log
 *.uaem
 
 # MorphOS-built binaries dropped in for scripts/make-binary-release.sh
+/amilisp-mos
+/amilisp-mos.img
 /clamiga-mos
 /clamiga-mos.img
 /clamacs-mos.img

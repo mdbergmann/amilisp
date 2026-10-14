@@ -1,7 +1,7 @@
 #!/bin/sh
-# Regression test: clamiga must never hang after a --load completes.
+# Regression test: amilisp must never hang after a --load completes.
 #
-# Bug: `make test` -> host-cold-test ran clamiga in INTERACTIVE mode without
+# Bug: `make test` -> host-cold-test ran amilisp in INTERACTIVE mode without
 # redirecting stdin, so once the loaded script (the sento suite) finished,
 # main.c fell through to cl_repl(), which blocked in platform_read_line() on a
 # terminal that never sends EOF.  `make test` hung forever after the suite had
@@ -15,9 +15,9 @@
 #      immediately and exits cleanly.
 # A regression on either path would block on stdin and trip the timeout (124).
 #
-# Run: sh tests/test_load_exit.sh build/host/clamiga
+# Run: sh tests/test_load_exit.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 # Both assertions need a timeout binary to bound the "does it hang?" check.
 # Skip cleanly when absent (matches the repo's skip-when-prereq-missing rule).
@@ -42,7 +42,7 @@ check() {
     desc="$1"; ec="$2"; out="$3"
     total=$((total + 1))
     if [ "$ec" -eq 124 ]; then
-        echo "  FAIL  $desc (timed out, ec=124 — clamiga hung after load)"
+        echo "  FAIL  $desc (timed out, ec=124 — amilisp hung after load)"
         echo "    output: $(echo "$out" | head -5)"
         failed=$((failed + 1))
     elif [ "$ec" -ne 0 ]; then

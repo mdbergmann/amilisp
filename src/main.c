@@ -213,7 +213,7 @@ static void crash_dump(int sig, void *fault_addr)
 #endif
 #ifdef PLATFORM_WIN32
     /* Windows has no backtrace_symbols_fd; raw return addresses still let
-     * `addr2line -e clamiga.exe` name the frames, and asking dbghelp to
+     * `addr2line -e amilisp.exe` name the frames, and asking dbghelp to
      * symbolise from inside an exception filter is exactly the kind of
      * allocation this dump exists to avoid. */
     {
@@ -329,7 +329,7 @@ static void install_crash_handler(void)
  * every character the ACP cannot represent arrives as a literal '?' — the
  * argument is destroyed before the reader ever sees it:
  *
- *     clamiga --eval '(print (map (quote list) (function char-code) "AB"))'
+ *     amilisp --eval '(print (map (quote list) (function char-code) "AB"))'
  *
  * with two Japanese characters printed (63 63).  Everything downstream —
  * --eval forms, --load paths, script arguments — reads argv as UTF-8, which
@@ -377,7 +377,7 @@ static void win32_utf8_argv(int *argc_out, char ***argv_out)
 static void print_usage(void)
 {
     platform_write_string(
-        "Usage: clamiga [options]\n"
+        "Usage: amilisp [options]\n"
         "Options:\n"
         "  --heap <size>    Heap arena size (default: 4M)\n"
         "  --vm-stack <size>   VM value stack size (default: 64K)\n"
@@ -387,9 +387,9 @@ static void print_usage(void)
         "  --eval <expr>    Evaluate expression before REPL (multiple allowed)\n"
         "  --script <file>  Load file and exit (no REPL)\n"
         "  --non-interactive Process options and exit (no REPL)\n"
-        "  --no-userinit    Skip user init file (~/.clamigarc; Amiga: S:.clamigarc)\n"
+        "  --no-userinit    Skip user init file (~/.amilisprc; Amiga: S:.amilisprc)\n"
         "  --image <file>   Restore a heap image saved with EXT:SAVE-IMAGE\n"
-        "  --no-image       Skip auto-discovery of clamiga.img\n"
+        "  --no-image       Skip auto-discovery of amilisp.img\n"
         "  --no-fasl-cache  LOAD always compiles from source (no implicit FASL cache;\n"
         "                   also CLAMIGA_FASL_CACHE=0)\n"
         "  --color          Force color output\n"
@@ -449,41 +449,61 @@ typedef struct {
     const char *arg;
 } CLAction;
 
-/* Auto-discover a clamiga.img heap image, mirroring the lib/boot.fasl
+/* Auto-discover a amilisp.img heap image, mirroring the lib/boot.fasl
  * search in repl.c: cwd, then $CLAMIGA_HOME (host) / PROGDIR: (Amiga),
  * then executable-relative locations.  Returns 1 when an image was found
  * AND staged successfully.  A candidate that exists but fails
  * verification prints why and aborts discovery (falling back to a normal
  * boot) rather than silently trying weaker candidates. */
-static int discover_image(void)
+/* The image file names tried at each location, in order: amilisp.img is
+ * the name since the rename, clamiga.img what an existing installation
+ * still has beside its binary. */
+static const char *const cl_image_names[] = { "amilisp.img", "clamiga.img" };
+#define CL_IMAGE_NAME_COUNT 2
+
+/* Look for one of the image names under `dir` (a prefix ending in '/', a
+ * device like "PROGDIR:", or "" for the cwd).  0 = nothing there; otherwise
+ * the staging result (1 found and staged, -1 found but refused). */
+static int discover_image_in(const char *dir)
 {
     char path[768];
+    int ni;
+    for (ni = 0; ni < CL_IMAGE_NAME_COUNT; ni++) {
+        snprintf(path, sizeof(path), "%s%s", dir, cl_image_names[ni]);
+        if (platform_file_exists(path))
+            return cl_image_stage(path, 0) == 0 ? 1 : -1;
+    }
+    return 0;
+}
 
-    if (platform_file_exists("clamiga.img"))
-        return cl_image_stage("clamiga.img", 0) == 0;
+static int discover_image(void)
+{
+    int r;
+
+    if ((r = discover_image_in("")) != 0)
+        return r > 0;
 
 #ifdef PLATFORM_AMIGA
-    if (platform_file_exists("PROGDIR:clamiga.img"))
-        return cl_image_stage("PROGDIR:clamiga.img", 0) == 0;
+    if ((r = discover_image_in("PROGDIR:")) != 0)
+        return r > 0;
     {
         char prefix[512];
         if (platform_executable_ancestor_prefix(2, prefix,
-                                                (int)sizeof(prefix))) {
-            snprintf(path, sizeof(path), "%sclamiga.img", prefix);
-            if (platform_file_exists(path))
-                return cl_image_stage(path, 0) == 0;
-        }
+                                                (int)sizeof(prefix))
+            && (r = discover_image_in(prefix)) != 0)
+            return r > 0;
     }
 #else
     {
         const char *home = getenv("CLAMIGA_HOME");
         if (home && home[0]) {
+            char dir[520];
             size_t hlen = strlen(home);
             int hcut = (hlen > 0 && home[hlen - 1] == '/') ? (int)(hlen - 1)
                                                            : (int)hlen;
-            snprintf(path, sizeof(path), "%.*s/clamiga.img", hcut, home);
-            if (platform_file_exists(path))
-                return cl_image_stage(path, 0) == 0;
+            snprintf(dir, sizeof(dir), "%.*s/", hcut, home);
+            if ((r = discover_image_in(dir)) != 0)
+                return r > 0;
         }
     }
     {
@@ -492,17 +512,18 @@ static int discover_image(void)
             int ri;
             /* Same executable-relative locations as the lib/ search, minus
              * the trailing "lib/" component: an image ships beside the
-             * binary (release layout), in <prefix>/lib/clamiga/ next to the
-             * runtime library it was saved from (installed layout), or in
-             * the repo root (in-repo build). */
+             * binary (release layout), in <prefix>/lib/amilisp/ (or the
+             * pre-rename lib/clamiga/) next to the runtime library it was
+             * saved from (installed layout), or in the repo root (in-repo
+             * build). */
             static const char *const img_dirs[CL_LIB_REL_COUNT] = {
-                "", "../lib/clamiga/", "../../"
+                "", "../lib/amilisp/", "../lib/clamiga/", "../../"
             };
             for (ri = 0; ri < CL_LIB_REL_COUNT; ri++) {
-                snprintf(path, sizeof(path), "%s%sclamiga.img",
-                         prefix, img_dirs[ri]);
-                if (platform_file_exists(path))
-                    return cl_image_stage(path, 0) == 0;
+                char dir[1040];
+                snprintf(dir, sizeof(dir), "%s%s", prefix, img_dirs[ri]);
+                if ((r = discover_image_in(dir)) != 0)
+                    return r > 0;
             }
         }
     }
@@ -517,7 +538,7 @@ static unsigned long mem_diag_start_avail = 0;
  * failed to hand back.  Only meaningful on AmigaOS, where there is no
  * per-process reclaim and a leaked block is Fast RAM the machine loses until
  * reboot — so `Avail` before and after a run is exactly what a user sees, and
- * this is clamiga saying the same number about itself.
+ * this is amilisp saying the same number about itself.
  *
  * WHERE is deliberately part of the line: the worker-thread fast path skips
  * cl_mem_shutdown by design and will always show a large delta, and reading
@@ -557,7 +578,7 @@ static void mem_diag_report(const char *where)
  * before the heap exists.  A sound CPU costs a few milliseconds and
  * nothing is printed; a CPU that loses stores gets a warning on every
  * launch -- there is no software fix (the data cache, superscalar mode
- * and the compiler flags make no difference), so the one thing clamiga
+ * and the compiler flags make no difference), so the one thing amilisp
  * can do is name the defect instead of failing at random later, and put
  * :CPU-LOST-STORES on *FEATURES* for scripts.  CLAMIGA_CPU_CHECK=0 skips
  * the test (and the feature); CLAMIGA_CPU_CHECK=<n>, n > 0, makes a sound
@@ -600,16 +621,16 @@ static void cpu_store_check(void)
     cl_cpu_lost_stores = lost;
     if (simulated)
         platform_write_string(
-            "*** clamiga: CLAMIGA_CPU_CHECK is set: the CPU test found nothing,\n"
+            "*** amilisp: CLAMIGA_CPU_CHECK is set: the CPU test found nothing,\n"
             "*** the warning below is SIMULATED.\n");
     snprintf(buf, sizeof(buf),
-             "*** clamiga: THIS CPU LOSES MEMORY STORES: %lu of %lu replays of a\n"
+             "*** amilisp: THIS CPU LOSES MEMORY STORES: %lu of %lu replays of a\n"
              "*** five-store sequence left a word unwritten.  Known on the Apollo 68080\n"
              "*** (Vampire V4, core 10760); no software setting avoids it.  Any program\n"
              "*** can fail at random (\"not a function\", \"too few arguments\", wrong\n"
              "*** values), and a launch this test does not flag is not safe either.\n"
              "*** :CPU-LOST-STORES is on *FEATURES*; (ext:%%cpu-store-selftest) repeats\n"
-             "*** the test.  See verify/realamiga/PROBES.md in the clamiga sources and\n"
+             "*** the test.  See verify/realamiga/PROBES.md in the amilisp sources and\n"
              "*** report your core (ApolloControl CORE) to the Apollo team.\n"
              "*** CLAMIGA_CPU_CHECK=0 skips this test.\n",
              (unsigned long)lost, (unsigned long)CPU_STORE_CHECK_ROUNDS);
@@ -698,7 +719,7 @@ static int clamiga_main(int argc, char *argv[])
     /* A delivered executable (EXT:SAVE-IMAGE :EXECUTABLE T) carries its
      * image behind the runtime.  Looked for before the command line is
      * read, because then the command line is the program's: every argument
-     * goes to EXT:*COMMAND-LINE-ARGS* verbatim, none is a clamiga option,
+     * goes to EXT:*COMMAND-LINE-ARGS* verbatim, none is a amilisp option,
      * and the user init file is not the program's business either. */
     embedded = cl_image_stage_embedded();
     if (embedded < 0)
@@ -861,7 +882,7 @@ static int clamiga_main(int argc, char *argv[])
 
     /* Heap image: stage (read + verify) BEFORE cl_mem_init so the arena
      * can be sized to the image's payload.  An explicit --image that
-     * fails to stage is fatal; a discovered clamiga.img that fails falls
+     * fails to stage is fatal; a discovered amilisp.img that fails falls
      * back to a normal boot (cl_image_stage already said why).
      *
      * --boot-log accounting: the image path's cost is this stage (read +
@@ -1014,7 +1035,7 @@ static int clamiga_main(int argc, char *argv[])
 
     if (embedded) {
         /* A delivered executable runs its :TOPLEVEL function and ends with
-         * it; one saved without is a clamiga that starts with the program
+         * it; one saved without is a amilisp that starts with the program
          * loaded, at the REPL below. */
         if (cl_image_run_toplevel()) {
             cl_image_save_run_if_pending();
@@ -1125,13 +1146,13 @@ static int clamiga_main(int argc, char *argv[])
         platform_write_string("  (((      ");
         cl_color_set(CL_COLOR_RED);
         platform_write_string("\\\\\n");
-        /* Line 2:  (((        \\          CL-Amiga v<version> */
+        /* Line 2:  (((        \\          AmiLisp v<version> */
         cl_color_set(CL_COLOR_LIGHT_BLUE);
         platform_write_string(" (((        ");
         cl_color_set(CL_COLOR_RED);
         platform_write_string("\\\\          ");
         cl_color_set(CL_COLOR_DIM_CYAN);
-        platform_write_string("CL-Amiga v" CL_VERSION_STRING "\n");
+        platform_write_string("AmiLisp v" CL_VERSION_STRING "\n");
         /* Line 3: (((          \\ */
         cl_color_set(CL_COLOR_LIGHT_BLUE);
         platform_write_string("(((          ");
@@ -1314,14 +1335,14 @@ shutdown:
      * bytecode pointers into this pool (see compiler.c). */
     cl_compiler_release_source_pool();
     SHUTDOWN_TRACE("source pool done");
-    /* Every clamiga-owned allocator is now closed, so anything the tracer
+    /* Every amilisp-owned allocator is now closed, so anything the tracer
      * still shows as live is a leak with a file:line on it (-DDEBUG_MEM_TRACK
      * builds only; a no-op macro otherwise). */
     cl_mem_track_report();
     mem_diag_report("exit");
 
 #if defined(PLATFORM_AMIGA) && !defined(PLATFORM_MORPHOS)
-    /* m68k AmigaOS (-noixemul): every clamiga-owned resource is already
+    /* m68k AmigaOS (-noixemul): every amilisp-owned resource is already
      * released above, but *returning* from main runs the C runtime's post-main
      * teardown (atexit handlers + fclose of the buffered stdio streams bound to
      * the console), which hangs — the process is left frozen in the Task list

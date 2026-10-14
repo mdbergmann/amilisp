@@ -29,9 +29,9 @@
 #
 # A build without the backend (x86-64, Windows, `make host JIT=0`)
 # skips them all.  Also run by `make test-gc-stress` (CLAMIGA_GC_STRESS=1).
-# Run: sh tests/test_jit_a64_walk.sh [path-to-clamiga]
+# Run: sh tests/test_jit_a64_walk.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0

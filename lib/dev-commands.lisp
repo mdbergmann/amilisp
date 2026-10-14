@@ -1,4 +1,4 @@
-;;; dev-commands.lisp -- the editor-facing command language for CL-Amiga
+;;; dev-commands.lisp -- the editor-facing command language for AmiLisp
 ;;;
 ;;; Loaded via (require "dev-commands").
 ;;;

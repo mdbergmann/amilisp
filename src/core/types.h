@@ -2,7 +2,7 @@
 #define CL_TYPES_H
 
 /*
- * CL-Amiga tagged pointer object representation (32-bit)
+ * AmiLisp tagged pointer object representation (32-bit)
  *
  * Bit layout of CL_Obj (uint32_t):
  *   xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx1  = Fixnum (31-bit signed, tag bit 0)
@@ -57,7 +57,7 @@
 #define CL_VERSION_LEN_FULL ((uint32_t)(sizeof(CL_VERSION_STRING_FULL) - 1))
 
 /*
- * AmigaOS version cookie.  `Version clamiga` in a Shell scans the executable
+ * AmigaOS version cookie.  `Version amilisp` in a Shell scans the executable
  * for a "$VER: " marker and prints the rest of the line, so the layout is
  * fixed by the OS: "$VER: <name> <version>.<revision> (<DD.MM.YYYY>)".
  *
@@ -65,7 +65,7 @@
  * reads raw bytes), so it must be marked CL_USED or -flto drops it.
  */
 #define CL_VERSION_TAG \
-    "$VER: clamiga " CL_VERSION_STRING " (" CL_VERSION_DATE ")"
+    "$VER: amilisp " CL_VERSION_STRING " (" CL_VERSION_DATE ")"
 
 /* Force emission of an otherwise-unreferenced definition (GNU extension; the
    m68k-amigaos and host toolchains are both GCC-compatible). */
@@ -457,7 +457,7 @@ typedef struct {
 
 /* General-vector element-type codes (elt_type field).  CHARACTER and BIT
  * element types are tracked via CL_VEC_FLAG_STRING / a separate bit-vector
- * object, so they are not represented here.  clamiga stores all numeric
+ * object, so they are not represented here.  amilisp stores all numeric
  * elements as tagged CL_Obj regardless of code; the code only records the
  * declared element type so ARRAY-ELEMENT-TYPE and (TYPEP x '(VECTOR fixnum))
  * can distinguish a specialized numeric array from a general (VECTOR T) one

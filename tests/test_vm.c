@@ -1702,7 +1702,7 @@ TEST(eval_loop_for_and_parallel)
 /* CLHS 6.1.2.1.3 (for-as-on-list): the end of the list is tested "as if by
  * using atom", NOT endp.  So FOR/ON over a non-list (or the dotted tail of an
  * improper list) terminates the loop instead of signalling a TYPE-ERROR.
- * Regression: clamiga used endp, so e.g. chipi-api's equal-item-lists-p test
+ * Regression: amilisp used endp, so e.g. chipi-api's equal-item-lists-p test
  * helper -- which does (loop for (k v) on <hash-table> by #'cddr ...) and
  * relies on the conforming zero-iteration behaviour -- crashed with a
  * TYPE-ERROR where SBCL passes vacuously.  FOR/IN, by contrast, correctly
@@ -10243,7 +10243,7 @@ TEST(eval_getcwd)
     const char *result = eval_print("(ext:getcwd)");
     ASSERT(result[0] == '"');  /* printed as a string */
 #ifdef PLATFORM_WIN32
-    /* "C:/Users/..." — a drive letter, then the separator clamiga
+    /* "C:/Users/..." — a drive letter, then the separator amilisp
      * normalises every Windows path to. */
     ASSERT(result[2] == ':');
     ASSERT(result[3] == '/');
@@ -11469,7 +11469,7 @@ static void test_eval_remove_nonsequence_type_error(void)
  * on odd byte boundaries (the inlined-macro stub used during boot landed at
  * 0x...593 here).  An alignment-based check rejected that as a "corrupted C
  * function pointer" and aborted boot in some link layouts, while passing in
- * others — so every test binary crashed at boot on Linux while clamiga (a
+ * others — so every test binary crashed at boot on Linux while amilisp (a
  * different layout) survived.  See cl_vm_builtin_fptr_plausible in vm.c. */
 TEST(builtin_fptr_plausible_unaligned)
 {

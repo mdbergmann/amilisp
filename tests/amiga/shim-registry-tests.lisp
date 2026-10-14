@@ -1,7 +1,7 @@
 ; Bundled ASDF shim registration (lib/shims/) — loading ASDF must push
 ; lib/shims/{cl+ssl,swank}/ onto ASDF:*CENTRAL-REGISTRY*, resolved from
 ; *LOAD-TRUENAME* at load time.  On Amiga that exercises the device-path
-; pathname leg (CLAmiga:lib/shims/...) that the host shell test
+; pathname leg (AmiLisp:lib/shims/...) that the host shell test
 ; (tests/test_shim_registry.sh) cannot reach.  The registry entries are
 ; what make (asdf:find-system "cl+ssl") resolve to the bundled facade
 ; ahead of any Quicklisp/ocicl-installed cl+ssl — the mechanism drakma

@@ -1,4 +1,4 @@
-; Heap-image restore leg: runs in a `clamiga --image clamiga-test.img`
+; Heap-image restore leg: runs in a `amilisp --image amilisp-test.img`
 ; session (see tests/amiga/image-save.lisp for the state this checks).
 ; Prints IMAGE-VERIFY-PASSED only if every check holds — the marker
 ; Makefile.cross's verify-amiga requires.
@@ -72,7 +72,7 @@
                   (getf (clamiga::%binding-table-info "IMG-BT") :shed)))
 
 ; Process-derived state is re-derived on restore: this leg runs from
-; CLAmiga:tests (call-on-ustartup), the save leg ran from CLAmiga:.
+; AmiLisp:tests (call-on-ustartup), the save leg ran from AmiLisp:.
 (img-check "dpd is the restoring cwd, not the saver's" t
            (let ((dpd (namestring *default-pathname-defaults*)))
              (and (string/= dpd *img-saved-dpd*)
@@ -80,7 +80,7 @@
 (img-check "random-state reseeded" t
            (/= (random 1000000) *img-rnd-next*))
 
-; Library bases are re-derived before ~/.clamigarc runs
+; Library bases are re-derived before ~/.amilisprc runs
 ; (AMIGA.FFI:DEFINE-LIBRARY-VARIABLE); every library call path works from
 ; the restored process, and a base that is still a zeroed foreign pointer
 ; signals instead of jumping to -LVO.

@@ -2,14 +2,14 @@
  *
  * WHY THIS EXISTS
  *
- * clamiga allocates two very different kinds of memory.  Lisp objects live in
+ * amilisp allocates two very different kinds of memory.  Lisp objects live in
  * the GC arena, and ROOM accounts for every byte of it.  Everything else —
  * bytecode bodies, constants pools, compiler scratch, hash indexes, I/O
  * buffers, the JIT's code — is platform_alloc'd and invisible to every
  * statistic the runtime otherwise reports.
  *
  * On a host that gap is harmless: the kernel reclaims the whole address space
- * at exit.  On AmigaOS there is no such reclaim.  A block clamiga does not
+ * at exit.  On AmigaOS there is no such reclaim.  A block amilisp does not
  * hand back before the process ends is gone from the system pool until the
  * machine is rebooted, so a run that forgets 3 MB costs the user 3 MB of Fast
  * RAM per launch — which is exactly what was measured on a Vampire before the
@@ -31,7 +31,7 @@
  * below, tagging each call site via __FILE__ / __LINE__.  Live blocks are
  * held in a SIDE TABLE keyed by pointer — deliberately not a header prefixed
  * to each allocation.  A header would have to be read back on free, and
- * clamiga legitimately hands platform_free pointers this tracer never issued:
+ * amilisp legitimately hands platform_free pointers this tracer never issued:
  * platform_file_read returns a malloc'd (POSIX) or AllocVec'd (Amiga) buffer
  * that its caller releases with platform_free.  Reading a header off one of
  * those is a wild access before the start of the block.  A pointer lookup
@@ -79,7 +79,7 @@ static int    mt_buckets[MT_BUCKETS];
 static int    mt_free_head = -1;
 static int    mt_initialized = 0;
 
-/* platform_alloc/platform_free are called from every OS thread clamiga
+/* platform_alloc/platform_free are called from every OS thread amilisp
  * spawns (mp:make-thread workers allocate/free their own CL_Thread, VM
  * stack, frames, nlx stack), so the table below is genuinely shared,
  * mutable state across threads.  mt_init() itself runs from the first

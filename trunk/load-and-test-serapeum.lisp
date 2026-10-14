@@ -2,7 +2,7 @@
 ;; Works on both host and Amiga.
 ;;
 ;; Usage:
-;;   ./build/host/clamiga --heap 48M --load trunk/load-and-test-serapeum.lisp
+;;   ./build/host/amilisp --heap 48M --load trunk/load-and-test-serapeum.lisp
 
 (require "asdf")
 

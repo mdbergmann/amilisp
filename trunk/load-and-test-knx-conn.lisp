@@ -16,7 +16,7 @@
 ;; compiled here, never executed — no live gateway is required.
 ;;
 ;; Usage (host):
-;;   ./build/host/clamiga --heap 192M --load trunk/load-and-test-knx-conn.lisp
+;;   ./build/host/amilisp --heap 192M --load trunk/load-and-test-knx-conn.lisp
 ;;
 ;; On Amiga: --heap >= 96M and a large stack (e.g. `stack 800000`).
 
@@ -48,7 +48,7 @@
 ;; log4cl's logger objects — embedded as literal constants in the compiled
 ;; (log:debug ...) statements — are reconstructed via log4cl's MAKE-LOAD-FORM
 ;; method (it returns (%get-logger ...), which re-registers the logger in the
-;; live tree).  clamiga's FASL writer now honors MAKE-LOAD-FORM (CLHS 7.6), so
+;; live tree).  amilisp's FASL writer now honors MAKE-LOAD-FORM (CLHS 7.6), so
 ;; the parent (SENTO) logger is registered on load and the tests'
 ;; (log:config '(sento) :warn) succeeds without any pre-creation workaround.
 (asdf:load-system :knx-conn)

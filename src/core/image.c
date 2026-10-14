@@ -245,7 +245,7 @@ static CL_Obj SYM_SAVE_HOOKS = CL_NIL;        /* EXT:*SAVE-HOOKS* */
 static CL_Obj SYM_RESTORE_HOOKS = CL_NIL;     /* EXT:*RESTORE-HOOKS* */
 /* EXT::*SYSTEM-RESTORE-HOOKS* (internal): the runtime's own library modules
  * re-derive the OS state they captured at load time -- the Amiga library
- * bases of AMIGA.FFI:DEFINE-LIBRARY-VARIABLE -- before ~/.clamigarc runs,
+ * bases of AMIGA.FFI:DEFINE-LIBRARY-VARIABLE -- before ~/.amilisprc runs,
  * so no user code ever sees the zeroed foreign pointers of the image. */
 static CL_Obj SYM_SYSTEM_RESTORE_HOOKS = CL_NIL;
 static CL_Obj SYM_IMAGE_RESTORED_P = CL_NIL;  /* EXT:*IMAGE-RESTORED-P* */
@@ -292,7 +292,7 @@ static const char *image_save_preconditions(void)
 
     /* 1. No live worker threads (SBCL save-lisp-and-die doctrine).  Name
      * them: "1 worker thread" tells the user nothing when the thread is a
-     * service a module started for them (the ARexx port from .clamigarc,
+     * service a module started for them (the ARexx port from .amilisprc,
      * a TCP dev port, a REPL thread) -- the name says what to stop. */
     if (cl_thread_count > 1) {
         CL_Thread *t;
@@ -328,8 +328,8 @@ static const char *image_save_preconditions(void)
         snprintf(msg + n, sizeof(msg) - n,
                  ") - threads cannot survive into an image: JOIN-THREAD or "
                  "MP:DESTROY-THREAD them, or stop the service that started "
-                 "them (the ARexx port from .clamigarc is one: save from a "
-                 "clamiga started with --no-userinit)");
+                 "them (the ARexx port from .amilisprc is one: save from a "
+                 "amilisp started with --no-userinit)");
         return msg;
     }
 
@@ -633,7 +633,7 @@ static uint32_t image_copy_runtime(ImgWriter *w)
 
     if (!platform_executable_path(path, (int)sizeof(path))) {
         platform_write_string("; SAVE-IMAGE: cannot locate the running "
-                              "clamiga executable\n");
+                              "amilisp executable\n");
         return 0;
     }
     found = image_probe_trailer(path, &off, &len, &heap, &flen);
@@ -909,7 +909,7 @@ void cl_image_save_executable_request(const char *path, int quit, int shake,
      * runtime's own file there is nothing to put the image behind. */
     if (!platform_executable_path(self, (int)sizeof(self)))
         cl_error(CL_ERR_FILE,
-                 "SAVE-IMAGE: :EXECUTABLE T needs the running clamiga's own "
+                 "SAVE-IMAGE: :EXECUTABLE T needs the running amilisp's own "
                  "file, and this process cannot tell where it was started "
                  "from");
     fh = platform_file_open(self, PLATFORM_FILE_READ);
@@ -1153,7 +1153,7 @@ static int image_stage_at(const char *path, uint32_t off, uint32_t img_len,
         !image_parse_header(&r, &image_staged_hdr) ||
         image_staged_hdr.magic != CL_IMAGE_MAGIC) {
         image_stage_fail(quiet,
-            "; --image: \"%.300s\" is not a clamiga heap image (or was "
+            "; --image: \"%.300s\" is not an amilisp heap image (or was "
             "written with a different byte order)\n", path);
         cl_image_discard_staged();
         return -1;
@@ -1161,7 +1161,7 @@ static int image_stage_at(const char *path, uint32_t off, uint32_t img_len,
     if (image_staged_hdr.version != CL_IMAGE_VERSION) {
         image_stage_fail(quiet,
             "; --image: \"%.300s\" uses a different image format version - "
-            "it was written by a different build of clamiga; delete it or "
+            "it was written by a different build of amilisp; delete it or "
             "rebuild it with EXT:SAVE-IMAGE\n", path);
         cl_image_discard_staged();
         return -1;
@@ -1171,7 +1171,7 @@ static int image_stage_at(const char *path, uint32_t off, uint32_t img_len,
                CL_IMAGE_FPRINT_LEN) != 0) {
         image_stage_fail(quiet,
             "; --image: \"%.300s\" was written by a different build of "
-            "clamiga (version/feature/layout fingerprint mismatch) - "
+            "amilisp (version/feature/layout fingerprint mismatch) - "
             "delete it or rebuild it with EXT:SAVE-IMAGE\n", path);
         cl_image_discard_staged();
         return -1;
@@ -1290,7 +1290,7 @@ static int image_load_staged_payload(void)
         changed = 1;
     if (changed) {
         snprintf(buf, sizeof(buf),
-                 "; --image: \"%.300s\" changed while clamiga was starting - "
+                 "; --image: \"%.300s\" changed while amilisp was starting - "
                  "start it again\n", image_staged_path);
         platform_write_string(buf);
         if (image_staged_buf) {
@@ -1404,7 +1404,7 @@ int cl_image_restore_staged(void)
         snprintf(buf, sizeof(buf),
                  "; --image: boot-root count mismatch (image %u, this "
                  "process %d) - the image was written by a different build "
-                 "of clamiga; delete it or rebuild it with EXT:SAVE-IMAGE\n",
+                 "of amilisp; delete it or rebuild it with EXT:SAVE-IMAGE\n",
                  (unsigned)h->boot_roots, cl_gc_global_root_count());
         platform_write_string(buf);
         return -1;
@@ -1413,7 +1413,7 @@ int cl_image_restore_staged(void)
         char buf[300];
         snprintf(buf, sizeof(buf),
                  "; --image: image heap (%u KB) exceeds the arena (%u KB) - "
-                 "start clamiga with a larger --heap\n",
+                 "start amilisp with a larger --heap\n",
                  (unsigned)(h->bump >> 10),
                  (unsigned)(cl_heap.arena_size >> 10));
         platform_write_string(buf);
@@ -1446,7 +1446,7 @@ int cl_image_restore_staged(void)
     if (rt_bytes != (uint32_t)sizeof(cl_readtable_pool)) {
         platform_write_string(
             "; --image: readtable section mismatch - the image was written "
-            "by a different build of clamiga\n");
+            "by a different build of amilisp\n");
         return -1;
     }
 
@@ -1875,7 +1875,7 @@ int cl_image_restore_staged(void)
      * must be re-derived from this one, exactly as a fresh boot derives it
      * (the heap is a normal heap again here, so these may allocate):
      *   *DEFAULT-PATHNAME-DEFAULTS* — the saver's cwd; for a shipped
-     *     clamiga.img a directory on the build machine.  REQUIRE/LOAD
+     *     amilisp.img a directory on the build machine.  REQUIRE/LOAD
      *     check existence against the real cwd but merge the path against
      *     this, so a relative load "found" a file and then failed to open it.
      *   *RANDOM-STATE* — the saver's state, seeded from its clock: every
@@ -1887,7 +1887,7 @@ int cl_image_restore_staged(void)
         ((CL_Symbol *)CL_OBJ_TO_PTR(SYM_RANDOM_STATE))->value = rs;
     }
 
-    /* EXT:*IMAGE-RESTORED-P* — set before .clamigarc runs so an rc file
+    /* EXT:*IMAGE-RESTORED-P* — set before .amilisprc runs so an rc file
      * can skip redundant loads. */
     if (CL_SYMBOL_P(SYM_IMAGE_RESTORED_P))
         ((CL_Symbol *)CL_OBJ_TO_PTR(SYM_IMAGE_RESTORED_P))->value = SYM_T;

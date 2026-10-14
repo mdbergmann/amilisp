@@ -25,9 +25,9 @@
 #         from the fresh boot.fasl/clos.fasl, REQUIRE loads the lib/amiga FASLs
 #         (the "; Loading" line names the .fasl) and the modules work.
 #
-# Run: sh tests/test_lib_fasl_portable.sh build/host/clamiga
+# Run: sh tests/test_lib_fasl_portable.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 case "$CLAMIGA" in /*) ;; *) CLAMIGA="$(pwd)/$CLAMIGA" ;; esac
 TMPD=$(mktemp -d "${TMPDIR:-/tmp}/test_lib_fasl_portable_XXXXXX") || exit 1
@@ -39,7 +39,7 @@ failed=0
 ok()   { passed=$((passed + 1)); echo "  ok    $1"; }
 fail() { failed=$((failed + 1)); echo "  FAIL  $1"; [ -n "$2" ] && printf '%s\n' "$2" | sed 's/^/        /'; }
 
-run() {  # run [ENV=val ...] -- forms... ; prints clamiga's output
+run() {  # run [ENV=val ...] -- forms... ; prints amilisp's output
     env "$@" </dev/null 2>&1
 }
 
@@ -117,7 +117,7 @@ cat > "$TMPD/deployed.lisp" <<'EOF'
 EOF
 out=$(cd "$TMPD" && run CLAMIGA_NO_USERINIT=1 CLAMIGA_HOME= "$CLAMIGA" --no-userinit --non-interactive \
         --heap 64M --eval '(require "gray-streams")' --load deployed.lisp --eval '(quit)')
-# (clamiga prints the resolved path -- /private/var/... for a macOS /var/... TMPDIR --
+# (amilisp prints the resolved path -- /private/var/... for a macOS /var/... TMPDIR --
 # so match on the unique temp directory name, not the full prefix)
 if echo "$out" | grep -q "^; Loading .*/$(basename "$TMPD")/lib/amiga/raw/exec\.fasl"; then
     ok "REQUIRE loads lib/amiga/raw/exec.fasl from the deployed root"

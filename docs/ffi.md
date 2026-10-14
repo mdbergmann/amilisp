@@ -9,7 +9,7 @@ calls with full marshaling, and Lisp-as-C callbacks) on the **POSIX host**.
 - On AmigaOS, foreign *calls* go through the library-vector model in the
   [`AMIGA` / `AMIGA.FFI`](amiga.md) packages instead; the peek/poke and
   foreign-pointer parts of `FFI` work everywhere.
-- The standard **CFFI** API is layered on top of this engine via the CL-Amiga
+- The standard **CFFI** API is layered on top of this engine via the AmiLisp
   CFFI backend, so CFFI-dependent Quicklisp systems load on the host.
 
 ```lisp
@@ -64,7 +64,7 @@ masks, packet buffers). These move a whole span in one call:
 
 `source` is a string or a vector of `(integer 0 255)`. A string holds its
 bytes contiguously so it copies with `memcpy`; a vector holds one tagged
-element per byte — CL-Amiga upgrades `(unsigned-byte 8)` to `t`, as
+element per byte — AmiLisp upgrades `(unsigned-byte 8)` to `t`, as
 `upgraded-array-element-type` reports — so it unpacks in a C loop instead.
 Both beat per-byte `poke-u8`; only the string form reaches `memcpy` speed.
 

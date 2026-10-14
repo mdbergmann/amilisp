@@ -3,7 +3,7 @@
 ;; (chipz.asd gray-streams feature + stream.lisp class/GF defvars).
 ;;
 ;; Usage (host):
-;;   ./build/host/clamiga --heap 64M --load trunk/test-chipz-stream.lisp
+;;   ./build/host/amilisp --heap 64M --load trunk/test-chipz-stream.lisp
 
 (setq *load-verbose* nil)
 (require "asdf")

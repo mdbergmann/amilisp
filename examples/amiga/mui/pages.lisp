@@ -12,9 +12,9 @@
 ;;; MUIA_Cycle_Active with MUIV_TriggerValue.
 ;;;
 ;;; Run on AmigaOS 3.x with MUI 3.8+ installed, or on MorphOS:
-;;;   clamiga --load examples/amiga/mui/pages.lisp
+;;;   amilisp --load examples/amiga/mui/pages.lisp
 ;;; Unattended (auto-closes after 5 s):
-;;;   clamiga --eval '(require "amiga/mui")' \
+;;;   amilisp --eval '(require "amiga/mui")' \
 ;;;           --eval '(setf amiga.mui:*event-loop-timeout* 5)' \
 ;;;           --load examples/amiga/mui/pages.lisp
 

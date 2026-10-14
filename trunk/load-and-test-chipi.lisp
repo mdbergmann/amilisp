@@ -9,7 +9,7 @@
 ;; each system from the dist on a cold cache, and ASDF does the rest.
 ;;
 ;; Usage (host):
-;;   ./build/host/clamiga --heap 256M --load trunk/load-and-test-chipi.lisp
+;;   ./build/host/amilisp --heap 256M --load trunk/load-and-test-chipi.lisp
 ;;
 ;; On Amiga: --heap >= 96M and a large stack (e.g. `stack 800000`).
 

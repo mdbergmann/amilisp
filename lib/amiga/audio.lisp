@@ -1,4 +1,4 @@
-;;; amiga/audio.lisp — audio.device abstractions for CL-Amiga
+;;; amiga/audio.lisp — audio.device abstractions for AmiLisp
 ;;;
 ;;; Loaded via (require "amiga/audio").
 ;;; Allocates a Paula channel through audio.device and plays 8-bit

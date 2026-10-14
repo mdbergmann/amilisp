@@ -15,9 +15,9 @@
 #    for — babel's INSTANTIATE-CONCRETE-MAPPINGS).  The anchor test keeps
 #    any compiler owned by a still-live C frame.
 #
-# Run: sh tests/test_compiler_chain_unwind.sh build/host/clamiga
+# Run: sh tests/test_compiler_chain_unwind.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then

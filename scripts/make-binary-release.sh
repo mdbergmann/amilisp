@@ -1,24 +1,24 @@
 #!/bin/bash
 # make-binary-release.sh — assemble the AmigaOS/MorphOS binary release.
 #
-# Produces build/release/clamiga-<version>/ and .zip/.lha archives:
+# Produces build/release/amilisp-<version>/ and .zip/.lha archives:
 #
-#   clamiga-<version>/
-#     bin/aos3/clamiga      AmigaOS 3+ (68020+) soft-float binary, runs on
+#   amilisp-<version>/
+#     bin/aos3/amilisp      AmigaOS 3+ (68020+) soft-float binary, runs on
 #                           any CPU — cross-compiled here
-#     bin/aos3-fpu/clamiga  AmigaOS 3+ hard-float binary (Makefile.cross
+#     bin/aos3-fpu/amilisp  AmigaOS 3+ hard-float binary (Makefile.cross
 #                           FPU=1, -m68881) — REQUIRES an FPU (68881/68882,
 #                           68040/68060, Vampire/PiStorm)
-#     bin/mos/clamiga       MorphOS (PPC) binary, built natively on MorphOS
-#     bin/*/clamiga.img     bare-boot heap image (boot + CLOS) beside EACH
+#     bin/mos/amilisp       MorphOS (PPC) binary, built natively on MorphOS
+#     bin/*/amilisp.img     bare-boot heap image (boot + CLOS) beside EACH
 #                           binary: startup restores it in one read instead
 #                           of loading lib/boot.fasl + clos.fasl (see below)
 #     bin/*/clamacs.img     Clamacs, the editor/IDE (clamacs/ submodule,
 #                           written in Lisp), as a heap image beside EACH
 #                           binary: the Clamacs launcher starts
-#                           `clamiga --image clamacs.img --eval "(clamacs::run)"`.
+#                           `amilisp --image clamacs.img --eval "(clamacs::run)"`.
 #                           Saved by the staged m68k binaries in FS-UAE like
-#                           clamiga.img, natively on MorphOS (CLAMACS_MOS_IMG).
+#                           amilisp.img, natively on MorphOS (CLAMACS_MOS_IMG).
 #     lib/clamacs/          the editor's sources plus FASLs, and its two image
 #                           scripts: what `--no-image` (or a refused image)
 #                           starts the editor from
@@ -30,18 +30,18 @@
 #                           Amiga with MultiView)
 #     examples/             example programs, as Lisp source
 #     README-FIRST.guide    the getting-started page (README-FIRST.md), the
-#     cl-amiga.guide        manual (README.md) and the editor's README
+#     amilisp.guide        manual (README.md) and the editor's README
 #     clamacs.guide         (docs/clamacs.md), as AmigaGuide in the package
 #                           root next to the Workbench icons
 #     *.guide.info          every guide has an icon (default tool MultiView),
 #                           root and docs/
-#     CLAmiga CLAmiga-FPU CLAmiga-MOS Clamacs Clamacs-FPU Clamacs-MOS (+ .info)
+#     AmiLisp AmiLisp-FPU AmiLisp-MOS Clamacs Clamacs-FPU Clamacs-MOS (+ .info)
 #                           Workbench launcher icons and their IconX scripts,
 #                           one pair per binary (the MOS pair only with bin/mos)
 #     README-FIRST.md README.md LICENSE
-#   clamiga-<version>.info  beside the drawer in the archive: the drawer's own
+#   amilisp-<version>.info  beside the drawer in the archive: the drawer's own
 #                           icon, whose window shows the root as a 3 x 3 grid
-#                           (clamiga launchers, Clamacs launchers, guides --
+#                           (amilisp launchers, Clamacs launchers, guides --
 #                           the root icons carry fixed positions) and only files with icons
 #
 # lib/ packaging policy (correctness, not preference):
@@ -52,8 +52,8 @@
 #          all along).  dev-commands + dev-repl are the EXT.DEV command
 #          layer behind the ARexx development port: amiga/arexx REQUIREs
 #          them, so without them Clamacs cannot connect to a released
-#          clamiga at all; dev-tcp is the same port over TCP (what a
-#          host Clamacs drives an Amiga clamiga through).
+#          amilisp at all; dev-tcp is the same port over TCP (what a
+#          host Clamacs drives an Amiga amilisp through).
 #   FASL + SOURCE
 #          amiga/**       — the curated modules, AMIGA.REACTION and the
 #                           generated raw OS bindings (lib/amiga/raw/**): no
@@ -92,7 +92,7 @@
 #   (tests/test_lib_fasl_portable.sh runs the same compile in `make test`).
 #
 # Heap images (specs/image-save-load.md): each binary starts from the
-# clamiga.img beside it — a snapshot of the booted runtime (boot + CLOS),
+# amilisp.img beside it — a snapshot of the booted runtime (boot + CLOS),
 # restored in one read instead of loading the two FASLs form by form.
 #   - One image PER BINARY, next to it.  Images are per-build (a fingerprint
 #     ties them to version/format/FPU/platform) and PROGDIR: is the first
@@ -118,7 +118,7 @@
 #
 #   --snapshot     AmigaOS-only development snapshot of the working tree:
 #                  no bin/mos/ (no MorphOS inputs needed), staged and
-#                  archived as clamiga-<version>-snapshot-<git short sha>
+#                  archived as amilisp-<version>-snapshot-<git short sha>
 #                  so it never masquerades as, or overwrites, a release.
 #                  Everything else (FASLs, heap images, smoke test) is the
 #                  release procedure.
@@ -127,13 +127,13 @@
 #                  on MorphOS from the snapshot's commit).  A full release
 #                  always includes it.
 #
-#   MOS_BIN=path   MorphOS binary to package (default: ./clamiga-mos).
+#   MOS_BIN=path   MorphOS binary to package (default: ./amilisp-mos).
 #                  There is no MorphOS cross toolchain here — build it
 #                  natively with Makefile.mos and copy it over.
-#   MOS_IMG=path   Its bare-boot heap image (default: ./clamiga-mos.img),
+#   MOS_IMG=path   Its bare-boot heap image (default: ./amilisp-mos.img),
 #                  saved on MorphOS by THAT binary from the same source
 #                  tree: `make -f Makefile.mos image` writes
-#                  build/morphos/clamiga.img (and verifies it).
+#                  build/morphos/amilisp.img (and verifies it).
 #   CLAMACS_MOS_IMG=path
 #                  The MorphOS Clamacs heap image (default: ./clamacs-mos.img),
 #                  saved on MorphOS by the MOS_BIN binary from the same source
@@ -170,8 +170,8 @@ if command -v timeout > /dev/null 2>&1; then TIMEOUT="timeout 300"
 elif command -v gtimeout > /dev/null 2>&1; then TIMEOUT="gtimeout 300"
 else TIMEOUT=""; fi
 
-MOS_BIN=${MOS_BIN:-$ROOT/clamiga-mos}
-MOS_IMG=${MOS_IMG:-$ROOT/clamiga-mos.img}
+MOS_BIN=${MOS_BIN:-$ROOT/amilisp-mos}
+MOS_IMG=${MOS_IMG:-$ROOT/amilisp-mos.img}
 CLAMACS_MOS_IMG=${CLAMACS_MOS_IMG:-$ROOT/clamacs-mos.img}
 FSUAE_BIN=verify/realamiga/FS-UAE.app/Contents/MacOS/fs-uae
 
@@ -182,7 +182,7 @@ VERSION="$VMAJOR.$VMINOR.$VPATCH"
 [ -n "$VMAJOR" ] && [ -n "$VMINOR" ] && [ -n "$VPATCH" ] || {
     echo "ERROR: could not parse version from src/core/types.h" >&2; exit 1; }
 
-REL="clamiga-$VERSION"
+REL="amilisp-$VERSION"
 SNAPSHOT_ID=""
 if [ "$SNAPSHOT" = 1 ]; then
     SNAPSHOT_ID="$(git rev-parse --short HEAD)"
@@ -193,11 +193,11 @@ OUT="$ROOT/build/release"
 STAGE="$OUT/$REL"
 
 if [ "$SNAPSHOT" = 1 ] && [ "$WITH_MOS" = 1 ]; then
-    echo "=== CL-Amiga AmigaOS + MorphOS snapshot $VERSION ($SNAPSHOT_ID) ==="
+    echo "=== AmiLisp AmigaOS + MorphOS snapshot $VERSION ($SNAPSHOT_ID) ==="
 elif [ "$SNAPSHOT" = 1 ]; then
-    echo "=== CL-Amiga AmigaOS snapshot $VERSION ($SNAPSHOT_ID) ==="
+    echo "=== AmiLisp AmigaOS snapshot $VERSION ($SNAPSHOT_ID) ==="
 else
-    echo "=== CL-Amiga binary release $VERSION ==="
+    echo "=== AmiLisp binary release $VERSION ==="
 fi
 
 # --- inputs ---------------------------------------------------------------
@@ -211,7 +211,7 @@ elif [ ! -f "$MOS_BIN" ]; then
 elif [ ! -f "$MOS_IMG" ]; then
     echo "ERROR: MorphOS heap image not found: $MOS_IMG" >&2
     echo "       Save it on MorphOS with the binary in MOS_BIN (make -f Makefile.mos image" >&2
-    echo "       writes build/morphos/clamiga.img) and copy it here, or point MOS_IMG=... at it." >&2
+    echo "       writes build/morphos/amilisp.img) and copy it here, or point MOS_IMG=... at it." >&2
     exit 1
 elif [ ! -f "$CLAMACS_MOS_IMG" ]; then
     echo "ERROR: MorphOS Clamacs heap image not found: $CLAMACS_MOS_IMG" >&2
@@ -240,9 +240,9 @@ make -f Makefile.cross amiga
 echo "--- Cross-compiling AmigaOS 3 binary (hard-float, FPU=1) ---"
 make -f Makefile.cross amiga FPU=1
 
-HOST_BIN="$ROOT/build/host/clamiga"
-AOS3_BIN="$ROOT/build/cross/clamiga"
-AOS3FPU_BIN="$ROOT/build/cross-fpu/clamiga"
+HOST_BIN="$ROOT/build/host/amilisp"
+AOS3_BIN="$ROOT/build/cross/amilisp"
+AOS3FPU_BIN="$ROOT/build/cross-fpu/amilisp"
 [ -x "$HOST_BIN" ] || { echo "ERROR: $HOST_BIN missing" >&2; exit 1; }
 [ -f "$AOS3_BIN" ] || { echo "ERROR: $AOS3_BIN missing" >&2; exit 1; }
 [ -f "$AOS3FPU_BIN" ] || { echo "ERROR: $AOS3FPU_BIN missing" >&2; exit 1; }
@@ -252,13 +252,13 @@ echo "--- Staging $STAGE ---"
 rm -rf "$STAGE"
 mkdir -p "$STAGE/bin/aos3" "$STAGE/bin/aos3-fpu" "$STAGE/lib/amiga" "$STAGE/docs"
 
-cp "$AOS3_BIN"    "$STAGE/bin/aos3/clamiga"
-cp "$AOS3FPU_BIN" "$STAGE/bin/aos3-fpu/clamiga"
-chmod +x "$STAGE/bin/aos3/clamiga" "$STAGE/bin/aos3-fpu/clamiga"
+cp "$AOS3_BIN"    "$STAGE/bin/aos3/amilisp"
+cp "$AOS3FPU_BIN" "$STAGE/bin/aos3-fpu/amilisp"
+chmod +x "$STAGE/bin/aos3/amilisp" "$STAGE/bin/aos3-fpu/amilisp"
 if [ "$WITH_MOS" = 1 ]; then
     mkdir -p "$STAGE/bin/mos"
-    cp "$MOS_BIN" "$STAGE/bin/mos/clamiga"
-    chmod +x "$STAGE/bin/mos/clamiga"
+    cp "$MOS_BIN" "$STAGE/bin/mos/amilisp"
+    chmod +x "$STAGE/bin/mos/amilisp"
 fi
 
 # lib: FASL-portable modules, compiled by the just-built host binary so
@@ -349,14 +349,14 @@ leaked=$(grep -rlaF -e "$ROOT/" -e "$REL/" --include='*.fasl' "$STAGE/lib" || tr
 # take the PROGDIR: leg — and must report the restore and this version.
 REL_DIR="build/release/$REL"
 for t in aos3 aos3-fpu; do
-    echo "--- Saving + verifying $REL/bin/$t/clamiga.img in FS-UAE ---"
+    echo "--- Saving + verifying $REL/bin/$t/amilisp.img in FS-UAE ---"
     verify/realamiga/make-image.sh "$REL_DIR/bin/$t" "$REL_DIR" \
         || { echo "ERROR: heap image for bin/$t not produced" >&2; exit 1; }
     grep -q "^IMAGE-VERSION $VERSION" build/amiga/image.log || {
         echo "ERROR: the bin/$t image run reported another version than $VERSION — see build/amiga/image.log" >&2
         exit 1; }
 done
-[ "$WITH_MOS" = 0 ] || cp "$MOS_IMG" "$STAGE/bin/mos/clamiga.img"
+[ "$WITH_MOS" = 0 ] || cp "$MOS_IMG" "$STAGE/bin/mos/amilisp.img"
 
 # The editor's image beside each binary, the same way: the staged binary
 # loads the staged lib/clamacs/ in FS-UAE and dumps its heap, then starts
@@ -384,7 +384,7 @@ cp -R examples "$STAGE/examples"
 cp README-FIRST.md README.md LICENSE "$STAGE/"
 
 # The AmigaGuide docs, laid out as the package root (specs/amigaguide-docs.md):
-# README-FIRST.guide, cl-amiga.guide (the README) and clamacs.guide (the
+# README-FIRST.guide, amilisp.guide (the README) and clamacs.guide (the
 # editor's) at the top next to the Workbench icons, the reference pages
 # under docs/ next to their Markdown.  The converter runs in the host binary
 # and fails the release on Markdown it cannot render or on a dangling link.
@@ -394,18 +394,18 @@ sh tools/docs/md2guide.sh "$HOST_BIN" "$STAGE" \
 
 # Workbench icons (icons/, generated by scripts/make-icons.py): three IconX
 # project icons in the package root, each with its launcher script of the
-# same name, one pair per binary -- a double-click on CLAmiga / CLAmiga-FPU
-# / CLAmiga-MOS opens a console and starts that clamiga, Clamacs /
+# same name, one pair per binary -- a double-click on AmiLisp / AmiLisp-FPU
+# / AmiLisp-MOS opens a console and starts that amilisp, Clamacs /
 # Clamacs-FPU / Clamacs-MOS start the editor on the same build.  The
 # scripts do no platform detection, so the MorphOS pair is only staged
 # when bin/mos is.  And one icon per guide (default tool MultiView),
 # so the documentation is visible and readable from Workbench.
-LAUNCHERS="CLAmiga CLAmiga-FPU Clamacs Clamacs-FPU"
-[ "$WITH_MOS" = 0 ] || LAUNCHERS="$LAUNCHERS CLAmiga-MOS Clamacs-MOS"
+LAUNCHERS="AmiLisp AmiLisp-FPU Clamacs Clamacs-FPU"
+[ "$WITH_MOS" = 0 ] || LAUNCHERS="$LAUNCHERS AmiLisp-MOS Clamacs-MOS"
 for n in $LAUNCHERS; do
     cp "icons/$n" "icons/$n.info" "$STAGE/"
 done
-# The root is a 3 x 3 grid (clamiga launchers, Clamacs launchers, guides as
+# The root is a 3 x 3 grid (amilisp launchers, Clamacs launchers, guides as
 # the columns; soft-float, FPU, MorphOS as the rows) by positions in these
 # icons; the reference guides under docs/ get the unpositioned copy.
 for n in README-FIRST cl-amiga clamacs; do
@@ -415,20 +415,20 @@ for g in "$STAGE"/docs/*.guide; do
     cp icons/Guide.info "$g.info"
 done
 # The icon OF the package drawer, shipped beside it in the archive as
-# clamiga-<version>.info: it carries the drawer window's size (big enough
+# amilisp-<version>.info: it carries the drawer window's size (big enough
 # for the grid) and "show only files with icons, view by icon".
 cp icons/Drawer.info "$OUT/$REL.info"
 
 if [ "$SNAPSHOT" = 1 ] && [ "$WITH_MOS" = 1 ]; then
     cat > "$STAGE/SNAPSHOT.txt" <<EOF
-*** DEVELOPMENT SNAPSHOT of CL-Amiga $VERSION -- not a release ***
+*** DEVELOPMENT SNAPSHOT of AmiLisp $VERSION -- not a release ***
 
 Built from commit $SNAPSHOT_ID on $(date +%Y-%m-%d), AmigaOS and MorphOS
 binaries.  Everything else is the release layout.
 EOF
 elif [ "$SNAPSHOT" = 1 ]; then
     cat > "$STAGE/SNAPSHOT.txt" <<EOF
-*** DEVELOPMENT SNAPSHOT of CL-Amiga $VERSION -- not a release ***
+*** DEVELOPMENT SNAPSHOT of AmiLisp $VERSION -- not a release ***
 
 Built from commit $SNAPSHOT_ID on $(date +%Y-%m-%d), AmigaOS binaries only:
 there is no bin/mos/ in this package, and the MorphOS lines of
@@ -442,7 +442,7 @@ find "$STAGE" -name '.DS_Store' -delete
 
 # --- smoke test -----------------------------------------------------------
 # Prove the deployed layout resolves lib/ executable-relatively: run a copy
-# of the tree with the HOST binary substituted at bin/aos3/clamiga (same C
+# of the tree with the HOST binary substituted at bin/aos3/amilisp (same C
 # search code as the Amiga builds), from an unrelated working directory.
 if [ "$SMOKE" = 1 ]; then
     echo "--- Smoke test: lib resolution in deployed layout ---"
@@ -451,29 +451,29 @@ if [ "$SMOKE" = 1 ]; then
     # -p: keep the staged mtimes, i.e. the FASL-newer-than-source ordering
     # that the archives preserve too and that REQUIRE decides on.
     cp -Rp "$STAGE" "$SMOKEDIR/rel"
-    cp "$HOST_BIN" "$SMOKEDIR/rel/bin/aos3/clamiga"
-    # Heap images are per-build: the staged bin/aos3/clamiga.img is the m68k
+    cp "$HOST_BIN" "$SMOKEDIR/rel/bin/aos3/amilisp"
+    # Heap images are per-build: the staged bin/aos3/amilisp.img is the m68k
     # one, which the host binary would refuse and fall back to the FASLs — a
     # green run proving nothing about images.  Save a host image into the
     # copy with the same script the targets use, verify it from the release
     # root with the same check script, and require the main smoke run below
     # to have come from it.
-    rm -f "$SMOKEDIR/rel/bin/aos3/clamiga.img"
+    rm -f "$SMOKEDIR/rel/bin/aos3/amilisp.img"
     ( cd "$SMOKEDIR/rel/bin/aos3" && CLAMIGA_NO_USERINIT=1 CLAMIGA_HOME= $TIMEOUT \
-        ./clamiga --no-userinit --no-image --non-interactive \
+        ./amilisp --no-userinit --no-image --non-interactive \
         --load "$ROOT/scripts/save-boot-image.lisp" ) > "$OUT/smoke-image.log" 2>&1 \
-      && [ -s "$SMOKEDIR/rel/bin/aos3/clamiga.img" ] || {
+      && [ -s "$SMOKEDIR/rel/bin/aos3/amilisp.img" ] || {
         echo "ERROR: host image save in the release layout failed — see $OUT/smoke-image.log" >&2
         exit 1; }
     ( cd "$SMOKEDIR/rel" && CLAMIGA_NO_USERINIT=1 CLAMIGA_HOME= $TIMEOUT \
-        bin/aos3/clamiga --no-userinit --non-interactive \
+        bin/aos3/amilisp --no-userinit --non-interactive \
         --load "$ROOT/scripts/verify-boot-image.lisp" ) >> "$OUT/smoke-image.log" 2>&1 \
       && grep -q "^BOOT-IMAGE-VERIFIED" "$OUT/smoke-image.log" || {
-        echo "ERROR: release layout did not start from bin/aos3/clamiga.img — see $OUT/smoke-image.log" >&2
+        echo "ERROR: release layout did not start from bin/aos3/amilisp.img — see $OUT/smoke-image.log" >&2
         exit 1; }
     ( cd "$SMOKEDIR" && \
       CLAMIGA_NO_USERINIT=1 CLAMIGA_HOME= $TIMEOUT \
-        "$SMOKEDIR/rel/bin/aos3/clamiga" --non-interactive --heap 48M \
+        "$SMOKEDIR/rel/bin/aos3/amilisp" --non-interactive --heap 48M \
         --eval '(format t "IMAGE-RESTORED ~a~%" ext:*image-restored-p*)' \
         --eval '(require "gray-streams")' \
         --eval '(require "dev-commands")' \
@@ -491,12 +491,12 @@ if [ "$SMOKE" = 1 ]; then
         --eval '(quit)' ) | tee "$OUT/smoke.log" | grep -q "SMOKE-OK $VERSION" || {
         echo "ERROR: smoke test failed — see $OUT/smoke.log" >&2; exit 1; }
     grep -q "^IMAGE-RESTORED T" "$OUT/smoke.log" || {
-        echo "ERROR: the smoke session did not come from bin/aos3/clamiga.img — see $OUT/smoke.log" >&2
+        echo "ERROR: the smoke session did not come from bin/aos3/amilisp.img — see $OUT/smoke.log" >&2
         exit 1; }
     # --no-image: the FASL boot must still bring the layout up — it is the
     # fallback when an image is refused.
     ( cd "$SMOKEDIR" && CLAMIGA_NO_USERINIT=1 CLAMIGA_HOME= $TIMEOUT \
-        "$SMOKEDIR/rel/bin/aos3/clamiga" --non-interactive --no-image \
+        "$SMOKEDIR/rel/bin/aos3/amilisp" --non-interactive --no-image \
         --eval '(format t "FASL-BOOT ~a ~a~%" ext:*image-restored-p* (lisp-implementation-version))' \
         --eval '(quit)' ) | tee "$OUT/smoke-noimage.log" | grep -q "^FASL-BOOT NIL $VERSION" || {
         echo "ERROR: --no-image FASL boot of the release layout failed — see $OUT/smoke-noimage.log" >&2
@@ -531,7 +531,7 @@ if [ "$SMOKE" = 1 ]; then
         echo "ERROR: dev-repl did not load from the release FASL — see $OUT/smoke.log" >&2
         exit 1; }
     # dev-tcp is the same port over TCP: what a host Clamacs drives an
-    # Amiga clamiga through.
+    # Amiga amilisp through.
     grep -q "; Loading .*rel/.*lib/dev-tcp\.fasl" "$OUT/smoke.log" &&
     grep -q "^DEV-TCP #<PACKAGE EXT.DEV.TCP>" "$OUT/smoke.log" || {
         echo "ERROR: dev-tcp did not load from the release FASL — see $OUT/smoke.log" >&2
@@ -558,8 +558,8 @@ if [ "$SMOKE" = 1 ]; then
     # paths must be relative to each guide's own drawer (AmigaDOS: a leading
     # slash is the parent).
     grep -q 'LINK "docs/README.guide/main"' "$STAGE/README-FIRST.guide" &&
-    grep -q 'LINK "docs/ext.guide/' "$STAGE/cl-amiga.guide" &&
-    grep -q 'LINK "/cl-amiga.guide/' "$STAGE/docs/amiga.guide" || {
+    grep -q 'LINK "docs/ext.guide/' "$STAGE/amilisp.guide" &&
+    grep -q 'LINK "/amilisp.guide/' "$STAGE/docs/amiga.guide" || {
         echo "ERROR: the guides do not link across the root/docs layout" >&2
         exit 1; }
     # The editor: its m68k images are beside the binaries (verified in
@@ -572,7 +572,7 @@ if [ "$SMOKE" = 1 ]; then
             echo "ERROR: bin/$t/clamacs.img is missing or empty" >&2; exit 1; }
     done
     ( cd "$SMOKEDIR" && CLAMIGA_NO_USERINIT=1 CLAMIGA_HOME= $TIMEOUT \
-        "$SMOKEDIR/rel/bin/aos3/clamiga" --non-interactive --no-image --heap 16M \
+        "$SMOKEDIR/rel/bin/aos3/amilisp" --non-interactive --no-image --heap 16M \
         --load "$SMOKEDIR/rel/lib/clamacs/load.lisp" \
         --eval '(format t "CLAMACS-LIB ~a ~a~%" (find-package "CLAMACS") (fboundp (find-symbol "MENU-STATE" "CLAMACS")))' \
         --eval '(quit)' ) > "$OUT/smoke-clamacs.log" 2>&1
@@ -585,14 +585,14 @@ if [ "$SMOKE" = 1 ]; then
     # editor (START itself needs MUI and is what FS-UAE verified).
     rm -f "$SMOKEDIR/rel/bin/aos3/clamacs.img"
     ( cd "$SMOKEDIR/rel/bin/aos3" && CLAMIGA_NO_USERINIT=1 CLAMIGA_HOME= $TIMEOUT \
-        ./clamiga --no-userinit --no-image --non-interactive --heap 16M \
+        ./amilisp --no-userinit --no-image --non-interactive --heap 16M \
         --load ../../lib/clamacs/load.lisp \
         --load ../../lib/clamacs/save-editor-image.lisp ) >> "$OUT/smoke-clamacs.log" 2>&1 \
       && [ -s "$SMOKEDIR/rel/bin/aos3/clamacs.img" ] || {
         echo "ERROR: host Clamacs image save in the release layout failed — see $OUT/smoke-clamacs.log" >&2
         exit 1; }
     ( cd "$SMOKEDIR/rel" && CLAMIGA_NO_USERINIT=1 CLAMIGA_HOME= $TIMEOUT \
-        bin/aos3/clamiga --no-userinit --non-interactive --heap 16M \
+        bin/aos3/amilisp --no-userinit --non-interactive --heap 16M \
         --image bin/aos3/clamacs.img \
         --eval '(format t "CLAMACS-IMAGE ~a ~a~%" ext:*image-restored-p* (fboundp (find-symbol "MENU-STATE" "CLAMACS")))' \
         --eval '(quit)' ) >> "$OUT/smoke-clamacs.log" 2>&1
@@ -605,7 +605,7 @@ fi
 # --- archives -------------------------------------------------------------
 echo "--- Archiving ---"
 rm -f "$OUT/$REL-bin.zip" "$OUT/$REL-bin.lha"
-# the drawer icon travels beside the drawer, so the unpacked clamiga-<version>
+# the drawer icon travels beside the drawer, so the unpacked amilisp-<version>
 # shows up on Workbench with its window laid out
 ( cd "$OUT" && zip -rq "$REL-bin.zip" "$REL" "$REL.info" )
 if command -v lha > /dev/null 2>&1; then

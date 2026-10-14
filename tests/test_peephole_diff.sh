@@ -11,12 +11,12 @@
 # process, overriding declaim/declare — so ANY corpus works unmodified;
 # growing test coverage automatically grows peephole coverage.
 #
-#   sh tests/test_peephole_diff.sh build/host/clamiga
+#   sh tests/test_peephole_diff.sh build/host/amilisp
 #
 # Also runs under the gc-stress binary (make test-gc-stress) to exercise the
 # speed-3 compile path under forced compaction.
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 CORPUS="$(dirname "$0")/peephole-corpus.lisp"
 
 # macOS has no `timeout`; coreutils installs it as `gtimeout` (same detection

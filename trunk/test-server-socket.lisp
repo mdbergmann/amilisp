@@ -6,7 +6,7 @@
 ;;;; the accepted connection (the same shape SLYNK uses).
 ;;;;
 ;;;; Run on the host:
-;;;;   ./build/host/clamiga --load trunk/test-server-socket.lisp
+;;;;   ./build/host/amilisp --load trunk/test-server-socket.lisp
 ;;;;
 ;;;; Requires a TCP stack.  On AmigaOS that means bsdsocket.library
 ;;;; (Roadshow/AmiTCP/Miami) must be present; the default FS-UAE config has

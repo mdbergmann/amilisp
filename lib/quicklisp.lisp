@@ -344,10 +344,10 @@
                   #:socket-connect
                   #:socket-make-stream))
 
-;;; CL-Amiga
+;;; AmiLisp
 
 (define-implementation-package :cl-amiga #:qlqs-cl-amiga
-  (:documentation "CL-Amiga - Common Lisp for AmigaOS 3+")
+  (:documentation "AmiLisp - Common Lisp for AmigaOS 3+")
   (:class cl-amiga)
   (:intern #:open-tcp-stream))
 
@@ -1746,7 +1746,7 @@ the indexes in the header accordingly."
                   client-version
                   dist-url
                   dist-version)
-  ;; Work around CL-Amiga keyword default bug: ((:path *home*) *home*)
+  ;; Work around AmiLisp keyword default bug: ((:path *home*) *home*)
   ;; evaluates the default as NIL instead of the current dynamic *home* value
   (unless *home*
     (setf *home* (merge-pathnames (make-pathname :directory '(:relative "quicklisp"))

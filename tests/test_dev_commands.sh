@@ -13,9 +13,9 @@
 # That is the editor's whole workflow, and it depends on two runtime fixes
 # guarded by tests/test_unwind_load.c.
 #
-# Run: sh tests/test_dev_commands.sh build/host/clamiga
+# Run: sh tests/test_dev_commands.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0
@@ -101,7 +101,7 @@ check "verbs are case-insensitive"   'PONG'     "$out"
 
 out=$(run_cmd 'VERSION')
 check "VERSION returns rc 0"         '<<RC=0>>' "$out"
-check "VERSION names the implementation" 'CL-Amiga' "$out"
+check "VERSION names the implementation" 'AmiLisp' "$out"
 
 # --- unknown command -------------------------------------------------------
 

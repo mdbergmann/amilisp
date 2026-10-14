@@ -141,7 +141,7 @@ CL_Obj bi_stale_builtin(CL_Obj *args, int nargs)
     CL_UNUSED(nargs);
     cl_error(CL_ERR_UNDEFINED,
              "This builtin function came from a restored image and has no "
-             "implementation in this build of clamiga (see the warnings "
+             "implementation in this build of amilisp (see the warnings "
              "printed at --image restore time).  Rebuild the image with "
              "EXT:SAVE-IMAGE.");
     return CL_NIL;
@@ -628,7 +628,7 @@ static CL_Obj bi_dbind_check_keys(CL_Obj *args, int n)
 }
 
 /* (compiled-function-p object) => boolean
- * In clamiga, all functions (C builtins, bytecode, closures, FFI stubs)
+ * In amilisp, all functions (C builtins, bytecode, closures, FFI stubs)
  * are compiled. */
 static CL_Obj bi_compiled_function_p(CL_Obj *args, int n)
 {
@@ -1988,7 +1988,7 @@ static CL_Obj bi_quit(CL_Obj *args, int n)
 
 /* --- Exit hooks (EXT:*EXIT-HOOKS*) ---------------------------------------
  *
- * EXT:*EXIT-HOOKS* holds a list of function designators that clamiga funcalls
+ * EXT:*EXIT-HOOKS* holds a list of function designators that amilisp funcalls
  * with no arguments when it shuts down normally: (QUIT)/(EXIT), the end of a
  * --load/--eval/script run, or EOF at the REPL.  cl_run_exit_hooks() is called
  * from the single shutdown funnel in main.c, before ANY subsystem teardown —
@@ -2211,7 +2211,7 @@ void cl_run_thread_death_hooks(const char *msg)
     CL_GC_UNPROTECT(3);
 }
 
-/* Single shared stub for CL functions not yet implemented in clamiga.
+/* Single shared stub for CL functions not yet implemented in amilisp.
  * Any call signals an error; registering the stub satisfies FBOUNDP and
  * SYMBOL-FUNCTION checks in the ANSI test suite without a full implementation. */
 static CL_Obj bi_unimplemented_stub(CL_Obj *args, int n)

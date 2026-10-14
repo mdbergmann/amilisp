@@ -127,7 +127,7 @@
     (amiga.iff:with-iff (out *iff-rt* :direction :write)
       (amiga.iff:push-chunk out "TEST" "FORM")
       (amiga.iff:push-chunk out nil "NAME")
-      (amiga.iff:write-chunk-bytes out "clamiga")
+      (amiga.iff:write-chunk-bytes out "amilisp")
       (amiga.iff:pop-chunk out)
       (amiga.iff:push-chunk out nil "DATA")
       (amiga.iff:write-chunk-bytes out

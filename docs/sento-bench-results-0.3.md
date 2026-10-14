@@ -14,7 +14,7 @@ measure framework message-plumbing overhead, not application work).
 
 - **Commit**: `360abd4` (branch `feat/peephole-speed2`)
 - **Host**: macOS 26.5.2, arm64 (Apple M3 Ultra)
-- **Binary**: `build/host/clamiga`, `--heap 192M`
+- **Binary**: `build/host/amilisp`, `--heap 192M`
 - **Date**: 2026-07-11
 
 ## Reproduction
@@ -25,7 +25,7 @@ the wipe a forced speed changes almost nothing:
 
 ```
 rm -rf ~/.cache/common-lisp/cl-amiga-0.3-fasl22
-CLAMIGA_FORCE_SPEED=1 ./build/host/clamiga --no-userinit --heap 192M \
+CLAMIGA_FORCE_SPEED=1 ./build/host/amilisp --no-userinit --heap 192M \
     --non-interactive --load <driver.lisp>       # then again with =3
 ```
 

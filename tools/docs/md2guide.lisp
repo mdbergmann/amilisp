@@ -15,7 +15,7 @@
 ;;;; Plain Common Lisp, no dependencies; runs on the host and on the
 ;;;; Amiga.  Input is read as Latin-1 bytes and decoded from UTF-8 here,
 ;;;; so the converter does not depend on the character width of the
-;;;; clamiga build (the released m68k binaries are byte-string builds).
+;;;; amilisp build (the released m68k binaries are byte-string builds).
 ;;;;
 ;;;; Entry points:
 ;;;;   (md2guide:convert-set inputs output-dir &key version date)

@@ -12,7 +12,7 @@
 CL_Obj CL_T = CL_NIL;  /* Set properly during init by symbol/package setup */
 
 /*
- * AmigaOS version cookie — makes `Version clamiga` work from a Shell.
+ * AmigaOS version cookie — makes `Version amilisp` work from a Shell.
  *
  * The OS finds it by scanning the executable's bytes for "$VER: ", so it need
  * only be PRESENT, never referenced.  That is exactly what makes it fragile:
@@ -22,7 +22,7 @@ CL_Obj CL_T = CL_NIL;  /* Set properly during init by symbol/package setup */
  *
  * The build uses neither --gc-sections nor strip, so once emitted it survives
  * into the final executable — verified by test_version.c and, end to end, by
- * `strings build/host/clamiga | grep '$VER'`.
+ * `strings build/host/amilisp | grep '$VER'`.
  */
 CL_USED const char cl_version_cookie[] = CL_VERSION_TAG;
 

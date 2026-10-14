@@ -29,12 +29,12 @@
 #      order; EXT symbols exported at init; EXT:FUNCTION-ARGLIST of a
 #      builtin; TYPE-OF a packed byte vector; the GC statistics lists.
 #
-#   sh tests/test_runtime_forms.sh build/host/clamiga
+#   sh tests/test_runtime_forms.sh build/host/amilisp
 #
 # Also run under the gc-stress binary (make test-gc-stress), where every
 # allocation compacts the heap.
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 case "$CLAMIGA" in
   /*) ;;
   *) CLAMIGA="$(pwd)/$CLAMIGA" ;;

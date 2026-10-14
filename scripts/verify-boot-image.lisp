@@ -1,9 +1,9 @@
-;;; verify-boot-image.lisp — prove a deployed clamiga.img is picked up and
-;;; usable.  Run it from a directory WITHOUT a clamiga.img (the release
+;;; verify-boot-image.lisp — prove a deployed amilisp.img is picked up and
+;;; usable.  Run it from a directory WITHOUT a amilisp.img (the release
 ;;; root), so discovery has to take the beside-the-binary leg a deployment
 ;;; relies on, and without --image:
 ;;;
-;;;   clamiga --no-userinit --non-interactive --load scripts/verify-boot-image.lisp
+;;;   amilisp --no-userinit --non-interactive --load scripts/verify-boot-image.lisp
 ;;;
 ;;; Prints BOOT-IMAGE-VERIFIED and exits 0 on success; otherwise one
 ;;; BOOT-IMAGE-FAILED line per failed check and exit status 1.  A session

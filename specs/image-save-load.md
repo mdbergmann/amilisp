@@ -9,14 +9,14 @@ Date: 2026-08-20
 
 ## Problem
 
-Every clamiga session re-executes its entire startup: boot.fasl, clos.fasl,
-then (on the host, via ~/.clamigarc) asdf + quicklisp-compat + gray-streams,
+Every amilisp session re-executes its entire startup: boot.fasl, clos.fasl,
+then (on the host, via ~/.amilisprc) asdf + quicklisp-compat + gray-streams,
 then whatever the user loads.  Measured on the host (warm FASL cache):
 
 | boot                            | live after | consed  | time   |
 |---------------------------------|-----------:|--------:|-------:|
 | bare (`--no-userinit`)          |     542 KB |  542 KB |   7 ms |
-| + asdf + quicklisp (.clamigarc) |     3.1 MB | 10.9 MB | 163 ms |
+| + asdf + quicklisp (.amilisprc) |     3.1 MB | 10.9 MB | 163 ms |
 
 10.9 MB consed to end at 3.1 MB live — ~4x of boot work is transient, and
 the ratio is far worse on a 14MHz 68020 reading from a slow disk, where a
@@ -27,9 +27,9 @@ session restore becomes `read(3MB)` + one linear fixup walk.
 Target user stories:
 
 - `(ext:save-image "work:devel/mysession.img")` after loading a big system
-  on the Amiga; next day `clamiga --image mysession.img` is at the REPL with
+  on the Amiga; next day `amilisp --image mysession.img` is at the REPL with
   everything loaded in seconds.
-- A game/app ships as `clamiga` + `app.img` and starts instantly.
+- A game/app ships as `amilisp` + `app.img` and starts instantly.
 - CI/test scripts skip the quicklisp warm-up leg.
 
 ## Why this heap makes it cheap
@@ -132,7 +132,7 @@ are interpreted.  The fingerprint is a hash (FNV-1a is fine) over:
 
 Additionally `boot_roots` is checked against the restoring process's
 `n_global_roots` at restore time (see below).  A mismatch of either is a
-clean "image was written by a different build of clamiga — delete it or
+clean "image was written by a different build of amilisp — delete it or
 rebuild it" error, never a crash.
 
 ### Root section
@@ -270,10 +270,10 @@ usual) — the recommended mode for build scripts.
 
 ### CLI and discovery
 
-- `clamiga --image FILE` — explicit.
+- `amilisp --image FILE` — explicit.
 - Auto-discovery, mirroring the `lib/boot.fasl` search in repl.c
-  (cwd → CLAMIGA_HOME → exedir → exedir/../lib/clamiga → exedir/../..):
-  `clamiga.img` next to `lib/` is used when present.  `--no-image`
+  (cwd → CLAMIGA_HOME → exedir → exedir/../lib/amilisp → exedir/../..):
+  `amilisp.img` next to `lib/` is used when present.  `--no-image`
   bypasses it.
 
 ### Sequence in main()
@@ -304,12 +304,12 @@ cl_image_restore(file)             # instead of cl_repl_init's boot load
     8. clear cl_srcloc_table
     9. re-derive process state that came back from the SAVING process:
        *DEFAULT-PATHNAME-DEFAULTS* from this process's cwd
-       (cl_pathname_default_from_cwd — otherwise a shipped clamiga.img
+       (cl_pathname_default_from_cwd — otherwise a shipped amilisp.img
        merges every relative LOAD/REQUIRE against a build-machine
        directory while the existence checks use the real cwd), and a
        freshly seeded *RANDOM-STATE* (otherwise every restore replays the
        saver's sequence)
-skip boot.lisp; run ~/.clamigarc unless --no-userinit; run
+skip boot.lisp; run ~/.amilisprc unless --no-userinit; run
 EXT:*RESTORE-HOOKS*; enter REPL/actions
 ```
 
@@ -382,8 +382,8 @@ names it, so a gap is a loud runtime error, not corruption.
   OS resources (sockets, FFI libraries, AmiSSL) to survive an image:
   close in the save hook, reopen in the restore hook.
 - `EXT:*IMAGE-RESTORED-P*` — T when the session came from `--image`
-  (lets .clamigarc skip redundant loads).
-- `--image FILE`, `--no-image`, auto-discovery of `clamiga.img`.
+  (lets .amilisprc skip redundant loads).
+- `--image FILE`, `--no-image`, auto-discovery of `amilisp.img`.
 - README section: what it is, how to use it, limits (per-build images,
   thread/stream/FFI preconditions), pointing at the test files per the
   documentation policy.
@@ -481,7 +481,7 @@ Per the project rules — tests are the spec, every path host + Amiga:
 
 ## Open questions
 
-1. **`.clamigarc` semantics with `--image`**: run it (current spec: yes,
+1. **`.amilisprc` semantics with `--image`**: run it (current spec: yes,
    guarded by `EXT:*IMAGE-RESTORED-P*`) or skip unless `--userinit`?
    Leaning: run it — an rc that double-loads quicklisp is idempotent and
    the variable lets users skip explicitly.

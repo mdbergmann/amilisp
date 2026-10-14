@@ -4,13 +4,13 @@
 #
 #   verify/realamiga/make-image.sh BINDIR [VERIFY-CWD]
 #
-#   BINDIR      repo-relative directory holding the m68k `clamiga` to save
+#   BINDIR      repo-relative directory holding the m68k `amilisp` to save
 #               the image for: build/cross, build/cross-fpu, or a staged
 #               release's bin/aos3.  The image is written next to it as
-#               BINDIR/clamiga.img — where startup looks for one (PROGDIR:).
+#               BINDIR/amilisp.img — where startup looks for one (PROGDIR:).
 #   VERIFY-CWD  repo-relative directory the restore check runs from
 #               (default: the repo root).  It must not contain a
-#               clamiga.img: the current-directory leg of discovery would
+#               amilisp.img: the current-directory leg of discovery would
 #               shadow the beside-the-binary leg this is meant to prove.
 #
 # Heap images are per-build (specs/image-save-load.md), so the host cannot
@@ -18,9 +18,9 @@
 # the FASLs in FS-UAE and dumps its heap.  Both runs go through the
 # boot-override hook of call-on-ustartup (in place of the test suite):
 #
-#   1. save:   cd BINDIR;     clamiga --no-image --load scripts/save-boot-image.lisp
-#   2. verify: cd VERIFY-CWD; clamiga            --load scripts/verify-boot-image.lisp
-#              (no --image: discovery has to find BINDIR/clamiga.img itself)
+#   1. save:   cd BINDIR;     amilisp --no-image --load scripts/save-boot-image.lisp
+#   2. verify: cd VERIFY-CWD; amilisp            --load scripts/verify-boot-image.lisp
+#              (no --image: discovery has to find BINDIR/amilisp.img itself)
 #
 # Needs the FS-UAE setup of `make -f Makefile.cross test-amiga`; the 68040
 # config there has an FPU, so it serves the FPU=1 binary too.  Exit 0 only
@@ -37,17 +37,17 @@ LOG=build/amiga/image.log
 
 case "$BINDIR" in
     /*|*:*)
-        echo "ERROR: BINDIR must be relative to the repo root — FS-UAE sees it as CLAmiga:$BINDIR" >&2
+        echo "ERROR: BINDIR must be relative to the repo root — FS-UAE sees it as AmiLisp:$BINDIR" >&2
         exit 1 ;;
 esac
 BINDIR=${BINDIR%/}
 VCWD=${VCWD%/}
-[ -f "$BINDIR/clamiga" ] || {
-    echo "ERROR: $BINDIR/clamiga missing — make -f Makefile.cross amiga first" >&2; exit 1; }
+[ -f "$BINDIR/amilisp" ] || {
+    echo "ERROR: $BINDIR/amilisp missing — make -f Makefile.cross amiga first" >&2; exit 1; }
 [ -d "${VCWD:-.}" ] || {
     echo "ERROR: verify directory '$VCWD' does not exist" >&2; exit 1; }
-if [ -f "${VCWD:-.}/clamiga.img" ]; then
-    echo "ERROR: ${VCWD:-.}/clamiga.img exists — discovery would take it ahead of $BINDIR/clamiga.img and hide what this verifies; remove it" >&2
+if [ -f "${VCWD:-.}/amilisp.img" ]; then
+    echo "ERROR: ${VCWD:-.}/amilisp.img exists — discovery would take it ahead of $BINDIR/amilisp.img and hide what this verifies; remove it" >&2
     exit 1
 fi
 if pgrep -x fs-uae >/dev/null 2>&1; then
@@ -55,16 +55,16 @@ if pgrep -x fs-uae >/dev/null 2>&1; then
     exit 1
 fi
 
-IMG="$BINDIR/clamiga.img"
+IMG="$BINDIR/amilisp.img"
 mkdir -p build/amiga
 rm -f "$IMG" "$IMG.uaem" "$LOG" "$LOG.uaem"
 
-# AmigaDOS view of the same paths: CLAmiga: is the repo root
+# AmigaDOS view of the same paths: AmiLisp: is the repo root
 # (verify.fs-uae hard_drive_1).  An empty VCWD is the root itself.
-AMI_BIN="CLAmiga:$BINDIR/clamiga"
-AMI_BINDIR="CLAmiga:$BINDIR"
-AMI_VCWD="CLAmiga:$VCWD"
-AMI_LOG="CLAmiga:$LOG"
+AMI_BIN="AmiLisp:$BINDIR/amilisp"
+AMI_BINDIR="AmiLisp:$BINDIR"
+AMI_VCWD="AmiLisp:$VCWD"
+AMI_LOG="AmiLisp:$LOG"
 
 # The AmigaDOS script call-on-ustartup executes instead of the suite.  It
 # must write the "=== run end ===" marker run-fs-uae.sh watches for and quit
@@ -76,16 +76,16 @@ echo "=== image start ===" >$AMI_LOG
 date >>$AMI_LOG
 echo "=== save: $AMI_BIN ===" >>$AMI_LOG
 cd $AMI_BINDIR
-$AMI_BIN --no-userinit --no-image --heap 8M --non-interactive --boot-log --load CLAmiga:scripts/save-boot-image.lisp >>$AMI_LOG
+$AMI_BIN --no-userinit --no-image --heap 8M --non-interactive --boot-log --load AmiLisp:scripts/save-boot-image.lisp >>$AMI_LOG
 echo "=== verify from $AMI_VCWD ===" >>$AMI_LOG
 cd $AMI_VCWD
-$AMI_BIN --no-userinit --heap 8M --non-interactive --boot-log --load CLAmiga:scripts/verify-boot-image.lisp >>$AMI_LOG
+$AMI_BIN --no-userinit --heap 8M --non-interactive --boot-log --load AmiLisp:scripts/verify-boot-image.lisp >>$AMI_LOG
 echo "=== run end ===" >>$AMI_LOG
 date >>$AMI_LOG
 C:UAEquit
 EOF
 
-echo "=== Launching FS-UAE — bare-boot heap image for $BINDIR/clamiga ==="
+echo "=== Launching FS-UAE — bare-boot heap image for $BINDIR/amilisp ==="
 KEEP_BOOT_OVERRIDE=1 FSUAE_LOG="$LOG" \
     verify/realamiga/run-fs-uae.sh verify/realamiga/verify.fs-uae
 rm -f build/amiga/boot-override "$IMG.uaem" "$LOG.uaem"

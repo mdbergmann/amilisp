@@ -194,7 +194,7 @@ TEST(lisp_ffi_peek_poke_u8)
 
 /* --- Bulk byte transfer: POKE-BYTES / PEEK-BYTES --- */
 
-/* A vector source unpacks tagged fixnums; note clamiga upgrades
+/* A vector source unpacks tagged fixnums; note amilisp upgrades
  * (UNSIGNED-BYTE 8) to T, so these really are boxed elements. */
 TEST(lisp_ffi_poke_bytes_vector)
 {

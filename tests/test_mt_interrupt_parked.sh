@@ -19,9 +19,9 @@
 # not crash in teardown (gc_mutex/list-lock destroyed under live threads
 # pre-fix; now deliberately leaked when workers remain).
 #
-# Run: sh tests/test_mt_interrupt_parked.sh build/host/clamiga
+# Run: sh tests/test_mt_interrupt_parked.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then

@@ -1,5 +1,5 @@
 ;;; bench-general.lisp — general workload benchmark, portable across
-;;; clamiga / ECL / SBCL.
+;;; amilisp / ECL / SBCL.
 ;;;
 ;;; Where trunk/bench-prims.lisp times one primitive per row (the sento
 ;;; per-message path), this file times WORKLOADS: the classic Gabriel
@@ -22,13 +22,13 @@
 ;;;   - Pseudo-random numbers come from a small LCG that stays inside a
 ;;;     30-bit fixnum, so the data is identical everywhere.
 ;;;   - (optimize (speed 1) (safety 1) (debug 1)) everywhere: what third-
-;;;     party code is compiled with by default.  Run clamiga with
+;;;     party code is compiled with by default.  Run amilisp with
 ;;;     CLAMIGA_FORCE_SPEED=3 to see the peephole at full strength.
 ;;;   - Output is one machine-parseable line per row:
 ;;;       GEN <name> ms=<min> val=<integer>
 ;;;
 ;;; Usage:
-;;;   clamiga: ./build/host/clamiga --no-userinit --heap 64M --non-interactive \
+;;;   amilisp: ./build/host/amilisp --no-userinit --heap 64M --non-interactive \
 ;;;                --load trunk/bench-general.lisp
 ;;;   ECL:     ecl --norc --eval '(progn (load (compile-file "trunk/bench-general.lisp"
 ;;;                :output-file "/tmp/bench-general.fas")) (quit))'

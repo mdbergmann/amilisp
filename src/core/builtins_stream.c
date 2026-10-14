@@ -979,7 +979,7 @@ static const char *coerce_to_filename(CL_Obj *arg)
  * Accepts a bare keyword (:latin-1, :latin1, :iso-8859-1, :iso8859-1) or a
  * list whose first element is one of those (the (:latin-1 :eol-style :lf)
  * form some libraries pass).  Anything else — including :default and :utf-8 —
- * means the clamiga default (UTF-8), so we return 0. */
+ * means the amilisp default (UTF-8), so we return 0. */
 static int format_is_latin1(CL_Obj fmt)
 {
     const char *name;
@@ -1166,7 +1166,7 @@ static CL_Obj bi_open(CL_Obj *args, int n)
             st->element_type = et;
     }
 
-    /* Record :external-format.  clamiga character streams are UTF-8 by default;
+    /* Record :external-format.  amilisp character streams are UTF-8 by default;
      * :latin-1 / :iso-8859-1 selects the 8-bit-transparent path so each byte
      * 0..255 round-trips verbatim (needed for faithful binary I/O over a
      * character stream — e.g. rfc2388 writing a multipart upload to a temp
@@ -1727,7 +1727,7 @@ static CL_Obj bi_get_dispatch_macro_character(CL_Obj *args, int n)
     rt = cl_readtable_get(rt_idx);
 
     /* CLHS get-dispatch-macro-character: signal an error if disp-char is not a
-     * dispatching macro character in the readtable.  In clamiga a dispatching
+     * dispatching macro character in the readtable.  In amilisp a dispatching
      * macro character has macro syntax but NO plain macro-function installed —
      * it routes through the built-in dispatch path (e.g. #).  A character with
      * a macro-function (set via set-macro-character, e.g. a custom backquote)
@@ -1873,7 +1873,7 @@ static CL_Obj bi_set_syntax_from_char(CL_Obj *args, int n)
 static CL_Obj KW_STREAM_DEFAULT = CL_NIL;
 
 /* (dribble &optional pathname) => NIL
- * No-op: clamiga has no dribble facility. */
+ * No-op: amilisp has no dribble facility. */
 static CL_Obj bi_dribble(CL_Obj *args, int n)
 {
     CL_UNUSED(args); CL_UNUSED(n);
@@ -1934,7 +1934,7 @@ static CL_Obj bi_stream_element_type(CL_Obj *args, int n)
 }
 
 /* (stream-external-format stream) => format
- * clamiga uses UTF-8 for character streams (reported as :DEFAULT); a stream
+ * amilisp uses UTF-8 for character streams (reported as :DEFAULT); a stream
  * opened with :external-format :latin-1 reports :LATIN-1. */
 static CL_Obj bi_stream_external_format(CL_Obj *args, int n)
 {
@@ -2077,7 +2077,7 @@ static CL_Obj bi_read_char_no_hang(CL_Obj *args, int n)
 }
 
 /* (host-namestring pathname) => nil
- * clamiga has no networking pathname host component. */
+ * amilisp has no networking pathname host component. */
 static CL_Obj bi_host_namestring(CL_Obj *args, int n)
 {
     CL_UNUSED(args); CL_UNUSED(n);
@@ -2085,7 +2085,7 @@ static CL_Obj bi_host_namestring(CL_Obj *args, int n)
 }
 
 /* (file-author pathname) => nil
- * clamiga does not track file authorship. */
+ * amilisp does not track file authorship. */
 static CL_Obj bi_file_author(CL_Obj *args, int n)
 {
     CL_UNUSED(args); CL_UNUSED(n);
@@ -2094,7 +2094,7 @@ static CL_Obj bi_file_author(CL_Obj *args, int n)
 
 /* (file-string-length stream object) => length or nil
  * Returns the number of octets that would be used to encode object on stream.
- * clamiga uses UTF-8; approximate for strings, exact for characters. */
+ * amilisp uses UTF-8; approximate for strings, exact for characters. */
 static CL_Obj bi_file_string_length(CL_Obj *args, int n)
 {
     CL_UNUSED(n);

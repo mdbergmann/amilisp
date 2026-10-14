@@ -4,7 +4,7 @@
 # performance change had to preserve, so a later optimization in the same
 # area cannot quietly trade correctness for speed.
 #
-#   sh tests/test_tier4_phase2.sh build/host/clamiga
+#   sh tests/test_tier4_phase2.sh build/host/amilisp
 #
 # Covered:
 #   1. OP_CALL_GLOBAL / OP_TAILCALL_GLOBAL — a global call no longer pushes
@@ -45,7 +45,7 @@
 #      UNWIND-PROTECT cleanups it abandons (needs expect(1); skipped
 #      otherwise).
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 

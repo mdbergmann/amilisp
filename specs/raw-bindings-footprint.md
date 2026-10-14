@@ -15,7 +15,7 @@ use both, and the runtime pieces that give them a representation.
 ## Problem
 
 A raw binding module is *complete* by design (every function, constant
-and struct of a library), and clamiga materialises all of it at load:
+and struct of a library), and amilisp materialises all of it at load:
 each constant is an interned symbol with a value cell, each function a
 wrapper closure plus a compiler macro, each struct field a getter, a
 setter and a `defsetf`.  The cost is paid whether or not a program
@@ -79,7 +79,7 @@ linker pulls in only the referenced stub objects.  The runtime cost of
 
 The gap is structural, not a tuning problem: a static language resolves
 names at build time and discards the tables; a Lisp image *materialises*
-every name.  What follows is how to make clamiga pay per *used* name —
+every name.  What follows is how to make amilisp pay per *used* name —
 the Lisp analogue of linking — without giving up anything observable.
 
 ## Goals
@@ -604,8 +604,8 @@ the flip for completion; MUI/AHI inputs.
 ## Phase 3 — image delivery: shed the binding tables at `EXT:SAVE-IMAGE` (IMPLEMENTED 2026-08-23)
 
 Motivation: Closure Tale is moving to image-based deployment —
-`clamiga` + `closure.img`, the second user story of
-`specs/image-save-load.md` (today `run-amiga.sh` boots `clamiga --load
+`amilisp` + `closure.img`, the second user story of
+`specs/image-save-load.md` (today `run-amiga.sh` boots `amilisp --load
 src/main-amiga.lisp` and pays the full load every start).  In an image
 the set of referenced names is **closed** the moment the dump is
 written; a binding table's only job — answering a name not seen before
@@ -734,11 +734,11 @@ uses:
    save, image.c:277-320; restored foreign pointers are invalidated).
 2. Push the game entry onto `ext:*restore-hooks*`, then
    `(ext:save-image "closure.img" :shake-bindings t :quit t)`.
-3. Shipped launch line: `clamiga --image closure.img` (restore hooks
-   run after `~/.clamigarc`; add `--no-userinit` if rc interference
+3. Shipped launch line: `amilisp --image closure.img` (restore hooks
+   run after `~/.amilisprc`; add `--no-userinit` if rc interference
    matters).  `--eval "(tale:main)"` works too — actions run after the
    restore (main.c:747).
-4. Ship `clamiga` + `closure.img` + the runtime data files (worlds/);
+4. Ship `amilisp` + `closure.img` + the runtime data files (worlds/);
    `lib/` is needed only for post-restore `require`s of modules the
    image doesn't already contain.
 
@@ -1125,7 +1125,7 @@ load-bearing.
 ## Appendix — measurement method
 
 ```lisp
-;; host: CLAMIGA_NO_USERINIT=1 build/host/clamiga --no-userinit \
+;; host: CLAMIGA_NO_USERINIT=1 build/host/amilisp --no-userinit \
 ;;   --non-interactive --heap 64M --load measure.lisp </dev/null
 (defun heap-used ()
   (ext:gc)

@@ -3,7 +3,7 @@
  * pointer all reach memory on THIS machine, at every alignment?
  *
  * The 2026-09-18/19 Clamacs finding on the Vampire: a C local of
- * bi_mismatch (clamiga, builtins_sequence2.c) that the function's
+ * bi_mismatch (amilisp, builtins_sequence2.c) that the function's
  * prologue initialises with
  *
  *     lea     -24(a5),a0
@@ -59,7 +59,7 @@ static int variant = 1;
  * LAUNCH, and this sweep would fail on every launch -- but switching the
  * source between replays makes the mis-executed store land outside the
  * buffer, in hardware.  Kept as the record for the Apollo team; run it
- * only on a machine you can reboot.  clamiga's startup self-test is the
+ * only on a machine you can reboot.  amilisp's startup self-test is the
  * single-source chain for that reason. */
 static ULONG eqs[16];
 static ULONG eqs_lost[16];

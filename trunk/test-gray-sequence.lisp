@@ -10,11 +10,11 @@
 ;; Native (non-Gray) streams must keep the boot.lisp behaviour.
 ;;
 ;; Usage (host):
-;;   ./build/host/clamiga --heap 24M --load trunk/test-gray-sequence.lisp
+;;   ./build/host/amilisp --heap 24M --load trunk/test-gray-sequence.lisp
 ;;
 ;; Usage (Amiga, from the Amiga shell):
 ;;   stack 65536
-;;   clamiga --heap 24M --load trunk/test-gray-sequence.lisp
+;;   amilisp --heap 24M --load trunk/test-gray-sequence.lisp
 
 (setq *pass-count* 0)
 (setq *fail-count* 0)

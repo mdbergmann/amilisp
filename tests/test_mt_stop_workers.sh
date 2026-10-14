@@ -12,9 +12,9 @@
 #     safepoint: the call gives up at its bound and counts it as left;
 #   - no workers: returns 0 at once; a bad timeout is a TYPE-ERROR.
 #
-# Run: sh tests/test_mt_stop_workers.sh build/host/clamiga
+# Run: sh tests/test_mt_stop_workers.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then

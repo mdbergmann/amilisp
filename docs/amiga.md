@@ -87,7 +87,7 @@ Conveniences over `AMIGA`/`FFI` for the AmigaOS calling conventions.
 | `(with-library (var name &optional (version 0)) &body body)` | macro | Open library `name`, bind the base to `var`, run `body`, close it after |
 | `(open-library-or-die name &optional (version 0))` | function | `OpenLibrary` that signals a descriptive error (naming the library) instead of returning NIL |
 | `(library-version base)` | function | The `lib_Version` of an open library base (the OS revision actually running) |
-| `(define-library-variable name init-form &optional doc)` | macro | `defvar` for a value the running system decides — a library base, its version, `NIL` for a device base the program sets itself — whose `init-form` runs again after a heap-image restore, before `~/.clamigarc`, in definition order (a restore zeroes every foreign pointer).  Every library module declares its base this way, so a saved image can call the OS right away; a form that fails then leaves the variable `NIL` and says so.  `tests/test_image.sh` and `tests/amiga/image-verify.lisp` show the contract |
+| `(define-library-variable name init-form &optional doc)` | macro | `defvar` for a value the running system decides — a library base, its version, `NIL` for a device base the program sets itself — whose `init-form` runs again after a heap-image restore, before `~/.amilisprc`, in definition order (a restore zeroes every foreign pointer).  Every library module declares its base this way, so a saved image can call the OS right away; a form that fails then leaves the variable `NIL` and says so.  `tests/test_image.sh` and `tests/amiga/image-verify.lisp` show the contract |
 | `(make-hook function &key data)` | function | A `struct Hook` whose entry calls `function` with the hook, the object and the message (foreign pointers — a0, a2, a1 of the hook convention); the result is what the OS gets in d0 (`callback-ulong`: integer, pointer, `T`/`NIL`); `data` goes into `h_Data`.  Returns the hook as a foreign pointer.  The function runs on the OS's stack: an unhandled error or a non-local exit to outside the hook is caught there, the hook returns 0, and the condition is re-signaled after the library call that invoked it returns |
 | `(free-hook hook)` | function | Release a hook (after every object holding it is gone); `NIL` is ignored |
 | `(hook-entry hook)`, `(hook-data hook)` | function | The callback behind `h_Entry` (on the host a C function of `(hook, object, message)`), and `h_Data` as an unsigned integer (`setf`-able) |
@@ -154,7 +154,7 @@ README.
   (let ((rp (amiga.intuition:window-rastport win)))
     (amiga.gfx:set-a-pen rp 1)
     (amiga.gfx:move-to rp 20 40)
-    (amiga.gfx:gfx-text rp "Hello from CL-Amiga!"))
+    (amiga.gfx:gfx-text rp "Hello from AmiLisp!"))
   (amiga.intuition:event-loop win
     (#.amiga.intuition:+idcmp-closewindow+ (msg) (return))))
 ```
@@ -163,7 +163,7 @@ README.
 
 | Signature | Kind | Description |
 |-----------|------|-------------|
-| `(open-window &key (title "CL-Amiga") (left 0) (top 0) (width 320) (height 200) screen (idcmp +idcmp-closewindow+) flags)` | function | Open an Intuition window via OpenWindowTagList; `title` `NIL` opens an untitled window; `screen` is a custom screen pointer; `flags` defaults to close gadget + drag bar + depth gadget + size gadget + activate |
+| `(open-window &key (title "AmiLisp") (left 0) (top 0) (width 320) (height 200) screen (idcmp +idcmp-closewindow+) flags)` | function | Open an Intuition window via OpenWindowTagList; `title` `NIL` opens an untitled window; `screen` is a custom screen pointer; `flags` defaults to close gadget + drag bar + depth gadget + size gadget + activate |
 | `(close-window window)` | function | Close a window from `open-window` |
 | `(with-window (var &rest args) &body body)` | macro | Open a window (`args` as for `open-window`), bind to `var`, close on exit |
 | `(window-rastport window)` | function | RastPort pointer of the window |
@@ -184,7 +184,7 @@ README.
 
 | Signature | Kind | Description |
 |-----------|------|-------------|
-| `(open-screen &key (width 640) (height 256) (depth 2) (title "CL-Amiga") mode-id show-title)` | function | Open a custom screen via OpenScreenTagList; `mode-id` non-`NIL` requests that display mode (get one RTG-safely from `amiga.gfx:best-mode-id`); `show-title` non-`NIL` shows the title bar |
+| `(open-screen &key (width 640) (height 256) (depth 2) (title "AmiLisp") mode-id show-title)` | function | Open a custom screen via OpenScreenTagList; `mode-id` non-`NIL` requests that display mode (get one RTG-safely from `amiga.gfx:best-mode-id`); `show-title` non-`NIL` shows the title bar |
 | `(close-screen screen)` | function | Close a screen from `open-screen` |
 | `(with-screen (var &rest args) &body body)` | macro | Open a screen (`args` as for `open-screen`), bind to `var`, close on exit |
 | `(show-title screen show-it)` | function | ShowTitle: put the screen's title bar in front of (`show-it` non-`NIL`) or behind (`NIL`) backdrop windows |

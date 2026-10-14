@@ -213,7 +213,7 @@ int platform_read_line(char *buf, int bufsize)
     char *r;
     /* Blocking stdin read — bracket with a GC safe region exactly like the
      * socket syscalls below.  cl_repl() (and the SLDB/inspect prompts) park
-     * here in fgets, often the main thread under a `tail -f /dev/null | clamiga`
+     * here in fgets, often the main thread under a `tail -f /dev/null | amilisp`
      * launcher.  Without the bracket, a stop-the-world GC fired by any other
      * thread (e.g. a :spawn worker printing a backtrace into SLDB) waits
      * forever for this thread to reach a safepoint it can never reach. */
@@ -493,7 +493,7 @@ int platform_stdin_is_interactive(void)
 {
     /* GetConsoleMode, not isatty(): the Windows CRT reports every character
      * device — NUL included — as a tty, which would put the REPL into
-     * interactive mode under `clamiga < NUL`. */
+     * interactive mode under `amilisp < NUL`. */
     return tty_is_console();
 }
 
@@ -1132,7 +1132,7 @@ int platform_system(const char *command)
  *
  * Windows has no glob(3), and FindFirstFile only expands a wildcard in the
  * LAST component, so a wildcard in a middle directory component needs
- * the walk to be done here.  What follows matches POSIX glob() as clamiga uses it: '*' and '?'
+ * the walk to be done here.  What follows matches POSIX glob() as amilisp uses it: '*' and '?'
  * in any component, no brace expansion and no '**' (glob has neither),
  * GLOB_MARK's trailing '/' on directory results, and "no matches" reported
  * as NULL rather than an empty vector.
@@ -1386,7 +1386,7 @@ const char *platform_expand_home(const char *path, char *buf, int bufsize)
     if (path[1] != '\0' && path[1] != '/') return path;
 
     /* $HOME is set by MSYS2/Cygwin shells and by anyone who wants to point
-     * clamiga's ~ elsewhere; USERPROFILE is what a plain cmd.exe or
+     * amilisp's ~ elsewhere; USERPROFILE is what a plain cmd.exe or
      * PowerShell session has. */
     home = getenv("HOME");
     if (!home || !*home) home = getenv("USERPROFILE");
@@ -2419,7 +2419,7 @@ void platform_init(void)
     /* Binary OUTPUT streams: no CRLF translation on the way out.  A newline
      * is one LF byte here exactly as it is on POSIX and AmigaOS — which is
      * what every other Common Lisp on Windows does, what the Windows console
-     * itself renders correctly, and what keeps a redirected `clamiga --batch`
+     * itself renders correctly, and what keeps a redirected `amilisp --batch`
      * byte-identical across platforms.  File streams are already binary
      * (platform_file_open opens "rb"/"wb"/"ab").
      *
@@ -2438,7 +2438,7 @@ void platform_init(void)
 
     SetConsoleCtrlHandler(console_ctrl_handler, TRUE);
 
-    /* clamiga's strings are UTF-8 end to end (CL_WIDE_STRINGS), so tell the
+    /* amilisp's strings are UTF-8 end to end (CL_WIDE_STRINGS), so tell the
      * console to interpret its bytes that way in both directions — without
      * this, non-ASCII output lands in the legacy OEM code page. */
     saved_out_cp = GetConsoleOutputCP();
@@ -2470,7 +2470,7 @@ void platform_shutdown(void)
 void platform_cache_clear(void *addr, uint32_t len)
 {
     (void)addr; (void)len;
-    /* Windows hosts running clamiga don't execute JIT-emitted m68k code;
+    /* Windows hosts running amilisp don't execute JIT-emitted m68k code;
      * the JIT only compiles when -DJIT_M68K is on (cross build). */
 }
 

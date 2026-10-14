@@ -1,6 +1,6 @@
-# CL-Amiga Package Reference
+# AmiLisp Package Reference
 
-CL-Amiga ships a number of packages beyond the standard `COMMON-LISP` /
+AmiLisp ships a number of packages beyond the standard `COMMON-LISP` /
 `COMMON-LISP-USER`. These add platform extensions, threading, a foreign-function
 interface, the Gray-streams protocol, the CLOS Metaobject Protocol, and the
 AmigaOS GUI bindings.
@@ -12,7 +12,7 @@ qualified name you would use from a package that does not inherit it.
 
 | Package | Prefix | What it provides | Doc |
 |---------|--------|------------------|-----|
-| `EXT` | `ext:` | clamiga extensions — TCP sockets, GC control, environment access, exit hooks, debug/introspection | [ext.md](ext.md) |
+| `EXT` | `ext:` | amilisp extensions — TCP sockets, GC control, environment access, exit hooks, debug/introspection | [ext.md](ext.md) |
 | `MP` | `mp:` | Multiprocessing — threads, locks, condition variables, memory barriers | [mp.md](mp.md) |
 | `FFI` | `ffi:` | Foreign-function interface — foreign pointers, typed peek/poke, libffi calls & callbacks | [ffi.md](ffi.md) |
 | `GRAY` | `gray:` (nick `...`) | Gray-streams protocol — define your own stream classes in Lisp | [gray.md](gray.md) |

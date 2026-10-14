@@ -2,7 +2,7 @@
 #define CL_PLATFORM_H
 
 /*
- * Platform abstraction layer for CL-Amiga.
+ * Platform abstraction layer for AmiLisp.
  * Every OS-specific call goes through these functions.
  * Implementations: platform_posix.c (Linux/macOS), platform_amiga.c (AmigaOS 3+)
  */
@@ -92,7 +92,7 @@ void  platform_drain_input(void);  /* Drain residual data from stdin (AmigaOS CL
 /* Non-zero iff stdin is an interactive terminal (a real console/tty).
  * Used to gate the interactive C debugger: it may only block in
  * platform_read_line when there is a human at a terminal to answer.  Returns
- * 0 when stdin is a pipe, file or /dev/null (e.g. a `tail -f /dev/null | clamiga`
+ * 0 when stdin is a pipe, file or /dev/null (e.g. a `tail -f /dev/null | amilisp`
  * launcher, or a SLY worker), so the debugger falls back to non-interactive
  * reporting instead of deadlocking on a read no one will ever satisfy. */
 int   platform_stdin_is_interactive(void);
@@ -353,10 +353,10 @@ const char *platform_getenv(const char *name, char *buf, int bufsize);
 
 /* Free system memory in bytes, or 0 where the platform has no meaningful
  * answer (POSIX/Windows, where a process's memory is reclaimed at exit and
- * "free RAM" is a kernel bookkeeping figure, not something clamiga can leak).
+ * "free RAM" is a kernel bookkeeping figure, not something amilisp can leak).
  *
  * On AmigaOS this is AvailMem(MEMF_ANY) — the real, shared system pool.
- * There is no per-process reclaim there: whatever clamiga does not hand back
+ * There is no per-process reclaim there: whatever amilisp does not hand back
  * before it exits is gone until the machine is rebooted.  Sampling this at
  * startup and again at the end of shutdown is the ground truth for "did this
  * run leak?", and is what CLAMIGA_MEM_DIAG=1 reports. */
@@ -379,10 +379,10 @@ int platform_break_pending(void);
 const char *platform_executable_prefix(char *buf, int bufsize);
 
 /* The running executable itself, as a path another process can start it
- * by: "/usr/local/bin/clamiga" (symlinks resolved) on POSIX, "C:/.../
- * clamiga.exe" on Windows, "PROGDIR:clamiga" on AmigaOS.  Backs
+ * by: "/usr/local/bin/amilisp" (symlinks resolved) on POSIX, "C:/.../
+ * amilisp.exe" on Windows, "PROGDIR:clamiga" on AmigaOS.  Backs
  * EXT:EXECUTABLE-PATH, which is how the host Clamacs starts a second
- * clamiga on the binary it runs on.  Returns buf, or NULL when the path
+ * amilisp on the binary it runs on.  Returns buf, or NULL when the path
  * cannot be determined. */
 const char *platform_executable_path(char *buf, int bufsize);
 
@@ -407,7 +407,7 @@ long platform_stack_headroom(void);
  * data hunk lands somewhere else on every launch, so on that core the
  * test flags about every second launch (a sweep over several source
  * addresses would flag every launch but froze the machine -- see
- * cpu_store_probe_m68k.s).  In clamiga that was a C local reading back
+ * cpu_store_probe_m68k.s).  In amilisp that was a C local reading back
  * as whatever dead data its slot held, i.e. random "not a function" /
  * "too few arguments" errors.  Only the m68k build has the test; every
  * other platform answers 0.  main.c runs it once at startup (a few
@@ -687,7 +687,7 @@ int      platform_amiga_last_pushed_method(uint32_t out[5]);
  * =============================================================
  *
  * Transport for the development ARexx port — an editor macro sends a
- * command string, clamiga replies with a return code and (when the code is
+ * command string, amilisp replies with a return code and (when the code is
  * 0) a result string.  Amiga/MorphOS builds only: platform_amiga_rexx.c is
  * not in the host source list, so these have no definition on POSIX and
  * every caller sits behind #ifdef PLATFORM_AMIGA.

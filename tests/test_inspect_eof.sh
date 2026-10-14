@@ -13,9 +13,9 @@
 # driven with expect(1), and skipped where it isn't installed (Linux CI
 # images, MSYS2).
 #
-# Run: sh tests/test_inspect_eof.sh build/host/clamiga
+# Run: sh tests/test_inspect_eof.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 EXPECT=$(command -v expect 2>/dev/null || true)
 if [ -z "$EXPECT" ]; then

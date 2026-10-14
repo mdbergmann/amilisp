@@ -2,7 +2,7 @@
 # Integration tests for --batch mode piping
 # Run: make test-batch (or sh tests/test_batch.sh)
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0

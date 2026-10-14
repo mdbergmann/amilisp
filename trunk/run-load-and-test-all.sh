@@ -25,7 +25,7 @@ set -u
 # CLAMIGA / LOGDIR / CACHE_PARENT are overridable via the environment so the
 # regression test (tests/test_test_extra.sh) can drive the runner against a fake
 # binary and a throwaway cache without touching the real build tree.
-CLAMIGA=${CLAMIGA:-build/host/clamiga}
+CLAMIGA=${CLAMIGA:-build/host/amilisp}
 LOGDIR=${LOGDIR:-build/load-and-test-logs}
 CACHE_PARENT=${CLAMIGA_FASL_CACHE_PARENT:-$HOME/.cache/common-lisp}
 # Each script gets its own FASL cache under here (see the per-script isolation
@@ -108,7 +108,7 @@ timeout_for() {
 # format so summarize() and counts_for() can never disagree. Probe order is
 # significant (closer-mop's smoke line has no numbers; check it before the
 # numeric formats). Echoes one of: fset | rt | fiveam | closermop | none.
-# True (exit 0) if the log carries a clamiga uncaught-error / crash marker.
+# True (exit 0) if the log carries a amilisp uncaught-error / crash marker.
 # Used to tell a script that died mid-run (no tally printed) from one that
 # merely uses a tally format we don't recognize.
 has_error_marker() {
@@ -165,7 +165,7 @@ summarize() {
     closermop|clog)
       echo "smoke test OK" ;;
     none)
-      # No tally printed. Distinguish a script that errored out (clamiga prints
+      # No tally printed. Distinguish a script that errored out (amilisp prints
       # an uncaught-error / Guru line) from one that simply uses an unknown
       # format, so the table says something actionable instead of "ok".
       if has_error_marker "$log"; then
@@ -189,7 +189,7 @@ fmt_dur() {
   fi
 }
 
-# --- Tally-only path: aggregate pre-existing logs without running clamiga ---
+# --- Tally-only path: aggregate pre-existing logs without running amilisp ---
 if [ -n "$TALLY_DIR" ]; then
   if [ ! -d "$TALLY_DIR" ]; then
     echo "error: --tally-dir '$TALLY_DIR' is not a directory" >&2
@@ -238,7 +238,7 @@ fi
 # These scripts hit two distinct cache hazards. Both are defended here by giving
 # each script its own FASL cache directory (CLAMIGA_FASL_CACHE_DIR, honoured by
 # make_fasl_cache_path in src/core/builtins_io.c) and invalidating it when the
-# clamiga binary changes:
+# amilisp binary changes:
 #
 #  1. Cross-script *features* poisoning. Scripts deliberately compile the SAME
 #     shared library under different *features* (e.g. drakma builds hunchentoot
@@ -250,7 +250,7 @@ fi
 #     features — and stays warm across re-runs of that same script.
 #
 #  2. Stale-binary reuse. The cache is otherwise keyed only by CL_VERSION_STRING
-#     + CL_FASL_VERSION; the clamiga binary is rebuilt far more often than the
+#     + CL_FASL_VERSION; the amilisp binary is rebuilt far more often than the
 #     FASL version is bumped (and WIP rebuilds violate that contract by
 #     construction), so a fresh binary can silently load bytecode emitted by the
 #     previous binary — missing classes, bad CLOS dispatch, SIGSEGV. We
@@ -274,7 +274,7 @@ if [ "$COLD" -eq 0 ]; then
   [ -f "$BINID_FILE" ] && prev_binid=$(cat "$BINID_FILE" 2>/dev/null)
   if [ -n "$cur_binid" ] && [ "$cur_binid" != "$prev_binid" ]; then
     if [ -d "$PERSCRIPT_CACHE" ]; then
-      echo ">>> clamiga binary or boot FASLs changed since last run — wiping stale FASL cache" >&2
+      echo ">>> amilisp binary or boot FASLs changed since last run — wiping stale FASL cache" >&2
       rm -rf "$PERSCRIPT_CACHE"
     fi
     mkdir -p "$PERSCRIPT_CACHE"

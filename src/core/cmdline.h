@@ -1,7 +1,7 @@
 /*
  * cmdline.h — the program's own arguments and their Lisp surface.
  *
- * clamiga's command line is options; everything after a bare `--` is left
+ * amilisp's command line is options; everything after a bare `--` is left
  * to the program (EXT:*COMMAND-LINE-ARGS*), never loaded.  A Workbench start
  * on AmigaOS has no command line at all: the platform layer synthesizes one
  * from the icons' tool types with the builder below (ARGS = the options,

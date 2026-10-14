@@ -44,10 +44,10 @@ TEST(init_is_empty_and_terminated)
 TEST(add_appends_verbatim)
 {
     fresh();
-    ASSERT_EQ(cl_argv_builder_add(&b, "clamiga"), 1);
+    ASSERT_EQ(cl_argv_builder_add(&b, "amilisp"), 1);
     ASSERT_EQ(cl_argv_builder_add(&b, "two words"), 1);
     ASSERT_EQ(b.argc, 2);
-    ASSERT_STR_EQ(argv[0], "clamiga");
+    ASSERT_STR_EQ(argv[0], "amilisp");
     ASSERT_STR_EQ(argv[1], "two words");
     ASSERT(argv[2] == NULL);
 }
@@ -110,12 +110,12 @@ TEST(split_null_or_empty_adds_nothing)
 TEST(add_and_split_interleave_like_a_workbench_start)
 {
     fresh();
-    cl_argv_builder_add(&b, "clamiga");
+    cl_argv_builder_add(&b, "amilisp");
     cl_argv_builder_split(&b, "--heap 8M");
     cl_argv_builder_add(&b, "--");
     cl_argv_builder_add(&b, "Work:src/a.lisp");
     ASSERT_EQ(b.argc, 5);
-    ASSERT_STR_EQ(argv[0], "clamiga");
+    ASSERT_STR_EQ(argv[0], "amilisp");
     ASSERT_STR_EQ(argv[1], "--heap");
     ASSERT_STR_EQ(argv[2], "8M");
     ASSERT_STR_EQ(argv[3], "--");

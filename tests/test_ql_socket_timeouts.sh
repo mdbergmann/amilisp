@@ -21,7 +21,7 @@
 # lib/quicklisp-compat.lisp cannot be loaded without a quicklisp install,
 # so its (identical) wiring is asserted textually below instead.
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0

@@ -13,7 +13,7 @@
 ;;; with the Paula driver and a prefs file putting Paula on unit 0;
 ;;; MorphOS ships AHI).  The pure checks always run; the device checks
 ;;; SKIP -- never FAIL -- when OPEN-AHI returns NIL, on every platform:
-;;; a missing AHI is the machine's state, not clamiga's bug.
+;;; a missing AHI is the machine's state, not amilisp's bug.
 
 (require "amiga/ahi")
 

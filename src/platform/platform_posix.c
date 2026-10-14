@@ -200,7 +200,7 @@ int platform_read_line(char *buf, int bufsize)
     char *r;
     /* Blocking stdin read — bracket with a GC safe region exactly like the
      * socket syscalls below.  cl_repl() (and the SLDB/inspect prompts) park
-     * here in fgets, often the main thread under a `tail -f /dev/null | clamiga`
+     * here in fgets, often the main thread under a `tail -f /dev/null | amilisp`
      * launcher.  Without the bracket, a stop-the-world GC fired by any other
      * thread (e.g. a :spawn worker printing a backtrace into SLDB) waits
      * forever for this thread to reach a safepoint it can never reach. */
@@ -2118,7 +2118,7 @@ void *platform_jit_map(uint32_t bytes, void **writable)
      * fd is not needed once both views exist.  The raw syscall, because
      * the memfd_create wrapper only came with glibc 2.27. */
     void *rw, *rx;
-    int fd = (int)syscall(SYS_memfd_create, "clamiga-jit", MFD_CLOEXEC);
+    int fd = (int)syscall(SYS_memfd_create, "amilisp-jit", MFD_CLOEXEC);
     if (fd < 0) return NULL;
     if (ftruncate(fd, (off_t)bytes) != 0) { close(fd); return NULL; }
     rw = mmap(NULL, bytes, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);

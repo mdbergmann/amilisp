@@ -29,9 +29,9 @@
 #     the layout: README-FIRST to the manual/editor/index, the manual into
 #     docs/, the AMIGA.* reference back up to the manual
 #
-# Run: sh tests/test_md2guide.sh build/host/clamiga
+# Run: sh tests/test_md2guide.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 ROOT=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT" || exit 1
 . tests/shpath.sh
@@ -112,7 +112,7 @@ out=$(sh tools/docs/md2guide.sh "$CLAMIGA" "$WORK/rel" 2>&1)
 rc=$?
 if [ "$rc" -eq 0 ]; then ok "real_docs_convert"; else fail "real_docs_convert" "$out"; fi
 # the release layout: the root guides at the top, the reference under docs/
-for g in README-FIRST cl-amiga docs/README docs/ext docs/mp docs/ffi docs/gray docs/mop docs/clamiga docs/amiga; do
+for g in README-FIRST amilisp docs/README docs/ext docs/mp docs/ffi docs/gray docs/mop docs/clamiga docs/amiga; do
     [ -s "$WORK/rel/$g.guide" ] || fail "real_docs_present_$g" "missing $WORK/rel/$g.guide"
 done
 if [ -f clamacs/README.md ]; then
@@ -174,16 +174,16 @@ for g in ext mp ffi gray mop clamiga amiga; do
 done
 [ -z "$bad" ] && ok "index_links_every_page" || fail "index_links_every_page" "$bad"
 # the manual (root) links down into the reference (docs/)
-grep -q 'LINK "docs/ext.guide/' "$WORK/rel/cl-amiga.guide" && ok "manual_links_reference" || fail "manual_links_reference"
+grep -q 'LINK "docs/ext.guide/' "$WORK/rel/amilisp.guide" && ok "manual_links_reference" || fail "manual_links_reference"
 # the AMIGA.* reference (docs/) links up to the manual (root): AmigaDOS parent
-grep -q 'LINK "/cl-amiga.guide/' "$WORK/rel/docs/amiga.guide" && ok "reference_links_manual" || fail "reference_links_manual"
+grep -q 'LINK "/amilisp.guide/' "$WORK/rel/docs/amiga.guide" && ok "reference_links_manual" || fail "reference_links_manual"
 # the getting-started page links to the manual, the index and (when the
 # submodule is present) the editor's guide, all by their release paths
 bad=""
-grep -q 'LINK "cl-amiga.guide/main"' "$WORK/rel/README-FIRST.guide" || bad="$bad no-link-to-manual"
+grep -q 'LINK "amilisp.guide/main"' "$WORK/rel/README-FIRST.guide" || bad="$bad no-link-to-manual"
 grep -q 'LINK "docs/README.guide/main"' "$WORK/rel/README-FIRST.guide" || bad="$bad no-link-to-index"
 grep -q 'LINK "docs/ext.guide/heap-images"' "$WORK/rel/README-FIRST.guide" || bad="$bad no-link-to-ext-heap-images"
-grep -q 'LINK "cl-amiga.guide/arexx-port-amigaos--morphos"' "$WORK/rel/README-FIRST.guide" || bad="$bad no-link-to-arexx-section"
+grep -q 'LINK "amilisp.guide/arexx-port-amigaos--morphos"' "$WORK/rel/README-FIRST.guide" || bad="$bad no-link-to-arexx-section"
 if [ -f clamacs/README.md ]; then
     grep -q 'LINK "clamacs.guide/main"' "$WORK/rel/README-FIRST.guide" || bad="$bad no-link-to-clamacs"
 fi

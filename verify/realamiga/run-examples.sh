@@ -16,13 +16,13 @@
 #
 # Needs the FS-UAE setup of `make -f Makefile.cross test-amiga` (the OS 3.9
 # Workbench image there has the ReAction classes) and a cross-built
-# clamiga (default build/cross/clamiga).  Exit status 0 when every
+# amilisp (default build/cross/amilisp).  Exit status 0 when every
 # example reported EXAMPLE-OK (or EXAMPLE-SKIP).
 set -u
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 cd "$ROOT" || exit 1
-BIN="${1:-build/cross/clamiga}"
+BIN="${1:-build/cross/amilisp}"
 LOG=build/amiga/test-results.log
 
 [ -x "$BIN" ] || { echo "ERROR: $BIN missing — make -f Makefile.cross amiga first" >&2; exit 1; }
@@ -33,20 +33,20 @@ fi
 
 mkdir -p build/amiga/shots
 rm -f build/amiga/shots/* build/amiga/screen-grab.log build/amiga/screen-grab-run.log
-cp "$BIN" build/amiga/clamiga
+cp "$BIN" build/amiga/amilisp
 
 # The AmigaDOS script call-on-ustartup executes instead of the suite.
 # It must write the "=== run end ===" marker run-fs-uae.sh watches for,
 # and quit the emulator itself.
 cat > build/amiga/boot-override <<'EOF'
-cd CLAmiga:
+cd AmiLisp:
 stack 128000
 echo "=== run start ===" >build/amiga/test-results.log
 date >>build/amiga/test-results.log
 delete >NIL: T:examples-done
 delete >NIL: T:screen-grab-ready
-Run >build/amiga/screen-grab-run.log build/amiga/clamiga --no-userinit --heap 16M --non-interactive --load verify/realamiga/screen-grab.lisp
-build/amiga/clamiga --no-userinit --heap 24M --non-interactive --load verify/realamiga/examples.lisp >>build/amiga/test-results.log
+Run >build/amiga/screen-grab-run.log build/amiga/amilisp --no-userinit --heap 16M --non-interactive --load verify/realamiga/screen-grab.lisp
+build/amiga/amilisp --no-userinit --heap 24M --non-interactive --load verify/realamiga/examples.lisp >>build/amiga/test-results.log
 echo done >T:examples-done
 wait 4
 echo "=== run end ===" >>build/amiga/test-results.log

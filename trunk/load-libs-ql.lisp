@@ -28,9 +28,9 @@
 ;;; Run paths are relative to the repo root, matching how the scripts
 ;;; are invoked, e.g.:
 ;;;
-;;;   ./build/host/clamiga --heap 24M --load trunk/load-and-test-5am.lisp
+;;;   ./build/host/amilisp --heap 24M --load trunk/load-and-test-5am.lisp
 ;;;
-;;; The CL-Amiga library forks (closer-mop, trivial-cltl2,
+;;; The AmiLisp library forks (closer-mop, trivial-cltl2,
 ;;; introspect-environment, trivial-garbage) need no ENSURE-QL-LIB call —
 ;;; they are cloned into quicklisp's local-projects tree, so quicklisp's
 ;;; local-projects searcher resolves them ahead of the dist releases once
@@ -74,7 +74,7 @@
 from the dist only when it is not there yet.
 
 If ASDF can already locate NAME (an already-downloaded dist release, or a
-CL-Amiga library fork / swank stub on quicklisp's local-projects path) we do nothing —
+AmiLisp library fork / swank stub on quicklisp's local-projects path) we do nothing —
 no network, no re-download. Otherwise we pull the matching dist release to
 disk via QL-DIST:ENSURE-INSTALLED. Either way the system is NOT loaded
 here; the caller does that with (asdf:load-system name).

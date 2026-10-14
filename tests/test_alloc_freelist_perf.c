@@ -70,7 +70,7 @@ static void setup(void)
     cl_compiler_init();
     cl_vm_init(0, 0);
     cl_builtins_init();
-    /* Skip user-init (.clamigarc / asdf / quicklisp): it would fill this small
+    /* Skip user-init (.amilisprc / asdf / quicklisp): it would fill this small
      * test heap with uncontrolled state and defeat the deterministic layout. */
     cl_quiet_boot = 1;
     cl_repl_init_no_userinit(1);

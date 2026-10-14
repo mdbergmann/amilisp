@@ -9,7 +9,7 @@
 ;;; with GET-ATTR INTEGER_Number.
 ;;;
 ;;; Run on AmigaOS 3.5+/3.2 or MorphOS (ReAction classes required):
-;;;   clamiga --load examples/amiga/reaction/integer.lisp
+;;;   amilisp --load examples/amiga/reaction/integer.lisp
 
 (require "amiga/reaction")
 (require "amiga/raw/intuition")

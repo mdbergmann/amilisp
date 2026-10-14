@@ -13,9 +13,9 @@
 # values tell a missing leading argument from a single bad one, and a
 # non-object word prints as "#<raw ...>" / "#<out of arena ...>" instead
 # of crashing the printer.
-# Run: sh tests/test_call_diag.sh [path-to-clamiga]
+# Run: sh tests/test_call_diag.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0
@@ -84,7 +84,7 @@ if [ "${CLAMIGA_GC_STRESS:-0}" = "1" ]; then
     # its ip, where the normal build says :2.  The errors raised in the
     # handler-case's own frame (E2, E12, E15, E16) are delivered.
     # Repro: make host BUILDDIR=build/host-gcstress DEBUG_FLAGS=-DDEBUG_GC_STRESS
-    #        sh tests/test_call_diag.sh build/host-gcstress/clamiga
+    #        sh tests/test_call_diag.sh build/host-gcstress/amilisp
     # (without CLAMIGA_GC_STRESS=1 in the environment the two E1 checks
     # below the else fail on that binary).  The gc-stress suite is meant to
     # mirror the release build's semantics, so this is not a fix but a

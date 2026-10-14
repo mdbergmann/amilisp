@@ -1,4 +1,4 @@
-# CL-Amiga -- read me first
+# AmiLisp -- read me first
 
 Common Lisp for AmigaOS 3+ and MorphOS.  This drawer is the binary
 release: everything runs from here, from any current directory, with no
@@ -10,15 +10,15 @@ icon or read on.  (This page is `README-FIRST.guide` on the Amiga and
 
 | File | Description |
 |------|-------------|
-| `CLAmiga`, `CLAmiga-FPU`, `CLAmiga-MOS`, `Clamacs`, `Clamacs-FPU`, `Clamacs-MOS` | Workbench icons, one per binary: a double-click starts clamiga or the Clamacs editor from `bin/aos3`, `bin/aos3-fpu` or `bin/mos`, see Workbench below |
+| `AmiLisp`, `AmiLisp-FPU`, `AmiLisp-MOS`, `Clamacs`, `Clamacs-FPU`, `Clamacs-MOS` | Workbench icons, one per binary: a double-click starts amilisp or the Clamacs editor from `bin/aos3`, `bin/aos3-fpu` or `bin/mos`, see Workbench below |
 | `README-FIRST.guide` | this page |
-| `cl-amiga.guide` | the manual: features, usage, the GUI libraries, the ARexx port, known limitations (the project's README) |
+| `amilisp.guide` | the manual: features, usage, the GUI libraries, the ARexx port, known limitations (the project's README) |
 | `clamacs.guide` | Clamacs, the editor/IDE: keys, windows, the REPL and debugger windows |
-| `bin/aos3/clamiga` | AmigaOS 3.x, 68020 or better -- runs on any CPU |
-| `bin/aos3-fpu/clamiga` | AmigaOS 3.x, hard-float build -- REQUIRES an FPU |
-| `bin/mos/clamiga` | MorphOS (PowerPC, native) |
-| `bin/*/clamiga.img` | the heap image of the bare boot, one per binary (see Startup) |
-| `bin/*/clamacs.img` | Clamacs, the editor/IDE, as a heap image beside each binary: the `Clamacs` icon starts `clamiga --image clamacs.img` |
+| `bin/aos3/amilisp` | AmigaOS 3.x, 68020 or better -- runs on any CPU |
+| `bin/aos3-fpu/amilisp` | AmigaOS 3.x, hard-float build -- REQUIRES an FPU |
+| `bin/mos/amilisp` | MorphOS (PowerPC, native) |
+| `bin/*/amilisp.img` | the heap image of the bare boot, one per binary (see Startup) |
+| `bin/*/clamacs.img` | Clamacs, the editor/IDE, as a heap image beside each binary: the `Clamacs` icon starts `amilisp --image clamacs.img` |
 | `lib/` | the runtime library: precompiled FASLs plus the Lisp sources; `lib/clamacs/` is the editor's |
 | `docs/` | the package reference, as AmigaGuide and Markdown; `docs/README.guide` is its index |
 | `examples/` | example programs, as Lisp source |
@@ -27,18 +27,18 @@ icon or read on.  (This page is `README-FIRST.guide` on the Amiga and
 ## Workbench
 
 Open this drawer on Workbench (or Ambient on MorphOS).  The icons come
-in two columns -- clamiga on the left, the Clamacs editor on the right --
-and one row per binary: `CLAmiga` / `Clamacs` are the soft-float AmigaOS 3
-build that runs on every 68020+, `CLAmiga-FPU` / `Clamacs-FPU` the
-hard-float build (FPU required, see below; the editor and the clamiga it
-starts for its REPL are then both hard-float), `CLAmiga-MOS` /
+in two columns -- amilisp on the left, the Clamacs editor on the right --
+and one row per binary: `AmiLisp` / `Clamacs` are the soft-float AmigaOS 3
+build that runs on every 68020+, `AmiLisp-FPU` / `Clamacs-FPU` the
+hard-float build (FPU required, see below; the editor and the amilisp it
+starts for its REPL are then both hard-float), `AmiLisp-MOS` /
 `Clamacs-MOS` the native MorphOS build.  Pick the row for your machine;
 the icons do no detection, so an AmigaOS icon on MorphOS (or the other
 way round) only fails to start.  Each icon runs the small launcher script
 of the same name through IconX, from this drawer, with a 128K stack --
 the same as the shell quick start below.  The console's size and title
-are the WINDOW tool type of the CLAmiga icons (Icons > Information);
-closing that window ends clamiga.
+are the WINDOW tool type of the AmiLisp icons (Icons > Information);
+closing that window ends amilisp.
 
 Every `.guide` file has an icon too: a double-click opens it in
 MultiView.
@@ -62,10 +62,10 @@ source files are fully interchangeable between them.
 ```
 stack 131072
 cd <this drawer>
-bin/aos3/clamiga
+bin/aos3/amilisp
 ```
 
-On MorphOS use `bin/mos/clamiga`, on FPU machines `bin/aos3-fpu/clamiga`.
+On MorphOS use `bin/mos/amilisp`, on FPU machines `bin/aos3-fpu/amilisp`.
 
 The binary finds `lib/` on its own: it looks in the current directory, in
 `PROGDIR:lib`, and two directory levels above the executable -- which is
@@ -77,27 +77,28 @@ A stack of 128K (`stack 131072`) is recommended.  The AmigaOS default of
 Quicklisp systems) needs more -- with too little stack you get a clean
 "C stack nearly exhausted" error instead of a crash.
 
-For bigger programs raise the heap, e.g. `bin/aos3/clamiga --heap 16M`.
+For bigger programs raise the heap, e.g. `bin/aos3/amilisp --heap 16M`.
 
 ## Startup
 
-Each binary starts from the `clamiga.img` beside it: a snapshot of the
+Each binary starts from the `amilisp.img` beside it: a snapshot of the
 booted runtime (boot + CLOS), restored in one read instead of loading
 `lib/boot.fasl` and `lib/clos.fasl` form by form.  Keep the image next to
 its binary -- it is tied to that exact build and refused by any other.
-`clamiga --no-image` boots from the FASLs instead, and `--boot-log` prints
+`amilisp --no-image` boots from the FASLs instead, and `--boot-log` prints
 the startup phase timings either way.  See [Heap images](docs/ext.md#heap-images)
 in the EXT reference for saving images of your own.
 
-clamiga runs `S:.clamigarc` at startup when the file exists (Lisp forms,
+amilisp runs `S:.amilisprc` at startup when the file exists (Lisp forms,
 evaluated one after the other -- the place for `(require ...)` lines and
-your own settings; `--no-userinit` skips it).
+your own settings; `--no-userinit` skips it).  An `S:.clamigarc` from an
+earlier release is still read when there is no `S:.amilisprc`.
 
 ## Clamacs and the ARexx port
 
 Clamacs is an Emacs-flavoured Lisp editor and IDE: a MUI application,
-written in Lisp and running as a clamiga of its own, that talks to a
-running clamiga over clamiga's ARexx port --
+written in Lisp and running as a amilisp of its own, that talks to a
+running amilisp over amilisp's ARexx port --
 load, compile and evaluate from the buffer, arglists and completion, jump
 to definition, a REPL window (`C-c C-z`), a debugger window with restarts
 and backtrace, and an inspector (`C-c I`).  It needs MUI 3.8 or newer
@@ -105,20 +106,20 @@ and backtrace, and an inspector (`C-c I`).  It needs MUI 3.8 or newer
 `MUI:Libs/mui/` (MorphOS ships it; on AmigaOS 3 install both from
 Aminet).  The editor checks for them at startup.
 
-There are two ways to pair the editor with a clamiga.
+There are two ways to pair the editor with a amilisp.
 
-**Start Clamacs alone.**  The first command that needs clamiga asks "No
-clamiga ARexx port was found.  Start clamiga in its own console window?";
-Start launches the `clamiga` the editor itself runs on (`bin/aos3/clamiga`,
-`bin/aos3-fpu/clamiga` or `bin/mos/clamiga`, the one beside its
-`clamacs.img`) with a 128K stack, your `S:.clamigarc` loaded, and tells it
+**Start Clamacs alone.**  The first command that needs amilisp asks "No
+amilisp ARexx port was found.  Start amilisp in its own console window?";
+Start launches the `amilisp` the editor itself runs on (`bin/aos3/amilisp`,
+`bin/aos3-fpu/amilisp` or `bin/mos/amilisp`, the one beside its
+`clamacs.img`) with a 128K stack, your `S:.amilisprc` loaded, and tells it
 to open its ARexx port -- no rc file is needed for this.  For a bare helper
 without your rc put `(setq *clamiga-options* '("--no-userinit"))` into
 `S:.clamacsrc`; `*clamiga-heap*` sets its heap (see clamacs.guide).
 
-**Start clamiga first, Clamacs second.**  The editor connects to a clamiga
-that already has its port open.  clamiga does not open the port by itself,
-so put these two lines into `S:.clamigarc` (create the file if you have
+**Start amilisp first, Clamacs second.**  The editor connects to a amilisp
+that already has its port open.  amilisp does not open the port by itself,
+so put these two lines into `S:.amilisprc` (create the file if you have
 none):
 
 ```lisp
@@ -126,15 +127,15 @@ none):
 (amiga.arexx:start)
 ```
 
-Every clamiga started from then on -- from the `CLAmiga` icon or a shell --
+Every amilisp started from then on -- from the `AmiLisp` icon or a shell --
 opens the port `CLAMIGA` (a second instance takes `CLAMIGA.1`, and so on);
 for the current session only, type the same two forms at the REPL.  Note
 that a session with the port open cannot `EXT:SAVE-IMAGE` -- the port runs
-on a thread -- so save images and executables from a clamiga started with
+on a thread -- so save images and executables from a amilisp started with
 `--no-userinit`.
 
 From a shell, files to edit go after `--`:
-`bin/aos3/clamiga --image bin/aos3/clamacs.img --non-interactive --eval "(clamacs::run)" -- Work:my.lisp`
+`bin/aos3/amilisp --image bin/aos3/clamacs.img --non-interactive --eval "(clamacs::run)" -- Work:my.lisp`
 (that is what the `Clamacs` icon runs, without files; `Clamacs-FPU` and
 `Clamacs-MOS` run the same from `bin/aos3-fpu/` and `bin/mos/`).
 `S:.clamacsrc`, if
@@ -142,7 +143,7 @@ you have one, is loaded before the first window opens.
 
 The editor's keys, windows and menus are in [clamacs.guide](clamacs/README.md);
 the port's commands (`LOAD`, `EVAL`, `COMPLETE`, ...) are in the manual's
-ARexx section ([cl-amiga.guide](README.md#arexx-port-amigaos--morphos)).
+ARexx section ([amilisp.guide](README.md#arexx-port-amigaos--morphos)).
 
 ## Libraries
 
@@ -170,12 +171,12 @@ later loads are fast.
 ## Documentation
 
 Every page ships twice: as AmigaGuide (`*.guide`, each with an icon --
-double-click it, or `MultiView cl-amiga.guide` from a shell) and as
+double-click it, or `MultiView amilisp.guide` from a shell) and as
 Markdown (`*.md`).  Every heading is a node, and the links between the
 pages work, across the drawers.
 
 - [README-FIRST.guide](README-FIRST.md) -- this page
-- [cl-amiga.guide](README.md) -- the manual: features, the REPL and the
+- [amilisp.guide](README.md) -- the manual: features, the REPL and the
   command line, the GUI libraries, the ARexx port, SLY, known limitations
 - [clamacs.guide](clamacs/README.md) -- the Clamacs editor/IDE
 - [docs/README.guide](docs/README.md) -- the index of the package
@@ -186,8 +187,8 @@ pages work, across the drawers.
 ## Examples
 
 ```
-bin/aos3/clamiga --load examples/amiga/gfx/bouncing-lines.lisp
-bin/aos3/clamiga --load examples/amiga/reaction/listbrowser.lisp
+bin/aos3/amilisp --load examples/amiga/gfx/bouncing-lines.lisp
+bin/aos3/amilisp --load examples/amiga/reaction/listbrowser.lisp
 ```
 
 `examples/amiga/README.md` lists them all: ReAction and MUI GUIs,
@@ -196,5 +197,5 @@ graphics, audio, IFF, ARexx.
 ## Project
 
 Source code, documentation and issue tracker:
-https://github.com/mdbergmann/cl-amiga -- Clamacs:
+https://github.com/mdbergmann/amilisp -- Clamacs:
 https://github.com/mdbergmann/clamacs.  License: Apache 2.0.

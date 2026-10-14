@@ -165,7 +165,7 @@ PARENT="$(git rev-parse --short HEAD 2>/dev/null || echo root)"
 LOG=".reviews/log-$(date '+%Y%m%d-%H%M%S').md"
 printf '# Auto-review log — %s (parent %s)\n\n' "$TS" "$PARENT" > "$LOG"
 
-REVIEW_PROMPT='You are reviewing a git diff for a commit about to be made to CL-Amiga, a Common Lisp environment for AmigaOS written in C89/C99. The staged diff to review is in the file '"$DIFF_FILE"' — read that file first.
+REVIEW_PROMPT='You are reviewing a git diff for a commit about to be made to AmiLisp, a Common Lisp environment for AmigaOS written in C89/C99. The staged diff to review is in the file '"$DIFF_FILE"' — read that file first.
 
 Enforce these project rules (from CLAUDE.md):
 - GC safety: any CL_Obj held across an allocating call (cl_alloc/cl_cons/cl_make_*/cl_vm_apply etc.) must be CL_GC_PROTECT-ed; watch for list-building loops.

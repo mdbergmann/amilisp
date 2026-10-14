@@ -42,7 +42,7 @@ selection, the frame layout and the executable-memory plumbing are new.
 ## What we take from evergreen, and what not
 
 Evergreen (github.com/atgreen/evergreen) is GPL-3.0 with a Classpath
-exception; clamiga is Apache-2.0.  **No code is copied.**  Encodings come
+exception; amilisp is Apache-2.0.  **No code is copied.**  Encodings come
 from the Arm ARM (DDI 0487, C4.1); the ideas below are design, not text.
 
 Taken:

@@ -19,9 +19,9 @@
 # GC cannot release their slots) leave 4 free slots; 8 live spinners then
 # force the table-full reaper, and spinner #5 reclaims the victim's slot.
 #
-# Run: sh tests/test_mt_thread_identity.sh build/host/clamiga
+# Run: sh tests/test_mt_thread_identity.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then

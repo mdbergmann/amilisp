@@ -13,9 +13,9 @@
 # every allocation, so every allocating form bumps -- the checks below
 # assert "moved", which a stress run must still satisfy, and the no-bump
 # check uses a call loop that does not allocate).
-# Run: sh tests/test_call_gen.sh [path-to-clamiga]
+# Run: sh tests/test_call_gen.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0

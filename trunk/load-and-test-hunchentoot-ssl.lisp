@@ -20,7 +20,7 @@
 ;; compiles (the "No class named SSL-ACCEPTOR" stale-cache trap).
 ;;
 ;; Usage (host):
-;;   ./build/host/clamiga --heap 256M --load trunk/load-and-test-hunchentoot-ssl.lisp
+;;   ./build/host/amilisp --heap 256M --load trunk/load-and-test-hunchentoot-ssl.lisp
 
 (setq *load-verbose* nil)
 (require "asdf")

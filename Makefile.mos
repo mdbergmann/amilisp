@@ -1,9 +1,9 @@
-# CL-Amiga Makefile for MorphOS (PPC) — native build
+# AmiLisp Makefile for MorphOS (PPC) — native build
 #
-# Builds clamiga *under* MorphOS *for* MorphOS using the MorphOS SDK GCC.
+# Builds amilisp *under* MorphOS *for* MorphOS using the MorphOS SDK GCC.
 # Run from a MorphOS shell (or a MorphOS GCC environment):
 #
-#     make -f Makefile.mos              # build build/morphos/clamiga
+#     make -f Makefile.mos              # build build/morphos/amilisp
 #     make -f Makefile.mos GC=classic   # the classic collector, build/morphos-classic/
 #     make -f Makefile.mos clean
 #
@@ -171,14 +171,14 @@ ALL_OBJS = $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/%.o,$(ALL_SRCS))
 # the target-platform gate for MorphOS is the Lisp suite
 # (tests/amiga/run-tests.lisp), exactly as FS-UAE is for m68k AmigaOS —
 # neither target runs the C tier.  The one MorphOS-critical C check
-# (CL_JMPBUF_GUARD sizing) is enforced at every clamiga boot by
+# (CL_JMPBUF_GUARD sizing) is enforced at every amilisp boot by
 # cl_setjmp_overrun_check().
 
 .PHONY: morphos image editor-image clean
 
-morphos: $(BUILDDIR)/clamiga
+morphos: $(BUILDDIR)/amilisp
 
-# Bare-boot heap image beside the binary (build/morphos/clamiga.img) — the
+# Bare-boot heap image beside the binary (build/morphos/amilisp.img) — the
 # MorphOS counterpart of Makefile.cross's image-amiga, run natively since
 # images are per-build (specs/image-save-load.md).  Save from the binary's
 # own directory (where startup looks for an image), then restart from the
@@ -187,15 +187,15 @@ morphos: $(BUILDDIR)/clamiga
 # MOS_IMG=... next to MOS_BIN=... .
 #
 # The save script is copied beside the binary first: make runs under the
-# GG shell, whose `..` is meaningless to the -noixemul clamiga it launches
+# GG shell, whose `..` is meaningless to the -noixemul amilisp it launches
 # (AmigaDOS spells the parent directory as a leading `/`), so a
 # `../../scripts/...` argument fails with "Cannot open file" on the box.
-image: $(BUILDDIR)/clamiga
-	rm -f $(BUILDDIR)/clamiga.img
+image: $(BUILDDIR)/amilisp
+	rm -f $(BUILDDIR)/amilisp.img
 	cp scripts/save-boot-image.lisp $(BUILDDIR)/save-boot-image.lisp
-	cd $(BUILDDIR) && ./clamiga --no-userinit --no-image --non-interactive --boot-log --load save-boot-image.lisp
+	cd $(BUILDDIR) && ./amilisp --no-userinit --no-image --non-interactive --boot-log --load save-boot-image.lisp
 	rm -f $(BUILDDIR)/save-boot-image.lisp
-	$(BUILDDIR)/clamiga --no-userinit --non-interactive --boot-log --load scripts/verify-boot-image.lisp
+	$(BUILDDIR)/amilisp --no-userinit --non-interactive --boot-log --load scripts/verify-boot-image.lisp
 
 # The Clamacs editor's heap image beside the binary (build/morphos/clamacs.img),
 # the MorphOS counterpart of Makefile.cross's editor-image-amiga: the editor
@@ -205,18 +205,18 @@ image: $(BUILDDIR)/clamiga
 # session on the box's screen).  The release script packages the result as
 # CLAMACS_MOS_IMG=... .  The save runs from beside the binary, so the editor
 # is named by an ABSOLUTE AmigaDOS path (`../..` means nothing to the
-# -noixemul clamiga; `//clamacs/...` works too, but an absolute path keeps
+# -noixemul amilisp; `//clamacs/...` works too, but an absolute path keeps
 # the FASL source names independent of where the save ran).  The GG shell
 # spells the checkout /Work/DevelAdd/...; AMIGA_CURDIR is Work:DevelAdd/...
 # (the same absolute paths verify/realamiga/make-editor-image.sh passes).
 AMIGA_CURDIR := $(shell echo "$(CURDIR)" | sed 's|^/\([^/]*\)/*|\1:|')
 
-editor-image: $(BUILDDIR)/clamiga
+editor-image: $(BUILDDIR)/amilisp
 	rm -f $(BUILDDIR)/clamacs.img
-	cd $(BUILDDIR) && ./clamiga --no-userinit --no-image --heap 8M --non-interactive --boot-log --load $(AMIGA_CURDIR)/clamacs/lisp/load.lisp --load $(AMIGA_CURDIR)/clamacs/scripts/save-editor-image.lisp
-	$(BUILDDIR)/clamiga --no-userinit --heap 8M --non-interactive --boot-log --image $(BUILDDIR)/clamacs.img --load clamacs/scripts/verify-editor-image.lisp
+	cd $(BUILDDIR) && ./amilisp --no-userinit --no-image --heap 8M --non-interactive --boot-log --load $(AMIGA_CURDIR)/clamacs/lisp/load.lisp --load $(AMIGA_CURDIR)/clamacs/scripts/save-editor-image.lisp
+	$(BUILDDIR)/amilisp --no-userinit --heap 8M --non-interactive --boot-log --image $(BUILDDIR)/clamacs.img --load clamacs/scripts/verify-editor-image.lisp
 
-$(BUILDDIR)/clamiga: $(ALL_OBJS)
+$(BUILDDIR)/amilisp: $(ALL_OBJS)
 	@mkdir -p $(dir $@)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 

@@ -1090,7 +1090,7 @@ void cl_gc_compact(void)
              * mode the user should see in the session log, not something
              * to infer from a sudden GC storm. */
             char msg[128];
-            sprintf(msg, "clamiga: GC cannot compact - no %lu bytes of memory "
+            sprintf(msg, "amilisp: GC cannot compact - no %lu bytes of memory "
                          "for the forwarding table, sweeping instead\n",
                     (unsigned long)cl_gc_fwd_bytes());
             platform_write_string(msg);

@@ -10,7 +10,7 @@
 ;;; it, but only there).
 ;;;
 ;;; Run on AmigaOS 3.5+/3.2 or MorphOS (ReAction classes required):
-;;;   clamiga --load examples/amiga/reaction/clicktab.lisp
+;;;   amilisp --load examples/amiga/reaction/clicktab.lisp
 
 (require "amiga/reaction")
 (require "amiga/raw/exec")

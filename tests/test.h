@@ -2,7 +2,7 @@
 #define TEST_H
 
 /*
- * Minimal test framework for CL-Amiga.
+ * Minimal test framework for AmiLisp.
  * Usage:
  *   TEST(name) { ASSERT(...); ASSERT_EQ(...); }
  *   int main() { RUN(name); REPORT(); }

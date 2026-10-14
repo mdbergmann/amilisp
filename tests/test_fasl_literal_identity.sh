@@ -17,9 +17,9 @@
 # Both legs run: an explicit COMPILE-FILE + LOAD, and LOAD's implicit cache
 # (second LOAD of the source comes from the cached FASL).
 #
-# Run: sh tests/test_fasl_literal_identity.sh [path-to-clamiga]
+# Run: sh tests/test_fasl_literal_identity.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 case "$CLAMIGA" in
     /*|[A-Za-z]:/*) ;;
     *) CLAMIGA="$(cd "$(dirname "$CLAMIGA")" && pwd)/$(basename "$CLAMIGA")" ;;

@@ -26,7 +26,7 @@
 ;; is no Amiga counterpart.
 ;;
 ;; Usage (host):
-;;   ./build/host/clamiga --heap 256M --load trunk/load-and-test-hunchentoot.lisp
+;;   ./build/host/amilisp --heap 256M --load trunk/load-and-test-hunchentoot.lisp
 
 (setq *load-verbose* nil)
 (require "asdf")

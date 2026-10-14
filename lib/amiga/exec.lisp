@@ -1,4 +1,4 @@
-;;; amiga/exec.lisp — exec.library abstractions for CL-Amiga
+;;; amiga/exec.lisp — exec.library abstractions for AmiLisp
 ;;;
 ;;; Loaded via (require "amiga/exec").
 ;;; Memory introspection (AvailMem), chip-RAM helpers on top of the

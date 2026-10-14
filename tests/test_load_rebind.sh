@@ -17,9 +17,9 @@
 # mid-LET-of-a-special no longer leaks its dynamic bindings into the rest
 # of the load.
 #
-# Run: sh tests/test_load_rebind.sh build/host/clamiga
+# Run: sh tests/test_load_rebind.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0

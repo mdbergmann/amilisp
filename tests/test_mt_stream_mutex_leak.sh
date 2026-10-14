@@ -19,9 +19,9 @@
 # lands the count-drop inside a locked critical section almost every run, so the
 # buggy build hangs deterministically; the fixed build always prints the marker.
 #
-# Run: sh tests/test_mt_stream_mutex_leak.sh build/host/clamiga
+# Run: sh tests/test_mt_stream_mutex_leak.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then

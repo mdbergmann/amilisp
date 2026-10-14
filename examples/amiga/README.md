@@ -1,7 +1,7 @@
 # AmigaOS examples
 
-Runnable programs for the AmigaOS / MorphOS build of CL-Amiga.  Each one
-is a single file: `clamiga --load <file>` from the repository (or release)
+Runnable programs for the AmigaOS / MorphOS build of AmiLisp.  Each one
+is a single file: `amilisp --load <file>` from the repository (or release)
 root runs it.  The GUI ones need a 128K stack (`stack 131072`) on
 AmigaOS, see the main README.
 
@@ -11,7 +11,7 @@ AmigaOS, see the main README.
 | `gfx/doublebuffer.lisp` | The NDK 3.1 `intuition/doublebuffer.c` example — a face bouncing at the frame rate on a HIRES custom screen through two `ScreenBuffer`s (`AllocScreenBuffer` / `ChangeScreenBuffer`, the `dbi_SafeMessage` reply protocol, the held-off `WaitTOF` retry), an attached control screen (`SA_Parent`) with GadTools sliders, `LendMenus`, two windows on one IDCMP port | AmigaOS 3.0+ (V39) |
 | `gfx/sprite.lisp` | The RKM "Simple Sprite" example (`ssprite.c`) — a hardware sprite: `GetSprite` / `ChangeSprite` / `MoveSprite` / `FreeSprite`, the sprite colour registers via `SetRGB4`, image data in CHIP memory, sprite DMA off/on through a custom-chip register write | AmigaOS 3+ on a native chipset (real or FS-UAE) |
 | `gfx/screenshot.lisp` | Save the front screen (or the Workbench) as a PPM file — the FS-UAE harness's photographer as a program: `LockPubScreen`, the screen list under `LockIBase`, RTG screens through cybergraphics / Picasso96 `ReadPixelArray` (both opened by hand and called by LVO), chipset screens from their bitplanes in CHIP memory resolved through the ViewPort's `ColorMap`, the file written straight from the foreign buffer | AmigaOS 3+ or MorphOS (cybergraphics.library or Picasso96 for RTG screens) |
-| `arexx/` | `clamiga.rexx`, a shell client for the `AMIGA.AREXX` development port, and a CygnusEd macro that saves and loads the current file | ARexx |
+| `arexx/` | `amilisp.rexx`, a shell client for the `AMIGA.AREXX` development port, and a CygnusEd macro that saves and loads the current file | ARexx |
 | `reaction/` | ReAction GUIs — ports of the NDK 3.2 `Examples/` programs (below) | AmigaOS 3.5+/3.2 or MorphOS (ReAction classes) |
 | `mui/` | MUI GUIs — the `AMIGA.MUI` helpers over `muimaster.library` (below) | AmigaOS 3.x with MUI 3.8+, or MorphOS |
 | `asyncio/copyfile.lisp` | Double-buffered asynchronous file copy over DOS packets — the `AMIGA.ASYNCIO` port of the NDK 3.1 AsynchIO package, timed against plain synchronous streams and byte-verified | AmigaOS 3.1+ or MorphOS |
@@ -43,14 +43,14 @@ ports and what it demonstrates.
 Run one interactively:
 
 ```
-clamiga --load examples/amiga/reaction/listbrowser.lisp
+amilisp --load examples/amiga/reaction/listbrowser.lisp
 ```
 
 Run one unattended — the window closes itself after the timeout (this
 is how the examples are smoke-tested):
 
 ```
-clamiga --eval '(require "amiga/reaction")' \
+amilisp --eval '(require "amiga/reaction")' \
         --eval '(setf amiga.reaction:*event-loop-timeout* 5)' \
         --load examples/amiga/reaction/listbrowser.lisp
 ```
@@ -93,13 +93,13 @@ collects the hook idioms the kit spreads over `psi.c`, `Layout.c` and
 Run one interactively:
 
 ```
-clamiga --load examples/amiga/mui/hello.lisp
+amilisp --load examples/amiga/mui/hello.lisp
 ```
 
 Run one unattended — the window closes itself after the timeout:
 
 ```
-clamiga --eval '(require "amiga/mui")' \
+amilisp --eval '(require "amiga/mui")' \
         --eval '(setf amiga.mui:*event-loop-timeout* 5)' \
         --load examples/amiga/mui/hello.lisp
 ```
@@ -130,7 +130,7 @@ screens from their bitplanes; `grab` returns a plist (`:width :height
 Run one unattended — its loop returns after the timeout:
 
 ```
-clamiga --eval '(require "amiga/intuition")' \
+amilisp --eval '(require "amiga/intuition")' \
         --eval '(setf amiga.intuition:*event-loop-timeout* 5)' \
         --load examples/amiga/gfx/doublebuffer.lisp
 ```

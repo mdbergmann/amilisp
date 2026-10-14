@@ -4,7 +4,7 @@
  *
  * regtest.c (2026-09-19) showed d2-d7/a2-a4 intact across thousands of
  * task switches -- for a task that never touched the FPU, whose context
- * save is therefore the integer registers alone.  clamiga's task DOES
+ * save is therefore the integer registers alone.  amilisp's task DOES
  * carry FPU state (the FPU register images found in its stack dumps), and
  * exec's context restore reads the integer registers back from an offset
  * that depends on the FPU frame's size.  This program keeps constants in

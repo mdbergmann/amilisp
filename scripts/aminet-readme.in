@@ -6,9 +6,9 @@ Version:      @VERSION@
 Architecture: m68k-amigaos >= 3.0.0; ppc-morphos
 Requires:     68020+, 1 MB RAM (more for big programs); FPU for bin/aos3-fpu
 Distribution: Aminet
-URL:          https://github.com/mdbergmann/cl-amiga
+URL:          https://github.com/mdbergmann/amilisp
 
-CL-Amiga @VERSION@ - Common Lisp for AmigaOS 3 and MorphOS
+AmiLisp @VERSION@ - Common Lisp for AmigaOS 3 and MorphOS
 =====================================================
 
 A Common Lisp built for the Amiga: a compact bytecode VM in portable C
@@ -26,15 +26,15 @@ Getting started
      lha x clamiga.lha Work:
 
 2. Pick your binary:
-     bin/aos3/clamiga      AmigaOS 3.x, any 68020+ (floats in software)
-     bin/aos3-fpu/clamiga  AmigaOS 3.x with an FPU (68881/882, 040/060,
+     bin/aos3/amilisp      AmigaOS 3.x, any 68020+ (floats in software)
+     bin/aos3-fpu/amilisp  AmigaOS 3.x with an FPU (68881/882, 040/060,
                            Vampire, PiStorm) - crashes without one
-     bin/mos/clamiga       MorphOS (PowerPC, native)
+     bin/mos/amilisp       MorphOS (PowerPC, native)
 
 3. Start it from a Shell with a 128K stack:
      stack 131072
-     cd Work:clamiga-@VERSION@
-     bin/aos3/clamiga
+     cd Work:amilisp-@VERSION@
+     bin/aos3/amilisp
 
 4. At the prompt:
      (format t "Hello, Amiga!~%")
@@ -43,13 +43,13 @@ Getting started
      (quit)
 
 5. Going further:
-     bin/aos3/clamiga --heap 16M     ; more heap for bigger programs
-     bin/aos3/clamiga --load examples/amiga/reaction/listbrowser.lisp
+     bin/aos3/amilisp --heap 16M     ; more heap for bigger programs
+     bin/aos3/amilisp --load examples/amiga/reaction/listbrowser.lisp
    examples/ holds ready-to-run programs (ReAction and MUI GUIs,
    graphics, audio, IFF, ARexx).  The documentation is AmigaGuide with
    icons: README-FIRST.guide (the binaries, the heap image, the
-   libraries, and how Clamacs connects to clamiga's ARexx port),
-   cl-amiga.guide (the manual), clamacs.guide (the editor), and
+   libraries, and how Clamacs connects to amilisp's ARexx port),
+   amilisp.guide (the manual), clamacs.guide (the editor), and
    docs/README.guide, the package reference (EXT, MP, FFI, GRAY, MOP and
    the AMIGA.* bindings).
 
@@ -58,4 +58,4 @@ Changes in @VERSION@
 @NOTES@
 
 License: Apache 2.0.  Source code, documentation and issue tracker:
-https://github.com/mdbergmann/cl-amiga
+https://github.com/mdbergmann/amilisp

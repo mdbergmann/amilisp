@@ -1,11 +1,11 @@
 ; Clamacs-FPU -- double-click launcher (run by C:IconX, see Clamacs-FPU.info).
-; Starts the editor/IDE on the hard-float AmigaOS 3 build: bin/aos3-fpu/clamiga
+; Starts the editor/IDE on the hard-float AmigaOS 3 build: bin/aos3-fpu/amilisp
 ; restored from the clamacs.img next to it (the editor, already loaded) and
 ; told to run it.  REQUIRES a 68881/68882 FPU or a 68040/68060 with its FPU
 ; library (see README-FIRST, "Which AmigaOS binary?"); without one use the
-; Clamacs icon, on MorphOS Clamacs-MOS.  The clamiga the editor starts for
+; Clamacs icon, on MorphOS Clamacs-MOS.  The amilisp the editor starts for
 ; its REPL is PROGDIR:clamiga, i.e. the same hard-float binary.  Needs MUI
 ; 3.8+ and TextEditor.mcc 15.29+.  Files to edit go after `--' when started
 ; from a shell; S:.clamacsrc is loaded first.
 Stack 131072
-Run >NIL: bin/aos3-fpu/clamiga --image bin/aos3-fpu/clamacs.img --heap 8M --non-interactive --eval "(clamacs::run)"
+Run >NIL: bin/aos3-fpu/amilisp --image bin/aos3-fpu/clamacs.img --heap 8M --non-interactive --eval "(clamacs::run)"

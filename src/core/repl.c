@@ -201,14 +201,14 @@ void cl_load_file(const char *path)
     }
 }
 
-/* The user init file on AmigaOS/MorphOS, first found wins: S:.clamigarc
+/* The user init file on AmigaOS/MorphOS, first found wins: S:.amilisprc
  * is the documented name (the README, the release notes and Clamacs all
- * say so, and it mirrors ~/.clamigarc on the host); S:clamiga.lisp is
- * what the runtime read before 0.9.1 and stays as a fallback so an
- * existing file keeps working.  tests/test_userinit_paths.c pins the
- * contract. */
+ * say so, and it mirrors ~/.amilisprc on the host); S:.clamigarc is the
+ * name before the rename to AmiLisp (0.12) and S:clamiga.lisp what the
+ * runtime read before 0.9.1 -- both stay as fallbacks so an existing file
+ * keeps working.  tests/test_userinit_paths.c pins the contract. */
 const char *const cl_userinit_paths_amiga[] = {
-    "S:.clamigarc", "S:clamiga.lisp", NULL
+    "S:.amilisprc", "S:.clamigarc", "S:clamiga.lisp", NULL
 };
 
 /* Try to load user init file */
@@ -218,11 +218,12 @@ static void load_user_init(void)
     const char *const *paths = cl_userinit_paths_amiga;
 #else
     static char user_init_path[512];
-    static const char *paths[2];
+    static char user_init_path_old[512];
+    static const char *paths[3];
     const char *home;
     /* Escape hatch for hermetic environments (the test suite, CI): when
        CLAMIGA_NO_USERINIT is set to a non-empty value, never read the
-       developer's ~/.clamigarc.  C unit tests call cl_repl_init() directly and
+       developer's ~/.amilisprc.  C unit tests call cl_repl_init() directly and
        cannot pass the --no-userinit CLI flag, so they rely on this env var
        instead.  An empty value counts as unset so a child can override an
        inherited export via `CLAMIGA_NO_USERINIT= ...`. */
@@ -234,10 +235,14 @@ static void load_user_init(void)
     }
     home = getenv("HOME");
     if (home) {
+        /* ~/.amilisprc first, then the pre-rename ~/.clamigarc */
         snprintf(user_init_path, sizeof(user_init_path),
+                 "%s/.amilisprc", home);
+        snprintf(user_init_path_old, sizeof(user_init_path_old),
                  "%s/.clamigarc", home);
         paths[0] = user_init_path;
-        paths[1] = NULL;
+        paths[1] = user_init_path_old;
+        paths[2] = NULL;
     } else {
         paths[0] = NULL;
     }
@@ -938,7 +943,7 @@ static void boot_timing_log(const char *phase, uint32_t t_start, uint32_t *t_pre
  * boot loading (below), REQUIRE (builtins_io.c) and heap-image discovery
  * (main.c).  See repl.h for what each layout is. */
 const char *const cl_lib_rel_dirs[CL_LIB_REL_COUNT] = {
-    "lib/", "../lib/clamiga/", "../../lib/"
+    "lib/", "../lib/amilisp/", "../lib/clamiga/", "../../lib/"
 };
 #endif
 
@@ -1123,9 +1128,9 @@ void cl_repl_init_no_userinit(int no_userinit)
         }
 
 #ifdef PLATFORM_AMIGA
-        /* Executable-relative in-repo layout (build/amiga/clamiga with lib/
+        /* Executable-relative in-repo layout (build/amiga/amilisp with lib/
            two levels up) — mirrors the host's "../../" fallback below so
-           clamiga can be launched from any cwd, e.g. an example project
+           amilisp can be launched from any cwd, e.g. an example project
            directory.  "PROGDIR://" cannot express this (parent-climb slashes
            only apply to cwd-relative paths), so the ancestor is resolved
            through dos.library ParentDir. */
@@ -1142,7 +1147,7 @@ void cl_repl_init_no_userinit(int no_userinit)
             }
         }
 #else
-        /* Host fallback: when clamiga is launched from a directory other than
+        /* Host fallback: when amilisp is launched from a directory other than
            its source root (e.g. an editor/Sly session whose cwd follows the
            file buffer), cwd-relative "lib/" won't exist.  Honour $CLAMIGA_HOME
            so the bundled lib/ is still found without forcing the process
@@ -1164,10 +1169,10 @@ void cl_repl_init_no_userinit(int no_userinit)
         }
 
         /* Executable-relative fallback: covers a deployed layout (lib/ next
-           to the clamiga binary), an install prefix (bin/clamiga +
-           lib/clamiga/, the layout SBCL uses) and the
-           in-repo build (build/host/clamiga with lib/ two levels up), so a
-           plain `clamiga` on $PATH — symlink included — finds its runtime
+           to the amilisp binary), an install prefix (bin/amilisp +
+           lib/amilisp/, the layout SBCL uses) and the
+           in-repo build (build/host/amilisp with lib/ two levels up), so a
+           plain `amilisp` on $PATH — symlink included — finds its runtime
            from any directory with no environment setup at all. */
         if (!boot_loaded) {
             char prefix[512];
@@ -1190,16 +1195,16 @@ void cl_repl_init_no_userinit(int no_userinit)
                what is wrong and how to fix it instead of letting the first
                (require ...) die with a generic error. */
             cl_write_cstring_to_stdout(
-                "; Error: clamiga cannot locate its runtime library (lib/boot.lisp).\n"
+                "; Error: amilisp cannot locate its runtime library (lib/boot.lisp).\n"
 #ifdef PLATFORM_AMIGA
                 ";        Searched lib/ under the current directory, PROGDIR:lib/\n"
                 ";        and lib/ two levels above the binary (in-repo layout).\n"
-                ";        Run clamiga from (or install it into) its distribution\n"
+                ";        Run amilisp from (or install it into) its distribution\n"
                 ";        directory so lib/ sits next to the binary.\n"
 #else
                 ";        Searched lib/ under the current directory, $CLAMIGA_HOME/lib/,\n"
-                ";        and - relative to the clamiga executable - lib/,\n"
-                ";        ../lib/clamiga/ (installed layout) and ../../lib/ (in-repo build).\n"
+                ";        and - relative to the amilisp executable - lib/,\n"
+                ";        ../lib/amilisp/ (installed layout) and ../../lib/ (in-repo build).\n"
                 ";        Set CLAMIGA_HOME to your cl-amiga checkout/installation, e.g.\n"
                 ";            export CLAMIGA_HOME=/path/to/cl-amiga\n"
 #endif
@@ -1269,7 +1274,7 @@ void cl_repl_init(void)
  * already present in the restored heap; only the per-process pieces run:
  * the system restore hooks, the user init file and the restore hooks.
  * EXT:*IMAGE-RESTORED-P* was set to T by cl_image_restore_staged BEFORE
- * this, so ~/.clamigarc can skip redundant loads. */
+ * this, so ~/.amilisprc can skip redundant loads. */
 void cl_repl_init_from_image(int no_userinit, uint32_t image_ms)
 {
     /* Start the clock image_ms in the past: the stage (read + verify) and

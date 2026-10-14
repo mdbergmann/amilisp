@@ -15,9 +15,9 @@
 ;;; MUIM_Application_NewInput loop as DO-APPLICATION-EVENTS.
 ;;;
 ;;; Run on AmigaOS 3.x with MUI 3.8+ installed, or on MorphOS:
-;;;   clamiga --load examples/amiga/mui/hello.lisp
+;;;   amilisp --load examples/amiga/mui/hello.lisp
 ;;; Unattended (auto-closes after 5 s):
-;;;   clamiga --eval '(require "amiga/mui")' \
+;;;   amilisp --eval '(require "amiga/mui")' \
 ;;;           --eval '(setf amiga.mui:*event-loop-timeout* 5)' \
 ;;;           --load examples/amiga/mui/hello.lisp
 
@@ -63,7 +63,7 @@ time, so this file reads on a system where that package does not exist."
            (app (mui:new-object :application                 ; ApplicationObject
                   (m "+MUIA-APPLICATION-TITLE+")       "HelloMUI"
                   (m "+MUIA-APPLICATION-VERSION+")     "$VER: HelloMUI 1.0"
-                  (m "+MUIA-APPLICATION-DESCRIPTION+") "CL-Amiga's first MUI program"
+                  (m "+MUIA-APPLICATION-DESCRIPTION+") "AmiLisp's first MUI program"
                   (m "+MUIA-APPLICATION-BASE+")        "HELLOMUI"
                   (m "+MUIA-APPLICATION-WINDOW+")      win)))
       (unwind-protect

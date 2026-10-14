@@ -1,4 +1,4 @@
-;;; boot.lisp — Bootstrap functions for CL-Amiga
+;;; boot.lisp — Bootstrap functions for AmiLisp
 ;;; Loaded at startup to provide common CL conveniences.
 ;;;
 ;;; PACKAGE DISCIPLINE: this file is read in COMMON-LISP when source-loaded
@@ -395,7 +395,7 @@
                           (list (list (car stores) new-val))))
             (list store)))))))
 
-;; destructuring-bind (CLHS macro).  clamiga compiles destructuring-bind via a
+;; destructuring-bind (CLHS macro).  amilisp compiles destructuring-bind via a
 ;; native special-form path (compile_destructuring_bind), dispatched ahead of
 ;; the macro-expansion check, so normal compilation never uses this macro.
 ;; But MACROEXPAND and code-walkers (iterate, serapeum's internal-definitions
@@ -1187,7 +1187,7 @@ Spec is var | (var ...) | ((keyword var) ...)."
 ;; restart-bind — like restart-case but the body is *not* wrapped in a
 ;; non-local exit; if a restart handler is invoked it is called as a regular
 ;; function and execution continues after restart-bind returns its value.
-;; CL-Amiga has no interactive debugger driver so we cannot really invoke
+;; AmiLisp has no interactive debugger driver so we cannot really invoke
 ;; user-provided restart handlers; the pragmatic stub just runs the body.
 (defmacro restart-bind (bindings &rest body)
   (declare (ignore bindings))

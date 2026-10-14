@@ -317,7 +317,7 @@ static CL_Obj bi_ffi_poke8(CL_Obj *args, int nargs)
  * move a whole span in one call.
  *
  * A CL string holds its bytes contiguously, so it memcpys; a general
- * vector holds one tagged CL_Obj per element (clamiga upgrades
+ * vector holds one tagged CL_Obj per element (amilisp upgrades
  * (UNSIGNED-BYTE 8) to T — see UPGRADED-ARRAY-ELEMENT-TYPE), so it
  * unpacks in a tight C loop instead.  Both beat per-byte POKE-U8; only
  * the string form reaches memcpy speed.

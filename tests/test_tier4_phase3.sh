@@ -8,7 +8,7 @@
 # keep, and the shapes are pinned through DISASSEMBLE so a later change to
 # the compiler's emission or to the fusion table cannot silently lose them.
 #
-#   sh tests/test_tier4_phase3.sh build/host/clamiga
+#   sh tests/test_tier4_phase3.sh build/host/amilisp
 #
 # Covered:
 #   1. Shapes: each fused opcode appears for its source pattern at the
@@ -32,7 +32,7 @@
 #   8. The fused paths under allocation pressure (loops), also under
 #      CLAMIGA_GC_STRESS.
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 

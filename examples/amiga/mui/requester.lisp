@@ -11,10 +11,10 @@
 ;;; MUIA_Group_SameSize.
 ;;;
 ;;; Run on AmigaOS 3.x with MUI 3.8+ installed, or on MorphOS:
-;;;   clamiga --load examples/amiga/mui/requester.lisp
+;;;   amilisp --load examples/amiga/mui/requester.lisp
 ;;; Unattended (auto-closes after 5 s; the requesters need a click, so
 ;;; only the window shows):
-;;;   clamiga --eval '(require "amiga/mui")' \
+;;;   amilisp --eval '(require "amiga/mui")' \
 ;;;           --eval '(setf amiga.mui:*event-loop-timeout* 5)' \
 ;;;           --load examples/amiga/mui/requester.lisp
 

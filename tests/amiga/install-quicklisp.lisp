@@ -1,5 +1,5 @@
 ;; Install quicklisp to S:quicklisp/ on Amiga
-;; Run once: clamiga --heap 48M --non-interactive --load tests/amiga/install-quicklisp.lisp
+;; Run once: amilisp --heap 48M --non-interactive --load tests/amiga/install-quicklisp.lisp
 (load "lib/asdf.lisp")
 (load "lib/quicklisp.lisp")
 ;; Set *home* directly to work around keyword default issues

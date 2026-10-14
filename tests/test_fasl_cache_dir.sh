@@ -10,9 +10,9 @@
 # requested dir, and a different value sends it to a separate dir (isolation).
 #
 # Fully hermetic — everything stays under $TMP, the real ~/.cache is untouched.
-# Run: sh tests/test_fasl_cache_dir.sh [path-to-clamiga]
+# Run: sh tests/test_fasl_cache_dir.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 passed=0
 failed=0
 TMP="${TMPDIR:-/tmp}/clamiga-cachedir-$$"

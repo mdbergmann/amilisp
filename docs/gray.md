@@ -2,7 +2,7 @@
 
 The Gray-streams protocol lets you define your own stream classes in Lisp by
 subclassing the `fundamental-*-stream` classes and specializing the
-`stream-*` generic functions. CL-Amiga's built-in stream functions (`read-char`,
+`stream-*` generic functions. AmiLisp's built-in stream functions (`read-char`,
 `write-string`, `read-line`, …) dispatch to these generics for user-defined
 streams. This is the foundation several ported libraries rely on — e.g. the
 **chipz** decompressing stream and **drakma**/**Hunchentoot** flexi-streams — and
@@ -57,5 +57,5 @@ Subclass these to define a stream. `fundamental-stream` is the root.
 `lib/gray-streams.lisp` is the implementation. The
 `(typep gray-stream 'stream)` regression and a worked Gray-stream subclass live
 in `tests/amiga/run-tests.lisp` (the "Gray streams" block). The
-**chipz** CL-Amiga fork's `stream.lisp` `#+cl-amiga` branch is a real-world usage
-example (see [Library forks](../README.md#library-forks-cl-amiga-backends)).
+**chipz** AmiLisp fork's `stream.lisp` `#+cl-amiga` branch is a real-world usage
+example (see [Library forks](../README.md#library-forks-amilisp-backends)).

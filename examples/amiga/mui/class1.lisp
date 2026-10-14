@@ -19,9 +19,9 @@
 ;;; re-signaled in Lisp when the MUI call that dispatched it returns.
 ;;;
 ;;; Run on AmigaOS 3.x with MUI 3.8+ installed, or on MorphOS:
-;;;   clamiga --load examples/amiga/mui/class1.lisp
+;;;   amilisp --load examples/amiga/mui/class1.lisp
 ;;; Unattended (auto-closes after 5 s):
-;;;   clamiga --eval '(require "amiga/mui")' \
+;;;   amilisp --eval '(require "amiga/mui")' \
 ;;;           --eval '(setf amiga.mui:*event-loop-timeout* 5)' \
 ;;;           --load examples/amiga/mui/class1.lisp
 
@@ -113,7 +113,7 @@ outside the function MUI calls for every method."
            (app (mui:new-object :application
                   (m "+MUIA-APPLICATION-TITLE+")       "Class1"
                   (m "+MUIA-APPLICATION-VERSION+")     "$VER: Class1 1.0"
-                  (m "+MUIA-APPLICATION-COPYRIGHT+")   "1993, Stefan Stuntz (port: CL-Amiga)"
+                  (m "+MUIA-APPLICATION-COPYRIGHT+")   "1993, Stefan Stuntz (port: AmiLisp)"
                   (m "+MUIA-APPLICATION-AUTHOR+")      "Stefan Stuntz"
                   (m "+MUIA-APPLICATION-DESCRIPTION+") "Demonstrate the use of custom classes."
                   (m "+MUIA-APPLICATION-BASE+")        "CLASS1"

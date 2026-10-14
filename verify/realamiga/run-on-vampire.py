@@ -2,17 +2,17 @@
 """run-on-vampire.py LISP-FILE [CLAMIGA-ARGS...] -- run one Lisp file on the
 real Amiga through amiagent, with the cross-built binary.
 
-Pushes build/cross/clamiga beside the installed release's binary (as
+Pushes build/cross/amilisp beside the installed release's binary (as
 bin/aos3/clamiga-dev, so it finds the release's lib/), pushes LISP-FILE
 into a scratch drawer, runs it detached under `stack 128000` with the
 output redirected to a log, waits for the run's done sentinel and prints
 the log (also saved as build/amiga/vamp-<name>.log).  Any further
-arguments go to clamiga (e.g. --no-jit).  Modelled on
+arguments go to amilisp (e.g. --no-jit).  Modelled on
 clamacs/spike/run-vamp.py.
 
 Environment: AMIGA_HOST (default 192.168.50.235), AMIGA_TOKEN (default
 "vamp"), VAMP_RELEASE (the release drawer, default
-Work:Download/clamiga-0.10.0), VAMP_OUT (scratch drawer, default
+Work:Download/amilisp-0.10.0), VAMP_OUT (scratch drawer, default
 Work:Download/bench), VAMP_SETENV=NAME=VALUE (one AmigaDOS environment
 variable set before the launch), VAMP_BINARY (skip the push and run this
 binary instead, e.g. the release's own), VAMP_TIMEOUT (seconds, 1200)."""
@@ -28,7 +28,7 @@ EXTRA = " ".join(sys.argv[2:])
 NAME = os.path.splitext(os.path.basename(LISP))[0]
 HOST = os.environ.get("AMIGA_HOST", "192.168.50.235")
 TOKEN = os.environ.get("AMIGA_TOKEN", "vamp")
-RELEASE = os.environ.get("VAMP_RELEASE", "Work:Download/clamiga-0.10.0")
+RELEASE = os.environ.get("VAMP_RELEASE", "Work:Download/amilisp-0.10.0")
 OUT = os.environ.get("VAMP_OUT", "Work:Download/bench")
 SETENV = os.environ.get("VAMP_SETENV", "")
 SETENV_LINE = ("setenv " + SETENV.replace("=", " ", 1)) if SETENV else ""
@@ -46,9 +46,9 @@ def sh(cmd, timeout=120):
 print("box:", a.system_info())
 if not BINARY:
     BINARY = RELEASE + "/bin/aos3/clamiga-dev"
-    a.write_file(BINARY, open(os.path.join(ROOT, "build", "cross", "clamiga"), "rb").read())
+    a.write_file(BINARY, open(os.path.join(ROOT, "build", "cross", "amilisp"), "rb").read())
     sh(f"Protect {BINARY} +e")
-    print("pushed build/cross/clamiga ->", BINARY)
+    print("pushed build/cross/amilisp ->", BINARY)
 sh(f"MakeDir >NIL: {OUT}")
 a.write_file(f"{OUT}/{NAME}.lisp", open(LISP, "rb").read())
 

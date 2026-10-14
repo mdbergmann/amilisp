@@ -1,18 +1,18 @@
-/* clamiga.rexx -- editor-independent ARexx client for the CL-Amiga port
+/* amilisp.rexx -- editor-independent ARexx client for the AmiLisp port
  *
  * Usage from a Shell:
  *
- *     rx clamiga.rexx PING
- *     rx clamiga.rexx LOAD Work:src/foo.lisp
- *     rx clamiga.rexx "EVAL (room)"
+ *     rx amilisp.rexx PING
+ *     rx amilisp.rexx LOAD Work:src/foo.lisp
+ *     rx amilisp.rexx "EVAL (room)"
  *
  * Prints the reply and exits with the command's return code, so it also
  * works as a build step:
  *
- *     rx clamiga.rexx LOAD Work:src/foo.lisp
+ *     rx amilisp.rexx LOAD Work:src/foo.lisp
  *     IF WARN THEN ...
  *
- * Start the port on the clamiga side first:
+ * Start the port on the amilisp side first:
  *     (require "amiga/arexx")
  *     (amiga.arexx:start)
  */
@@ -27,7 +27,7 @@ OPTIONS FAILAT 21
 PARSE ARG COMMAND
 
 IF STRIP(COMMAND) = '' THEN DO
-    SAY 'usage: rx clamiga.rexx <command>'
+    SAY 'usage: rx amilisp.rexx <command>'
     SAY '       PING | VERSION | LOAD <file> | COMPILE-FILE <file>'
     SAY '       EVAL <form> | IN-PACKAGE <pkg> | LASTRESULT'
     EXIT 20
@@ -35,8 +35,8 @@ END
 
 PORT = FindPort()
 IF PORT = '' THEN DO
-    SAY 'No CL-Amiga ARexx port found.'
-    SAY 'In clamiga:  (require "amiga/arexx")  (amiga.arexx:start)'
+    SAY 'No AmiLisp ARexx port found.'
+    SAY 'In amilisp:  (require "amiga/arexx")  (amiga.arexx:start)'
     EXIT 20
 END
 
@@ -55,7 +55,7 @@ END
 
 EXIT CODE
 
-/* Returns the name of the first live clamiga port: CLAMIGA, else the
+/* Returns the name of the first live amilisp port: CLAMIGA, else the
  * CLAMIGA.<n> a second instance claimed. */
 FindPort:
     IF SHOW('P', 'CLAMIGA') THEN RETURN 'CLAMIGA'

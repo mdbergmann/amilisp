@@ -153,7 +153,7 @@ TEST(lisp_implementation_version_starts_with_cache_version)
 
 TEST(lisp_implementation_type_unchanged)
 {
-    ASSERT_STR_EQ("\"CL-Amiga\"", eval_str("(lisp-implementation-type)"));
+    ASSERT_STR_EQ("\"AmiLisp\"", eval_str("(lisp-implementation-type)"));
 }
 
 /* --- AmigaOS $VER: cookie (read by the Shell's Version command) --- */
@@ -161,7 +161,7 @@ TEST(lisp_implementation_type_unchanged)
 TEST(version_cookie_has_amiga_layout)
 {
     /* "$VER: <name> <ver>.<rev> (<DD.MM.YYYY>)" — the OS parses by prefix. */
-    ASSERT(strncmp(cl_version_cookie, "$VER: clamiga ", 14) == 0);
+    ASSERT(strncmp(cl_version_cookie, "$VER: amilisp ", 14) == 0);
     ASSERT(cl_version_cookie[strlen(cl_version_cookie) - 1] == ')');
 }
 

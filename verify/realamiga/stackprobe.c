@@ -6,12 +6,12 @@
  * The 2026-09-18/19 Clamacs finding on the Vampire (68080, exec 47.13):
  * C locals of live frames come back overwritten -- with words that look
  * like an FPU register save (0x3c000000 0x80000000 0x00000000) -- only
- * when clamiga runs on the 128K block platform_run_main swaps to; never
+ * when amilisp runs on the 128K block platform_run_main swaps to; never
  * on a Shell stack of >= 128K; never under FS-UAE.  regtest.c showed the
  * callee-saved REGISTERS survive both ways.  This program watches the
  * stack MEMORY instead: a 16K sentinel array in a live frame, a deeper
  * frame spinning through task switches, and a scan of the sentinels
- * every few rounds.  Options add what clamiga does: FPU use, dos I/O.
+ * every few rounds.  Options add what amilisp does: FPU use, dos I/O.
  *
  *   stackprobe [SECONDS] [swap|noswap] [fpu] [io] [chip|reverse|clear]
  *

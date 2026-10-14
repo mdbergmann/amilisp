@@ -1,32 +1,32 @@
 #!/bin/sh
-# `make image` + `make install` layout (Makefile): an installed clamiga
+# `make image` + `make install` layout (Makefile): an installed amilisp
 # starts from a heap image the way the binary release does.
 #
-#   make image           writes + verifies build/host/image/clamiga.img,
+#   make image           writes + verifies build/host/image/amilisp.img,
 #                        OFF the startup discovery path (nothing beside the
 #                        binary — a leftover there would be restored by every
 #                        later test run and outlive a lib/boot.lisp change)
-#   make install-layout  <prefix>/bin/clamiga, <prefix>/lib/clamiga/ (lib/ +
+#   make install-layout  <prefix>/bin/amilisp, <prefix>/lib/amilisp/ (lib/ +
 #                        the image), the copying part of `make install`
-#   make uninstall       removes bin/clamiga and lib/clamiga/ wholesale
+#   make uninstall       removes bin/amilisp and lib/amilisp/ wholesale
 #
 # Covered:
 #   make image: exit 0, image present under build/<host>/image/, no
-#     clamiga.img beside the binary
+#     amilisp.img beside the binary
 #   install-layout into a DESTDIR: binary, lib FASLs and the image (byte-
 #     identical to the built one) in place
 #   the installed binary, run from an unrelated cwd with no CLAMIGA_HOME:
-#     restores from <prefix>/lib/clamiga/clamiga.img (BOOT-IMAGE-VERIFIED,
+#     restores from <prefix>/lib/amilisp/amilisp.img (BOOT-IMAGE-VERIFIED,
 #     which includes REQUIRE finding the installed lib/)
 #   --no-image on the installed binary still boots from the installed FASLs
-#   uninstall from the DESTDIR: bin/clamiga and lib/clamiga/ (image included)
+#   uninstall from the DESTDIR: bin/amilisp and lib/amilisp/ (image included)
 #     gone
 #
 # Drives make in the repo, so the binary argument every shell test receives
 # is not used: `make image` and the layout take the Makefile's default
 # BUILDDIR, and the installed copy is what gets exercised.
 #
-# Run: sh tests/test_install_layout.sh build/host/clamiga
+# Run: sh tests/test_install_layout.sh build/host/amilisp
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 
@@ -93,12 +93,12 @@ mk() {
 
 out=$(mk image)
 ec=$?
-check "make_image" 0 "$ec" "$out" "Image saved to \"clamiga.img\"" \
+check "make_image" 0 "$ec" "$out" "Image saved to \"amilisp.img\"" \
     "^IMAGE-RESTORED-P T" "^BOOT-IMAGE-VERIFIED"
 
-builddir=$(echo "$out" | sed -n 's/^rm -f \(.*\)\/image\/clamiga\.img$/\1/p' | head -1)
+builddir=$(echo "$out" | sed -n 's/^rm -f \(.*\)\/image\/amilisp\.img$/\1/p' | head -1)
 if [ -z "$builddir" ]; then
-    fail "image_builddir_from_recipe" "no 'rm -f <builddir>/image/clamiga.img' line" "$out"
+    fail "image_builddir_from_recipe" "no 'rm -f <builddir>/image/amilisp.img' line" "$out"
     echo "test_install_layout: $passed passed, $((failed)) failed"
     exit 1
 fi
@@ -108,39 +108,39 @@ case "$builddir" in
     *) builddir="$ROOT/$builddir" ;;
 esac
 
-exists "image_written_under_builddir_image" "$builddir/image/clamiga.img"
-absent "no_image_beside_the_binary" "$builddir/clamiga.img"
-absent "no_image_in_the_repo_root" "$ROOT/clamiga.img"
+exists "image_written_under_builddir_image" "$builddir/image/amilisp.img"
+absent "no_image_beside_the_binary" "$builddir/amilisp.img"
+absent "no_image_in_the_repo_root" "$ROOT/amilisp.img"
 
 # --- install-layout into a DESTDIR ---------------------------------------
 
 DEST="$WORK/root"
-PFX=/opt/clamiga
+PFX=/opt/amilisp
 out=$(mk install-layout DESTDIR="$DEST" PREFIX="$PFX")
 ec=$?
 check "install_layout_into_destdir" 0 "$ec" "$out"
 
 INST="$DEST$PFX"
-exists "installed_binary" "$INST/bin/clamiga"
-exists "installed_boot_fasl" "$INST/lib/clamiga/boot.fasl"
-exists "installed_clos_fasl" "$INST/lib/clamiga/clos.fasl"
-exists "installed_image_in_lib_clamiga" "$INST/lib/clamiga/clamiga.img"
-absent "no_image_beside_installed_binary" "$INST/bin/clamiga.img"
-absent "no_nested_lib_dir" "$INST/lib/clamiga/lib"
-if cmp -s "$builddir/image/clamiga.img" "$INST/lib/clamiga/clamiga.img"; then
+exists "installed_binary" "$INST/bin/amilisp"
+exists "installed_boot_fasl" "$INST/lib/amilisp/boot.fasl"
+exists "installed_clos_fasl" "$INST/lib/amilisp/clos.fasl"
+exists "installed_image_in_lib_clamiga" "$INST/lib/amilisp/amilisp.img"
+absent "no_image_beside_installed_binary" "$INST/bin/amilisp.img"
+absent "no_nested_lib_dir" "$INST/lib/amilisp/lib"
+if cmp -s "$builddir/image/amilisp.img" "$INST/lib/amilisp/amilisp.img"; then
     desc="installed_image_is_the_built_one"; ok
 else
-    fail "installed_image_is_the_built_one" "differs from $builddir/image/clamiga.img" ""
+    fail "installed_image_is_the_built_one" "differs from $builddir/image/amilisp.img" ""
 fi
 
-# --- the installed clamiga starts from its image ------------------------
-# From an unrelated cwd (no clamiga.img here, no CLAMIGA_HOME): discovery has
-# to take the <prefix>/lib/clamiga/ leg.  verify-boot-image.lisp also
+# --- the installed amilisp starts from its image ------------------------
+# From an unrelated cwd (no amilisp.img here, no CLAMIGA_HOME): discovery has
+# to take the <prefix>/lib/amilisp/ leg.  verify-boot-image.lisp also
 # REQUIREs a module, i.e. the installed lib/ is found from the restored
 # session.
 
 mkdir -p elsewhere
-out=$(cd elsewhere && CLAMIGA_HOME= "$TIMEOUT" 120 "$INST/bin/clamiga" \
+out=$(cd elsewhere && CLAMIGA_HOME= "$TIMEOUT" 120 "$INST/bin/amilisp" \
     --no-userinit --non-interactive \
     --load "$ROOT/scripts/verify-boot-image.lisp" </dev/null 2>&1)
 ec=$?
@@ -149,7 +149,7 @@ check "installed_binary_restores_from_lib_clamiga_image" 0 "$ec" "$out" \
 
 # --- --no-image still boots from the installed FASLs --------------------
 
-out=$(cd elsewhere && CLAMIGA_HOME= "$TIMEOUT" 120 "$INST/bin/clamiga" \
+out=$(cd elsewhere && CLAMIGA_HOME= "$TIMEOUT" 120 "$INST/bin/amilisp" \
     --no-userinit --no-image --non-interactive \
     --eval '(format t "NOIMG=~a SUM=~a~%" ext:*image-restored-p* (loop for i from 1 to 10 sum i))' \
     --eval '(progn (require "gray-streams") (format t "LIB=~a~%" (not (null (find-package "GRAY")))))' \
@@ -163,8 +163,8 @@ check "installed_binary_no_image_boots_from_fasls" 0 "$ec" "$out" \
 out=$(mk uninstall DESTDIR="$DEST" PREFIX="$PFX")
 ec=$?
 check "uninstall_from_destdir" 0 "$ec" "$out"
-absent "uninstall_removed_binary" "$INST/bin/clamiga"
-absent "uninstall_removed_lib_clamiga_with_image" "$INST/lib/clamiga"
+absent "uninstall_removed_binary" "$INST/bin/amilisp"
+absent "uninstall_removed_lib_clamiga_with_image" "$INST/lib/amilisp"
 
 # --- Report --------------------------------------------------------------
 

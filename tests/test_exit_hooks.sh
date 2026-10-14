@@ -1,5 +1,5 @@
 #!/bin/sh
-# End-to-end tests for EXT:*EXIT-HOOKS* — hooks must run on EVERY way clamiga
+# End-to-end tests for EXT:*EXIT-HOOKS* — hooks must run on EVERY way amilisp
 # leaves the process, because (QUIT) unwinds via CL_ERR_EXIT and deliberately
 # skips UNWIND-PROTECT cleanups: exit hooks are the only place user code gets
 # to observe shutdown.
@@ -17,9 +17,9 @@
 #
 # The in-process unit tests are tests/test_exit_hooks.c.
 #
-# Run: sh tests/test_exit_hooks.sh build/host/clamiga
+# Run: sh tests/test_exit_hooks.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 # Every case is also a "does it hang at exit?" check, so a timeout binary is a
 # prerequisite (macOS ships it as gtimeout via coreutils).
@@ -34,7 +34,7 @@ failed=0
 total=0
 
 # A path embedded in a generated Lisp form (below) must be spelled the way
-# clamiga reads it: on Windows $TMPDIR is "C:\Users\..." and the reader would
+# amilisp reads it: on Windows $TMPDIR is "C:\Users\..." and the reader would
 # eat the backslashes as escapes.  Shell-side uses of $WORK are fine either way.
 . "$(dirname "$0")/shpath.sh"
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/clamiga_exit_hooks_XXXXXX") || exit 1
@@ -59,7 +59,7 @@ check() {
     shift 4
     total=$((total + 1))
     if [ "$ec" -eq 124 ]; then
-        fail "$desc" "timed out — clamiga hung in the exit hooks" "$out"
+        fail "$desc" "timed out — amilisp hung in the exit hooks" "$out"
         return
     fi
     if [ "$ec" -ne "$want_ec" ]; then

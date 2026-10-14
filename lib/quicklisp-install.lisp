@@ -1,6 +1,6 @@
 ;;; quicklisp-install.lisp — tiny wrapper around lib/quicklisp.lisp
 ;;;
-;;; Just enough to install quicklisp on a fresh CL-Amiga system. After
+;;; Just enough to install quicklisp on a fresh AmiLisp system. After
 ;;; this finishes, use quicklisp the normal way:
 ;;;
 ;;;   (load #P"~/quicklisp/setup.lisp")
@@ -15,7 +15,7 @@
 ;;; Mechanism: QUICKLISP-QUICKSTART:INSTALL downloads the QL client
 ;;; into ~/quicklisp/ and finishes by calling (QUICKLISP:SETUP), which
 ;;; tries to fetch the default dist over the network and fails because
-;;; CL-Amiga isn't a registered ql-impl. We catch that error, load
+;;; AmiLisp isn't a registered ql-impl. We catch that error, load
 ;;; lib/quicklisp-compat.lisp (its IN-PACKAGE forms now resolve, since
 ;;; the ql-* packages were loaded by ASDF before the failure), and
 ;;; retry (QUICKLISP:SETUP) — which is idempotent and proceeds with
@@ -45,7 +45,7 @@ Must run AFTER quicklisp.lisp is loaded -- that's what defines the QL-HTTP packa
       (format t "~&;; cl-amiga-ql: routing fetches through HTTP proxy ~A~%" proxy))))
 
 (defun install ()
-  "Install quicklisp under ~/quicklisp/ on a fresh CL-Amiga system."
+  "Install quicklisp under ~/quicklisp/ on a fresh AmiLisp system."
   (load (merge-pathnames "quicklisp.lisp" *here*))
   (maybe-use-http-proxy)
   (let ((qq-install (find-symbol "INSTALL" "QUICKLISP-QUICKSTART"))

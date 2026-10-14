@@ -9,9 +9,9 @@
 # A host without the backend (x86-64, Linux, Windows, `make host JIT=0`)
 # returns NIL from %JIT-COMPILE-STUB; the test then checks only that and
 # passes.  Also run by `make test-gc-stress` (CLAMIGA_GC_STRESS=1).
-# Run: sh tests/test_jit_a64.sh [path-to-clamiga]
+# Run: sh tests/test_jit_a64.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0

@@ -27,7 +27,7 @@ JIT, `verify.fs-uae`) using `examples/amiga/gfx/bouncing-lines.lisp` — five
 `graphics.library` move/draw. Reference points:
 
 - ACE BASIC (compiled, same algorithm): ~1900 FPS
-- CL-Amiga (bytecode VM, current): ~500 FPS
+- AmiLisp (bytecode VM, current): ~500 FPS
 - Hand-written ASM (estimated): higher still
 
 ### Frame-time breakdown
@@ -531,7 +531,7 @@ care whether the JIT is present.
 
 ### Runtime opt-in
 
-A command-line flag — `clamiga --no-jit` or env var `CLAMIGA_JIT=0` —
+A command-line flag — `amilisp --no-jit` or env var `CLAMIGA_JIT=0` —
 forces bytecode interpretation. Useful for:
 
 - Debugging: compare bytecode vs JIT output of the same function
@@ -576,7 +576,7 @@ Lisp code gets compiled.
 
 ### Binary growth: modest (~+7%)
 
-The JIT subsystem is ~3 KLOC of C, compiled once into `clamiga`.
+The JIT subsystem is ~3 KLOC of C, compiled once into `amilisp`.
 With `-Os` for m68k (≈ 10–14 bytes per source line):
 
 | Component             |  LOC | Est. `.text` |
@@ -599,7 +599,7 @@ each bytecode op (1–3 bytes) expands to 5–30 m68k instructions
 (20–100+ bytes).
 
 Projected hit if the JIT compiles everything on the standard
-clamiga boot:
+amilisp boot:
 
 | What's loaded               | Bytecode size | Native (×6 avg) |
 |-----------------------------|--------------:|----------------:|
@@ -987,7 +987,7 @@ macro registers compiler-macros at the symbol level.
 
 Net **+148 FPS** (+32%) over the prior status snapshot.  The remaining
 gap to ACE BASIC's ~1900 FPS (cited in the empirical-baseline section)
-is **not** mostly graphics-library cost: ACE and CL-Amiga share the
+is **not** mostly graphics-library cost: ACE and AmiLisp share the
 same ROM calls.  The 3× headroom is the structural cost of being a
 dynamic, GC'd, tagged-value language vs a static one — value
 unboxing per arg, closure/bytecode/builtin dispatch per call, symbol

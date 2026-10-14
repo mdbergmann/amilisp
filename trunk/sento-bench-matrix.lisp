@@ -8,7 +8,7 @@
 ;; forced speed — cached FASLs bypass the compiler):
 ;;
 ;;   rm -rf ~/.cache/common-lisp/cl-amiga-<version>-fasl<N>
-;;   CLAMIGA_FORCE_SPEED=3 ./build/host/clamiga --no-userinit --heap 192M \
+;;   CLAMIGA_FORCE_SPEED=3 ./build/host/amilisp --no-userinit --heap 192M \
 ;;       --non-interactive --load trunk/sento-bench-matrix.lisp
 ;;
 ;; ATOMICS_DIR=<dir>[:<dir>...]: each directory is pushed onto

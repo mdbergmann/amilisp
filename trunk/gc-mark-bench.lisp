@@ -4,7 +4,7 @@
 ;;; the pause is 85-95 % mark, which neither the free list nor Immix's line
 ;;; sweep touches), as milliseconds per cycle and per live megabyte.
 ;;;
-;;;   clamiga --heap 16M --non-interactive --load trunk/gc-mark-bench.lisp
+;;;   amilisp --heap 16M --non-interactive --load trunk/gc-mark-bench.lisp
 ;;;
 ;;; Optional, before loading:
 ;;;   (defparameter cl-user::*mark-bench-mb* 4)   ; live set to build (MB, default 2)

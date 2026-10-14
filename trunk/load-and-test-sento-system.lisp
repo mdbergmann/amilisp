@@ -8,10 +8,10 @@
 ;;
 ;; Usage (host, cold cache):
 ;;   rm -rf ~/.cache/common-lisp/cl-amiga-*
-;;   ./build/host/clamiga --heap 192M --load trunk/load-and-test-sento-system.lisp
+;;   ./build/host/amilisp --heap 192M --load trunk/load-and-test-sento-system.lisp
 ;;
 ;; Usage (host, warm cache):
-;;   ./build/host/clamiga --heap 128M --load trunk/load-and-test-sento-system.lisp
+;;   ./build/host/amilisp --heap 128M --load trunk/load-and-test-sento-system.lisp
 ;;
 ;; On Amiga: --heap >= 96M and a large stack (e.g. `stack 800000`).
 

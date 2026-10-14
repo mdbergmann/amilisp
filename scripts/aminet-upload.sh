@@ -28,7 +28,7 @@
 #
 # What this script does:
 #   1. takes the archive scripts/make-binary-release.sh produced
-#      (build/release/clamiga-<version>-bin.lha) and copies it to
+#      (build/release/amilisp-<version>-bin.lha) and copies it to
 #      clamiga.lha — Aminet's name for the package;
 #   2. writes clamiga.readme from scripts/aminet-readme.in: @VERSION@ and
 #      @UPLOADER@ are filled in, @NOTES@ becomes the release notes — the
@@ -50,7 +50,7 @@
 #   --dry-run          prepare + check, print the upload commands, no network
 #   --yes              upload without the confirmation prompt
 #   --notes FILE       release notes for the readme (default: tag message)
-#   --archive FILE     the release .lha (default: build/release/clamiga-<version>-bin.lha;
+#   --archive FILE     the release .lha (default: build/release/amilisp-<version>-bin.lha;
 #                      the version is then taken from the file name)
 #   --out DIR          where clamiga.lha + clamiga.readme are staged
 #                      (default: build/release/aminet)
@@ -104,19 +104,19 @@ done
 
 # --- version + archive ------------------------------------------------------
 if [ -n "$ARCHIVE" ]; then
-    # an explicit archive names its version: clamiga-<version>-bin.lha
-    VERSION=$(basename "$ARCHIVE" | sed -n 's/^clamiga-\([0-9][0-9.]*\)-bin\.lha$/\1/p')
-    [ -n "$VERSION" ] || die "cannot read the version from '$(basename "$ARCHIVE")' (expected clamiga-<version>-bin.lha)"
+    # an explicit archive names its version: amilisp-<version>-bin.lha
+    VERSION=$(basename "$ARCHIVE" | sed -n 's/^amilisp-\([0-9][0-9.]*\)-bin\.lha$/\1/p')
+    [ -n "$VERSION" ] || die "cannot read the version from '$(basename "$ARCHIVE")' (expected amilisp-<version>-bin.lha)"
 else
     ver_field() { sed -n "s/^#define CL_VERSION_$1 \([0-9][0-9]*\)$/\1/p" src/core/types.h; }
     VMAJOR=$(ver_field MAJOR); VMINOR=$(ver_field MINOR); VPATCH=$(ver_field PATCH)
     [ -n "$VMAJOR" ] && [ -n "$VMINOR" ] && [ -n "$VPATCH" ] \
         || die "could not parse the version from src/core/types.h"
     VERSION="$VMAJOR.$VMINOR.$VPATCH"
-    ARCHIVE="$ROOT/build/release/clamiga-$VERSION-bin.lha"
+    ARCHIVE="$ROOT/build/release/amilisp-$VERSION-bin.lha"
 fi
 [ -f "$ARCHIVE" ] || die "release archive not found: $ARCHIVE
-       run scripts/make-binary-release.sh first (it writes build/release/clamiga-$VERSION-bin.lha)"
+       run scripts/make-binary-release.sh first (it writes build/release/amilisp-$VERSION-bin.lha)"
 VMAJOR=${VERSION%%.*}; rest=${VERSION#*.}; VMINOR=${rest%%.*}
 
 # --- uploader ---------------------------------------------------------------
@@ -280,10 +280,10 @@ if command -v lha > /dev/null 2>&1; then
         bad "lha t failed on $(basename "$LHA_OUT"):"; tail -3 "$TMPD/lha-t.log" | sed 's/^/            /' >&2
     fi
     tops=$(lha l "$LHA_OUT" | awk 'NR > 2 && $NF ~ /\// { sub(/\/.*/, "", $NF); print $NF }' | sort -u | tr '\n' ' ')
-    if [ "$tops" = "clamiga-$VERSION " ]; then
-        good "archive unpacks into clamiga-$VERSION/"
+    if [ "$tops" = "amilisp-$VERSION " ]; then
+        good "archive unpacks into amilisp-$VERSION/"
     else
-        bad "archive top-level entries are '$tops', expected only clamiga-$VERSION/"
+        bad "archive top-level entries are '$tops', expected only amilisp-$VERSION/"
     fi
 else
     echo "  note    lha not installed — archive integrity not checked here"

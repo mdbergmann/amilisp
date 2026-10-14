@@ -38,7 +38,7 @@
 ;;; and optional libraries opened by hand and called by LVO.
 ;;;
 ;;; Run on AmigaOS 3+ or MorphOS:
-;;;   clamiga --load examples/amiga/gfx/screenshot.lisp
+;;;   amilisp --load examples/amiga/gfx/screenshot.lisp
 ;;; It counts down three seconds so you can bring the screen you want
 ;;; to the front, then writes RAM:screenshot.ppm.  From the REPL,
 ;;; (screenshot:grab :screen :workbench :file "RAM:wb.ppm") shoots the

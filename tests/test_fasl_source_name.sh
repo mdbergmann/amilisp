@@ -21,9 +21,9 @@
 #   2. portable, source outside cwd -> absolute name kept
 #   3. not portable, same source   -> absolute name kept
 #
-# Run: sh tests/test_fasl_source_name.sh build/host/clamiga
+# Run: sh tests/test_fasl_source_name.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 case "$CLAMIGA" in /*|[A-Za-z]:/*) ;; *) CLAMIGA="$(pwd)/$CLAMIGA" ;; esac
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)

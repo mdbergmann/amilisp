@@ -20,9 +20,9 @@
 ;;; MUIO_Checkmark / MUIO_HBar / MUIO_VBar, MUI_Request.
 ;;;
 ;;; Run on AmigaOS 3.x with MUI 3.8+ installed, or on MorphOS:
-;;;   clamiga --load examples/amiga/mui/menus.lisp
+;;;   amilisp --load examples/amiga/mui/menus.lisp
 ;;; Unattended (auto-closes after 5 s):
-;;;   clamiga --eval '(require "amiga/mui")' \
+;;;   amilisp --eval '(require "amiga/mui")' \
 ;;;           --eval '(setf amiga.mui:*event-loop-timeout* 5)' \
 ;;;           --load examples/amiga/mui/menus.lisp
 

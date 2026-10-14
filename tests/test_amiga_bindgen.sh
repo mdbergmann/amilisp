@@ -27,9 +27,9 @@
 # Both parts run twice: plain, and with :MORPHOS pushed on *FEATURES*, so
 # both sides of every platform conditional execute.
 #
-# Run: sh tests/test_amiga_bindgen.sh build/host/clamiga
+# Run: sh tests/test_amiga_bindgen.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 FIX="$ROOT/tests/fixtures/bindgen"
 CHECK="$ROOT/tests/test_amiga_bindgen.lisp"
@@ -48,7 +48,7 @@ run_checks() {
         out=$(BINDGEN_CHECK="$1" RAWDIR="$2" "$CLAMIGA" --no-userinit --non-interactive \
               --heap 256M --load "$CHECK" </dev/null 2>&1 | grep -v '^; Loading')
     fi
-    # ok/FAIL lines, plus anything clamiga's LOAD recovery printed (a check
+    # ok/FAIL lines, plus anything amilisp's LOAD recovery printed (a check
     # that errors out names its condition on its FAIL line; an ERROR line
     # here means a top-level form died and the checks after it never ran)
     echo "$out" | grep -E '^(FAIL|ok  |ERROR)' | sed 's/^/  /'

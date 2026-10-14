@@ -36,7 +36,7 @@
 | The target is a STATIC buffer, not the stack: a lost store can also land
 | LATE (storeprobe v12), and a stack buffer is reused by the very next
 | call's frame -- a version of this routine with its buffer 1K below the
-| caller's frame crashed clamiga at startup with a CHK exception (guru
+| caller's frame crashed amilisp at startup with a CHK exception (guru
 | 80000006: a return address overwritten), where the calls that follow the
 | test put their frames.  The defect does not care where the destination
 | is (the placement probe showed the address of the SOURCE decides), so a

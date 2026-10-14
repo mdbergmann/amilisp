@@ -1,6 +1,21 @@
-# CL-Amiga
+# AmiLisp
 
 Common Lisp environment for AmigaOS 3+ with bytecode VM, written in C (C89/C99).
+
+## Naming
+
+The product and the executable are **AmiLisp** / `amilisp` (since 0.12;
+the project started as CL-Amiga, said *Clamiga*).  The **Lisp-level
+identifiers deliberately keep the old name** and must not be renamed: the
+`CLAMIGA` package (`clamiga::...`), the `:clamiga` / `:cl-amiga` features (`:amilisp` and `:amicl` are the new ones, all four are in `*features*`),
+the `CLAMIGA_*` environment variables, the `S:cl-amiga/faslcache/` cache
+root, `docs/clamiga.md` (the package's reference), and the Aminet package
+name `dev/lang/clamiga.lha`.  User code and the library forks depend on
+them.  The runtime also still accepts the pre-rename file names as
+fallbacks (`clamiga.img` after `amilisp.img`, `~/.clamigarc` /
+`S:.clamigarc` after `.amilisprc`, `<prefix>/lib/clamiga/` after
+`lib/amilisp/`); `tests/test_image.sh`, `tests/test_userinit.sh`,
+`tests/test_lib_search_cwd.sh` and `tests/test_userinit_paths.c` pin that.
 
 ## Target Platforms
 
@@ -18,7 +33,7 @@ make test-memleak  # Off-heap allocation tracer: assert zero bytes leak at exit
 make clean         # Remove build artifacts
 ```
 
-**These gates cover the clamiga runtime — the C code and the Lisp
+**These gates cover the amilisp runtime — the C code and the Lisp
 library it ships.** The Lambda's Tale engine and the Closure game,
 formerly subprojects under `examples/games/`, are **their own repos**
 since 2026-07-24 (`../../lambda-tale` and `../../closure-tale` in
@@ -33,13 +48,13 @@ full.  Keep the two changes, and their gates, apart.
 (https://github.com/mdbergmann/clamacs, since 2026-09-12).  It is written
 in Common Lisp (`clamacs/lisp/`, `clamacs/specs/clamacs-lisp.md`; the C
 editor under `clamacs/src/` is its frozen predecessor) and runs as a
-clamiga instance of its own.  It is released *with* clamiga —
+amilisp instance of its own.  It is released *with* amilisp —
 `scripts/make-binary-release.sh` compiles it into `lib/clamacs/` (FASLs
 beside the sources) and saves a `clamacs.img` heap image next to each
-`clamiga` binary in FS-UAE (`verify/realamiga/make-editor-image.sh`;
+`amilisp` binary in FS-UAE (`verify/realamiga/make-editor-image.sh`;
 `make -f Makefile.cross editor-image-amiga` does it for a cross build,
 `make -f Makefile.mos editor-image` natively on MorphOS), which the
-`Clamacs` launcher starts with `clamiga --image clamacs.img --eval
+`Clamacs` launcher starts with `amilisp --image clamacs.img --eval
 "(clamacs::run)"` — but it keeps its own suites and its own `CLAUDE.md`.
 The same rule applies: editor work is a commit in the submodule (pin
 bumped here afterwards, `git add clamacs`), and anything it needs from
@@ -64,23 +79,23 @@ touching Windows-facing code:
   Makefile, because only command-line arguments are path-converted on the way
   from the MSYS shell to a native process — env vars and paths written into
   generated `.lisp` files are not.  `tests/shpath.sh` has `native_path` for
-  paths compared against clamiga's own output.  A shell script that decides
+  paths compared against amilisp's own output.  A shell script that decides
   whether a path is absolute must accept `C:/...` next to `/...`.
 - **Line endings**: `.gitattributes` forces LF in the working tree (`* text=auto
   eol=lf`) because Git for Windows — and GitHub's Windows runners — default to
   `core.autocrlf=true`.  Without it a string literal that spans lines carries
-  `\r\n` on Windows only, and a test comparing it against clamiga's own output
+  `\r\n` on Windows only, and a test comparing it against amilisp's own output
   fails there and nowhere else.
 
 Cross-compile for Amiga and test via FS-UAE:
 ```
-make -f Makefile.cross amiga        # Cross-compile to build/cross/clamiga (m68k-amigaos-gcc)
-make -f Makefile.cross amiga FPU=1  # Hard-float variant to build/cross-fpu/clamiga (requires FPU)
+make -f Makefile.cross amiga        # Cross-compile to build/cross/amilisp (m68k-amigaos-gcc)
+make -f Makefile.cross amiga FPU=1  # Hard-float variant to build/cross-fpu/amilisp (requires FPU)
 make -f Makefile.cross amiga WIDE=1 # Wide-string variant (CHAR-CODE-LIMIT > 65533, for flexi-streams/drakma); composes with FPU=1; releases stay narrow
 make -f Makefile.cross amiga GC=classic # Classic mark-sweep collector variant to build/cross-classic (the m68k default is Immix, specs/gc-backend-immix.md); composes with FPU=1/WIDE=1; Makefile.mos takes the same knob with the same default (GC=classic -> build/morphos-classic)
 make -f Makefile.cross test-amiga   # Cross-compile, copy binary, launch FS-UAE, verify results
 make -f Makefile.cross examples-amiga # Run the GUI examples (gfx/ + reaction/) unattended in FS-UAE, screenshots to build/amiga/shots/
-make -f Makefile.cross image-amiga  # Save + verify a bare-boot clamiga.img beside the cross binary in FS-UAE (images are per-build; composes with FPU=1)
+make -f Makefile.cross image-amiga  # Save + verify a bare-boot amilisp.img beside the cross binary in FS-UAE (images are per-build; composes with FPU=1)
 make -f Makefile.cross clean        # Remove cross-build artifacts
 ```
 - Uses `m68k-amigaos-gcc` toolchain from `tools/m68k-amigaos-gcc/prefix`
@@ -88,21 +103,21 @@ make -f Makefile.cross clean        # Remove cross-build artifacts
 - Only `test-amiga`/`test-amiga-lowend`/`run-examples.sh` copy the binary into `build/amiga/` (what FS-UAE runs) — a plain `amiga` build never touches it, so experimental builds with another `BUILDDIR=` are safe
 - The only supported way to build the AmigaOS binary (there is no native vbcc build)
 - `test-amiga` places the binary in `build/amiga/`, boots FS-UAE, runs the Amiga test suite, and verifies results
-- Runs fully unattended: FS-UAE auto-quits (`C:UAEquit`) when the suite finishes, and a host-side watchdog (`verify/realamiga/run-fs-uae.sh`) kills it if clamiga hangs; results are checked automatically
+- Runs fully unattended: FS-UAE auto-quits (`C:UAEquit`) when the suite finishes, and a host-side watchdog (`verify/realamiga/run-fs-uae.sh`) kills it if amilisp hangs; results are checked automatically
 
 ## Release Process
 
 Releases are tag-only (no GitHub release artifacts). Follow the `v0.4`/`v0.5` precedent:
 
-For a downloadable **binary release** (AmigaOS 3 + MorphOS), run `scripts/make-binary-release.sh` after tagging — it cross-builds the aos3 binaries (soft-float and hard-float `FPU=1`), saves + verifies a bare-boot `clamiga.img` beside each of them in FS-UAE (heap images are per-build, so the staged m68k binaries write their own from the staged layout — needs the `test-amiga` emulator setup), packages a natively built MorphOS binary and its image (`MOS_BIN=...` / `MOS_IMG=...`, built with `Makefile.mos` and `make -f Makefile.mos image` on MorphOS), assembles `bin/aos3` + `bin/aos3-fpu` + `bin/mos` + `lib/` (FASLs where portable — the header comment documents which files must ship as source and why) + `docs/` + `examples/` + the three root Workbench icons with their IconX launcher scripts (`icons/`, drawn by `scripts/make-icons.py`; re-run it and commit the `.info` files after an art change) under `build/release/`, smoke-tests the layout (including that it starts from the image and that `--no-image` still boots from the FASLs), and emits `.zip`/`.lha`.
+For a downloadable **binary release** (AmigaOS 3 + MorphOS), run `scripts/make-binary-release.sh` after tagging — it cross-builds the aos3 binaries (soft-float and hard-float `FPU=1`), saves + verifies a bare-boot `amilisp.img` beside each of them in FS-UAE (heap images are per-build, so the staged m68k binaries write their own from the staged layout — needs the `test-amiga` emulator setup), packages a natively built MorphOS binary and its image (`MOS_BIN=...` / `MOS_IMG=...`, built with `Makefile.mos` and `make -f Makefile.mos image` on MorphOS), assembles `bin/aos3` + `bin/aos3-fpu` + `bin/mos` + `lib/` (FASLs where portable — the header comment documents which files must ship as source and why) + `docs/` + `examples/` + the three root Workbench icons with their IconX launcher scripts (`icons/`, drawn by `scripts/make-icons.py`; re-run it and commit the `.info` files after an art change) under `build/release/`, smoke-tests the layout (including that it starts from the image and that `--no-image` still boots from the FASLs), and emits `.zip`/`.lha`.
 
 1. **Gates green first**: `make test-plus`, `make test-gc-stress`, `make test-extra`, `make -f Makefile.cross test-amiga`, and `make -f Makefile.cross test-amiga FPU=1` must all pass (`pkill fs-uae` first if an emulator is lingering). Record the Amiga-suite and test-extra pass counts — they go in the tag message.
 2. **Bump the version** — exactly two files:
    - `src/core/types.h`: the `CL_VERSION_MAJOR/MINOR/PATCH` block + `CL_VERSION_DATE` (DD.MM.YYYY). Everything derives from this block (banner, `LISP-IMPLEMENTATION-VERSION`, `$VER:` cookie, FASL cache key — stale caches invalidate themselves; `tests/test_version.c` enforces the contract).
-   - `README.md`: the two hardcoded examples in the "Version" section (`lisp-implementation-version` and `Version clamiga` output).
+   - `README.md`: the two hardcoded examples in the "Version" section (`lisp-implementation-version` and `Version amilisp` output).
    - `CL_FASL_VERSION` is independent — bump it only if serialization actually changed (see FASL Versioning below).
 3. **Commit** as `chore(release): bump version to X.Y` touching only those two files, with a headline paragraph summarizing the cycle (see `git show v0.4` for the format). Re-run `make test` on the bumped tree.
-4. **Annotated tag**: `git tag -a vX.Y -m "CL-Amiga X.Y — <headlines>; Amiga suite N/N, test-extra N/0"` with the real numbers from step 1.
+4. **Annotated tag**: `git tag -a vX.Y -m "AmiLisp X.Y — <headlines>; Amiga suite N/N, test-extra N/0"` with the real numbers from step 1.
 5. **Push**: `git push origin master vX.Y`.
 6. **Aminet** (after `scripts/make-binary-release.sh`): `AMINET_UPLOADER="you@example.org (Name)" scripts/aminet-upload.sh --dry-run` stages `clamiga.lha` + `clamiga.readme` under `build/release/aminet/` from `scripts/aminet-readme.in` (release notes = the tag message, or `--notes FILE`) and checks them against Aminet's rules; without `--dry-run` it uploads by anonymous FTP to `main.aminet.net/new/` after a confirmation. The archive is uploaded under the *same name* as the existing package (that is how Aminet updates work; the version lives in the readme). Aminet asks for at most one update per week.
 
@@ -170,7 +185,7 @@ Any C code that holds `CL_Obj` values across allocating calls **must** GC-protec
 - Activate debug instrumentation via make flags: `make host DEBUG_FLAGS="-DDEBUG_GC -DDEBUG_COMPILER"` (or any combination of flags)
 - The Makefile passes `$(DEBUG_FLAGS)` to `CFLAGS`, so any `-D` defines can be added without editing the Makefile
 - Keep debug output behind these guards so it compiles to nothing in normal builds — zero overhead when not debugging
-- **When fixing bugs and troubleshooting**, maximize the diagnostic and bug-source visibility built into clamiga itself — add clear error messages, runtime checks, assertions, and debug instrumentation so that problems can be diagnosed from clamiga's own output rather than requiring external tools or guesswork
+- **When fixing bugs and troubleshooting**, maximize the diagnostic and bug-source visibility built into amilisp itself — add clear error messages, runtime checks, assertions, and debug instrumentation so that problems can be diagnosed from amilisp's own output rather than requiring external tools or guesswork
 
 ## Tests
 
@@ -180,7 +195,7 @@ Any C code that holds `CL_Obj` values across allocating calls **must** GC-protec
 - Amiga tests: `tests/amiga/run-tests.lisp` — Lisp-based test suite run on AmigaOS via FS-UAE
 - **Tests must be tight on production code** — test the exact behavior, not just the happy path; cover edge cases, boundary conditions, and error paths thoroughly
 - **Target 90% test coverage** — aim for at least 90% coverage across the codebase
-- **The gc-stress test suite is critical for the stability and resiliency of clamiga** (`make test-gc-stress`, forces compaction every alloc via `DEBUG_GC_STRESS`/`CLAMIGA_GC_STRESS=1` to make unprotected-`CL_Obj` GC bugs deterministic). When changing or adding any code, make sure there is coverage not only in the unit tests but **also in the gc-stress suite** — exercise new allocating paths under GC stress so compaction/relocation bugs surface in CI rather than in the field.
+- **The gc-stress test suite is critical for the stability and resiliency of amilisp** (`make test-gc-stress`, forces compaction every alloc via `DEBUG_GC_STRESS`/`CLAMIGA_GC_STRESS=1` to make unprotected-`CL_Obj` GC bugs deterministic). When changing or adding any code, make sure there is coverage not only in the unit tests but **also in the gc-stress suite** — exercise new allocating paths under GC stress so compaction/relocation bugs surface in CI rather than in the field.
 
 ### Off-heap memory must be handed back (AmigaOS has no exit reclaim)
 
@@ -188,7 +203,7 @@ Any C code that holds `CL_Obj` values across allocating calls **must** GC-protec
 sees it and a host build cannot observe it leaking — the kernel reclaims the
 address space at exit. **AmigaOS does not.** A block never freed is Fast RAM
 gone from the system pool until reboot, so an exit-path leak is a per-launch
-cost to the user, not a hygiene issue. (Measured: clamiga lost 3,743,160 bytes
+cost to the user, not a hygiene issue. (Measured: amilisp lost 3,743,160 bytes
 on *every* launch on a Vampire until the 0.8 shutdown paths were fixed.)
 
 - Run **`make test-memleak`** after touching any shutdown path, the compiler
@@ -220,9 +235,9 @@ on *every* launch on a Vampire until the 0.8 shutdown paths were fixed.)
 - Strive for helpful, precise diagnostics that guide the user to the problem and solution
 - When loading Lisp code and fixing bugs, **improve compiler error messages** — include source location (file, line), the offending form, and actionable guidance where possible
 
-## Running clamiga
+## Running amilisp
 
-- When running `clamiga` to capture output (e.g. for debugging or verification), use **small timeouts (10 seconds)** and check periodically — the process may hang or run indefinitely on certain inputs
+- When running `amilisp` to capture output (e.g. for debugging or verification), use **small timeouts (10 seconds)** and check periodically — the process may hang or run indefinitely on certain inputs
 
 ## Amiga Stack Requirements
 
@@ -237,9 +252,9 @@ Since 2026-09-18 the m68k binary gives itself that 128K when it was started with
 Reusable Lisp scripts in `trunk/` for loading and testing third-party libraries:
 
 ```
-./build/host/clamiga --heap 24M --load trunk/load-and-test-5am.lisp    # Fiveam (57/57 tests)
-./build/host/clamiga --heap 24M --load trunk/load-and-test-fset.lisp   # FSet (17/17 tests)
-./build/host/clamiga --heap 64M --load trunk/load-and-test-str.lisp    # str (400/400 tests)
+./build/host/amilisp --heap 24M --load trunk/load-and-test-5am.lisp    # Fiveam (57/57 tests)
+./build/host/amilisp --heap 24M --load trunk/load-and-test-fset.lisp   # FSet (17/17 tests)
+./build/host/amilisp --heap 64M --load trunk/load-and-test-str.lisp    # str (400/400 tests)
 ```
 
 - These scripts work on both host and Amiga (use `#+amigaos`/`#-amigaos` for platform differences)

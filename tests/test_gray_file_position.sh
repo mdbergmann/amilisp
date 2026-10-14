@@ -17,9 +17,9 @@
 # otherwise (both directions: query and set); non-Gray streams keep the
 # original C builtin.
 #
-# Run: sh tests/test_gray_file_position.sh build/host/clamiga
+# Run: sh tests/test_gray_file_position.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then
@@ -47,7 +47,7 @@ OUT=$("$TIMEOUT" 60 "$CLAMIGA" --no-userinit --non-interactive \
 rc=$?
 
 if [ $rc -ne 0 ]; then
-    echo "FAIL test_gray_file_position: clamiga exited rc=$rc"
+    echo "FAIL test_gray_file_position: amilisp exited rc=$rc"
     echo "$OUT" | tail -15
     exit 1
 fi

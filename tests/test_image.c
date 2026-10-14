@@ -16,7 +16,7 @@
  * file's name stored once; a bad index refused pre-arena).
  *
  * The end-to-end two-process legs (CLI flags, discovery, :quit,
- * .clamigarc interplay) are tests/test_image.sh.
+ * .amilisprc interplay) are tests/test_image.sh.
  */
 
 #include "test.h"

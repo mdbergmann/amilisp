@@ -48,7 +48,7 @@
 (defvar *img-bt-fn* (fboundp 'img-bt:img-call))
 
 ; Process-derived state the restore must re-derive rather than carry over:
-; the verify leg runs from a DIFFERENT directory (CLAmiga:tests, see
+; the verify leg runs from a DIFFERENT directory (AmiLisp:tests, see
 ; call-on-ustartup) and must see its own cwd in *default-pathname-defaults*,
 ; and a fresh *random-state* — its first draw must not be the draw this
 ; (untouched, image-bound) state would have produced.
@@ -70,4 +70,4 @@
 (format t "IMAGE-LIBCALL-BEFORE-SAVE ~a~%" (plusp (img-avail-raw)))
 
 (format t "IMAGE-STATE-BUILT fib10=~a dpd=~a~%" (img-fib 10) *img-saved-dpd*)
-(ext:save-image "build/amiga/clamiga-test.img" :quit t :shake-bindings t)
+(ext:save-image "build/amiga/amilisp-test.img" :quit t :shake-bindings t)

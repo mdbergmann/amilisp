@@ -10,7 +10,7 @@
 # 0.11's first snapshot did), and no exemption may name a module that
 # clamacs.lisp does not treat as host-only (it would hide a missing FASL).
 #
-# Run: sh tests/test_release_clamacs_modules.sh   (no clamiga binary needed)
+# Run: sh tests/test_release_clamacs_modules.sh   (no amilisp binary needed)
 
 cd "$(dirname "$0")/.." || exit 1
 SCRIPT=scripts/make-binary-release.sh

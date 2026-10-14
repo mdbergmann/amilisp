@@ -1,4 +1,4 @@
-;;; amiga/graphics.lisp — Graphics library abstractions for CL-Amiga
+;;; amiga/graphics.lisp — Graphics library abstractions for AmiLisp
 ;;;
 ;;; Loaded via (require "amiga/graphics").
 ;;; Provides drawing primitives on RastPort.

@@ -1,5 +1,5 @@
 /*
- * platform_thread_posix.c — POSIX threading primitives for CL-Amiga.
+ * platform_thread_posix.c — POSIX threading primitives for AmiLisp.
  *
  * Thin wrappers around pthreads, GCC __sync_* atomics, and pthread TLS.
  */

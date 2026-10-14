@@ -1,5 +1,5 @@
 /*
- * platform_thread_amiga.c — AmigaOS 3+ threading primitives for CL-Amiga.
+ * platform_thread_amiga.c — AmigaOS 3+ threading primitives for AmiLisp.
  *
  * Thread:   CreateNewProc() (dos.library)
  * Mutex:    struct SignalSemaphore (exec.library)
@@ -66,7 +66,7 @@ typedef struct AmigaThread {
     struct AmigaThread *live_next;  /* amiga_live_list link, Forbid()-guarded */
 } AmigaThread;
 
-/* Workers still executing clamiga code (see platform_thread.h).  Counted up
+/* Workers still executing amilisp code (see platform_thread.h).  Counted up
  * under the creator's Forbid() in platform_thread_create and down as the
  * very last thing amiga_thread_entry does — inside a Forbid() it never
  * leaves: the task falls off the end still forbidden, and Exec's task
@@ -253,7 +253,7 @@ uint32_t platform_thread_drain(const volatile uint32_t *keep, uint32_t timeout_m
 }
 
 /* Tasks on the list have not reached their exit tail's Forbid() (they are
- * unlinked inside it), so none is running clamiga code we could cut short
+ * unlinked inside it), so none is running amilisp code we could cut short
  * mid-way under our own Forbid(): each sits in Wait() or in the ready
  * queue.  RemTask frees its tc_MemEntry (stack, Process); `at` is left
  * alone — the process is exiting and a joiner may still hold it. */

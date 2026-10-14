@@ -1,7 +1,7 @@
 # `MOP` — CLOS Metaobject Protocol
 
 A subset of the **CLOS Metaobject Protocol** (AMOP), exported from the `MOP`
-package. The CL-Amiga **closer-mop** shim re-exports these under `CLOSER-MOP`
+package. The AmiLisp **closer-mop** shim re-exports these under `CLOSER-MOP`
 names, which is how MOP-using Quicklisp libraries (serapeum, trivia, …) reach
 them.
 
@@ -9,7 +9,7 @@ them.
 - **Inherited by:** `COMMON-LISP-USER`.
 - **These follow the AMOP semantics.** This page is a categorized index; the
   authoritative reference for each operator is *The Art of the Metaobject
-  Protocol* and the closer-mop documentation. CL-Amiga implements a working
+  Protocol* and the closer-mop documentation. AmiLisp implements a working
   subset — see `lib/clos.lisp` and the limitation note below for what is and
   isn't covered.
 
@@ -165,5 +165,5 @@ supported.
 
 `tests/test_clos.c` and the CLOS/MOP blocks in `tests/amiga/run-tests.lisp`;
 implementation in `lib/clos.lisp`. The closer-mop re-export mapping lives in
-the CL-Amiga `closer-mop` fork (`#+clamiga` branch of `closer-mop-packages.lisp`
+the AmiLisp `closer-mop` fork (`#+clamiga` branch of `closer-mop-packages.lisp`
 plus `closer-clamiga.lisp`), installed into quicklisp's local-projects.

@@ -15,7 +15,7 @@
 ;;; array in pooled memory, reading node attributes back.
 ;;;
 ;;; Run on AmigaOS 3.5+/3.2 or MorphOS (ReAction classes required):
-;;;   clamiga --load examples/amiga/reaction/listbrowser.lisp
+;;;   amilisp --load examples/amiga/reaction/listbrowser.lisp
 
 (require "amiga/reaction")
 (require "amiga/raw/exec")

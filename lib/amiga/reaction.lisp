@@ -1,4 +1,4 @@
-;;; amiga/reaction.lisp — ReAction helpers for CL-Amiga
+;;; amiga/reaction.lisp — ReAction helpers for AmiLisp
 ;;;
 ;;; Loaded via (require "amiga/reaction").
 ;;;

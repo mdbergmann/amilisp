@@ -1025,7 +1025,7 @@ static CL_Obj read_string(void)
  * has already been consumed — i.e. the standard reader-macro protocol, where a
  * macro-character function is called with (stream macro-char).  Exposed so
  * GET-MACRO-CHARACTER can hand callers a real callable for the built-in #\"
- * reader, which clamiga otherwise handles inline in C (so macro_fn[#\"] is
+ * reader, which amilisp otherwise handles inline in C (so macro_fn[#\"] is
  * NIL).  Libraries such as pythonic-string-reader grab the standard #\" reader
  * and re-dispatch to it; without this they would funcall NIL. */
 CL_Obj cl_read_standard_string_from_stream(CL_Obj stream)

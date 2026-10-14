@@ -22,9 +22,9 @@
 #      fasl-boot set exactly — catches ANY future helper added to
 #      boot.lisp/clos.lisp but forgotten in clos_internal_names[]
 #
-# Run: sh tests/test_boot_source_compile.sh build/host/clamiga
+# Run: sh tests/test_boot_source_compile.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 case "$CLAMIGA" in /*) ;; *) CLAMIGA="$(pwd)/$CLAMIGA" ;; esac
 passed=0
 failed=0

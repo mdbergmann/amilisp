@@ -4,7 +4,7 @@
 # performance change had to preserve, so a later optimization in the same
 # area cannot quietly trade correctness for speed.
 #
-#   sh tests/test_tier4_phase1.sh build/host/clamiga
+#   sh tests/test_tier4_phase1.sh build/host/amilisp
 #
 # Covered:
 #   1. call_builtin no longer copies the multiple-value buffer on every
@@ -27,7 +27,7 @@
 #      GF's cache — an invariant this optimization now depends on, so it
 #      gets a test of its own.
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 

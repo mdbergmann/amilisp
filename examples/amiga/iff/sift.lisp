@@ -14,7 +14,7 @@
 ;;; data, and SIFT on the clipboard.
 ;;;
 ;;; Run on AmigaOS 3+ or MorphOS:
-;;;   clamiga --load examples/amiga/iff/sift.lisp
+;;;   amilisp --load examples/amiga/iff/sift.lisp
 ;;; then sift your own files with (amiga.iff:sift "work:image.ilbm").
 
 (require "amiga/iff")
@@ -40,7 +40,7 @@ back-patched by POP-CHUNK from the IFFSIZE_UNKNOWN default."
     (iff:pop-chunk out)
     (iff:push-chunk out "FTXT" "FORM")
     (iff:push-chunk out nil "NAME")
-    (iff:write-chunk-bytes out "clamiga")
+    (iff:write-chunk-bytes out "amilisp")
     (iff:pop-chunk out)
     (iff:push-chunk out nil "CHRS")
     (iff:write-chunk-bytes out "part two.")

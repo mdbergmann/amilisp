@@ -1,10 +1,10 @@
 #!/bin/sh
 # make-editor-image.sh — save the Clamacs editor's heap image beside an
-# Amiga clamiga binary, unattended in FS-UAE, and prove it starts the editor.
+# Amiga amilisp binary, unattended in FS-UAE, and prove it starts the editor.
 #
 #   verify/realamiga/make-editor-image.sh BINDIR LIBROOT
 #
-#   BINDIR      repo-relative directory holding the m68k `clamiga` to save
+#   BINDIR      repo-relative directory holding the m68k `amilisp` to save
 #               the image for: build/cross, build/cross-fpu, or a staged
 #               release's bin/aos3.  The image is written next to it as
 #               BINDIR/clamacs.img -- what the Clamacs launcher passes as
@@ -18,9 +18,9 @@
 # itself loads the editor in FS-UAE and dumps its heap.  Both runs go
 # through the boot-override hook of call-on-ustartup:
 #
-#   1. save:   cd BINDIR; clamiga --no-image --load LIBROOT/lib/clamacs/load.lisp
+#   1. save:   cd BINDIR; amilisp --no-image --load LIBROOT/lib/clamacs/load.lisp
 #                                            --load LIBROOT/lib/clamacs/save-editor-image.lisp
-#   2. verify: cd LIBROOT; clamiga --image BINDIR/clamacs.img
+#   2. verify: cd LIBROOT; amilisp --image BINDIR/clamacs.img
 #                                  --load LIBROOT/lib/clamacs/verify-editor-image.lisp
 #              (the editor opens a window, builds its menu and quits)
 #
@@ -40,14 +40,14 @@ LOG=build/amiga/editor-image.log
 for d in "$BINDIR" "$LIBROOT"; do
     case "$d" in
         /*|*:*)
-            echo "ERROR: $d must be relative to the repo root — FS-UAE sees it as CLAmiga:$d" >&2
+            echo "ERROR: $d must be relative to the repo root — FS-UAE sees it as AmiLisp:$d" >&2
             exit 1 ;;
     esac
 done
 BINDIR=${BINDIR%/}
 LIBROOT=${LIBROOT%/}
-[ -f "$BINDIR/clamiga" ] || {
-    echo "ERROR: $BINDIR/clamiga missing — make -f Makefile.cross amiga first" >&2; exit 1; }
+[ -f "$BINDIR/amilisp" ] || {
+    echo "ERROR: $BINDIR/amilisp missing — make -f Makefile.cross amiga first" >&2; exit 1; }
 [ -f "$LIBROOT/lib/clamacs/load.lisp" ] || {
     echo "ERROR: $LIBROOT/lib/clamacs/load.lisp missing — the editor's files are not under $LIBROOT/lib/clamacs/" >&2; exit 1; }
 [ -f "$LIBROOT/lib/clamacs/save-editor-image.lisp" ] || {
@@ -61,12 +61,12 @@ IMG="$BINDIR/clamacs.img"
 mkdir -p build/amiga
 rm -f "$IMG" "$IMG.uaem" "$LOG" "$LOG.uaem"
 
-AMI_BIN="CLAmiga:$BINDIR/clamiga"
-AMI_BINDIR="CLAmiga:$BINDIR"
-AMI_IMG="CLAmiga:$IMG"
-AMI_LIB="CLAmiga:$LIBROOT/lib/clamacs"
-AMI_LIBROOT="CLAmiga:$LIBROOT"
-AMI_LOG="CLAmiga:$LOG"
+AMI_BIN="AmiLisp:$BINDIR/amilisp"
+AMI_BINDIR="AmiLisp:$BINDIR"
+AMI_IMG="AmiLisp:$IMG"
+AMI_LIB="AmiLisp:$LIBROOT/lib/clamacs"
+AMI_LIBROOT="AmiLisp:$LIBROOT"
+AMI_LOG="AmiLisp:$LOG"
 
 # The editor's own exit trace must be this run's alone: the verify run
 # leaves it, and its last line says whether the teardown completed.
@@ -92,7 +92,7 @@ date >>$AMI_LOG
 C:UAEquit
 EOF
 
-echo "=== Launching FS-UAE — Clamacs heap image for $BINDIR/clamiga ==="
+echo "=== Launching FS-UAE — Clamacs heap image for $BINDIR/amilisp ==="
 KEEP_BOOT_OVERRIDE=1 FSUAE_LOG="$LOG" \
     verify/realamiga/run-fs-uae.sh verify/realamiga/verify.fs-uae
 rm -f build/amiga/boot-override "$IMG.uaem" "$LOG.uaem"

@@ -19,9 +19,9 @@
 #   - lost-wakeup soak: 8 threads ping-pong through a lock and a condvar with
 #     randomised notify timing; a hang is the failure (the timeout below).
 #
-# Run: sh tests/test_mp_heap_locks.sh build/host/clamiga
+# Run: sh tests/test_mp_heap_locks.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then

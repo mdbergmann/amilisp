@@ -197,7 +197,7 @@ STRING-CELL for the notification test.  Returns the application."
                                                                                 (%m "+MUIA-TEXT-CONTENTS+") "Testing MUI from Lisp")
                                                           (%m "+MUIA-GROUP-CHILD+") str)))
          (app (amiga.mui:new-object :application
-                                    (%m "+MUIA-APPLICATION-TITLE+") "CLAmigaMUITest"
+                                    (%m "+MUIA-APPLICATION-TITLE+") "AmiLispMUITest"
                                     (%m "+MUIA-APPLICATION-BASE+") "CLAMIGAMUITEST"
                                     (%m "+MUIA-APPLICATION-WINDOW+") win)))
     (setf (car string-cell) str)
@@ -732,7 +732,7 @@ STRING-CELL for the notification test.  Returns the application."
                               (pushnew (funcall value-of message) seen-values)
                               ;; a STRPTR out of our own instance data
                               (let ((buffer (amiga.mui:inst-data class object))
-                                    (text "clamiga"))
+                                    (text "amilisp"))
                                 (ffi:poke-bytes buffer text 0 0 (length text))
                                 (ffi:poke-u8 buffer 0 (length text))
                                 buffer))

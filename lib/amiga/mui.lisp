@@ -1,4 +1,4 @@
-;;; amiga/mui.lisp — MUI (Magic User Interface) helpers for CL-Amiga
+;;; amiga/mui.lisp — MUI (Magic User Interface) helpers for AmiLisp
 ;;;
 ;;; Loaded via (require "amiga/mui").
 ;;;

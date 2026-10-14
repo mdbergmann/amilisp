@@ -19,7 +19,7 @@ Three workloads per binary:
 
 ## Vampire (68080 FPGA, 500 MB Fast, OS 3.2) — real hardware
 
-Binary: `build/cross/clamiga` from this branch, beside the 0.11 release's
+Binary: `build/cross/amilisp` from this branch, beside the 0.11 release's
 `lib/` (`--no-image`).  `--no-jit` changed nothing (no JIT frame is live
 when these collections run), so one table.
 
@@ -463,7 +463,7 @@ will see.
 
 ## Vampire (68080 FPGA, 500 MB Fast, OS 3.2)
 
-`build/cross/clamiga` (Immix) and `build/cross-classic/clamiga`, dropped
+`build/cross/amilisp` (Immix) and `build/cross-classic/amilisp`, dropped
 beside the 0.11 snapshot's `lib/` (`--no-image`, 8 MB heap); Clamacs
 loaded from that tree's FASLs in 3.7 s.  The phase timers tick at 20 ms
 on this machine, so a 20 ms difference is one quantum.  The classic

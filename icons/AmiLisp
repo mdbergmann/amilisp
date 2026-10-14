@@ -1,8 +1,8 @@
-; CLAmiga -- double-click launcher (run by C:IconX, see CLAmiga.info).
+; AmiLisp -- double-click launcher (run by C:IconX, see AmiLisp.info).
 ; Opens the console window named in the icon's WINDOW tool type and starts
 ; the soft-float AmigaOS 3 build, which runs on every 68020+ machine.  The
 ; current directory is this drawer, where lib/ sits, and the binary finds
-; its clamiga.img and lib/ from there.  Stack: 128K, as README-FIRST says.
-; CLAmiga-FPU is the hard-float build, CLAmiga-MOS the MorphOS one.
+; its amilisp.img and lib/ from there.  Stack: 128K, as README-FIRST says.
+; AmiLisp-FPU is the hard-float build, AmiLisp-MOS the MorphOS one.
 Stack 131072
-bin/aos3/clamiga
+bin/aos3/amilisp

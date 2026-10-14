@@ -14,9 +14,9 @@
 # kind %heap-verify walks: what is checked there is that the verifier's own
 # allocations (its collection, its report string) survive a compaction on
 # every allocation, not the volume of heap it walks.
-# Run: sh tests/test_heap_verify.sh [path-to-clamiga]
+# Run: sh tests/test_heap_verify.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0

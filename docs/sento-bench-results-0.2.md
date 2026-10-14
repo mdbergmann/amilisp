@@ -20,7 +20,7 @@ work — real actors will show smaller relative gaps between the variants.
 
 - **Commit**: `47c0182`
 - **Host**: macOS 26.5.2, arm64
-- **Binary**: `build/host/clamiga`, `--heap 192M`
+- **Binary**: `build/host/amilisp`, `--heap 192M`
 - **Date**: 2026-07-06
 
 ## Reproduction
@@ -40,7 +40,7 @@ does not run anything. Load it, then call `run-benchmark`:
 ```
 
 ```
-./build/host/clamiga --heap 192M --load <driver.lisp>
+./build/host/amilisp --heap 192M --load <driver.lisp>
 ```
 
 Cold cache wants ~192M (cl-unicode + serapeum). Once warm, `--heap 64M` is

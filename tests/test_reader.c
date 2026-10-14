@@ -303,6 +303,24 @@ TEST(feature_plus_present)
     ASSERT_EQ_INT(CL_FIXNUM_VAL(obj), 42);
 }
 
+TEST(feature_names_old_and_new)
+{
+    /* The implementation's own features since the rename to AmiLisp
+     * (0.12): :AMILISP and :AMICL are the new names, :CLAMIGA and
+     * :CL-AMIGA the old ones -- all four are present, so a #+ written
+     * against either generation includes the form. */
+    static const char *const srcs[] = {
+        "#+amilisp 1 99", "#+amicl 2 99", "#+clamiga 3 99", "#+cl-amiga 4 99",
+        "#+(and amilisp amicl clamiga cl-amiga) 5 99"
+    };
+    int i;
+    for (i = 0; i < 5; i++) {
+        CL_Obj obj = reads(srcs[i]);
+        ASSERT(CL_FIXNUM_P(obj));
+        ASSERT_EQ_INT(CL_FIXNUM_VAL(obj), i + 1);
+    }
+}
+
 TEST(feature_plus_absent)
 {
     /* :NONEXISTENT is not in *features*, so form is skipped, next is read */
@@ -1200,6 +1218,7 @@ int main(void)
 
     /* Feature conditionals */
     RUN(feature_plus_present);
+    RUN(feature_names_old_and_new);
     RUN(feature_plus_absent);
     RUN(feature_minus_present);
     RUN(feature_minus_absent);

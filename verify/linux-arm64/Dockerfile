@@ -1,6 +1,6 @@
-# Debian Bookworm (arm64) verification image for clamiga.
+# Debian Bookworm (arm64) verification image for amilisp.
 #
-# Deliberately minimal: clamiga's host build needs gcc/make/libc and
+# Deliberately minimal: amilisp's host build needs gcc/make/libc and
 # libffi (platform_posix.c).  ca-certificates/curl for scripts that
 # fetch (e.g. quicklisp-based integration runs), tzdata for local-time.
 FROM debian:bookworm

@@ -8,9 +8,9 @@
 # file, LOAD from a stream and LOAD of a FASL did not (found when a JIT
 # shadow-frame check in tests/amiga/test-jit.lisp, which the suite loads
 # through the FASL cache, lost its innermost frame).
-# Run: sh tests/test_backtrace_after_handled_error.sh [path-to-clamiga]
+# Run: sh tests/test_backtrace_after_handled_error.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0

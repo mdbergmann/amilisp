@@ -1,4 +1,4 @@
-;;; arexx.lisp -- ARexx development port for CL-Amiga (AmigaOS / MorphOS)
+;;; arexx.lisp -- ARexx development port for AmiLisp (AmigaOS / MorphOS)
 ;;;
 ;;; Loaded via (require "amiga/arexx").
 ;;;
@@ -42,7 +42,7 @@
 
 (defvar *default-port-name* "CLAMIGA"
   "Base name claimed by START.  ARexx upcases the name in ADDRESS, so the
-port is always registered upcased; if the name is taken (a second clamiga
+port is always registered upcased; if the name is taken (a second amilisp
 is already running) the port becomes CLAMIGA.1, CLAMIGA.2, ...")
 
 (defvar *handler-thread* nil)

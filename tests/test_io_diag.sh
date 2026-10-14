@@ -6,9 +6,9 @@
 # hang triage: task in WAIT state right after a compacting GC).  With the
 # env var unset the same run must print no [IO] lines at all.
 #
-# Run: sh tests/test_io_diag.sh build/host/clamiga
+# Run: sh tests/test_io_diag.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then

@@ -21,7 +21,7 @@
 ;;; screen) and reports when no sprite is available.
 ;;;
 ;;; Run on AmigaOS 3+ (an Amiga chipset, real or emulated):
-;;;   clamiga --load examples/amiga/gfx/sprite.lisp
+;;;   amilisp --load examples/amiga/gfx/sprite.lisp
 ;;; The walk takes 6 x 100 frames (12 s at 50 Hz); (run :passes 2
 ;;; :frames 50) shortens it, and amiga.intuition:*event-loop-timeout*
 ;;; (the unattended-run knob of the other examples) cuts it off after

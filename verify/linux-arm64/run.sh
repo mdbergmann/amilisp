@@ -1,5 +1,5 @@
 #!/bin/sh
-# Run a clamiga verification command in a Debian Bookworm arm64 container.
+# Run a amilisp verification command in a Debian Bookworm arm64 container.
 #
 # Copies this repo into the container and runs the given command in the
 # writable source tree (default: the fast test tier, `make test`).
@@ -7,11 +7,11 @@
 # Usage:
 #   verify/linux-arm64/run.sh                          # make test
 #   verify/linux-arm64/run.sh make test-plus           # any other make target
-#   verify/linux-arm64/run.sh sh -c 'make host && ./build/host/clamiga --version'
+#   verify/linux-arm64/run.sh sh -c 'make host && ./build/host/amilisp --version'
 set -e
 
 REPO=$(cd "$(dirname "$0")/../.." && pwd)
-IMAGE=clamiga-verify-linux-arm64
+IMAGE=amilisp-verify-linux-arm64
 
 docker build -q -t "$IMAGE" "$REPO/verify/linux-arm64" >/dev/null
 

@@ -12,7 +12,7 @@
 # classic backend's macros are the raw ones, which is exactly how such a
 # site would pass every classic gate.
 #
-# Run: sh tests/test_gc_mark_macros.sh        (no clamiga binary needed)
+# Run: sh tests/test_gc_mark_macros.sh        (no amilisp binary needed)
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 passed=0

@@ -1,4 +1,4 @@
-;;; quicklisp-compat.lisp — Wire CL-Amiga networking into quicklisp
+;;; quicklisp-compat.lisp — Wire AmiLisp networking into quicklisp
 ;;;
 ;;; Load AFTER quicklisp setup.lisp:
 ;;;   (load "lib/asdf.lisp")
@@ -6,27 +6,27 @@
 ;;;   (load "lib/quicklisp-compat.lisp")
 ;;;
 ;;; This provides the TCP networking that quicklisp needs to download
-;;; archives, and works around CL-Amiga compiler limitations.
+;;; archives, and works around AmiLisp compiler limitations.
 
 ;; Load Gray Streams implementation (needed by trivial-gray-streams).
 ;; REQUIRE resolves lib/ against the CWD and falls back to $CLAMIGA_HOME,
-;; so this works when clamiga is launched outside the source root (editor,
+;; so this works when amilisp is launched outside the source root (editor,
 ;; ICL) — a cwd-relative LOAD here would not.
 (require "gray-streams")
 
 ;; NOTE: a handful of systems (closer-mop, trivial-cltl2,
-;; introspect-environment, trivial-garbage) carry first-class CL-Amiga
+;; introspect-environment, trivial-garbage) carry first-class AmiLisp
 ;; support in maintained forks that live in quicklisp's own
 ;; local-projects tree (cloned in; see README's Quicklisp section) and
 ;; are picked up through its normal local-projects search.  The `swank`
 ;; stub and `cl+ssl` facade under `lib/shims/` need nothing here either:
 ;; lib/asdf.lisp registers them on ASDF:*CENTRAL-REGISTRY*, which is
 ;; searched before the quicklisp searchers.  Long-term the fork branches
-;; should merge upstream so stock quicklisp just works on CL-Amiga.
+;; should merge upstream so stock quicklisp just works on AmiLisp.
 
 (in-package #:ql-impl)
 
-;; Register CL-Amiga as a known implementation so *implementation* is non-NIL.
+;; Register AmiLisp as a known implementation so *implementation* is non-NIL.
 ;; The base 'lisp' class provides fallback methods for read-octets, write-octets,
 ;; close-connection, and call-with-connection — all of which work via standard CL
 ;; stream operations (read-sequence, write-sequence, close).
@@ -35,7 +35,7 @@
 
 (in-package #:ql-network)
 
-;; Override open-connection to use CL-Amiga's ext:open-tcp-stream.
+;; Override open-connection to use AmiLisp's ext:open-tcp-stream.
 ;; Timeouts (30s connect, 60s read/write silence) make a stalled dist
 ;; download raise EXT:SOCKET-TIMEOUT instead of blocking the image forever
 ;; in the socket reactor — same field hang as the quickstart bootstrap
@@ -48,7 +48,7 @@
     stream))
 
 ;; Direct implementations of definterface functions.
-;; The definterface GF dispatch via *implementation* has issues in CL-Amiga,
+;; The definterface GF dispatch via *implementation* has issues in AmiLisp,
 ;; so we override the public entry points directly with the "t" fallback behavior.
 (defun read-octets (buffer connection)
   (read-sequence buffer connection))
@@ -80,8 +80,8 @@
 
 ;; ql-impl-util:directory-entries has no :implementation t fallback, so
 ;; ql:quickload's local-projects scan fails with "No applicable primary
-;; method" on CL-Amiga. Override with the ccl/sbcl-style implementation.
-;; CL-Amiga's DIRECTORY uses GLOB_MARK, which appends "/" to subdirs —
+;; method" on AmiLisp. Override with the ccl/sbcl-style implementation.
+;; AmiLisp's DIRECTORY uses GLOB_MARK, which appends "/" to subdirs —
 ;; that's exactly what quicklisp's DIRECTORYP fallback recognizes.
 (defun directory-entries (directory)
   (when (directoryp directory)

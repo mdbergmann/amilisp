@@ -117,7 +117,7 @@ const char *cl_win_dlerror(void)
 
 /* ---- setenv / unsetenv ----
  * Note the one place Windows cannot match POSIX: an EMPTY value deletes the
- * variable instead of defining it as "".  Nothing in clamiga sets an empty
+ * variable instead of defining it as "".  Nothing in amilisp sets an empty
  * environment variable, and the alternative (leaving the CRT and Win32 views
  * disagreeing) would be worse. */
 int cl_win_setenv(const char *name, const char *value, int overwrite)

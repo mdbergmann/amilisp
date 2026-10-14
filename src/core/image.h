@@ -67,7 +67,7 @@ typedef struct {
 
 /* --- Delivered executables: (EXT:SAVE-IMAGE path :EXECUTABLE T) ---
  *
- * A delivered executable is a copy of the running clamiga binary with the
+ * A delivered executable is a copy of the running amilisp binary with the
  * image appended and, as the file's last bytes, this trailer (native byte
  * order -- the only reader is the binary the trailer is appended to):
  *
@@ -79,7 +79,7 @@ typedef struct {
  *
  * ELF, Mach-O and PE loaders ignore bytes behind the last section they
  * were told about; AmigaOS LoadSeg does not, so there the image and the
- * trailer are wrapped in a HUNK_DEBUG, which it skips (image.c).  clamiga
+ * trailer are wrapped in a HUNK_DEBUG, which it skips (image.c).  amilisp
  * looks at its own file's tail before it parses its command line: with a
  * trailer there, the command line belongs to the program. */
 #define CL_IMAGE_EXE_MAGIC        "CLAMIEXE"
@@ -138,7 +138,7 @@ int cl_image_stage(const char *path, int quiet);
 
 /* Look for an image appended to the running executable and stage it.
  * Returns 1 when there is one and it is staged, 0 when the executable
- * carries none (the normal clamiga), -1 when it carries one that cannot be
+ * carries none (the normal amilisp), -1 when it carries one that cannot be
  * used (reason printed) -- fatal for the caller: a delivered program must
  * not turn into a REPL.  Works before platform_init and before the command
  * line is parsed, which is the point (see CL_IMAGE_EXE_MAGIC). */
@@ -188,7 +188,7 @@ void cl_image_run_restore_hooks(void);
  * runtime's library modules re-derive the OS state they captured at load
  * time -- AMIGA.FFI:DEFINE-LIBRARY-VARIABLE's library bases, whose foreign
  * pointers the restore zeroed.  Called from the restored-boot path in
- * repl.c BEFORE the user init file, so ~/.clamigarc can call the OS. */
+ * repl.c BEFORE the user init file, so ~/.amilisprc can call the OS. */
 void cl_image_run_system_restore_hooks(void);
 
 #endif /* CL_IMAGE_H */

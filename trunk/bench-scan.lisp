@@ -13,7 +13,7 @@
 ;;; The results are fixed (1000, 1000, 87): a different value is a bug.
 ;;;
 ;;; Usage:
-;;;   host:     ./build/host/clamiga --no-userinit --non-interactive --load trunk/bench-scan.lisp
+;;;   host:     ./build/host/amilisp --no-userinit --non-interactive --load trunk/bench-scan.lisp
 ;;;   Vampire:  python3 verify/realamiga/run-on-vampire.py trunk/bench-scan.lisp
 ;;; The Amiga clock ticks in 20 ms, so a cell there resolves to ~0.4 us/char;
 ;;; take several runs (docs/benchmarks.md 2026-09-16, string-scan, has a
@@ -87,7 +87,7 @@
     (let ((dt (/ (* 1000000.0 (- (get-internal-real-time) t0)) internal-time-units-per-second)))
       (format t "SCAN ~A: ~D chars x ~D reps, ~,1F us/rep, ~,2F us/char, result ~A~%"
               name *end* reps (/ dt reps) (/ dt reps *end*) r))))
-(format t "clamiga ~A~%" (lisp-implementation-version))
+(format t "amilisp ~A~%" (lisp-implementation-version))
 (bench "naive" (lambda () (compute-indent *text* *end*)) 50)
 (bench "declared" (lambda () (compute-indent-fast *text* *end*)) 50)
 (bench "scan-parens" (lambda () (scan-parens *text* *end*)) 50)

@@ -1,7 +1,7 @@
 /* test_type_expander.c — CLAMIGA::%TYPE-EXPANDER builtin.
  *
  * %TYPE-EXPANDER exposes the internal deftype expander table to Lisp so a
- * portable TYPEXPAND can be implemented on top of it (the CL-Amiga
+ * portable TYPEXPAND can be implemented on top of it (the AmiLisp
  * introspect-environment fork's #+cl-amiga typexpand).  serapeum's
  * EXPLODE-TYPE relies on TYPEXPAND to resolve a user `deftype' alias to its
  * underlying disjunction — before this builtin existed it returned the alias

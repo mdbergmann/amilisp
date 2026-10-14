@@ -15,11 +15,11 @@
 # IN-PACKAGE (including IN-PACKAGE nested in PROGN/EVAL-WHEN/LOCALLY/MACROLET),
 # whose change must persist.
 #
-# Run fresh clamiga per case (a cold heap) so this exercises the compile path
+# Run fresh amilisp per case (a cold heap) so this exercises the compile path
 # directly without the accumulated-heap slowdown of the C test harness.
-# Run: sh tests/test_compile_file_package.sh [path-to-clamiga]
+# Run: sh tests/test_compile_file_package.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 passed=0
 failed=0
 TMP="${TMPDIR:-/tmp}/clamiga-cfpkg-$$"

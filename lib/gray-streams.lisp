@@ -1,4 +1,4 @@
-;;; gray-streams.lisp — Gray Streams implementation for CL-Amiga
+;;; gray-streams.lisp — Gray Streams implementation for AmiLisp
 ;;;
 ;;; Provides the fundamental stream classes and generic functions required
 ;;; by trivial-gray-streams and flexi-streams.

@@ -12,7 +12,7 @@
  *
  *   dlopen/dlsym/dlclose/dlerror -> LoadLibraryA/GetProcAddress/FreeLibrary
  *   poll()                       -> WSAPoll()  (sockets only, which is all
- *                                   clamiga ever polls)
+ *                                   amilisp ever polls)
  *
  * Winsock's own errno lives in WSAGetLastError(), NOT in the C errno the
  * mingw CRT keeps for file I/O, so socket call sites use sock_errno() and the
@@ -76,7 +76,7 @@ int cl_win_unsetenv(const char *name);
 #define unsetenv(n)     cl_win_unsetenv(n)
 
 /* ---- UTF-8 <-> UTF-16 path conversion --------------------------------
- * clamiga carries paths as UTF-8 on every platform.  The CRT's narrow file
+ * amilisp carries paths as UTF-8 on every platform.  The CRT's narrow file
  * calls (fopen, stat, _mkdir) honour that here because main() puts the C
  * locale in UTF-8 mode, but the Win32 "A" entry points do NOT: they use the
  * process ANSI code page whatever the CRT locale says, so a path they cannot

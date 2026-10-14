@@ -1,4 +1,4 @@
-# `EXT` — CL-Amiga Extensions
+# `EXT` — AmiLisp Extensions
 
 Non-standard utilities that don't belong in `COMMON-LISP`: TCP networking, GC
 control, environment/host access, and runtime introspection used by the SLY
@@ -53,8 +53,8 @@ honest capability gate.  drakma and Hunchentoot consume this layer through
 the bundled cl+ssl facade (`lib/shims/cl+ssl`, auto-registered on
 `asdf:*central-registry*` when ASDF loads so it shadows any
 Quicklisp/ocicl-installed cl+ssl).  Setting `CLAMIGA_NO_SHIMS` to `1` in
-the environment before starting clamiga disables the registration — host:
-`CLAMIGA_NO_SHIMS=1 clamiga`, Amiga shell: `SetEnv CLAMIGA_NO_SHIMS 1` —
+the environment before starting amilisp disables the registration — host:
+`CLAMIGA_NO_SHIMS=1 amilisp`, Amiga shell: `SetEnv CLAMIGA_NO_SHIMS 1` —
 e.g. to run the real cl+ssl on the host, where its CFFI stack works.
 End-to-end examples: `tests/tls-loopback.lisp`
 (host), `tests/amiga/tls-tests.lisp` (Amiga), `tests/test_tls.c`
@@ -88,7 +88,7 @@ End-to-end examples: `tests/tls-loopback.lisp`
 |-----------|------|-------------|
 | `(gc)` | function | Force a garbage collection (and compaction when fragmented) |
 | `(getenv name)` | function | Read an environment variable |
-| `(executable-path)` | function | The running clamiga as a path another process can start it by (`/usr/local/bin/clamiga`, `PROGDIR:clamiga`), or `nil` |
+| `(executable-path)` | function | The running amilisp as a path another process can start it by (`/usr/local/bin/amilisp`, `PROGDIR:clamiga`), or `nil` |
 | `(getcwd)` | function | Current working directory |
 | `(system-command command)` | function | Run a host/AmigaOS shell command |
 | `(defglobal name value &optional doc)` | macro | Define a global (non-dynamic) variable |
@@ -99,7 +99,7 @@ What follows `--` on the command line is the program's, never loaded
 (README "Program arguments"); a Workbench start on AmigaOS turns the
 icons' `ARGS`/`WINDOW` tool types into the options and every project icon
 into one argument (README "Starting from Workbench").  Both variables are
-set before `~/.clamigarc` and `*restore-hooks*` run, and a restored image
+set before `~/.amilisprc` and `*restore-hooks*` run, and a restored image
 reports the restoring process's arguments.
 
 | Signature | Kind | Description |
@@ -112,7 +112,7 @@ Runnable examples: `tests/test_command_line_args.sh` (host) and
 
 ## Exit hooks
 
-`ext:*exit-hooks*` is a list of function designators clamiga funcalls with no
+`ext:*exit-hooks*` is a list of function designators amilisp funcalls with no
 arguments on its way out — after `(quit)` / `(exit)`, at the end of a
 `--script` or `--non-interactive` run, and when the REPL reaches end of input.
 They run *before* any runtime teardown, so a hook can still print, write files,
@@ -150,7 +150,7 @@ without running `unwind-protect` cleanups, so a cleanup form never sees it.
 
 `ext:save-image` snapshots the whole session — every function, macro, class,
 instance, hash table, package and variable — to a single file that
-`clamiga --image FILE` restores in one read, skipping the entire boot and
+`amilisp --image FILE` restores in one read, skipping the entire boot and
 load sequence.  On a slow Amiga this turns a minutes-long quicklisp warm-up
 into a near-instant start.
 
@@ -160,20 +160,20 @@ into a near-instant start.
 ```
 
 The image is written at the next top-level prompt (after the enclosing
-form finishes), not from inside the call.  With `:quit t` clamiga exits
+form finishes), not from inside the call.  With `:quit t` amilisp exits
 after writing, running `ext:*exit-hooks*` as usual — the recommended mode
 for build scripts.
 
-Restore explicitly with `clamiga --image mysession.img`, or implicitly: a
-file named `clamiga.img` in the current directory (or next to the binary,
-under `$CLAMIGA_HOME`, or in an install prefix's `lib/clamiga/`) is
+Restore explicitly with `amilisp --image mysession.img`, or implicitly: a
+file named `amilisp.img` in the current directory (or next to the binary,
+under `$CLAMIGA_HOME`, or in an install prefix's `lib/amilisp/`) is
 auto-discovered at startup; `--no-image` skips that.  An image saved with
 a small `--heap` restores fine into a larger one.
 
 Rules and limits:
 
 - **Images are per-build.**  A fingerprint ties each image to the exact
-  clamiga build that wrote it; any other build refuses it cleanly.  Host
+  amilisp build that wrote it; any other build refuses it cleanly.  Host
   images for the host, Amiga images for the Amiga, FPU/WIDE variants each
   their own.
 - **OS resources cannot survive a process.**  Saving refuses while worker
@@ -182,15 +182,15 @@ Rules and limits:
   dump) and `ext:*restore-hooks*` (run after a restore, most recent
   first) are the supported way to tear such state down and rebuild it.
   The refusal names the threads (`... still running ("arexx-port") ...`):
-  the ARexx port `S:.clamigarc` opens for Clamacs, a `REPL-ATTACH`ed
+  the ARexx port `S:.amilisprc` opens for Clamacs, a `REPL-ATTACH`ed
   editor's REPL thread and the TCP development port all run on worker
-  threads, so save from a clamiga started with `--no-userinit` -- load
+  threads, so save from a amilisp started with `--no-userinit` -- load
   the project, save, quit -- or `(amiga.arexx:stop)` first.
   The Amiga library bases of the `AMIGA.*` modules need neither: they are
-  reopened before `~/.clamigarc` runs (`amiga.ffi:define-library-variable`,
+  reopened before `~/.amilisprc` runs (`amiga.ffi:define-library-variable`,
   [amiga.md](amiga.md)).
 - `ext:*image-restored-p*` is `T` in a restored session — it is already
-  set when `~/.clamigarc` runs, so an rc file can skip loads the image
+  set when `~/.amilisprc` runs, so an rc file can skip loads the image
   already contains.
 - **Process state is re-derived, not restored.**  `*default-pathname-defaults*`
   names the restoring process's current directory (not the one the image
@@ -229,7 +229,7 @@ Use it for delivery, not for a development snapshot.
 (ext:save-image "app" :executable t :toplevel 'app:main :quit t)
 ```
 
-writes **one file that is the program**: a copy of the running clamiga
+writes **one file that is the program**: a copy of the running amilisp
 with the image appended.  It needs nothing beside it — no `lib/`, no image
 file, no launcher script — and starts like any other program, from a Shell
 or from a Workbench icon:
@@ -239,7 +239,7 @@ app input.txt --verbose
 ```
 
 - **The command line is the program's.**  Every argument arrives in
-  `ext:*command-line-args*` verbatim; none is a clamiga option, so
+  `ext:*command-line-args*` verbatim; none is a amilisp option, so
   `--help` or `--heap` mean whatever the program says they mean.  Started
   from Workbench, the icon's `ARGS` tool type and the project icons arrive
   the same way (see [Program arguments](#program-arguments)).
@@ -247,19 +247,19 @@ app input.txt --verbose
   function, called with no arguments once the restore hooks ran.  When it
   returns the process exits with status 0; `(quit n)` exits with `n`; an
   error nothing handled is printed and exits with 1.  `ext:*exit-hooks*`
-  run in every case.  Without `:toplevel` the executable is a clamiga that
+  run in every case.  Without `:toplevel` the executable is a amilisp that
   starts at the REPL with the program loaded.
 - **`:heap-size`** is the heap the program starts with, in bytes — the
   executable has no `--heap` option to give later.  Left out, it gets the
   default heap, or as much as the image needs if that is more.
-- `~/.clamigarc` is not loaded and no banner is printed: nothing of the
+- `~/.amilisprc` is not loaded and no banner is printed: nothing of the
   development environment shows through.
 - Everything said about images above holds: threads and open streams must
-  be gone before the save (start the saving clamiga with `--no-userinit`
+  be gone before the save (start the saving amilisp with `--no-userinit`
   so an rc file's ARexx port is not among them), `ext:*restore-hooks*`
   rebuild OS state at start, and `:shake-bindings t` trims the image.
 - The executable is for the machine type that saved it — it *contains*
-  that clamiga.  Build the AmigaOS program on AmigaOS (or in an emulator),
+  that amilisp.  Build the AmigaOS program on AmigaOS (or in an emulator),
   the MorphOS one on MorphOS, the host one on the host.  A delivered
   executable can itself save the next one.
 - On Windows give the file its `.exe` name; elsewhere the name is free.
@@ -268,7 +268,7 @@ app input.txt --verbose
 |-----------|------|-------------|
 | `(save-image pathname &key quit shake-bindings executable toplevel heap-size)` | function | Arm a heap-image dump; it executes at the next top-level safe point.  With `:quit t` the process exits after writing; with `:shake-bindings t` the demand-interned binding tables are shed first; with `:executable t` the file is a self-contained program (see above) that runs `:toplevel` with a heap of `:heap-size` bytes |
 | `*save-hooks*` | variable | Functions funcalled (most recent first) right before the dump — close streams / tear down FFI state here |
-| `*restore-hooks*` | variable | Functions funcalled (most recent first) after a `--image` restore, following `~/.clamigarc` |
+| `*restore-hooks*` | variable | Functions funcalled (most recent first) after a `--image` restore, following `~/.amilisprc` |
 | `*image-restored-p*` | variable | `T` when this session came from `--image` |
 
 Runnable end-to-end examples: `tests/test_image.sh` and

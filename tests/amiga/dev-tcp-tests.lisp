@@ -1,6 +1,6 @@
 ;;; dev-tcp-tests.lisp -- the development port over TCP (lib/dev-tcp.lisp)
 ;;; on the Amiga, over loopback: bsdsocket.library in the emulator, the
-;;; same server a Mac Clamacs drives an Amiga clamiga through over the LAN.
+;;; same server a Mac Clamacs drives an Amiga amilisp through over the LAN.
 ;;; Loaded by run-tests.lisp, which defines CHECK and the counters.
 ;;;
 ;;; Why on the target: the frames, the AUTH gate and the REPL's way back are

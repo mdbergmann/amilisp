@@ -5,7 +5,7 @@
 ;
 ; Gated on (ext:tls-available-p): a machine (or emulator config) without
 ; AmiSSL installed skips cleanly with a note instead of failing — TLS is a
-; runtime-optional capability.  Certificates come from CLAmiga:tests/data
+; runtime-optional capability.  Certificates come from AmiLisp:tests/data
 ; (the suite runs with the repo as current directory).
 ;
 ; This mirrors tests/tls-loopback.lisp on the host, scaled down for the

@@ -7,9 +7,9 @@
 # AMIGA.REACTION re-exports its symbols rather than homonyms.  The object
 # half runs on the Amiga in tests/amiga/test-boopsi.lisp.
 #
-# Run: sh tests/test_amiga_boopsi.sh build/host/clamiga
+# Run: sh tests/test_amiga_boopsi.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 TMPD=$(mktemp -d "${TMPDIR:-/tmp}/test_amiga_boopsi_XXXXXX") || exit 1
 trap 'rm -rf "$TMPD"' EXIT INT TERM
@@ -22,7 +22,7 @@ status=$?
 
 grep -E '^(PASS|FAIL):' "$OUT"
 if [ $status -ne 0 ]; then
-    echo "test_amiga_boopsi: clamiga exited with status $status"
+    echo "test_amiga_boopsi: amilisp exited with status $status"
     tail -20 "$OUT"
     exit 1
 fi

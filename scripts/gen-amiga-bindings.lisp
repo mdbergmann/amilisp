@@ -1,8 +1,8 @@
 ;;; gen-amiga-bindings.lisp — generate lib/amiga/raw/*.lisp from SDK files
 ;;;
-;;; Run on the HOST build of clamiga (not on the Amiga):
+;;; Run on the HOST build of amilisp (not on the Amiga):
 ;;;
-;;;   ./build/host/clamiga --non-interactive --load scripts/gen-amiga-bindings.lisp
+;;;   ./build/host/amilisp --non-interactive --load scripts/gen-amiga-bindings.lisp
 ;;;
 ;;; or, with the paths resolved for you, `make gen-amiga-bindings`
 ;;; (scripts/gen-amiga-bindings.sh).  Configuration is taken from the
@@ -2191,7 +2191,7 @@ exists in the NDK (ndk-lib) and maybe in the MorphOS SDK (mos-lib)."
 ;;; the generated DEFPACKAGE, so dos.library's Open() becomes
 ;;; AMIGA.RAW.DOS:OPEN — a distinct symbol — instead of clobbering
 ;;; CL:OPEN.  The check is done against the live packages of the host
-;;; clamiga running this generator.
+;;; amilisp running this generator.
 (defparameter *used-packages* '("COMMON-LISP" "FFI" "AMIGA.FFI"))
 
 (defun inherited-name-p (lisp-name)
@@ -2527,7 +2527,7 @@ MODULE-NAME the require name (\"amiga/raw/intuition\")."
           (format out "~%;;; Library base — opened at load time on AmigaOS/MorphOS; NIL on other~%")
           (format out ";;; hosts (the module still loads there for testing and compilation).~%")
           (format out ";;; Base and version are re-derived after a heap-image restore, before~%")
-          (format out ";;; ~~/.clamigarc runs (AMIGA.FFI:DEFINE-LIBRARY-VARIABLE).~%")
+          (format out ";;; ~~/.amilisprc runs (AMIGA.FFI:DEFINE-LIBRARY-VARIABLE).~%")
           (cond
             ((lib-auto-open-p libname)
              (format out "(amiga.ffi:define-library-variable ~A~%  (when (member :amigaos *features*)~%    (amiga.ffi:open-library-or-die ~S 0)))~%"

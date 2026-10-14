@@ -9,12 +9,12 @@
 # (MAKE-LOAD-FORM / MAKE-LOAD-FORM-SAVING-SLOTS / %ALLOCATE-FOR-LOAD).
 #
 # Each case compiles a source file to a .fasl, then loads that .fasl in a
-# FRESH clamiga process so the reconstruction goes through real on-disk
+# FRESH amilisp process so the reconstruction goes through real on-disk
 # FASL serialization + deserialization (not in-memory bytecode reuse).
 #
-# Run: sh tests/test_make_load_form.sh [path-to-clamiga]
+# Run: sh tests/test_make_load_form.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 passed=0
 failed=0
 TMP="${TMPDIR:-/tmp}/clamiga-mlf-$$"

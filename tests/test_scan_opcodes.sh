@@ -7,7 +7,7 @@
 # every opcode's semantics — including the error paths the builtin had —
 # are checked against the HyperSpec.
 #
-#   sh tests/test_scan_opcodes.sh build/host/clamiga
+#   sh tests/test_scan_opcodes.sh build/host/amilisp
 #
 # Covered:
 #   1. Shapes at the default speed: AREF with the accessor kind for a
@@ -26,7 +26,7 @@
 #   3. COMPILE-FILE round trip: the FASL carries the opcodes.
 #   4. The paths under allocation pressure (also under CLAMIGA_GC_STRESS).
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 

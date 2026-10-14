@@ -223,7 +223,7 @@ CL_Obj cl_gensym_with_name(const char *prefix);
 
 /* Classify a general (non-bit, non-char) array/vector element-type symbol into
  * a CL_VEC_ELT_* code, expanding user deftypes up to DEPTH levels.  Recognizes
- * only the numeric types clamiga specializes (FIXNUM, SINGLE/DOUBLE-FLOAT);
+ * only the numeric types amilisp specializes (FIXNUM, SINGLE/DOUBLE-FLOAT);
  * everything else → CL_VEC_ELT_T.  Defined in builtins_array.c and shared with
  * COERCE in builtins_type.c. */
 uint8_t cl_classify_vec_elt_code(CL_Obj type, int depth);

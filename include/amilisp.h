@@ -1,8 +1,8 @@
-#ifndef CLAMIGA_H
-#define CLAMIGA_H
+#ifndef AMILISP_H
+#define AMILISP_H
 
 /*
- * CL-Amiga: Common Lisp for AmigaOS 3+
+ * AmiLisp: Common Lisp for AmigaOS 3+
  * Public umbrella header
  */
 
@@ -22,4 +22,4 @@
 #include "../src/core/stream.h"
 #include "../src/core/repl.h"
 
-#endif /* CLAMIGA_H */
+#endif /* AMILISP_H */

@@ -2,8 +2,8 @@
 # package-symbols.sh — keep docs/*.md package symbol lists in sync with reality.
 #
 # Usage:
-#   package-symbols.sh generate <clamiga-binary>   # print canonical snapshot to stdout
-#   package-symbols.sh check    <clamiga-binary>   # diff against committed snapshot; exit 1 on drift
+#   package-symbols.sh generate <amilisp-binary>   # print canonical snapshot to stdout
+#   package-symbols.sh check    <amilisp-binary>   # diff against committed snapshot; exit 1 on drift
 #
 # The canonical snapshot (docs/package-symbols.txt) lists, as sorted
 # "PACKAGE|SYMBOL" lines, the external symbols of every documented extension
@@ -28,11 +28,11 @@ SNAPSHOT="$ROOT/docs/package-symbols.txt"
 CLAMIGA_DOC_LIST="$ROOT/docs/clamiga-documented-symbols.txt"
 
 if [ -z "$MODE" ] || [ -z "$CLAMIGA_BIN" ]; then
-    echo "usage: $0 {generate|check} <clamiga-binary>" >&2
+    echo "usage: $0 {generate|check} <amilisp-binary>" >&2
     exit 2
 fi
 if [ ! -x "$CLAMIGA_BIN" ]; then
-    echo "package-symbols.sh: clamiga binary not found: $CLAMIGA_BIN" >&2
+    echo "package-symbols.sh: amilisp binary not found: $CLAMIGA_BIN" >&2
     exit 2
 fi
 
@@ -142,7 +142,7 @@ case "$MODE" in
         exit "$rc"
         ;;
     *)
-        echo "usage: $0 {generate|check} <clamiga-binary>" >&2
+        echo "usage: $0 {generate|check} <amilisp-binary>" >&2
         exit 2
         ;;
 esac

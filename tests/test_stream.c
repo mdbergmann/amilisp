@@ -916,7 +916,7 @@ TEST(open_element_type_character_default)
 
 /* Regression: OPEN :external-format :latin-1 makes a character file stream
  * 8-bit transparent — every code point 0..255 round-trips as a single byte,
- * with no UTF-8 transcoding.  Without it, clamiga's default UTF-8 stream
+ * with no UTF-8 transcoding.  Without it, amilisp's default UTF-8 stream
  * doubles each byte > 127 (a multipart upload written to a temp file by
  * rfc2388 inflated and corrupted; see the rfc2388 fork's #+cl-amiga
  * :latin-1 external-format branch in PARSE-MIME).
@@ -2822,7 +2822,7 @@ static void *read_test_watchdog(void *arg)
     return NULL;
 }
 
-/* Build a connected loopback pair of clamiga socket streams: *server is the
+/* Build a connected loopback pair of amilisp socket streams: *server is the
  * accepted (server-side) connection, *client the connecting end.  connect()
  * lands in the listen backlog on loopback, so accept() returns without a
  * second thread. */

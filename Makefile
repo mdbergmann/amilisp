@@ -1,4 +1,4 @@
-# CL-Amiga Makefile
+# AmiLisp Makefile
 
 UNAME_S := $(shell uname -s)
 UNAME_M := $(shell uname -m)
@@ -78,20 +78,20 @@ CFLAGS_HOST = -std=c99 -D_GNU_SOURCE -Wall -Wextra -Wpedantic -g -O3 -flto $(PLA
 HOST_LIBS   = -lm $(PTHREAD_FLAGS) $(FFI_LIBS) $(PLATFORM_LIBS)
 
 # Test builds deliberately drop -flto and use -O1 instead of -O3.  The shipped
-# clamiga binary is built once at -O3 -flto, but the ~50 unit-test binaries each
+# amilisp binary is built once at -O3 -flto, but the ~50 unit-test binaries each
 # link the entire runtime, and with -flto every one of those links re-runs
 # whole-program LTO over the whole runtime — that link step, repeated per test
 # binary, dominates `make test` wall-clock.  -O1 + no LTO compiles fast and runs
 # fast enough for the suite (gc-stress, which needs the optimized binary, builds
-# its own -O3 clamiga separately and is unaffected).  Test objects live in their
-# own tree so they never clash with the -O3 -flto objects linked into clamiga.
+# its own -O3 amilisp separately and is unaffected).  Test objects live in their
+# own tree so they never clash with the -O3 -flto objects linked into amilisp.
 CFLAGS_TEST = -std=c99 -D_GNU_SOURCE -Wall -Wextra -Wpedantic -g -O1 $(PLATFORM_DEF) $(JIT_DEF) $(GC_DEF) -DCL_WIDE_STRINGS $(PTHREAD_FLAGS) $(FFI_CFLAGS) $(DEBUG_FLAGS)
 
 SRCDIR   = src
 BUILDDIR ?= build/host
 # The linker appends .exe on Windows; name the target the same way so make
 # sees that it was built (and so the shell test scripts find it).
-HOST_BIN = $(BUILDDIR)/clamiga$(EXE)
+HOST_BIN = $(BUILDDIR)/amilisp$(EXE)
 
 # Source files
 PLATFORM_SRC = $(PLATFORM_IMPL) \
@@ -210,7 +210,7 @@ docs-update: host
 # The documentation as AmigaGuide: README-FIRST.md, README.md and docs/*.md
 # (and the clamacs README when the submodule is present) converted by
 # tools/docs/md2guide.lisp, run by the host binary, into build/guide/ laid
-# out as the binary release root is (README-FIRST.guide, cl-amiga.guide,
+# out as the binary release root is (README-FIRST.guide, amilisp.guide,
 # clamacs.guide at the top, the reference under docs/) -- see
 # tools/docs/md2guide.sh and specs/amigaguide-docs.md.  The binary release
 # runs the same conversion into its staged root; the generated files are not
@@ -252,7 +252,7 @@ TEST_BIN_TIMEOUT ?= 300
 
 # Temp directory for the shell tests.  On Windows the shell and the binary
 # under test disagree about what "/tmp" is: MSYS2 maps it to a mount a native
-# clamiga.exe knows nothing about, and while command-line arguments are
+# amilisp.exe knows nothing about, and while command-line arguments are
 # path-converted on the way to a native process, a temp path that travels
 # through an environment variable or inside a generated .lisp file is not.
 # Handing every script the Windows spelling up front makes both sides agree.
@@ -301,7 +301,7 @@ test_batch test_repl_values test_repl_paste test_boot_log test_mx_error_context 
                 test_amiga_asyncio test_amiga_ahi test_amiga_iff test_amiga_gfx_examples \
                 test_lib_fasl_portable test_fasl_source_name test_md2guide test_docs_symbols
 
-# The ones that take no clamiga binary: two drive make itself, one the
+# The ones that take no amilisp binary: two drive make itself, one the
 # Aminet upload script (dry runs only, no network), one greps the sources
 # (user-visible strings must be ASCII: the Amiga console is not UTF-8),
 # one pins the byte layout of the release's Workbench icons (icons/), one
@@ -382,57 +382,57 @@ test-gc-stress:
 		BUILDDIR=$(GC_STRESS_BUILDDIR) \
 		DEBUG_FLAGS="-DDEBUG_GC_STRESS"
 	@echo "--- test_gc_stress_regression ---"
-	@$(TEST_TMPDIR_ENV) sh $(TEST_SRCDIR)/test_gc_stress_regression.sh $(GC_STRESS_BUILDDIR)/clamiga$(EXE)
+	@$(TEST_TMPDIR_ENV) sh $(TEST_SRCDIR)/test_gc_stress_regression.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 ifeq ($(GC),immix)
 	@echo "--- test_gc_stress_regression (CLAMIGA_GC_STRESS_IMMIX=8: line-sweep cycles between the compactions) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS_IMMIX=8 sh $(TEST_SRCDIR)/test_gc_stress_regression.sh $(GC_STRESS_BUILDDIR)/clamiga$(EXE)
+	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS_IMMIX=8 sh $(TEST_SRCDIR)/test_gc_stress_regression.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 endif
 	@echo "--- test_mt_intern_stw (CLAMIGA_GC_STRESS=1) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_mt_intern_stw.sh $(GC_STRESS_BUILDDIR)/clamiga$(EXE)
+	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_mt_intern_stw.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 	@echo "--- test_mt_thread_death_hook (CLAMIGA_GC_STRESS=1) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_mt_thread_death_hook.sh $(GC_STRESS_BUILDDIR)/clamiga$(EXE)
+	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_mt_thread_death_hook.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 	@echo "--- test_peephole_diff (CLAMIGA_GC_STRESS=1, forced compaction) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_peephole_diff.sh $(GC_STRESS_BUILDDIR)/clamiga$(EXE)
+	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_peephole_diff.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 	@echo "--- test_tier4_phase1 (CLAMIGA_GC_STRESS=1, forced compaction) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_tier4_phase1.sh $(GC_STRESS_BUILDDIR)/clamiga$(EXE)
+	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_tier4_phase1.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 	@echo "--- test_tier4_phase2 (CLAMIGA_GC_STRESS=1, forced compaction) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_tier4_phase2.sh $(GC_STRESS_BUILDDIR)/clamiga$(EXE)
+	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_tier4_phase2.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 	@echo "--- test_local_inline (CLAMIGA_GC_STRESS=1, forced compaction) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_local_inline.sh $(GC_STRESS_BUILDDIR)/clamiga$(EXE)
+	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_local_inline.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 	@echo "--- test_tier4_phase3 (CLAMIGA_GC_STRESS=1, forced compaction) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_tier4_phase3.sh $(GC_STRESS_BUILDDIR)/clamiga$(EXE)
+	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_tier4_phase3.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 	@echo "--- test_scan_opcodes (CLAMIGA_GC_STRESS=1, forced compaction) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_scan_opcodes.sh $(GC_STRESS_BUILDDIR)/clamiga$(EXE)
+	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_scan_opcodes.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 	@echo "--- test_runtime_forms (CLAMIGA_GC_STRESS=1, forced compaction) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_runtime_forms.sh $(GC_STRESS_BUILDDIR)/clamiga$(EXE)
+	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_runtime_forms.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 	@echo "--- test_compiler_buffers (CLAMIGA_GC_STRESS=1, forced compaction) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_compiler_buffers.sh $(GC_STRESS_BUILDDIR)/clamiga$(EXE)
+	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_compiler_buffers.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 	@echo "--- test_tls_loopback (CLAMIGA_GC_STRESS=1, forced compaction) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_tls_loopback.sh $(GC_STRESS_BUILDDIR)/clamiga$(EXE)
+	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_tls_loopback.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 	@echo "--- test_image (CLAMIGA_GC_STRESS=1, forced compaction) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_image.sh $(GC_STRESS_BUILDDIR)/clamiga$(EXE)
+	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_image.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 	@echo "--- test_executable (CLAMIGA_GC_STRESS=1, forced compaction) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_executable.sh $(GC_STRESS_BUILDDIR)/clamiga$(EXE)
+	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_executable.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 	@echo "--- test_command_line_args (CLAMIGA_GC_STRESS=1, forced compaction: the argument list is consed at boot) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_command_line_args.sh $(GC_STRESS_BUILDDIR)/clamiga$(EXE)
+	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_command_line_args.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 	@echo "--- test_shutdown_leak (CLAMIGA_GC_STRESS=1, forced compaction) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_shutdown_leak.sh $(GC_STRESS_BUILDDIR)/clamiga$(EXE)
+	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_shutdown_leak.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 	@echo "--- test_md2guide (CLAMIGA_GC_STRESS=1, forced compaction: string/cons-heavy Lisp) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_md2guide.sh $(GC_STRESS_BUILDDIR)/clamiga$(EXE)
+	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_md2guide.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 	@echo "--- test_heap_verify (CLAMIGA_GC_STRESS=1, forced compaction: the verifier collects and allocates its report; light churn) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_heap_verify.sh $(GC_STRESS_BUILDDIR)/clamiga$(EXE)
+	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_heap_verify.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 	@echo "--- test_call_diag (CLAMIGA_GC_STRESS=1, forced compaction: the diagnostics' error messages) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_call_diag.sh $(GC_STRESS_BUILDDIR)/clamiga$(EXE)
+	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_call_diag.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 	@echo "--- test_call_gen (CLAMIGA_GC_STRESS=1, forced compaction: every collection must bump the call generation) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_call_gen.sh $(GC_STRESS_BUILDDIR)/clamiga$(EXE)
+	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_call_gen.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 	@echo "--- test_jit_a64 (CLAMIGA_GC_STRESS=1, forced compaction: native entry, stubs swept with dead functions) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_jit_a64.sh $(GC_STRESS_BUILDDIR)/clamiga$(EXE)
+	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_jit_a64.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 	@echo "--- test_jit_a64_walk (CLAMIGA_GC_STRESS=1, forced compaction: native frames, constants and helper calls across every collection) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_jit_a64_walk.sh $(GC_STRESS_BUILDDIR)/clamiga$(EXE)
+	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_jit_a64_walk.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 	@echo "--- test_defvar_init_once_fasl (CLAMIGA_GC_STRESS=1, forced compaction: DEFVAR's BOUNDP-guarded codegen) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_defvar_init_once_fasl.sh $(GC_STRESS_BUILDDIR)/clamiga$(EXE)
+	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_defvar_init_once_fasl.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 	@echo "--- test_dev_tcp (CLAMIGA_GC_STRESS=1, forced compaction: the TCP dev port's frames, server, client, REPL leg and the two builtins under it) ---"
-	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_dev_tcp.sh $(GC_STRESS_BUILDDIR)/clamiga$(EXE)
+	@$(TEST_TMPDIR_ENV) CLAMIGA_GC_STRESS=1 sh $(TEST_SRCDIR)/test_dev_tcp.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 
 # `make test-memleak` builds a DEBUG_MEM_TRACK binary — every platform_alloc
 # tagged with its call site — and asserts that a run ends with ZERO off-heap
@@ -441,7 +441,7 @@ endif
 # nothing at all was left behind, and names the file:line if something was.
 #
 # It matters far more than a host build suggests.  AmigaOS has no per-process
-# reclaim: memory clamiga does not hand back before exiting is gone from the
+# reclaim: memory amilisp does not hand back before exiting is gone from the
 # system pool until reboot, so an unfreed block is Fast RAM the user loses on
 # every launch.  Kept out of the fast tier because it needs a separate build;
 # run it after touching any shutdown path, the compiler pool, the FASL reader,
@@ -452,7 +452,7 @@ test-memleak:
 		BUILDDIR=$(MEMTRACK_BUILDDIR) \
 		DEBUG_FLAGS="-DDEBUG_MEM_TRACK"
 	@echo "--- test_memleak_tracked (zero off-heap bytes at exit) ---"
-	@$(TEST_TMPDIR_ENV) sh $(TEST_SRCDIR)/test_memleak_tracked.sh $(MEMTRACK_BUILDDIR)/clamiga$(EXE)
+	@$(TEST_TMPDIR_ENV) sh $(TEST_SRCDIR)/test_memleak_tracked.sh $(MEMTRACK_BUILDDIR)/amilisp$(EXE)
 
 # `make test-mt-thread-exit-race` builds a dedicated DEBUG_THREAD_RACE_HOOKS
 # binary whose sole purpose (see the constructor in src/core/thread.c) is to
@@ -467,9 +467,9 @@ test-mt-thread-exit-race: host
 		BUILDDIR=$(RACE_BUILDDIR) \
 		DEBUG_FLAGS="-DDEBUG_THREAD_RACE_HOOKS"
 	@echo "--- test_mt_thread_exit_gc (deterministic race) ---"
-	@$(TEST_TMPDIR_ENV) sh $(TEST_SRCDIR)/test_mt_thread_exit_gc.sh $(HOST_BIN) $(RACE_BUILDDIR)/clamiga$(EXE)
+	@$(TEST_TMPDIR_ENV) sh $(TEST_SRCDIR)/test_mt_thread_exit_gc.sh $(HOST_BIN) $(RACE_BUILDDIR)/amilisp$(EXE)
 	@echo "--- test_mt_lock_barge_race (deterministic race) ---"
-	@$(TEST_TMPDIR_ENV) sh $(TEST_SRCDIR)/test_mt_lock_barge_race.sh $(HOST_BIN) $(RACE_BUILDDIR)/clamiga$(EXE)
+	@$(TEST_TMPDIR_ENV) sh $(TEST_SRCDIR)/test_mt_lock_barge_race.sh $(HOST_BIN) $(RACE_BUILDDIR)/amilisp$(EXE)
 
 # `make test-plus` adds the host-cold-test (sento cold-load smoke test) on top
 # of the fast tier.
@@ -506,10 +506,10 @@ $(BUILDDIR)/tests/%: $(TEST_SRCDIR)/%.c $(TEST_SRCDIR)/test.h $(LIB_TEST_OBJS)
 # through the compiler and FASL writer in one shot.  Catches regressions
 # the C tests don't see — e.g. a missing/stock trivial-garbage backend
 # (upstream trivial-garbage rejects cl-amiga as an unsupported Lisp,
-# so the CL-Amiga fork must be present in local-projects).
+# so the AmiLisp fork must be present in local-projects).
 #
 # Auto-skipped when prerequisites aren't met (no quicklisp install, no
-# trunk script, no CL-Amiga library forks in local-projects) so the
+# trunk script, no AmiLisp library forks in local-projects) so the
 # target is safe to keep in `make test` for contributors without a
 # quicklisp setup.
 HOST_COLD_TEST_SCRIPT  = trunk/load-and-test-sento-system.lisp
@@ -529,7 +529,7 @@ host-cold-test: host
 	  exit 0; \
 	fi; \
 	if [ ! -d "$(QL_LOCAL_PROJECTS)/trivial-garbage" ]; then \
-	  echo "=== host-cold-test: CL-Amiga library forks not in local-projects — skipped ==="; \
+	  echo "=== host-cold-test: AmiLisp library forks not in local-projects — skipped ==="; \
 	  exit 0; \
 	fi; \
 	echo "=== host-cold-test: clearing FASL cache and running $(HOST_COLD_TEST_SCRIPT) ==="; \
@@ -551,7 +551,7 @@ host-cold-test: host
 	  exit 1; \
 	fi; \
 	if grep -q "FATAL Signal" $(HOST_COLD_TEST_LOG); then \
-	  echo "=== FAIL: clamiga crashed during cold load (see $(HOST_COLD_TEST_LOG)) ==="; \
+	  echo "=== FAIL: amilisp crashed during cold load (see $(HOST_COLD_TEST_LOG)) ==="; \
 	  grep -B2 -A1 "FATAL Signal" $(HOST_COLD_TEST_LOG) | head -20; \
 	  exit 1; \
 	fi; \
@@ -561,7 +561,7 @@ host-cold-test: host
 	  exit 1; \
 	fi; \
 	if [ $$rc -ne 0 ]; then \
-	  echo "=== FAIL: clamiga exited rc=$$rc ==="; \
+	  echo "=== FAIL: amilisp exited rc=$$rc ==="; \
 	  tail -30 $(HOST_COLD_TEST_LOG); \
 	  exit 1; \
 	fi; \
@@ -698,8 +698,8 @@ install-hooks:
 # prove the result (scripts/save-boot-image.lisp / verify-boot-image.lisp).
 #
 # It lands in $(IMAGE_DIR), deliberately OFF the startup discovery path
-# (cwd, beside the binary, <prefix>/lib/clamiga/): an image beside
-# build/host/clamiga would be restored by every test run from then on, and
+# (cwd, beside the binary, <prefix>/lib/amilisp/): an image beside
+# build/host/amilisp would be restored by every test run from then on, and
 # since the fingerprint keys on version/format rather than the binary's
 # bytes, a leftover would outlive a rebuild that changed lib/boot.lisp and
 # the gates would run the stale boot.  The verify step names it with --image
@@ -709,14 +709,14 @@ IMAGE_DIR = $(BUILDDIR)/image
 
 image: $(HOST_BIN)
 	@mkdir -p $(IMAGE_DIR)
-	rm -f $(IMAGE_DIR)/clamiga.img
-	cd $(IMAGE_DIR) && CLAMIGA_HOME= ../clamiga$(EXE) --no-userinit --no-image --non-interactive --boot-log --load $(CURDIR)/scripts/save-boot-image.lisp
-	CLAMIGA_HOME= $(HOST_BIN) --no-userinit --non-interactive --boot-log --image $(IMAGE_DIR)/clamiga.img --load scripts/verify-boot-image.lisp
+	rm -f $(IMAGE_DIR)/amilisp.img
+	cd $(IMAGE_DIR) && CLAMIGA_HOME= ../amilisp$(EXE) --no-userinit --no-image --non-interactive --boot-log --load $(CURDIR)/scripts/save-boot-image.lisp
+	CLAMIGA_HOME= $(HOST_BIN) --no-userinit --non-interactive --boot-log --image $(IMAGE_DIR)/amilisp.img --load scripts/verify-boot-image.lisp
 
-# Binary + lib/ + heap image under a prefix, SBCL-style: <prefix>/bin/clamiga,
-# <prefix>/lib/clamiga/ (the runtime library) and, in there, the clamiga.img
+# Binary + lib/ + heap image under a prefix, SBCL-style: <prefix>/bin/amilisp,
+# <prefix>/lib/amilisp/ (the runtime library) and, in there, the amilisp.img
 # startup restores boot + CLOS from — the third executable-relative place
-# discovery looks (src/main.c discover_image), so an installed clamiga starts
+# discovery looks (src/main.c discover_image), so an installed amilisp starts
 # the way the binary release does.  The image is regenerated first so it is
 # always the just-built binary's own, dumped from the FASLs being installed;
 # the two recipe-level sub-makes sequence fasl -> image -> copy under -j.
@@ -730,14 +730,14 @@ install: host fasl
 # must find X absent to create it as a copy of lib/ on both BSD and GNU cp.
 install-layout:
 	mkdir -p $(DESTDIR)$(PREFIX)/bin $(DESTDIR)$(PREFIX)/lib
-	cp -pR lib/ $(DESTDIR)$(PREFIX)/lib/clamiga
-	install -m755 $(BUILDDIR)/clamiga $(DESTDIR)$(PREFIX)/bin
-	install -m644 $(IMAGE_DIR)/clamiga.img $(DESTDIR)$(PREFIX)/lib/clamiga/clamiga.img
+	cp -pR lib/ $(DESTDIR)$(PREFIX)/lib/amilisp
+	install -m755 $(BUILDDIR)/amilisp $(DESTDIR)$(PREFIX)/bin
+	install -m644 $(IMAGE_DIR)/amilisp.img $(DESTDIR)$(PREFIX)/lib/amilisp/amilisp.img
 
-# lib/clamiga/ goes as a whole, image included.
+# lib/amilisp/ goes as a whole, image included.
 uninstall:
-	rm -f $(DESTDIR)$(PREFIX)/bin/clamiga
-	rm -rf $(DESTDIR)$(PREFIX)/lib/clamiga
+	rm -f $(DESTDIR)$(PREFIX)/bin/amilisp
+	rm -rf $(DESTDIR)$(PREFIX)/lib/amilisp
 
 clean:
 	rm -rf build

@@ -23,7 +23,7 @@
 ;;; method will be replaced with the value that TrigAttr has been set to."
 ;;; Ask for it under a fixed trigger (..._DoubleClick, TRUE) and no
 ;;; substitution happens: the hook is handed the raw magic 0x49893131,
-;;; which in clamiga is a bignum, not a row index.  So the selection hook
+;;; which in amilisp is a bignum, not a row index.  So the selection hook
 ;;; below takes :TRIGGER-VALUE from MUIA_List_Active / :EVERY-TIME, where
 ;;; it is defined, and the double-click hook asks the list which entry is
 ;;; active instead -- the idiom every SDK example uses (psi.c, MUI-Demo.c,
@@ -37,9 +37,9 @@
 ;;; APPLICATION-INPUT inside the event loop.
 ;;;
 ;;; Run on AmigaOS 3.x with MUI 3.8+ installed, or on MorphOS:
-;;;   clamiga --load examples/amiga/mui/hooks.lisp
+;;;   amilisp --load examples/amiga/mui/hooks.lisp
 ;;; Unattended (auto-closes after 5 s):
-;;;   clamiga --eval '(require "amiga/mui")' \
+;;;   amilisp --eval '(require "amiga/mui")' \
 ;;;           --eval '(setf amiga.mui:*event-loop-timeout* 5)' \
 ;;;           --load examples/amiga/mui/hooks.lisp
 

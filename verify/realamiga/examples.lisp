@@ -1,5 +1,5 @@
 ;;; examples.lisp — run every GUI program under examples/amiga/ unattended,
-;;; one after the other, in this one clamiga process.
+;;; one after the other, in this one amilisp process.
 ;;;
 ;;; Each example opens its window or screen, sits in its event loop for
 ;;; *EVENT-LOOP-TIMEOUT* seconds (nobody clicks in an unattended run),

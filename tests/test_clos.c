@@ -4817,7 +4817,7 @@ TEST(aux_method_no_cnm_leak_from_enclosing_dispatch)
 }
 
 /* === SLOT-VALUE / WITH-SLOTS on condition objects (CLHS 9.1) ===
- * Conditions are a distinct object type in clamiga (not CLOS instances), but
+ * Conditions are a distinct object type in amilisp (not CLOS instances), but
  * the standard slot-access functions must still work on them. */
 
 TEST(slot_value_on_condition)

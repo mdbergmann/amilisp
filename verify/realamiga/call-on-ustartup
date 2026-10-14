@@ -13,25 +13,25 @@
 ; full source compile of the game + amiga GUI libs passes at 128000; at
 ; 65000 the guard fires with a clean "C stack nearly exhausted in read"
 ; error and the session exits cleanly (no corruption, no hang).
-; Single clamiga run (sequential allocations fragment Fast RAM on the
+; Single amilisp run (sequential allocations fragment Fast RAM on the
 ; lower-end target).  date timestamps before/after give total runtime;
 ; subtract the known ~38 s boot-to-REPL on this config to estimate
 ; test-suite time.
 ;
 ; One-shot boot override: a host-side launcher (e.g. the games'
 ; run-amiga.sh) may drop an AmigaDOS script at
-; CLAmiga:build/amiga/boot-override to run INSTEAD of the test suite.
+; AmiLisp:build/amiga/boot-override to run INSTEAD of the test suite.
 ; It is consumed before executing (copied to RAM: and deleted), so a
 ; stale file can never hijack a later test run — and run-fs-uae.sh
 ; clears any leftover on the host side too.
-IF EXISTS CLAmiga:build/amiga/boot-override
-  copy >NIL: CLAmiga:build/amiga/boot-override RAM:boot-override
-  delete >NIL: CLAmiga:build/amiga/boot-override
+IF EXISTS AmiLisp:build/amiga/boot-override
+  copy >NIL: AmiLisp:build/amiga/boot-override RAM:boot-override
+  delete >NIL: AmiLisp:build/amiga/boot-override
   execute RAM:boot-override
   SKIP done
 ENDIF
-cd CLAmiga:
-echo "=== avail before clamiga ===" >build/amiga/test-results.log
+cd AmiLisp:
+echo "=== avail before amilisp ===" >build/amiga/test-results.log
 avail >>build/amiga/test-results.log
 stack 128000
 echo "=== run start ===" >>build/amiga/test-results.log
@@ -39,46 +39,46 @@ date >>build/amiga/test-results.log
 ; `-- suite-arg "two words"`: the suite checks EXT:*COMMAND-LINE-ARGS*
 ; (never loaded, whatever follows --); the restored-boot run below gets
 ; the same and must see them too (published after the restore).
-build/amiga/clamiga --no-userinit --heap 8M --non-interactive --load tests/amiga/run-tests.lisp -- suite-arg "two words" >>build/amiga/test-results.log
+build/amiga/amilisp --no-userinit --heap 8M --non-interactive --load tests/amiga/run-tests.lisp -- suite-arg "two words" >>build/amiga/test-results.log
 ; Heap images (specs/image-save-load.md): save state in one process,
 ; restore it in a second, verify (IMAGE-VERIFY-PASSED marker).  Images go
 ; to the host-mounted build/amiga/ dir, not RAM:, so they cost no Amiga
 ; memory; stale ones are cleared host-side by Makefile.cross before launch.
 echo "=== image save/restore ===" >>build/amiga/test-results.log
-build/amiga/clamiga --no-userinit --no-image --heap 8M --non-interactive --load tests/amiga/image-save.lisp >>build/amiga/test-results.log
+build/amiga/amilisp --no-userinit --no-image --heap 8M --non-interactive --load tests/amiga/image-save.lisp >>build/amiga/test-results.log
 ; The verify leg runs from another directory on purpose: a restore must
 ; re-derive *default-pathname-defaults* from ITS cwd (image-verify.lisp
 ; checks), so every path here is absolute.
-cd CLAmiga:tests
-CLAmiga:build/amiga/clamiga --no-userinit --image CLAmiga:build/amiga/clamiga-test.img --heap 8M --non-interactive --load CLAmiga:tests/amiga/image-verify.lisp >>CLAmiga:build/amiga/test-results.log
-cd CLAmiga:
+cd AmiLisp:tests
+AmiLisp:build/amiga/amilisp --no-userinit --image AmiLisp:build/amiga/amilisp-test.img --heap 8M --non-interactive --load AmiLisp:tests/amiga/image-verify.lisp >>AmiLisp:build/amiga/test-results.log
+cd AmiLisp:
 ; Failed starts hand everything back (CLAMIGA_MEM_DIAG=1 compares AvailMem
 ; at start and exit; verify-amiga wants "fully returned" after each): an
 ; arena that cannot be allocated, with an image staged, and an image whose
 ; payload is truncated.
 echo "=== failed image starts ===" >>build/amiga/test-results.log
-build/amiga/clamiga --no-userinit --no-image --heap 8M --non-interactive --load tests/amiga/image-trunc.lisp >>build/amiga/test-results.log
+build/amiga/amilisp --no-userinit --no-image --heap 8M --non-interactive --load tests/amiga/image-trunc.lisp >>build/amiga/test-results.log
 setenv CLAMIGA_MEM_DIAG 1
-build/amiga/clamiga --no-userinit --image build/amiga/clamiga-test.img --heap 1000M --non-interactive --eval "(quit)" >>build/amiga/test-results.log
+build/amiga/amilisp --no-userinit --image build/amiga/amilisp-test.img --heap 1000M --non-interactive --eval "(quit)" >>build/amiga/test-results.log
 echo "heap-fail rc=$RC" >>build/amiga/test-results.log
-build/amiga/clamiga --no-userinit --image build/amiga/clamiga-trunc.img --heap 8M --non-interactive --eval "(quit)" >>build/amiga/test-results.log
+build/amiga/amilisp --no-userinit --image build/amiga/amilisp-trunc.img --heap 8M --non-interactive --eval "(quit)" >>build/amiga/test-results.log
 echo "trunc rc=$RC" >>build/amiga/test-results.log
 unsetenv CLAMIGA_MEM_DIAG
-delete >NIL: CLAmiga:build/amiga/clamiga-trunc.img
+delete >NIL: AmiLisp:build/amiga/amilisp-trunc.img
 ; Restored-boot suite gate: snapshot a bare boot, then run the ENTIRE
 ; suite from the restored image — verify-amiga requires a second
 ; "ALL TESTS PASSED" in the log.  Appends to the same log so the host
 ; watchdog's stall detector keeps seeing progress.
 echo "=== restored-boot suite ===" >>build/amiga/test-results.log
-build/amiga/clamiga --no-userinit --no-image --heap 8M --non-interactive --load tests/amiga/image-boot-save.lisp >>build/amiga/test-results.log
+build/amiga/amilisp --no-userinit --no-image --heap 8M --non-interactive --load tests/amiga/image-boot-save.lisp >>build/amiga/test-results.log
 ; CLAMIGA_SUITE_QUICK: this pass skips the STRESS-CHECKs (concurrent-GC and
 ; method-install race hammers, ~5 min) and the JIT bench -- they test the
 ; runtime, not the restored boot, and the fresh-boot pass above ran them.
 setenv CLAMIGA_SUITE_QUICK 1
-build/amiga/clamiga --no-userinit --image build/amiga/boot.img --heap 8M --non-interactive --load tests/amiga/run-tests.lisp -- suite-arg "two words" >>build/amiga/test-results.log
+build/amiga/amilisp --no-userinit --image build/amiga/boot.img --heap 8M --non-interactive --load tests/amiga/run-tests.lisp -- suite-arg "two words" >>build/amiga/test-results.log
 unsetenv CLAMIGA_SUITE_QUICK
-delete >NIL: CLAmiga:build/amiga/clamiga-test.img
-delete >NIL: CLAmiga:build/amiga/boot.img
+delete >NIL: AmiLisp:build/amiga/amilisp-test.img
+delete >NIL: AmiLisp:build/amiga/boot.img
 ; Delivered executable (tests/amiga/exe-save.lisp): EXT:SAVE-IMAGE
 ; :EXECUTABLE T writes exe-test, the runtime with the image appended.  It
 ; must start from another directory with nothing but itself, take the whole
@@ -87,20 +87,20 @@ delete >NIL: CLAmiga:build/amiga/boot.img
 ; wants EXECUTABLE-PASSED and "exe rc=5".
 echo "=== delivered executable ===" >>build/amiga/test-results.log
 delete >NIL: build/amiga/exe-test build/amiga/exe-test.info build/amiga/exe-wb.log
-build/amiga/clamiga --no-userinit --no-image --heap 8M --non-interactive --load tests/amiga/exe-save.lisp >>build/amiga/test-results.log
-cd CLAmiga:tests
-CLAmiga:build/amiga/exe-test --help --heap "two words" >>CLAmiga:build/amiga/test-results.log
-echo "exe rc=$RC" >>CLAmiga:build/amiga/test-results.log
-cd CLAmiga:
+build/amiga/amilisp --no-userinit --no-image --heap 8M --non-interactive --load tests/amiga/exe-save.lisp >>build/amiga/test-results.log
+cd AmiLisp:tests
+AmiLisp:build/amiga/exe-test --help --heap "two words" >>AmiLisp:build/amiga/test-results.log
+echo "exe rc=$RC" >>AmiLisp:build/amiga/test-results.log
+cd AmiLisp:
 ; The main stack: with `stack 8000` (twice a stock Shell's default) the
 ; runtime must swap to its own 128K (platform_run_main) -- verify-amiga
 ; requires SMALL-STACK-PASSED.  Last but one, so a crash here costs no
 ; other leg its result.
 echo "=== small-stack start ===" >>build/amiga/test-results.log
 stack 8000
-build/amiga/clamiga --no-userinit --no-image --heap 8M --non-interactive --load tests/amiga/small-stack-check.lisp >>build/amiga/test-results.log
+build/amiga/amilisp --no-userinit --no-image --heap 8M --non-interactive --load tests/amiga/small-stack-check.lisp >>build/amiga/test-results.log
 stack 128000
-; Workbench start: wbrun (verify/realamiga/wbrun.c) starts clamiga exactly
+; Workbench start: wbrun (verify/realamiga/wbrun.c) starts amilisp exactly
 ; as a double-click on a project icon does -- a WBStartup message, no
 ; console, an 8000-byte stack -- with the options in the icons' ARGS tool
 ; types and the project as the argument after --.  The icons are written
@@ -108,17 +108,17 @@ stack 128000
 ; to wb-start.log (no console to print to) -- WORKBENCH-START-PASSED.
 echo "=== workbench start ===" >>build/amiga/test-results.log
 delete >NIL: build/amiga/wb-start.log
-delete >NIL: build/amiga/wb-project.lisp build/amiga/wb-project.lisp.info build/amiga/clamiga.info
+delete >NIL: build/amiga/wb-project.lisp build/amiga/wb-project.lisp.info build/amiga/amilisp.info
 copy >NIL: tests/amiga/wb-project.lisp build/amiga/wb-project.lisp
-build/amiga/wbrun MKICON TOOL build/amiga/clamiga "ARGS=--no-userinit --no-image --heap 8M --non-interactive" "WINDOW=CON:0/0/640/100/wb-check/AUTO/CLOSE"
-build/amiga/wbrun MKICON PROJECT build/amiga/wb-project.lisp "ARGS=--load CLAmiga:tests/amiga/wb-check.lisp"
-build/amiga/wbrun RUN STACK=8000 build/amiga/clamiga build/amiga/wb-project.lisp
+build/amiga/wbrun MKICON TOOL build/amiga/amilisp "ARGS=--no-userinit --no-image --heap 8M --non-interactive" "WINDOW=CON:0/0/640/100/wb-check/AUTO/CLOSE"
+build/amiga/wbrun MKICON PROJECT build/amiga/wb-project.lisp "ARGS=--load AmiLisp:tests/amiga/wb-check.lisp"
+build/amiga/wbrun RUN STACK=8000 build/amiga/amilisp build/amiga/wb-project.lisp
 IF EXISTS build/amiga/wb-start.log
   type build/amiga/wb-start.log >>build/amiga/test-results.log
 ELSE
-  echo "WORKBENCH-START-FAILED: no wb-start.log (clamiga never ran the check)" >>build/amiga/test-results.log
+  echo "WORKBENCH-START-FAILED: no wb-start.log (amilisp never ran the check)" >>build/amiga/test-results.log
 ENDIF
-delete >NIL: build/amiga/wb-project.lisp.info build/amiga/clamiga.info
+delete >NIL: build/amiga/wb-project.lisp.info build/amiga/amilisp.info
 ; The delivered executable from its icon: no command name to find its own
 ; file by (the WBStartup message has it), the tool type's ARGS and the
 ; project as the program's arguments -- EXECUTABLE-WB-PASSED.

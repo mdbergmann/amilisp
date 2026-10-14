@@ -1,7 +1,7 @@
 #!/bin/sh
 # Regression test for off-heap (non-arena) memory that was never handed back.
 #
-# clamiga keeps a lot of memory outside the GC arena: every compiled function
+# amilisp keeps a lot of memory outside the GC arena: every compiled function
 # owns a bytecode body, a constants pool, &key arrays, a line map and (on
 # m68k) JIT code; the compiler pool holds eight blocks and their buffers;
 # the struct, condition and setf/deftype indexes are hash tables; the stream
@@ -29,9 +29,9 @@
 # invoked from gc_finalize_dead) is exercised under forced compaction, not just
 # whatever compaction pattern an ordinary run happens to trigger.
 #
-# Run: sh tests/test_shutdown_leak.sh build/host/clamiga
+# Run: sh tests/test_shutdown_leak.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 case "$CLAMIGA" in
   /*) ;;
   *) CLAMIGA="$(pwd)/$CLAMIGA" ;;

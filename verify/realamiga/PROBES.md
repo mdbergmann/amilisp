@@ -41,7 +41,7 @@ or more further stores nearby.  Loading the absolute source into a register
 first, or indirect sources, are fine; a nop or an ALU op between the stores,
 the displacement form (`clr.l 4(a0)`), a different address register, word
 clears, all still lose it; superscalar off (`ApolloControl SS=0`) changes
-nothing.  In clamiga this was bi_mismatch's `key_fn` local staying whatever
+nothing.  In amilisp this was bi_mismatch's `key_fn` local staying whatever
 dead data the slot held before (an FPU context image, the caller's function
 object), and every "Too few arguments to PREFIX-P" / "not a function" /
 "keyword key is not a symbol" of the Clamacs editor suite on that machine.
@@ -53,7 +53,7 @@ difference (all 32 copies lose), the destination makes no difference, but
 of 16 sources at consecutive longword addresses exactly 8 lose every replay
 and 8 never do -- with the source's address mod 64 deciding (on core 10760:
 24, 32, 40 and 44..60 lose; 0..20, 28, 36 are fine).  That is why the "fine"
-shapes flipped between builds and why one and the same clamiga binary
+shapes flipped between builds and why one and the same amilisp binary
 reported "4095 of 4096 lost" on one launch and 0 on the next: a program's
 data hunk lands at a different address on every launch.  Variants 1..20
 pass or fail per launch -- run them more than once.
@@ -67,7 +67,7 @@ address between replays makes the mis-executed store land outside the
 target buffer, in hardware registers.  The placement probe that found the
 address dependence switched sources only every 2000 rounds and survived
 six runs.  It stays in the source as the record for the Apollo team.
-clamiga's startup self-test (`src/platform/cpu_store_probe_m68k.s`) is
+amilisp's startup self-test (`src/platform/cpu_store_probe_m68k.s`) is
 therefore the single-source chain and flags about every second launch on
 that core.
 
@@ -97,7 +97,7 @@ target, one distance at a time, and the third word read back.  On core
 10760 (data loaded at 0x1F67514) the source 64 bytes below the target
 loses 19999 of 20000 replays on every launch and the other fifteen lose
 none; on a 68040, 68060 or UAE no row loses.  Which row loses depends on
-the load address as well (the same layout inside clamiga, whose data
+the load address as well (the same layout inside amilisp, whose data
 lands elsewhere on each launch, flagged only one launch in four), so the
 table, not a single row, is the signature.  Switching the source only
 every 20000 replays is the regime the placement probe survived; do not
@@ -106,7 +106,7 @@ shorten the blocks (see v21).
 ## Procedure for a machine not in the table below
 
 Ten minutes, nothing to install on the Amiga beyond the four binaries.
-Never run `v21`, and do not run clamiga itself for this -- the probes are
+Never run `v21`, and do not run amilisp itself for this -- the probes are
 enough and cannot take the machine down.
 
 1. `make -f Makefile.cross probes` on the host (needs the m68k toolchain

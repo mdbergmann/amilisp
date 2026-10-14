@@ -8,9 +8,9 @@
 # became two symbols, defmacro bodies compiled parameter references as
 # global lookups, and the poisoned cached FASL failed forever after with
 # "Unbound variable: FORMAT-CONTROL" (cl-ppcre errors.fasl, 2026-08-11).
-# Run: sh tests/test_mt_package_isolation.sh build/host/clamiga
+# Run: sh tests/test_mt_package_isolation.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 # Absolute path — case 2 runs with cwd inside the scratch dir.
 CLAMIGA=$(cd "$(dirname "$CLAMIGA")" && pwd)/$(basename "$CLAMIGA")
 passed=0

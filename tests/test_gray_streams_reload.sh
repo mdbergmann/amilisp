@@ -21,12 +21,12 @@
 # overflowed the VM frame stack (non-zero exit / no DONE marker); after the fix
 # it completes cleanly.
 #
-# Run: sh tests/test_gray_streams_reload.sh build/host/clamiga
+# Run: sh tests/test_gray_streams_reload.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
-# Paths written into the generated .lisp file must be in clamiga's own
-# spelling: under MSYS2 "$(pwd)" is /c/... but a native clamiga.exe resolves
+# Paths written into the generated .lisp file must be in amilisp's own
+# spelling: under MSYS2 "$(pwd)" is /c/... but a native amilisp.exe resolves
 # that against the current drive as C:/c/... and the LOAD fails.  (Before
 # this, LOAD's per-form recovery swallowed that error on Windows and the test
 # still printed its DONE marker — see the ERROR: check below.)
@@ -111,7 +111,7 @@ elif ! echo "$out" | grep -q "GRAY-RELOAD-DONE"; then
     echo ""; echo "0 passed, 1 failed, $total total"; echo "FAIL"; exit 1
 elif echo "$out" | grep -q "^ERROR:"; then
     # LOAD recovers per form and carries on, so a failed (LOAD gray) — e.g. a
-    # path clamiga cannot resolve — would still reach the DONE marker while
+    # path amilisp cannot resolve — would still reach the DONE marker while
     # exercising nothing.  Any ERROR: line means the script did not run as
     # written.
     echo "  FAIL gray_streams_reload (ERROR: in output — a form failed and LOAD recovered past it)"

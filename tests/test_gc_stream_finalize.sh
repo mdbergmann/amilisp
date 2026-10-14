@@ -2,9 +2,9 @@
 # Tier-4 ST8: a dead file stream that was never CLOSEd must have its OS
 # handle closed by the GC sweep finalizer (with a loud stderr warning)
 # instead of leaking the fd forever.
-# Run: sh tests/test_gc_stream_finalize.sh build/host/clamiga
+# Run: sh tests/test_gc_stream_finalize.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 case "$CLAMIGA" in
   /*) ;;
   *) CLAMIGA="$(pwd)/$CLAMIGA" ;;

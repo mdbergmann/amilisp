@@ -1,6 +1,6 @@
 #!/bin/sh
 # Regression test for the --tally-dir aggregation logic in
-# trunk/run-load-and-test-all.sh.  Runs without clamiga or quicklisp.
+# trunk/run-load-and-test-all.sh.  Runs without amilisp or quicklisp.
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 RUNNER="$SCRIPT_DIR/../trunk/run-load-and-test-all.sh"
@@ -147,15 +147,15 @@ check "grand_total_header_present" "=== GRAND TOTAL ===" \
 
 # ---- Stale-FASL-cache guard (binary fingerprint) ----
 # The guard lives in the runner's normal path, so drive the runner with a fake
-# clamiga and throwaway cache/log dirs (env overrides) and assert it wipes the
-# ASDF FASL cache exactly when the clamiga binary's contents change — and leaves
+# amilisp and throwaway cache/log dirs (env overrides) and assert it wipes the
+# ASDF FASL cache exactly when the amilisp binary's contents change — and leaves
 # a warm cache untouched when the binary is unchanged.
 
 REPO_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
 guard_cache=$(mktemp -d)
 guard_log=$(mktemp -d)
 guard_bindir=$(mktemp -d)
-guard_bin="$guard_bindir/clamiga"
+guard_bin="$guard_bindir/amilisp"
 trap 'rm -rf "$fixture_fail" "$fixture_pass" "$guard_cache" "$guard_log" "$guard_bindir"' EXIT
 
 printf '#!/bin/sh\nexit 0\n' > "$guard_bin"

@@ -1203,7 +1203,7 @@ static const char *const clos_internal_names[] = {
     "%SYMBOL-CONSTANT-P",
     "%TREE-CONTAINS-SYMBOL-NAMED-P",
     "%UNINSTALL-METHOD-FROM-GF",
-    /* CL-Amiga internal CLOS state and helpers (non-MOP).  These are
+    /* AmiLisp internal CLOS state and helpers (non-MOP).  These are
      * implementation details that boot.lisp / clos.lisp introduce while
      * loading in the CL package; pre-interning them here keeps them in
      * CLAMIGA so they don't pollute COMMON-LISP's external symbols. */

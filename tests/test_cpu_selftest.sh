@@ -1,5 +1,5 @@
 #!/bin/sh
-# The CPU store self-test: at startup clamiga replays the five-store
+# The CPU store self-test: at startup amilisp replays the five-store
 # prologue chain the Apollo 68080 (Vampire V4, core 10760) is known to
 # drop, warns loudly when a store is lost and puts :CPU-LOST-STORES on
 # *FEATURES*; (ext:%cpu-store-selftest &optional rounds) repeats the test.
@@ -16,9 +16,9 @@
 # tests/amiga/run-tests.lisp runs the consistency check on the m68k build
 # (FS-UAE: 0; a Vampire: > 0 AND the feature), where the asm chain actually
 # executes.
-# Run: sh tests/test_cpu_selftest.sh [path-to-clamiga]
+# Run: sh tests/test_cpu_selftest.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 case "$CLAMIGA" in
     /*|[A-Za-z]:/*) ;;
     *) CLAMIGA="$(pwd)/$CLAMIGA" ;;
@@ -93,7 +93,7 @@ out=$(CLAMIGA_CPU_CHECK=1 run --eval '(format t "~&KW ~S ~A~%" (find-symbol "CPU
 check_contains "CLAMIGA_CPU_CHECK=1: the feature is the keyword, at the front of the list" "KW :CPU-LOST-STORES T" "$out"
 
 # --- Heap images: the restored session gets THIS process's verdict --------
-# An image carries the SAVING process's *FEATURES*.  The shipped clamiga.img
+# An image carries the SAVING process's *FEATURES*.  The shipped amilisp.img
 # is saved on a sound machine (FS-UAE) and started on a Vampire that loses
 # stores; an image saved on that Vampire must not tell a sound machine the
 # same.  Both directions, and the unchanged cases.

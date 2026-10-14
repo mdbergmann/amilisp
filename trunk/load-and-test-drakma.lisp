@@ -26,7 +26,7 @@
 ;; reasons; see trunk/drakma-skip-tests.lisp.
 ;;
 ;; Usage (host):
-;;   ./build/host/clamiga --heap 256M --load trunk/load-and-test-drakma.lisp
+;;   ./build/host/amilisp --heap 256M --load trunk/load-and-test-drakma.lisp
 
 (setq *load-verbose* nil)
 (require "asdf")

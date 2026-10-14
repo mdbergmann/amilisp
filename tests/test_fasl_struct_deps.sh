@@ -17,9 +17,9 @@
 # is the answer for what the trailer cannot see (a changed macro or inline
 # function in another file).
 #
-# Run: sh tests/test_fasl_struct_deps.sh [path-to-clamiga]
+# Run: sh tests/test_fasl_struct_deps.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 case "$CLAMIGA" in
     /*|[A-Za-z]:/*) ;;
     *) CLAMIGA="$(cd "$(dirname "$CLAMIGA")" && pwd)/$(basename "$CLAMIGA")" ;;
@@ -43,7 +43,7 @@ check() {
 has()  { echo "$out" | grep -q -- "$1" && echo yes || echo no; }
 hasnt() { echo "$out" | grep -q -- "$1" && echo no || echo yes; }
 
-# run DIR [extra clamiga args...] — load run.lisp from inside DIR with a cache
+# run DIR [extra amilisp args...] — load run.lisp from inside DIR with a cache
 # private to DIR; relative names keep the generated Lisp free of host paths.
 run() {
     dir="$1"; shift

@@ -753,7 +753,7 @@ void gcb_init(void)
         static int warned = 0;
         if (!warned) {
             warned = 1;
-            platform_write_string("clamiga: Immix GC without a block-start "
+            platform_write_string("amilisp: Immix GC without a block-start "
                                   "index - every hole claim walks the arena\n");
         }
     }

@@ -287,7 +287,7 @@ TEST(declaim_proclamations_survive_fasl_round_trip)
     {
         /* These paths are embedded in the COMPILE-FILE form below, and
          * the Lisp reader eats a backslash as an escape — a Windows
-         * $TMPDIR would arrive as "C:UsersyouTemp".  clamiga accepts
+         * $TMPDIR would arrive as "C:UsersyouTemp".  amilisp accepts
          * '/' on Windows, so normalise rather than escape. */
         char *p;
         for (p = tmpdir; *p; p++)

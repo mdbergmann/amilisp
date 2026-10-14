@@ -1,7 +1,7 @@
 /*
  * platform_amiga_rexx.c — ARexx host port transport (AmigaOS 3+ / MorphOS).
  *
- * Gives clamiga a public exec message port that speaks the ARexx host
+ * Gives amilisp a public exec message port that speaks the ARexx host
  * protocol, so an editor macro can drive the running Lisp:
  *
  *     OPTIONS RESULTS
@@ -177,7 +177,7 @@ int platform_arexx_open(const char *basename, char *name_out, int name_size)
     }
 
     /* Claim a unique public name.  FindPort + AddPort must be atomic against
-     * a second clamiga starting concurrently, hence the Forbid. */
+     * a second amilisp starting concurrently, hence the Forbid. */
     Forbid();
     for (n = 0; n < 100; n++) {
         if (n == 0)

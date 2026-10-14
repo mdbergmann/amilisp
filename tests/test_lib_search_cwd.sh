@@ -1,17 +1,17 @@
 #!/bin/sh
-# The runtime library (lib/) must be found when clamiga starts from a
+# The runtime library (lib/) must be found when amilisp starts from a
 # directory other than the source root:
-#   - executable-relative fallback: build/host/clamiga resolves ../../lib/
+#   - executable-relative fallback: build/host/amilisp resolves ../../lib/
 #     (also through a $PATH symlink) with no environment setup
-#   - install prefix (<prefix>/bin/clamiga + <prefix>/lib/clamiga/): resolves
-#     ../lib/clamiga/, shims included, with no environment setup
+#   - install prefix (<prefix>/bin/amilisp + <prefix>/lib/amilisp/): resolves
+#     ../lib/amilisp/, shims included, with no environment setup
 #   - $CLAMIGA_HOME fallback: a bare copied binary finds lib/ via the env var
 #   - when nothing is found: boot fails with a diagnostic naming
 #     CLAMIGA_HOME instead of a generic REQUIRE error later, and REQUIRE
 #     errors name the module they could not find
-# Run: sh tests/test_lib_search_cwd.sh [path-to-clamiga]
+# Run: sh tests/test_lib_search_cwd.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 case "$CLAMIGA" in
     /*) ABS_CLAMIGA="$CLAMIGA" ;;
     *)  ABS_CLAMIGA="$(pwd)/$CLAMIGA" ;;
@@ -81,34 +81,44 @@ else
     echo "  skip  symlink_boot_and_require (no symlink support on this host)"
 fi
 
-# --- Installed FHS layout: <prefix>/bin/clamiga + <prefix>/lib/clamiga/ ---
+# --- Installed FHS layout: <prefix>/bin/amilisp + <prefix>/lib/amilisp/ ---
 # An install prefix (the layout SBCL uses): the binary in bin/, the whole
-# lib/ tree beside it in ../lib/clamiga/.  Must work with no env var and from a
+# lib/ tree beside it in ../lib/amilisp/.  Must work with no env var and from a
 # cwd that has no lib/ of its own — the only lib/ in reach here is the
 # installed one (cwd has none, $CLAMIGA_HOME is unset, <exedir>/lib/ and
 # <exedir>/../../lib/ do not exist), so finding gray-streams proves the
-# ../lib/clamiga/ leg resolved.
+# ../lib/amilisp/ leg resolved.
 
 mkdir -p "$WORKDIR/prefix/bin" "$WORKDIR/prefix/lib"
-cp -pR "$ROOT/lib" "$WORKDIR/prefix/lib/clamiga"
-cp "$ABS_CLAMIGA" "$WORKDIR/prefix/bin/clamiga"
-result=$(cd "$WORKDIR" && env -u CLAMIGA_HOME "$WORKDIR/prefix/bin/clamiga" \
+cp -pR "$ROOT/lib" "$WORKDIR/prefix/lib/amilisp"
+cp "$ABS_CLAMIGA" "$WORKDIR/prefix/bin/amilisp"
+result=$(cd "$WORKDIR" && env -u CLAMIGA_HOME "$WORKDIR/prefix/bin/amilisp" \
     --no-userinit --non-interactive --eval "$EVAL_REQUIRE" </dev/null 2>&1)
 check_contains     "fhs_install_boot_and_require" "GS-OK R=3" "$result"
 check_not_contains "fhs_install_no_boot_error"    "cannot locate its runtime library" "$result"
 
+# The same prefix layout as installed BEFORE the rename to AmiLisp (0.12):
+# <prefix>/lib/clamiga/.  An existing installation that only swapped the
+# binary must keep booting, so ../lib/clamiga/ stays a leg of the search.
+mkdir -p "$WORKDIR/prefix-old/bin" "$WORKDIR/prefix-old/lib"
+cp -pR "$ROOT/lib" "$WORKDIR/prefix-old/lib/clamiga"
+cp "$ABS_CLAMIGA" "$WORKDIR/prefix-old/bin/amilisp"
+result=$(cd "$WORKDIR" && env -u CLAMIGA_HOME "$WORKDIR/prefix-old/bin/amilisp" \
+    --no-userinit --non-interactive --eval "$EVAL_REQUIRE" </dev/null 2>&1)
+check_contains     "fhs_install_pre_rename_lib_clamiga" "GS-OK R=3" "$result"
+
 # The bundled ASDF shims live under the installed lib/ too — they are
 # resolved from asdf.lisp's own load truename, so they must land inside
-# <prefix>/lib/clamiga/shims/ rather than in the source tree.
-result=$(cd "$WORKDIR" && env -u CLAMIGA_HOME "$WORKDIR/prefix/bin/clamiga" \
+# <prefix>/lib/amilisp/shims/ rather than in the source tree.
+result=$(cd "$WORKDIR" && env -u CLAMIGA_HOME "$WORKDIR/prefix/bin/amilisp" \
     --no-userinit --non-interactive --eval '(require "asdf")' \
     --eval '(dolist (d (symbol-value (find-symbol "*CENTRAL-REGISTRY*" "ASDF"))) (format t "REG ~A~%" d))' \
     </dev/null 2>&1)
 # (matched by tail, not by absolute path: macOS resolves the temp dir's
-# /var -> /private/var symlink in the truename.  "lib/clamiga/shims/" only
+# /var -> /private/var symlink in the truename.  "lib/amilisp/shims/" only
 # exists in the installed tree — the source tree has "lib/shims/".)
 check_contains "fhs_install_shims_under_prefix" \
-    "/prefix/lib/clamiga/shims/cl+ssl/" "$result"
+    "/prefix/lib/amilisp/shims/cl+ssl/" "$result"
 
 # --- $CLAMIGA_HOME fallback: bare copied binary, lib/ nowhere nearby ---
 

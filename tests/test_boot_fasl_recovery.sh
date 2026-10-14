@@ -1,5 +1,5 @@
 #!/bin/sh
-# Regression test: clamiga must recover gracefully from a stale lib/boot.fasl.
+# Regression test: amilisp must recover gracefully from a stale lib/boot.fasl.
 #
 # Bug: when lib/boot.fasl carried an incompatible CL_FASL_VERSION (e.g. left
 # over from a previous binary), cl_fasl_load fired cl_error("FASL: unsupported
@@ -11,9 +11,9 @@
 # Fix: pre-validate the fasl header at boot, drop a stale file before
 # longjmping; and reset cl_vm.sp/fp on error in the boot CL_CATCH blocks.
 #
-# Run: sh tests/test_boot_fasl_recovery.sh build/host/clamiga
+# Run: sh tests/test_boot_fasl_recovery.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 CLAMIGA_ABS=$(cd "$(dirname "$CLAMIGA")" && pwd)/$(basename "$CLAMIGA")
 TMPDIR="${TMPDIR:-/tmp}"
 WORK="$TMPDIR/clamiga_boot_recover_$$"
@@ -43,7 +43,7 @@ touch "$WORK/lib/boot.fasl"
 
 total=$((total + 1))
 # Run with a timeout — the regression symptom is "100% CPU forever then
-# crash", so a hung clamiga must not hang the test suite.
+# crash", so a hung amilisp must not hang the test suite.
 out=$(cd "$WORK" && \
       ( echo '(format t "~&BOOT-OK ~a~%" (+ 1 2)) (quit)' \
         | "$CLAMIGA_ABS" --no-userinit --batch 2>&1 ) &

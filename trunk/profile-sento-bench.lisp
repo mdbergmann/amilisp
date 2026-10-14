@@ -4,7 +4,7 @@
 ;; gather meaningful stack data.
 ;;
 ;; Usage (host, macOS):
-;;   ./build/host/clamiga --heap 192M --load trunk/profile-sento-bench.lisp &
+;;   ./build/host/amilisp --heap 192M --load trunk/profile-sento-bench.lisp &
 ;;   PID=$(pgrep -f "clamiga.*profile-sento-bench")
 ;;   # Wait for "--- BENCH STEADY STATE BEGIN ---" in the log, then:
 ;;   sample $PID 30 -file /tmp/sento-bench.sample

@@ -13,23 +13,23 @@
 #   deferred-dump semantics at the REPL (batch): the session continues
 #     after the dump, state created before the save is in the image
 #   corrupt image → clean refusal (explicit --image exits 1)
-#   auto-discovery of clamiga.img in the cwd and in an install prefix's
-#     lib/clamiga/; --no-image bypasses it
+#   auto-discovery of amilisp.img in the cwd and in an install prefix's
+#     lib/amilisp/; --no-image bypasses it
 #   process state is re-derived on restore, not carried from the saver:
 #     *default-pathname-defaults* names the RESTORING process's cwd,
 #     *random-state* is freshly seeded
-#   ~/.clamigarc runs after a restore with EXT:*IMAGE-RESTORED-P* = T
+#   ~/.amilisprc runs after a restore with EXT:*IMAGE-RESTORED-P* = T
 #   :shake-bindings — the delivery mode: binding tables shed before the dump,
 #     touched names intact, untouched ones gone with a reader error saying why
 #   source files: each name stored once, every function's file restored
 #   AMIGA.FFI:DEFINE-LIBRARY-VARIABLE — library bases re-derived before
-#     ~/.clamigarc, in definition order, once each; a failing one reported;
+#     ~/.amilisprc, in definition order, once each; a failing one reported;
 #     a zeroed (plain DEFVAR) base makes a library call signal "NULL
 #     pointer" on the VM and the stub path instead of jumping to -LVO
 #
-# Run: sh tests/test_image.sh build/host/clamiga
+# Run: sh tests/test_image.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 case "$CLAMIGA" in
     /*) : ;;
     *) CLAMIGA="$(pwd)/$CLAMIGA" ;;
@@ -239,7 +239,7 @@ check "restored_lock_and_condvar_are_free" 0 "$ec" "$out" "POST-RESTORE waiters=
 # --- Live worker threads: refused, and the refusal NAMES them -------------
 # "1 worker thread(s) are still running" told the user nothing when the
 # thread was a service a module started for them -- the ARexx port from
-# S:.clamigarc (thread "arexx-port") was exactly that, 2026-10-06.  The
+# S:.amilisprc (thread "arexx-port") was exactly that, 2026-10-06.  The
 # message lists each live worker by name (an unnamed one by id), keeps the
 # main thread out, and says where the rc-started one comes from.
 cat > thrimg.lisp <<'EOF2'
@@ -283,9 +283,9 @@ out=$("$TIMEOUT" 60 "$CLAMIGA" --no-userinit --image trunc.img \
 ec=$?
 check "truncated_image_refused" 1 "$ec" "$out" "corrupt"
 
-# --- Auto-discovery of clamiga.img in the cwd ----------------------------
+# --- Auto-discovery of amilisp.img in the cwd ----------------------------
 
-cp session.img clamiga.img
+cp session.img amilisp.img
 out=$("$TIMEOUT" 60 "$CLAMIGA" --no-userinit --non-interactive \
     --eval '(format t "DISC=~a~%" ext:*image-restored-p*)' </dev/null 2>&1)
 ec=$?
@@ -298,28 +298,54 @@ check "no_image_bypasses_discovery" 0 "$ec" "$out" "NODISC=NIL"
 
 # A corrupt discovered image falls back to a normal boot (exit 0), unlike
 # an explicit --image.
-cp corrupt.img clamiga.img
+cp corrupt.img amilisp.img
 out=$("$TIMEOUT" 60 "$CLAMIGA" --no-userinit --non-interactive \
     --eval '(format t "FALLBACK=~a~%" ext:*image-restored-p*)' </dev/null 2>&1)
 ec=$?
 check "corrupt_discovery_falls_back" 0 "$ec" "$out" "FALLBACK=NIL" "different build"
-rm -f clamiga.img
+rm -f amilisp.img
 
-# Install prefix (`make install`-style layout): <prefix>/bin/clamiga picks up an image
-# in <prefix>/lib/clamiga/, beside the runtime library it belongs to — the
+# The pre-rename name: a clamiga.img saved before the runtime became
+# AmiLisp (0.12) is still discovered at every location ...
+cp session.img clamiga.img
+out=$("$TIMEOUT" 60 "$CLAMIGA" --no-userinit --non-interactive \
+    --eval '(format t "DISC-OLD=~a~%" ext:*image-restored-p*)' </dev/null 2>&1)
+ec=$?
+check "auto_discovery_pre_rename_name" 0 "$ec" "$out" "DISC-OLD=T"
+# ... but amilisp.img wins when both are there (the corrupt one as
+# clamiga.img would have forced a fallback boot had it been tried first).
+cp corrupt.img clamiga.img
+cp session.img amilisp.img
+out=$("$TIMEOUT" 60 "$CLAMIGA" --no-userinit --non-interactive \
+    --eval '(format t "DISC-NEW-FIRST=~a~%" ext:*image-restored-p*)' </dev/null 2>&1)
+ec=$?
+check "auto_discovery_new_name_first" 0 "$ec" "$out" "DISC-NEW-FIRST=T"
+rm -f amilisp.img clamiga.img
+
+# Install prefix (`make install`-style layout): <prefix>/bin/amilisp picks up an image
+# in <prefix>/lib/amilisp/, beside the runtime library it belongs to — the
 # same executable-relative locations the lib/ search uses.
-mkdir -p prefix/bin prefix/lib/clamiga
-cp "$CLAMIGA" prefix/bin/clamiga
-cp session.img prefix/lib/clamiga/clamiga.img
-out=$(cd prefix && "$TIMEOUT" 60 bin/clamiga --no-userinit --non-interactive \
+mkdir -p prefix/bin prefix/lib/amilisp
+cp "$CLAMIGA" prefix/bin/amilisp
+cp session.img prefix/lib/amilisp/amilisp.img
+out=$(cd prefix && "$TIMEOUT" 60 bin/amilisp --no-userinit --non-interactive \
     --eval '(format t "DISC-FHS=~a~%" ext:*image-restored-p*)' </dev/null 2>&1)
 ec=$?
 check "auto_discovery_installed_layout" 0 "$ec" "$out" "DISC-FHS=T"
 
+# ... and the prefix layout as installed before the rename: <prefix>/lib/clamiga/clamiga.img
+mkdir -p prefix-old/bin prefix-old/lib/clamiga
+cp "$CLAMIGA" prefix-old/bin/amilisp
+cp session.img prefix-old/lib/clamiga/clamiga.img
+out=$(cd prefix-old && "$TIMEOUT" 60 bin/amilisp --no-userinit --non-interactive \
+    --eval '(format t "DISC-FHS-OLD=~a~%" ext:*image-restored-p*)' </dev/null 2>&1)
+ec=$?
+check "auto_discovery_pre_rename_installed_layout" 0 "$ec" "$out" "DISC-FHS-OLD=T"
+
 # --- Process state is re-derived on restore, not carried from the saver --
 # *DEFAULT-PATHNAME-DEFAULTS* is heap state: carried over, a restored
 # session merges relative paths against the SAVING process's cwd (for a
-# shipped clamiga.img, a directory on the build machine) while REQUIRE/LOAD
+# shipped amilisp.img, a directory on the build machine) while REQUIRE/LOAD
 # check existence against the real cwd — "found" a file, then failed to open
 # it.  *RANDOM-STATE* likewise: the saver's clock-seeded state would replay
 # the same (random) sequence on every restore.  Save in dpd-a/, restore
@@ -346,10 +372,10 @@ else
         "saver's next draw $rnd_saved, restored first draw $rnd_restored" "$out"
 fi
 
-# --- ~/.clamigarc runs after restore with *IMAGE-RESTORED-P* = T ---------
+# --- ~/.amilisprc runs after restore with *IMAGE-RESTORED-P* = T ---------
 
 mkdir -p rc-home
-cat > rc-home/.clamigarc <<'EOF'
+cat > rc-home/.amilisprc <<'EOF'
 (format t "RC-RESTORED=~a~%" ext:*image-restored-p*)
 EOF
 out=$(HOME="$WORK/rc-home" CLAMIGA_NO_USERINIT= "$TIMEOUT" 60 "$CLAMIGA" \
@@ -497,7 +523,7 @@ check "source_files_restored_per_function" 0 "$ec" "$out" \
 # saving process), so an Amiga module's library base would come back as
 # address 0 and the first library call would jump to -LVO.  A variable
 # declared with DEFINE-LIBRARY-VARIABLE has its init form run again in the
-# restoring process, in definition order, BEFORE ~/.clamigarc; a plain
+# restoring process, in definition order, BEFORE ~/.amilisprc; a plain
 # foreign-pointer base now makes the call signal instead.
 
 cat > libvar-state.lisp <<'EOF'
@@ -538,7 +564,7 @@ cat > libvar-verify.lisp <<'EOF'
 EOF
 
 mkdir -p lv-home
-cat > lv-home/.clamigarc <<'EOF'
+cat > lv-home/.amilisprc <<'EOF'
 (format t "RC-LV=~a~%" (list (ffi:foreign-pointer-address *lv-base*) *lv-version*))
 EOF
 

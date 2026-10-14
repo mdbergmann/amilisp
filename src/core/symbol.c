@@ -440,7 +440,7 @@ const char *cl_symbol_name(CL_Obj sym)
  * heap-image restore, because the restore replaces *FEATURES* with the
  * SAVING process's list -- an image saved on an affected Vampire would
  * otherwise tell a sound machine its CPU loses stores, and the shipped
- * clamiga.img (saved in FS-UAE) would hide the flag from an affected one. */
+ * amilisp.img (saved in FS-UAE) would hide the flag from an affected one. */
 void cl_features_sync_cpu_lost_stores(void)
 {
     CL_Obj kw, cur, prev = CL_NIL;
@@ -966,10 +966,18 @@ void cl_symbol_init(void)
             features = cl_cons(kw, features);
         }
         features = cl_cons(KW_COMMON_LISP, features);
+        /* The implementation's own features: :AMILISP and :AMICL are the
+         * names since the rename to AmiLisp (0.12); :CL-AMIGA and :CLAMIGA
+         * are the names before it and stay so existing #+ conditionals in
+         * user code and the library forks keep working. */
         features = cl_cons(KW_CL_AMIGA, features);
         {
-            CL_Obj kw_clamiga = cl_intern_keyword("CLAMIGA", 7);
-            features = cl_cons(kw_clamiga, features);
+            CL_Obj kw = cl_intern_keyword("CLAMIGA", 7);
+            features = cl_cons(kw, features);
+            kw = cl_intern_keyword("AMICL", 5);
+            features = cl_cons(kw, features);
+            kw = cl_intern_keyword("AMILISP", 7);
+            features = cl_cons(kw, features);
         }
 #ifdef CL_WIDE_STRINGS
         {

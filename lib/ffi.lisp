@@ -1,4 +1,4 @@
-;;; ffi.lisp — Platform-independent FFI utilities for CL-Amiga
+;;; ffi.lisp — Platform-independent FFI utilities for AmiLisp
 ;;;
 ;;; Loaded via (require "ffi").
 ;;; Builds on the C-level FFI package builtins (make-foreign-pointer,

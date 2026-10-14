@@ -8,7 +8,7 @@
 ;;; EOF on close.  Driven by tests/test_tls_loopback.sh (and, under
 ;;; CLAMIGA_GC_STRESS=1, by the gc-stress suite); also runnable directly:
 ;;;
-;;;   ./build/host/clamiga --non-interactive --load tests/tls-loopback.lisp
+;;;   ./build/host/amilisp --non-interactive --load tests/tls-loopback.lisp
 ;;;
 ;;; Skips cleanly (still printing the ALL-PASSED marker) when no TLS
 ;;; provider is installed, so the suite stays green on hosts without

@@ -68,7 +68,7 @@ static int mkicon(int argc, char **argv)
         for (i = 0; i < n; i++) tt[i] = argv[4 + i];
         tt[n] = NULL;
         dobj->do_ToolTypes = (n > 0) ? (STRPTR *)tt : NULL;
-        dobj->do_DefaultTool = (STRPTR)((type == WBPROJECT) ? "clamiga" : "");
+        dobj->do_DefaultTool = (STRPTR)((type == WBPROJECT) ? "amilisp" : "");
         dobj->do_StackSize = 8000;
         dobj->do_CurrentX = NO_ICON_POSITION;
         dobj->do_CurrentY = NO_ICON_POSITION;

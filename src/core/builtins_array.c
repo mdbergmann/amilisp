@@ -111,7 +111,7 @@ void cl_classify_array_elt_type(CL_Obj type, int depth,
 
 /* Classify a general (non-bit, non-char) array element-type into a
  * CL_VEC_ELT_* code, expanding user deftypes.  Returns CL_VEC_ELT_T for T,
- * compound specifiers, and anything unrecognised — clamiga only specializes
+ * compound specifiers, and anything unrecognised — amilisp only specializes
  * the numeric element types real implementations would not upgrade to T
  * (FIXNUM, SINGLE/DOUBLE-FLOAT), so a general (VECTOR T) and a
  * (VECTOR FIXNUM) stay distinguishable.  Elements are still stored as tagged
@@ -459,7 +459,7 @@ static CL_Obj bi_make_array(CL_Obj *args, int n)
                 uint32_t slen = cl_string_length(displaced_to);
                 if (displaced_offset + length > slen)
                     cl_error(CL_ERR_ARGS, "MAKE-ARRAY: displaced bounds exceed target string length");
-                /* clamiga can't install a true displaced view onto a packed
+                /* amilisp can't install a true displaced view onto a packed
                  * base/wide string (its bytes are not CL_Obj element storage),
                  * so it copies the requested window.  A :fill-pointer or
                  * :adjustable request still has to be honoured, though, which a
@@ -942,7 +942,7 @@ static CL_Obj bi_make_array(CL_Obj *args, int n)
                 /* Displaced multi-dim array.  Layout: dims in data[0..rank-1],
                  * backing ref at data[rank], offset at data[rank+1] (see
                  * CL_DISP_BASE_IDX).  The backing must be a real array whose
-                 * elements are CL_Objs — clamiga's packed strings (and copying
+                 * elements are CL_Objs — amilisp's packed strings (and copying
                  * bit-vectors) can't carry a live multi-dim view. */
                 CL_Vector *dv;
                 uint32_t n_data, alloc_size, di;
@@ -1557,7 +1557,7 @@ static CL_Obj bi_array_total_size(CL_Obj *args, int n)
 
 /* (array-element-type array) → typespec
  * Returns the element type of the array.
- * CL-Amiga: strings → CHARACTER, bit-vectors → BIT, all others → T. */
+ * AmiLisp: strings → CHARACTER, bit-vectors → BIT, all others → T. */
 static CL_Obj bi_array_element_type(CL_Obj *args, int n)
 {
     CL_UNUSED(n);
@@ -1641,7 +1641,7 @@ static CL_Obj bi_array_in_bounds_p(CL_Obj *args, int n)
 /* ======================================================= */
 
 /* (upgraded-array-element-type typespec &optional environment) → typespec
- * clamiga upgrades to CHARACTER (strings), BIT (bit-vectors), and the
+ * amilisp upgrades to CHARACTER (strings), BIT (bit-vectors), and the
  * specialized numeric types FIXNUM / SINGLE-FLOAT / DOUBLE-FLOAT (which it
  * keeps distinct from T so a (VECTOR FIXNUM) is not a (VECTOR T) — see
  * cl_classify_vec_elt_code).  Everything else upgrades to T. */

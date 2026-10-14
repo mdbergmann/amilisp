@@ -15,7 +15,7 @@
 ;;; from a Lisp byte vector, and READ-ASYNC verification of the result.
 ;;;
 ;;; Run on AmigaOS 3+ or MorphOS:
-;;;   clamiga --load examples/amiga/asyncio/copyfile.lisp
+;;;   amilisp --load examples/amiga/asyncio/copyfile.lisp
 
 (require "amiga/asyncio")
 

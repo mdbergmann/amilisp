@@ -1146,7 +1146,7 @@ uint8_t *gcb_arena_alloc(uint32_t size)
                 platform_free_pages(arena, gen_npages * gen_page);
                 arena = NULL;
                 platform_write_string(
-                    "clamiga: generational GC unavailable "
+                    "amilisp: generational GC unavailable "
                     "(mmap/write-watch setup failed) - classic GC\n");
             }
         }
@@ -1327,9 +1327,9 @@ void gcb_compact_fallback(int outcome)
     if (gen_enabled) {
         gen_enabled = 0;
         platform_write_string(outcome == GCB_COMPACT_FALLBACK_FWD
-                              ? "clamiga: generational GC disabled "
+                              ? "amilisp: generational GC disabled "
                                 "(forwarding-table OOM) - classic GC\n"
-                              : "clamiga: generational GC disabled "
+                              : "amilisp: generational GC disabled "
                                 "(compaction fallback) - classic GC\n");
     }
 #else

@@ -1,7 +1,7 @@
 #!/bin/sh
 # Executable specification for EXT.DEV.TCP -- the development port over TCP
 # (lib/dev-tcp.lisp): the transport the host Clamacs talks to, and the one
-# a Mac Clamacs drives an Amiga clamiga with over the LAN.
+# a Mac Clamacs drives an Amiga amilisp with over the LAN.
 #
 # The command layer behind it is tests/test_dev_commands.sh's business; what
 # is checked here is the port: the frames, the AUTH gate and the three rules
@@ -13,9 +13,9 @@
 # there only the compact "allocating paths" section runs, since the others
 # lean on wall-clock timeouts that a compaction on every allocation stretches.
 #
-# Run: sh tests/test_dev_tcp.sh build/host/clamiga
+# Run: sh tests/test_dev_tcp.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0
@@ -478,7 +478,7 @@ cat > "$TMPD/repl.lisp" <<'EOF'
   (mp:with-lock-held (*sent-lock*) (push (concatenate 'string verb " " arg) *sent*))
   (when (string= verb "READLINE")
     ;; The editor answers a READLINE with a command of its own, on the
-    ;; wire to clamiga, while the REPL thread waits for this reply.
+    ;; wire to amilisp, while the REPL thread waits for this reply.
     (ext.dev:handle-command "REPL-INPUT typed line"))
   (values 0 ""))
 (ext.dev:define-raw-command "OUTPUT" (arg) (record "OUTPUT" arg))
@@ -498,7 +498,7 @@ cat > "$TMPD/repl.lisp" <<'EOF'
 (defun thread-alive ()
   (and ext.dev::*repl-thread* (mp:thread-alive-p ext.dev::*repl-thread*) t))
 
-;; A: the clamiga; B: the editor.
+;; A: the amilisp; B: the editor.
 (defvar *a* (ext.dev.tcp:start :port 0 :token "a-token"))
 (defvar *b* (ext.dev.tcp:start :port 0 :token "b-token"))
 (defvar *editor-name* (ext.dev.tcp:port-name "127.0.0.1" (ext.dev.tcp:port *b*) "b-token"))

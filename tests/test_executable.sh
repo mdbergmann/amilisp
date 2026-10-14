@@ -1,20 +1,20 @@
 #!/bin/sh
 # End-to-end tests for delivered executables:
 #   (ext:save-image "app" :executable t :toplevel 'main [:heap-size n])
-# writes a copy of the running clamiga with the image appended — one file
-# that starts the program, with no lib/, no image file and no clamiga
+# writes a copy of the running amilisp with the image appended — one file
+# that starts the program, with no lib/, no image file and no amilisp
 # options beside it.
 #
 # Covered:
 #   the file is executable and runs from a directory with nothing else in it
 #   the whole command line is the program's (EXT:*COMMAND-LINE-ARGS*,
 #     verbatim: --help, --heap, -- are arguments like any other)
-#   no banner, no ~/.clamigarc, EXT:*IMAGE-RESTORED-P* = T, restore hooks
+#   no banner, no ~/.amilisprc, EXT:*IMAGE-RESTORED-P* = T, restore hooks
 #     run before the :TOPLEVEL function, exit hooks after it
 #   exit status: 0 when :TOPLEVEL returns, n after (quit n), 1 after an
 #     error nothing handled (and the error is printed)
 #   :HEAP-SIZE is the arena the program starts with
-#   the embedded image wins over a clamiga.img lying in the cwd
+#   the embedded image wins over a amilisp.img lying in the cwd
 #   started through a symlink (POSIX)
 #   without :TOPLEVEL the executable is a REPL with the program loaded
 #   a delivered executable can save the next one (the runtime is copied
@@ -23,9 +23,9 @@
 #     undefined :TOPLEVEL function, a bad :HEAP-SIZE
 #   a damaged executable refuses to start (exit 1) instead of becoming a REPL
 #
-# Run: sh tests/test_executable.sh build/host/clamiga
+# Run: sh tests/test_executable.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 case "$CLAMIGA" in
     /*|[A-Za-z]:/*) : ;;
     *) CLAMIGA="$(pwd)/$CLAMIGA" ;;
@@ -135,8 +135,8 @@ if [ -x "app$X" ]; then ok; else fail "$desc" "no x bit / missing" "$(ls -l)"; f
 
 # Nothing but the one file, in a directory of its own.
 cp "app$X" away/
-echo '(format t "RC-RAN~%")' > home/.clamigarc
-echo 'not an image' > away/clamiga.img
+echo '(format t "RC-RAN~%")' > home/.amilisprc
+echo 'not an image' > away/amilisp.img
 
 run_app() {   # run_app ARG... — from away/, output in $out, status in $ec
     out=$(cd away && HOME="$WORK/home" "$TIMEOUT" 30 "./app$X" "$@" </dev/null 2>&1)
@@ -151,7 +151,7 @@ check "command_line_is_the_programs_verbatim" 0 "$ec" "$out" \
 check "restore_hooks_run_before_toplevel" 0 "$ec" "$out" \
     "RESTORED=T TRACE=(:RESTORE-HOOK :MAIN)"
 check "exit_hooks_run_after_toplevel" 0 "$ec" "$out" "EXIT-HOOK-RAN"
-check_absent "no_banner" "$out" "CL-Amiga v"
+check_absent "no_banner" "$out" "AmiLisp v"
 check_absent "no_user_init_file" "$out" "RC-RAN"
 check_absent "no_library_needed" "$out" "cannot locate its runtime library"
 check_absent "embedded_image_wins_over_cwd_clamiga_img" "$out" "--image"
@@ -195,7 +195,7 @@ check "save_executable_without_toplevel" 0 "$ec" "$out" "Executable saved to"
 out=$(cd away && echo '(format t "REPL-SAYS ~a ~s~%" (ex-app::fib 10) ext:*command-line-args*)' |
       "$TIMEOUT" 30 "./repl$X" --no-such-option 2>&1); ec=$?
 check "without_toplevel_it_is_a_repl" 0 "$ec" "$out" \
-    'REPL-SAYS 55 ("--no-such-option")' "CL-Amiga v"
+    'REPL-SAYS 55 ("--no-such-option")' "AmiLisp v"
 
 # --- A delivered executable saves the next one ------------------------------
 

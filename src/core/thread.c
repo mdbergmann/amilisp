@@ -296,7 +296,7 @@ void cl_gc_thread_online(CL_Thread *self)
  * wait loop uses a TIMED condvar wait; every time the timeout elapses without
  * the world having stopped it reports the straggler thread (the one the scan
  * found neither stopped nor in a safe region) and dumps every thread's wait
- * state — so a hung stop-the-world names its culprit in clamiga's own output
+ * state — so a hung stop-the-world names its culprit in amilisp's own output
  * instead of requiring an external debugger.  The env value is the report
  * cadence in milliseconds; "1" or a non-numeric value selects 5000ms.
  *

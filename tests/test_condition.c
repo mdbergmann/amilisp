@@ -795,7 +795,7 @@ TEST(lisp_handler_bind_textual_order)
      * condition and decline (return normally), they must fire in the order
      * they are written, top to bottom.  Here both CONDITION (general, first)
      * and WARNING (specific, second) match a SIMPLE-WARNING.  The general
-     * one is listed first, so it must run first.  Regression: clamiga used
+     * one is listed first, so it must run first.  Regression: amilisp used
      * to run them newest-first (i.e. reverse textual order), yielding
      * (:B :A) and breaking libraries like snooze that put a broad handler
      * first to do setup the later, more specific handler depends on. */

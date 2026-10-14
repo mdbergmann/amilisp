@@ -5,7 +5,7 @@
 #    per collection (both the generational and the classic collector), and
 #    must print NOTHING when the env var is unset.
 #
-# 2. SIGINT delivered to a clamiga wedged in a Lisp loop must interrupt it:
+# 2. SIGINT delivered to a amilisp wedged in a Lisp loop must interrupt it:
 #    the VM polls platform_break_pending() at loop back-edges, captures a
 #    backtrace at the interrupted opcode, and funcalls CL:BREAK.  In a
 #    non-interactive run the debugger is unavailable, so invoke-debugger
@@ -21,9 +21,9 @@
 #    callable function" on every numeric restart selection; it must throw
 #    the (handler . args) dispatch cons like INVOKE-RESTART).
 #
-# Run: sh tests/test_break_diag.sh build/host/clamiga
+# Run: sh tests/test_break_diag.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then
@@ -66,7 +66,7 @@ fi
 
 # ---- 2. SIGINT break, non-interactive ----
 #
-# Windows: skipped, and not because the feature is missing.  clamiga installs
+# Windows: skipped, and not because the feature is missing.  amilisp installs
 # a console control handler there, but nothing in this harness can deliver a
 # Ctrl-C to it: a native process is not in the MSYS shell's signal world, so
 # `kill -INT` on it terminates rather than interrupts.  The break-in itself is
@@ -88,7 +88,7 @@ cat > "$tmp" <<'EOF'
 (loop for i from 0 do (identity i))
 EOF
 
-# No $TIMEOUT wrapper here: the SIGINT must reach clamiga itself, not the
+# No $TIMEOUT wrapper here: the SIGINT must reach amilisp itself, not the
 # timeout process.  A manual watchdog below bounds the run instead.
 "$CLAMIGA" --non-interactive --load "$tmp" < /dev/null > "$out" 2>&1 &
 pid=$!
@@ -106,7 +106,7 @@ n=0
 while kill -0 "$pid" 2>/dev/null; do
     n=$((n + 1))
     if [ "$n" -gt 100 ]; then
-        echo "FAIL: clamiga still spinning 10s after SIGINT"
+        echo "FAIL: amilisp still spinning 10s after SIGINT"
         kill -9 "$pid" 2>/dev/null
         fail=1
         break

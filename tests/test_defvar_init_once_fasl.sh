@@ -14,9 +14,9 @@
 # Process 1 compiles only; process 2 is a fresh session that loads the FASL
 # twice, so nothing the compiler did at compile time can leak into the checks.
 #
-# Run: sh tests/test_defvar_init_once_fasl.sh [path-to-clamiga]
+# Run: sh tests/test_defvar_init_once_fasl.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 passed=0
 failed=0
 TMP="${TMPDIR:-/tmp}/clamiga-dvonce-$$"

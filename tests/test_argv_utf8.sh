@@ -3,15 +3,15 @@
 #
 # Windows hands main() its arguments in the process's ANSI code page — the
 # real command line is UTF-16, and the CRT converts it down, turning every
-# character the ACP cannot represent into '?'.  clamiga reads argv as UTF-8
+# character the ACP cannot represent into '?'.  amilisp reads argv as UTF-8
 # (that is what it is on POSIX and AmigaOS), so `--eval` forms and `--load`
 # paths holding non-ASCII arrived destroyed: the codepoints below came back as
 # 63 63 (two question marks).  main.c rebuilds argv from the UTF-16 command
 # line; this checks the whole path from the shell through to CHAR-CODE.
 #
-# Run: sh tests/test_argv_utf8.sh [path-to-clamiga]
+# Run: sh tests/test_argv_utf8.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 passed=0
 failed=0
 
@@ -38,13 +38,15 @@ check() {
 # UTF-16 command line down to the ANSI code page before main() saw it, and
 # every octet came through as 63 ('?') — the argument destroyed beyond
 # recovery rather than merely re-interpreted.
-result=$("$CLAMIGA" --no-userinit --non-interactive     --eval '(princ (map (quote list) (function char-code) "日本"))'     </dev/null 2>&1 | tr -d '')
+result=$("$CLAMIGA" --no-userinit --non-interactive     --eval '(princ (map (quote list) (function char-code) "日本"))'     </dev/null 2>&1 | tr -d '
+')
 check "eval_argument_octets_survive" "(230 151 165 230 156 172)" "$result"
 
 # U+1F600, four octets F0 9F 98 80 — also proves the UTF-16 surrogate pair is
 # rejoined into one codepoint before the UTF-8 conversion instead of being
 # encoded twice.
-result=$("$CLAMIGA" --no-userinit --non-interactive     --eval '(princ (map (quote list) (function char-code) "😀"))'     </dev/null 2>&1 | tr -d '')
+result=$("$CLAMIGA" --no-userinit --non-interactive     --eval '(princ (map (quote list) (function char-code) "😀"))'     </dev/null 2>&1 | tr -d '
+')
 check "eval_argument_astral_octets_survive" "(240 159 152 128)" "$result"
 
 echo ""

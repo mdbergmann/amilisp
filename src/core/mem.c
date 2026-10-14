@@ -44,7 +44,7 @@ uint32_t gc_epoch_skips = 0;      /* redundant GCs deduped (see
 /* ---- Per-collection trace (CLAMIGA_GC_DIAG) ----
  * One stderr line per collection when the CLAMIGA_GC_DIAG environment
  * variable is set: wall clock, cycle number, collection kind, pause, and
- * heap occupancy.  Lets a hang be classified from clamiga's own output —
+ * heap occupancy.  Lets a hang be classified from amilisp's own output —
  * an endless stream of lines is a GC storm, silence means the time is
  * going somewhere else.  Runtime diagnostic, not DEBUG-flag
  * instrumentation: always compiled, zero cost when the env var is unset
@@ -490,7 +490,7 @@ static void gc_reset_transient_state(void)
  * On a host OS the kernel reclaims the process's address space and nobody
  * notices.  On AmigaOS there is no such backstop: AllocVec'd memory not
  * returned before the process exits is gone from the system pool until the
- * next reboot, so every clamiga run permanently ate a few megabytes of Fast
+ * next reboot, so every amilisp run permanently ate a few megabytes of Fast
  * RAM.  That is the leak this walk closes.
  *
  * The walk is the arena iterator's: block by block from the first slot to

@@ -6,9 +6,9 @@
 # functional half needs a filesystem handler and runs on the Amiga in
 # tests/amiga/test-asyncio.lisp.
 #
-# Run: sh tests/test_amiga_asyncio.sh build/host/clamiga
+# Run: sh tests/test_amiga_asyncio.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 TMPD=$(mktemp -d "${TMPDIR:-/tmp}/test_amiga_asyncio_XXXXXX") || exit 1
 trap 'rm -rf "$TMPD"' EXIT INT TERM
@@ -21,7 +21,7 @@ status=$?
 
 grep -E '^(PASS|FAIL):' "$OUT"
 if [ $status -ne 0 ]; then
-    echo "test_amiga_asyncio: clamiga exited with status $status"
+    echo "test_amiga_asyncio: amilisp exited with status $status"
     tail -20 "$OUT"
     exit 1
 fi

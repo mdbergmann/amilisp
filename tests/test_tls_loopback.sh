@@ -13,9 +13,9 @@
 # Also run by the gc-stress suite (CLAMIGA_GC_STRESS=1) so the TLS builtins'
 # allocating paths (string args, peer-cert plist) see forced compaction.
 #
-# Run: sh tests/test_tls_loopback.sh build/host/clamiga
+# Run: sh tests/test_tls_loopback.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then
@@ -33,7 +33,7 @@ OUT=$("$TIMEOUT" 120 "$CLAMIGA" --no-userinit --non-interactive \
 rc=$?
 
 if [ $rc -ne 0 ]; then
-    echo "FAIL test_tls_loopback: clamiga exited rc=$rc"
+    echo "FAIL test_tls_loopback: amilisp exited rc=$rc"
     echo "$OUT" | tail -20
     exit 1
 fi

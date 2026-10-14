@@ -6172,7 +6172,7 @@ void cl_compiler_pool_stats(CL_CompilerPoolStats *st)
  * That reasoning stops at process exit, where the blocks and their buffers
  * are pure loss — on AmigaOS memory not handed back before the process ends
  * is gone from the system pool until reboot, so the pool (then eight 366 KB
- * blocks, ~2.9 MB) went missing on every clamiga launch.  This was the bulk of
+ * blocks, ~2.9 MB) went missing on every amilisp launch.  This was the bulk of
  * a measured 3.74 MB of Fast RAM lost per run on a Vampire (see
  * tests/test_shutdown_leak.sh).
  *

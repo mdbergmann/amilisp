@@ -10,16 +10,16 @@
 #   3. (load missing :if-does-not-exist t)    -> ERROR message (same as default)
 #   4. (load existing :if-does-not-exist nil) -> loads normally, prints LOADED
 #
-# Run: sh tests/test_load_keywords.sh build/host/clamiga
+# Run: sh tests/test_load_keywords.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0
 TMPDIR="${TMPDIR:-/tmp}"
 MISSING="/nonexistent/path_that_cannot_exist_$$.lisp"
 
-# run clamiga in batch mode with *load-verbose* suppressed
+# run amilisp in batch mode with *load-verbose* suppressed
 run_quiet() {
     echo "(setf *load-verbose* nil) $1" | "$CLAMIGA" --no-userinit --batch 2>&1
 }

@@ -17,7 +17,7 @@
  * terminal file descriptor), so the Windows leg below tests the other half
  * of the contract instead: what the console primitives must do when stdin
  * is NOT a console — which is exactly the situation the test runner, and
- * every `clamiga < file` invocation, creates.
+ * every `amilisp < file` invocation, creates.
  */
 
 #include "test.h"
@@ -292,7 +292,7 @@ TEST(cooked_typeahead_visible_after_line_read)
     ASSERT_EQ_INT(platform_tty_char_avail(), 0);
 }
 
-/* Same contract with stdin on a PIPE (an editor or `printf ... | clamiga`):
+/* Same contract with stdin on a PIPE (an editor or `printf ... | amilisp`):
  * one read slurps both lines into stdio's buffer, where the fd-level
  * probe cannot see the second one — the probe has to look inside stdio.
  * That peek exists on the libcs whose FILE layout is public (glibc, the
@@ -401,7 +401,7 @@ static void setup(void)
     cl_repl_init();
 }
 
-/* Redirected stdin (how the test runner and `clamiga < file` both run):
+/* Redirected stdin (how the test runner and `amilisp < file` both run):
  * raw mode is impossible and must SAY so rather than half-succeed, and the
  * REPL must not be told it is talking to a person. */
 TEST(non_console_stdin_reports_honestly)

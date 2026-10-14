@@ -27,9 +27,9 @@
 # lives in tests/test_memleak_tracked.sh, the compaction half in
 # tests/test_gc_stress_regression.sh.
 #
-# Run: sh tests/test_fasl_reader_unwind.sh [path-to-clamiga]
+# Run: sh tests/test_fasl_reader_unwind.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 case "$CLAMIGA" in
     /*|[A-Za-z]:/*) ;;
     *) CLAMIGA="$(cd "$(dirname "$CLAMIGA")" && pwd)/$(basename "$CLAMIGA")" ;;

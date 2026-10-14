@@ -18,7 +18,7 @@ to +106% per cell over 0.8, and the MP locks as heap words
 on pinned/ask-s and +194% on shared/tell on top of that, cost −15% on
 shared/ask-s, and let shared/ask run at the default queue cap again. The
 first 0.10 matrix (same day, before the lock change) had found that cell
-**filling clamiga's 16384-slot lock table** — the faster sender side kept
+**filling amilisp's 16384-slot lock table** — the faster sender side kept
 more asynchronous asks in flight than the table held — and had measured it
 at a lowered queue cap only. There is no lock table any more; the section
 "shared/ask and the lock table" keeps the analysis and the before/after
@@ -61,7 +61,7 @@ this entry follows.
   (whole-program LTO except `vm.o`, as since the 0.8 fixes); the 0.8 entry
   did not record its compiler version. A Time Machine backup was running
   during the series; the machine was otherwise idle.
-- **Binary**: `build/host/clamiga` of each worktree, `--heap 192M`,
+- **Binary**: `build/host/amilisp` of each worktree, `--heap 192M`,
   `CLAMIGA_FORCE_SPEED=3`.
 - **Collector**: generational (host default), TLABs active — all four
   binaries.
@@ -95,13 +95,13 @@ session and prints a `CELL ... STATS` line per cell with the
 `(ext:%gc-time-stats)` / `(ext:%gengc-stats)` deltas and the derived GC
 share. Run with a **cold ASDF cache** so sento and every dependency compile
 at speed 3. Rather than wiping `~/.cache/common-lisp/<version dir>` (shared
-with any other clamiga session on the machine), point
+with any other amilisp session on the machine), point
 `CLAMIGA_FASL_CACHE_DIR` at a fresh directory — the runtime namespaces it
 by version and FASL format the same way, and the warm repeat reuses it:
 
 ```
 CLAMIGA_FASL_CACHE_DIR=/path/to/fresh/dir CLAMIGA_FORCE_SPEED=3 \
-    ./build/host/clamiga --no-userinit --heap 192M --non-interactive \
+    ./build/host/amilisp --no-userinit --heap 192M --non-interactive \
     --load trunk/sento-bench-matrix.lisp
 ```
 

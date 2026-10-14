@@ -2,14 +2,14 @@
 # md2guide.sh — build the AmigaGuide documentation from the Markdown sources.
 #
 # Usage:
-#   md2guide.sh <clamiga-binary> <output-dir>
+#   md2guide.sh <amilisp-binary> <output-dir>
 #
 # Converts the documentation the binary release ships into one .guide per
 # .md under <output-dir>, laid out as the release root is: README-FIRST.guide,
-# cl-amiga.guide (README.md) and clamacs.guide (the editor's README, when the
+# amilisp.guide (README.md) and clamacs.guide (the editor's README, when the
 # clamacs/ submodule is checked out) at the top, next to the Workbench icons,
 # and the package reference under docs/.  tools/docs/md2guide.lisp does the
-# work, run by the given clamiga; the version and date stamped into every
+# work, run by the given amilisp; the version and date stamped into every
 # @$VER: line come from src/core/types.h, the single source of truth for the
 # version.
 #
@@ -26,11 +26,11 @@ OUT="$2"
 ROOT=$(CDPATH= cd "$(dirname "$0")/../.." && pwd)
 
 if [ -z "$CLAMIGA_BIN" ] || [ -z "$OUT" ]; then
-    echo "usage: $0 <clamiga-binary> <output-dir>" >&2
+    echo "usage: $0 <amilisp-binary> <output-dir>" >&2
     exit 2
 fi
 if [ ! -x "$CLAMIGA_BIN" ]; then
-    echo "md2guide.sh: clamiga binary not found: $CLAMIGA_BIN" >&2
+    echo "md2guide.sh: amilisp binary not found: $CLAMIGA_BIN" >&2
     exit 2
 fi
 
@@ -43,13 +43,13 @@ esac
 [ -n "$DATE" ] || { echo "md2guide.sh: could not parse CL_VERSION_DATE from src/core/types.h" >&2; exit 1; }
 
 mkdir -p "$OUT"
-# Absolute, in the spelling clamiga uses (tests/shpath.sh: on an MSYS2 host
+# Absolute, in the spelling amilisp uses (tests/shpath.sh: on an MSYS2 host
 # the shell's path is not the native binary's path).
 . "$ROOT/tests/shpath.sh"
 OUT_NATIVE=$(native_path "$(CDPATH= cd "$OUT" && pwd)")
 
 INPUTS='("README-FIRST.md" . "README-FIRST.guide")
-        ("README.md" . "cl-amiga.guide")
+        ("README.md" . "amilisp.guide")
         ("docs/README.md" . "docs/README.guide")
         ("docs/ext.md" . "docs/ext.guide")
         ("docs/mp.md" . "docs/mp.guide")

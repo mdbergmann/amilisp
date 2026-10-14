@@ -2,8 +2,8 @@
 ;; Works on both host and Amiga.
 ;;
 ;; Usage:
-;;   ./build/host/clamiga --heap 24M --load trunk/load-and-test-fset.lisp
-;;   (on Amiga: clamiga --heap 48M --load trunk/load-and-test-fset.lisp)
+;;   ./build/host/amilisp --heap 24M --load trunk/load-and-test-fset.lisp
+;;   (on Amiga: amilisp --heap 48M --load trunk/load-and-test-fset.lisp)
 
 (setq *load-verbose* t)
 (require "asdf")

@@ -89,7 +89,7 @@ static CL_Obj get_thread_abort_handler(void)
 /* Cached :report string for the thread-top ABORT restart.  Shared
  * read-only by every worker thread's restart — safe because strings
  * are immutable here and the printer only reads it.  Wording matches
- * clamiga's interactive debugger (src/core/debugger.c). */
+ * amilisp's interactive debugger (src/core/debugger.c). */
 static CL_Obj thread_abort_report = CL_NIL;
 
 static CL_Obj get_thread_abort_report(void)
@@ -1248,7 +1248,7 @@ static void lock_abandon_wait(CL_Obj lock_obj, CL_Thread *self)
  *
  * Unlike MP:DUMP-THREAD-WAITS (which must be called at exactly the right
  * moment from a watchdog), this triages an intermittent stall from
- * clamiga's own output: the report fires from inside the stalled wait and
+ * amilisp's own output: the report fires from inside the stalled wait and
  * names the culprit.  Runtime diagnostic, not DEBUG-flag instrumentation:
  * always compiled, zero cost when the env var is unset (one cached-static
  * read per contended park, a path that is already slow — parks are
@@ -2048,7 +2048,7 @@ static CL_Obj bi_condvar_waiters(CL_Obj *args, int n)
 }
 
 /* (mp::%os-thread-count) -> fixnum
- * Worker OS threads still executing clamiga code — a thread counts until
+ * Worker OS threads still executing amilisp code — a thread counts until
  * the very end of its platform entry wrapper, after it has left the MP
  * registry (see platform_thread_live_count).  A test / triage hook. */
 static CL_Obj bi_os_thread_count(CL_Obj *args, int n)

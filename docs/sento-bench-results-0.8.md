@@ -38,7 +38,7 @@ the interleaved-A/B method note this entry follows.
   `make host` in a detached worktree; reports `0.4.0`, FASL v23
 - **Host**: macOS 26.6.2, arm64 (Apple M3 Ultra) — the 0.4 entry ran on
   macOS 26.5.2
-- **Binary**: `build/host/clamiga`, `--heap 192M`, `CLAMIGA_FORCE_SPEED=3`
+- **Binary**: `build/host/amilisp`, `--heap 192M`, `CLAMIGA_FORCE_SPEED=3`
 - **Collector**: generational (host default), TLABs active — both binaries
 - **sento**: 3.4.4, local checkout `~/Development/MySources/cl-gserver` at
   `013ab63` (ASDF resolves it ahead of the quicklisp dist's 3.4.2). 3.4.4
@@ -65,7 +65,7 @@ GC share.
 
 ```
 rm -rf ~/.cache/common-lisp/cl-amiga-0.7-fasl31     # version-keyed: adjust
-CLAMIGA_FORCE_SPEED=3 ./build/host/clamiga --no-userinit --heap 192M \
+CLAMIGA_FORCE_SPEED=3 ./build/host/amilisp --no-userinit --heap 192M \
     --non-interactive --load trunk/sento-bench-matrix.lisp
 ```
 

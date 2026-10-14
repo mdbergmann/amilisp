@@ -1,10 +1,10 @@
-# CL-Amiga Cross-compilation Makefile
+# AmiLisp Cross-compilation Makefile
 # Uses m68k-amigaos-gcc from tools/m68k-amigaos-gcc/prefix
 # Run: make -f Makefile.cross [amiga|test-amiga|image-amiga|clean]
 #      make -f Makefile.cross amiga FPU=1   (hard-float variant, see below)
 #      make -f Makefile.cross amiga WIDE=1  (wide-string variant, see below)
 #      make -f Makefile.cross amiga GC=classic (the classic collector, see below)
-#      make -f Makefile.cross image-amiga   (bare-boot clamiga.img beside the
+#      make -f Makefile.cross image-amiga   (bare-boot amilisp.img beside the
 #                                            binary, saved + verified in FS-UAE)
 
 TOOLCHAIN = $(CURDIR)/tools/m68k-amigaos-gcc/prefix
@@ -205,7 +205,7 @@ ALL_OBJS = $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/%.o,$(ALL_SRCS)) \
 
 .PHONY: amiga test-amiga test-amiga-lowend examples-amiga image-amiga editor-image-amiga clean check-toolchain probes
 
-amiga: check-toolchain $(BUILDDIR)/clamiga $(BUILDDIR)/wbrun
+amiga: check-toolchain $(BUILDDIR)/amilisp $(BUILDDIR)/wbrun
 
 # probes: the standalone CPU/system probes of verify/realamiga (PROBES.md) --
 # storeprobe (the Vampire 68080 lost-store defect), fpuregtest, regtest,
@@ -219,7 +219,7 @@ $(BUILDDIR)/probes/%: verify/realamiga/%.c
 	$(CC) -noixemul -mcpu=68020 -O1 -Wall -Wno-unused-variable -o $@ $<
 
 # wbrun: starts a program the way Workbench does (verify/realamiga/wbrun.c);
-# the suite's Workbench-start leg runs clamiga through it.
+# the suite's Workbench-start leg runs amilisp through it.
 $(BUILDDIR)/wbrun: verify/realamiga/wbrun.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
@@ -239,14 +239,14 @@ check-toolchain:
 		exit 1; \
 	fi
 
-$(BUILDDIR)/clamiga: $(ALL_OBJS)
+$(BUILDDIR)/amilisp: $(ALL_OBJS)
 	@mkdir -p $(dir $@)
 	$(CC) $(LDFLAGS) -o $@ $^ -lm
 	@# A heap image belongs to the binary that wrote it: the fingerprint
 	@# only covers version/format, so a relink of the same version would
 	@# still accept an image holding the PREVIOUS build's boot.lisp.  Drop
 	@# it; image-amiga writes a fresh one.
-	@rm -f $(BUILDDIR)/clamiga.img
+	@rm -f $(BUILDDIR)/amilisp.img
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.c
 	@mkdir -p $(dir $@)
@@ -271,19 +271,19 @@ $(BUILDDIR)/%.o: $(SRCDIR)/%.s
 #
 # run-fs-uae.sh supervises the emulator so the run is fully unattended:
 # `C:UAEquit` (appended to call-on-ustartup) quits FS-UAE when the suite
-# finishes, and the script's watchdog kills it if clamiga hangs.  No manual
+# finishes, and the script's watchdog kills it if amilisp hangs.  No manual
 # window-closing required.
 # Only the FS-UAE targets (and run-examples.sh) copy into build/amiga/ — the
 # link rule deliberately does not, so an experimental `make amiga BUILDDIR=...`
 # never replaces the binary FS-UAE runs.  The cp lives here, not in the link
-# rule, also because of FPU= variant switching: an up-to-date $(BUILDDIR)/clamiga
+# rule, also because of FPU= variant switching: an up-to-date $(BUILDDIR)/amilisp
 # skips the link rule, and FS-UAE would silently test whichever variant was
 # deployed last.
-test-amiga: $(BUILDDIR)/clamiga $(BUILDDIR)/wbrun
+test-amiga: $(BUILDDIR)/amilisp $(BUILDDIR)/wbrun
 	@mkdir -p build/amiga
-	cp $(BUILDDIR)/clamiga build/amiga/clamiga
+	cp $(BUILDDIR)/amilisp build/amiga/amilisp
 	cp $(BUILDDIR)/wbrun build/amiga/wbrun
-	@rm -f build/amiga/clamiga-test.img build/amiga/boot.img build/amiga/exe-test build/amiga/exe-wb.log
+	@rm -f build/amiga/amilisp-test.img build/amiga/boot.img build/amiga/exe-test build/amiga/exe-wb.log
 	@echo "=== Launching FS-UAE (high-end JIT config) — auto-quits when tests finish ==="
 	@# The suite flushes its log after every check and no check takes more
 	@# than ~80 s on this config, so 5 min of silence is a hang -- the 10 min
@@ -294,38 +294,38 @@ test-amiga: $(BUILDDIR)/clamiga $(BUILDDIR)/wbrun
 # Run the GUI example programs (examples/amiga/gfx/ and reaction/) unattended
 # in FS-UAE and photograph every window and custom screen into
 # build/amiga/shots/*.png — see verify/realamiga/run-examples.sh.
-examples-amiga: $(BUILDDIR)/clamiga
-	verify/realamiga/run-examples.sh $(BUILDDIR)/clamiga
+examples-amiga: $(BUILDDIR)/amilisp
+	verify/realamiga/run-examples.sh $(BUILDDIR)/amilisp
 
 # Bare-boot heap image for deployment (specs/image-save-load.md, README
 # "Heap images"): images are per-build, so the Amiga binary writes its own —
 # unattended in FS-UAE through the boot-override hook of call-on-ustartup —
 # and restarts from it to prove the result.  Lands beside the binary as
-# $(BUILDDIR)/clamiga.img (FPU=1: build/cross-fpu/clamiga.img), which is
+# $(BUILDDIR)/amilisp.img (FPU=1: build/cross-fpu/amilisp.img), which is
 # where startup looks (PROGDIR:).  make-binary-release.sh runs the same
 # script against the staged release layout, so the shipped images come from
 # the shipped FASLs.
-image-amiga: $(BUILDDIR)/clamiga
+image-amiga: $(BUILDDIR)/amilisp
 	verify/realamiga/make-image.sh $(BUILDDIR)
 
 # The Clamacs editor's heap image beside the binary (BUILDDIR/clamacs.img),
 # saved + verified in FS-UAE from the submodule's sources: the editor's
 # files are staged under build/editor-lib/lib/clamacs/ the way the release
 # ships them (verify/realamiga/make-editor-image.sh wants a lib/clamacs/).
-editor-image-amiga: $(BUILDDIR)/clamiga
+editor-image-amiga: $(BUILDDIR)/amilisp
 	rm -rf build/editor-lib && mkdir -p build/editor-lib/lib/clamacs
 	cp clamacs/lisp/*.lisp clamacs/scripts/save-editor-image.lisp clamacs/scripts/verify-editor-image.lisp build/editor-lib/lib/clamacs/
 	verify/realamiga/make-editor-image.sh $(BUILDDIR) build/editor-lib
 
-test-amiga-lowend: $(BUILDDIR)/clamiga $(BUILDDIR)/wbrun
+test-amiga-lowend: $(BUILDDIR)/amilisp $(BUILDDIR)/wbrun
 	@if [ "$(FPU)" = "1" ]; then \
 		echo "ERROR: test-amiga-lowend runs an FPU-less 68020 config — the FPU=1 binary cannot run there."; \
 		exit 1; \
 	fi
 	@mkdir -p build/amiga
-	cp $(BUILDDIR)/clamiga build/amiga/clamiga
+	cp $(BUILDDIR)/amilisp build/amiga/amilisp
 	cp $(BUILDDIR)/wbrun build/amiga/wbrun
-	@rm -f build/amiga/clamiga-test.img build/amiga/boot.img build/amiga/exe-test build/amiga/exe-wb.log
+	@rm -f build/amiga/amilisp-test.img build/amiga/boot.img build/amiga/exe-test build/amiga/exe-wb.log
 	@echo "=== Launching FS-UAE (lower-end 68020 baseline) — auto-quits when tests finish ==="
 	verify/realamiga/run-fs-uae.sh verify/realamiga/verify-lowend.fs-uae
 	@$(MAKE) --no-print-directory -f Makefile.cross verify-amiga
@@ -353,7 +353,7 @@ verify-amiga:
 		exit 1; \
 	fi
 	@# Heap-image save/restore leg (tests/amiga/image-save.lisp +
-	@# image-verify.lisp): state saved by one clamiga process must verify
+	@# image-verify.lisp): state saved by one amilisp process must verify
 	@# in a second one restored from the image.
 	@if ! grep -q "IMAGE-VERIFY-PASSED" build/amiga/test-results.log; then \
 		echo "=== Amiga verification FAILED (heap-image save/restore) ==="; \
@@ -406,12 +406,12 @@ verify-amiga:
 		exit 1; \
 	fi
 	@# The driver (call-on-ustartup) writes "=== run end ===" only after
-	@# clamiga returns from main.  Its absence means clamiga hung at exit
+	@# amilisp returns from main.  Its absence means amilisp hung at exit
 	@# (e.g. the socket-reactor shutdown deadlock) and FS-UAE was stall-killed
 	@# by the watchdog — the suite still "passed" but the binary never exited
 	@# cleanly.  Require the marker so that regression fails loudly + fast.
 	@if ! grep -q "=== run end ===" build/amiga/test-results.log; then \
-		echo "=== Amiga verification FAILED (clamiga did not exit cleanly — shutdown hang?) ==="; \
+		echo "=== Amiga verification FAILED (amilisp did not exit cleanly — shutdown hang?) ==="; \
 		exit 1; \
 	fi
 	@# run-tests.lisp registers an EXT:*EXIT-HOOKS* hook that can only run from

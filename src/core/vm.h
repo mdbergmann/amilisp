@@ -87,7 +87,7 @@ void cl_dynbind_restore_to(int mark);
 #define CL_NLX_TYPE_COUNT 5
 /* Main-thread NLX stack depth (nested CATCH / UNWIND-PROTECT / BLOCK /
  * TAGBODY / HANDLER-CASE frames).  The stack is platform_alloc'd up front,
- * outside the GC arena, for every clamiga process.
+ * outside the GC arena, for every amilisp process.
  *
  * 68k AmigaOS gets a smaller budget, 2x what its workers have always run
  * with (CL_WORKER_NLX_FRAMES): a frame is 330 bytes on m68k, so the

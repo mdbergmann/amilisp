@@ -13,7 +13,7 @@ documented below.
 ## IEEE float bit access
 
 Convert between floats and their raw IEEE-754 bit patterns. Used by the
-**float-features** CL-Amiga fork (e.g. so jzon can serialize floats).
+**float-features** AmiLisp fork (e.g. so jzon can serialize floats).
 
 | Signature | Kind | Description |
 |-----------|------|-------------|

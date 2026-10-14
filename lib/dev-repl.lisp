@@ -11,7 +11,7 @@
 ;;; behind it.  So the REPL is a second thread, and the conversation is
 ;;; two-way:
 ;;;
-;;;   editor -> clamiga (commands, replied at once)
+;;;   editor -> amilisp (commands, replied at once)
 ;;;     REPL-ATTACH <port>   start the REPL thread; PORT is the editor's
 ;;;                          ARexx port, where the traffic below goes
 ;;;     REPL-EVAL <forms>    queue the forms; rc 10 while one is running
@@ -19,7 +19,7 @@
 ;;;     REPL-INTERRUPT       abort the running form
 ;;;     REPL-DETACH          stop the thread
 ;;;
-;;;   clamiga -> editor (sent from the REPL thread, through *REPL-SEND*)
+;;;   amilisp -> editor (sent from the REPL thread, through *REPL-SEND*)
 ;;;     OUTPUT <text>        a chunk of output: flushed on newline, on a
 ;;;                          size threshold and before RESULT
 ;;;     READLINE             the form is reading a line from standard
@@ -492,7 +492,7 @@ checks on the REPL thread itself."
 ;;; The debugger (on the REPL thread)
 ;;;
 ;;; %REPL-DEBUGGER-HOOK is the HANDLER-BIND handler around every form.
-;;; It runs on top of the erring stack -- clamiga runs handlers before
+;;; It runs on top of the erring stack -- amilisp runs handlers before
 ;;; unwinding, for runtime errors too -- so the frames, their locals and
 ;;; the restarts are all still there while the thread parks below.  The
 ;;; frames are snapshotted for BACKTRACE (the handler thread answers that

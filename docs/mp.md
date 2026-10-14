@@ -8,7 +8,7 @@ with safepoints across all live threads.
 
 - **Package:** `MP` (uses `CL`)
 - **Inherited by:** `COMMON-LISP-USER`.
-- This package backs the **bordeaux-threads** CL-Amiga fork (BT v1 and v2), which
+- This package backs the **bordeaux-threads** AmiLisp fork (BT v1 and v2), which
   is what most concurrent libraries (Sento, lparallel, …) build on.
 
 ```lisp

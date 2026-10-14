@@ -1,6 +1,6 @@
 ;;; ahi-play.lisp — sound through AHI (AMIGA.AHI), both tiers
 ;;;
-;;;   clamiga --load examples/amiga/audio/ahi-play.lisp
+;;;   amilisp --load examples/amiga/audio/ahi-play.lisp
 ;;;
 ;;; AHI is opt-in: this program asks for it with (require "amiga/ahi").
 ;;; It lists the audio modes of the installed drivers, plays a tone on

@@ -12,7 +12,7 @@
 #      disabled, etc.), this watchdog sees the "=== run end ===" marker that
 #      call-on-ustartup writes at completion and kills FS-UAE after a short
 #      grace period.
-#   3. Stall / hard kill: if clamiga hangs or Gurus *before* reaching that
+#   3. Stall / hard kill: if amilisp hangs or Gurus *before* reaching that
 #      marker, the log stops growing — kill after STALL_TIMEOUT with no new
 #      output, or HARD_TIMEOUT total, whichever comes first.
 #

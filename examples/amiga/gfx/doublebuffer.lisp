@@ -25,7 +25,7 @@
 ;;; standing still, the Lisp version starts running.
 ;;;
 ;;; Run on AmigaOS 3.1+ (V39 graphics / intuition):
-;;;   clamiga --load examples/amiga/gfx/doublebuffer.lisp
+;;;   amilisp --load examples/amiga/gfx/doublebuffer.lisp
 ;;; Unattended (the examples' harness and the test suite do this): set
 ;;; amiga.intuition:*event-loop-timeout* to a number of seconds first.
 ;;; RUN returns a plist of what happened (:frames :held-off :seconds).

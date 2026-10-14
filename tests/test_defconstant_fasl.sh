@@ -14,9 +14,9 @@
 # defconstant to a FASL in one process and verifies CONSTANTP in a SEPARATE
 # fresh process that only loads the FASL.
 #
-# Run: sh tests/test_defconstant_fasl.sh [path-to-clamiga]
+# Run: sh tests/test_defconstant_fasl.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 passed=0
 failed=0
 TMP="${TMPDIR:-/tmp}/clamiga-dcfasl-$$"

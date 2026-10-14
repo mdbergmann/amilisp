@@ -1,4 +1,4 @@
-;;; amiga/boopsi.lisp — toolkit-neutral BOOPSI helpers for CL-Amiga
+;;; amiga/boopsi.lisp — toolkit-neutral BOOPSI helpers for AmiLisp
 ;;;
 ;;; Loaded via (require "amiga/boopsi").
 ;;;

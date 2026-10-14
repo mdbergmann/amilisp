@@ -13,9 +13,9 @@
 ;;; tags, RA_OpenWindow / RA_HandleInput as OPEN-WINDOW / DO-WINDOW-EVENTS.
 ;;;
 ;;; Run on AmigaOS 3.5+/3.2 or MorphOS (ReAction classes required):
-;;;   clamiga --load examples/amiga/reaction/buttons.lisp
+;;;   amilisp --load examples/amiga/reaction/buttons.lisp
 ;;; Unattended (auto-closes after 5 s):
-;;;   clamiga --eval '(require "amiga/reaction")' \
+;;;   amilisp --eval '(require "amiga/reaction")' \
 ;;;           --eval '(setf amiga.reaction:*event-loop-timeout* 5)' \
 ;;;           --load examples/amiga/reaction/buttons.lisp
 

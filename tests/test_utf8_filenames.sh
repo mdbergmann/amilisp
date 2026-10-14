@@ -13,9 +13,9 @@
 # The driver is a UTF-8 source FILE, not an --eval argument, because the
 # reader decodes UTF-8 from a stream and not from a C string.
 #
-# Run: sh tests/test_utf8_filenames.sh [path-to-clamiga]
+# Run: sh tests/test_utf8_filenames.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 TMP="${TMPDIR:-/tmp}/clamiga_utf8names_$$"
 mkdir -p "$TMP"
 trap 'rm -rf "$TMP"' EXIT

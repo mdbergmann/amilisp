@@ -1,4 +1,4 @@
-;;;; CLOS Implementation for CL-Amiga
+;;;; CLOS Implementation for AmiLisp
 ;;;; Practical subset: defclass, defgeneric, defmethod, make-instance,
 ;;;; slot-value, class-of, with-slots, standard method combination.
 ;;;; Loaded on demand via (require "clos").
@@ -787,7 +787,7 @@ directly instead of attempting a symbol lookup."
          (unless idx
            (error "~S has no slot named ~S" instance slot-name))
          (%struct-ref instance idx)))
-      ;; Conditions are a distinct object type in clamiga (not CLOS instances),
+      ;; Conditions are a distinct object type in amilisp (not CLOS instances),
       ;; but CLHS 9.1 permits SLOT-VALUE on them — delegate to the condition
       ;; slot machinery so WITH-SLOTS / SLOT-VALUE work on condition objects.
       ((conditionp instance)
@@ -4591,7 +4591,7 @@ class to react."
 ;;; ====================================================================
 ;;;
 ;;; Symbols and classes that closer-mop imports from an implementation's
-;;; MOP package.  We keep them in CL/MOP so the CL-Amiga closer-mop fork's
+;;; MOP package.  We keep them in CL/MOP so the AmiLisp closer-mop fork's
 ;;; #+clamiga package — which (:use #:common-lisp #:mop) and re-exports —
 ;;; yields the right objects.  Most of these are placeholders — user-defined
 ;;; metaclasses are out of scope — but the names must exist for the fork's

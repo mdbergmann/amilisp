@@ -22,7 +22,7 @@
 ;;;
 ;;; Usage (Amiga; on a host build every row reports the same two numbers
 ;;; because the JIT is compiled out):
-;;;   clamiga --no-userinit --heap 8M --non-interactive --load trunk/bench-jit-call.lisp
+;;;   amilisp --no-userinit --heap 8M --non-interactive --load trunk/bench-jit-call.lisp
 ;;;   (defparameter cl-user::*bjc-n* 50000) first to rescale on a slow box.
 
 (defvar *bjc-n* 200000

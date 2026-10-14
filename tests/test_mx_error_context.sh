@@ -6,9 +6,9 @@
 # feature — surfaces only as an arity error deep inside the expander.
 # Also: a caught-and-recovered expansion error must NOT leave stale
 # context that mislabels a later, unrelated error.
-# Run: sh tests/test_mx_error_context.sh [path-to-clamiga]
+# Run: sh tests/test_mx_error_context.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0

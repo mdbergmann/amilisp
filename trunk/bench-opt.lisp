@@ -33,7 +33,7 @@
 ;;;     *bo-scale* multiplies only the repetition counts.
 ;;;
 ;;; Usage:
-;;;   host:   ./build/host/clamiga --heap 64M --load trunk/bench-opt.lisp
+;;;   host:   ./build/host/amilisp --heap 64M --load trunk/bench-opt.lisp
 ;;;   Amiga:  set the knobs before loading, e.g.:
 ;;;             (defparameter cl-user::*bo-scale* 1/20)
 ;;;             (defparameter cl-user::*bo-set-size* 150)

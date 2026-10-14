@@ -5,7 +5,7 @@
  *
  * Specified behavior follows the HyperSpec for make-array / aref / elt /
  * fill / subseq / array-element-type / upgraded-array-element-type / typep
- * on specialized arrays; where clamiga deliberately restricts a feature
+ * on specialized arrays; where amilisp deliberately restricts a feature
  * (vector-push-extend / adjust-array on packed storage), the tests pin the
  * clean-error behavior so it never degrades into silent corruption.
  */

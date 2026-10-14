@@ -22,7 +22,7 @@
 ;;; Library base  opened at load time on AmigaOS/MorphOS; NIL on other
 ;;; hosts (the module still loads there for testing and compilation).
 ;;; Base and version are re-derived after a heap-image restore, before
-;;; ~/.clamigarc runs (AMIGA.FFI:DEFINE-LIBRARY-VARIABLE).
+;;; ~/.amilisprc runs (AMIGA.FFI:DEFINE-LIBRARY-VARIABLE).
 ;;; misc.resource is a device/resource: there is no OpenLibrary.  Set the base
 ;;; yourself (IORequest io_Device after OpenDevice, or OpenResource);
 ;;; a restore sets it back to NIL.

@@ -11,7 +11,7 @@
 ;;; the gadget is gone (FREE-LIST-NODES).
 ;;;
 ;;; Run on AmigaOS 3.5+/3.2 or MorphOS (ReAction classes required):
-;;;   clamiga --load examples/amiga/reaction/chooser.lisp
+;;;   amilisp --load examples/amiga/reaction/chooser.lisp
 
 (require "amiga/reaction")
 (require "amiga/raw/exec")

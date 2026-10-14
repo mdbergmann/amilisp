@@ -1,6 +1,6 @@
 ;;;; dump-package-symbols.lisp
 ;;;;
-;;;; Print the external symbols of CL-Amiga's host-available extension
+;;;; Print the external symbols of AmiLisp's host-available extension
 ;;;; packages, one "PACKAGE|SYMBOL" line per export, sorted.  Consumed by
 ;;;; tools/docs/package-symbols.sh (the `make docs-check` / `make docs-update`
 ;;;; machinery) to keep docs/*.md symbol lists in sync with the real image.

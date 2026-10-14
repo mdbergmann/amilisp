@@ -2,9 +2,9 @@
 # Boot progress logging is opt-in via --boot-log:
 #   - default output carries no "; [boot]" / "; [clos]" / "; [jit]" lines
 #   - --boot-log prints the streamlined boot phase timings
-# Run: sh tests/test_boot_log.sh [path-to-clamiga]
+# Run: sh tests/test_boot_log.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0

@@ -7,7 +7,7 @@
 ;;; The TCP twin of lib/amiga/arexx.lisp: a listener that hands each command
 ;;; string to EXT.DEV:HANDLE-COMMAND and ships the reply back -- what the
 ;;; host Clamacs talks to (specs/clamacs-host.md in the clamacs submodule,
-;;; "The wire"), and, with :HOST, what a Mac Clamacs driving an Amiga clamiga
+;;; "The wire"), and, with :HOST, what a Mac Clamacs driving an Amiga amilisp
 ;;; over the LAN talks to.  Every decision about what a command MEANS stays
 ;;; in lib/dev-commands.lisp; this file is a transport.
 ;;;
@@ -36,9 +36,9 @@
 ;;;     the listener owns it, so no command can be reached around it.  The
 ;;;     token is compared in constant time.
 ;;;   - WHERE IT COMES FROM: 128 bits from the OS entropy source
-;;;     (/dev/urandom), hex, per START -- printed once to this clamiga's
+;;;     (/dev/urandom), hex, per START -- printed once to this amilisp's
 ;;;     standard output, since whoever started it has to hand it to the
-;;;     editor -- or the :TOKEN argument for a clamiga where there is no such
+;;;     editor -- or the :TOKEN argument for a amilisp where there is no such
 ;;;     source (an Amiga, Windows: the user picks it) and for one started by
 ;;;     an editor that drew the token itself and put it in the child's
 ;;;     environment.  START refuses to listen without one or the other.
@@ -57,7 +57,7 @@
 ;;; The REPL's way back (lib/dev-repl.lisp): the editor attaches with
 ;;; `REPL-ATTACH tcp:HOST:PORT/TOKEN', naming ITS port and ITS token -- handed
 ;;; over on the already authenticated connection, so it is on no command line
-;;; and in no file this clamiga reads -- and EXT.DEV:*REPL-SEND* routes a port
+;;; and in no file this amilisp reads -- and EXT.DEV:*REPL-SEND* routes a port
 ;;; name of that form to a connection SEND opens to the editor (AUTH first),
 ;;; kept open across the REPL thread's OUTPUT / READLINE / RESULT / DEBUGGER
 ;;; traffic.  Any other port name goes on to the sender this file found
@@ -516,7 +516,7 @@ which may be a connection thread running STOP."
 (defun stop (&optional (server *server*))
   "Stop accepting, end every connection, close the connections to editors.
 Safe from a connection thread (`EVAL (ext.dev.tcp:stop)' over the port
-itself is how an editor ends a clamiga it started): that thread finishes
+itself is how an editor ends a amilisp it started): that thread finishes
 its reply after the rest is down.  True when a server was stopped."
   (when (and server (not (server-quit server)))
     (setf (server-quit server) t)
@@ -552,7 +552,7 @@ its reply after the rest is down.  True when a server was stopped."
 
 (defun wait (&optional (server *server*))
   "Block until SERVER is stopped: what a `--load' preamble whose only job
-is to serve the port ends with, so the clamiga stays up until an editor
+is to serve the port ends with, so the amilisp stays up until an editor
 sends `EVAL (ext.dev.tcp:stop)' or the user ends it.  Returns once the
 connection threads are done too."
   (when server

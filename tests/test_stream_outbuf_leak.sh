@@ -15,9 +15,9 @@
 #    over one block's worth of simultaneously-open streams must work and
 #    every stream's content must survive.
 #
-# Run: sh tests/test_stream_outbuf_leak.sh build/host/clamiga
+# Run: sh tests/test_stream_outbuf_leak.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then

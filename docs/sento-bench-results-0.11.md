@@ -61,9 +61,9 @@ per-primitive entries and the interleaved-A/B method note.
   macOS 26.6.2). Both binaries built today with Apple clang 21.0.0
   (clang-2100.3.34.2; the 0.10 entry's build was clang-2100.x of Xcode
   26.6), the Makefile's default `make host` (whole-program LTO except
-  `vm.o`). No backup was running; two idle clamiga processes of other
+  `vm.o`). No backup was running; two idle amilisp processes of other
   sessions (0% CPU) were parked on the machine.
-- **Binary**: `build/host/clamiga` of each worktree, `--heap 192M`,
+- **Binary**: `build/host/amilisp` of each worktree, `--heap 192M`,
   `CLAMIGA_FORCE_SPEED=3`.
 - **Collector**: generational (host default), TLABs active — both
   binaries.
@@ -96,7 +96,7 @@ pinned through the driver's `ATOMICS_DIR` hook:
 ```
 CLAMIGA_FASL_CACHE_DIR=/path/to/fresh/dir CLAMIGA_FORCE_SPEED=3 \
     ATOMICS_DIR=/path/to/sento-worktree \
-    ./build/host/clamiga --no-userinit --heap 192M --non-interactive \
+    ./build/host/amilisp --no-userinit --heap 192M --non-interactive \
     --load trunk/sento-bench-matrix.lisp
 ```
 

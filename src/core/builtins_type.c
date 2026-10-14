@@ -66,7 +66,7 @@ int cl_type_is_s16_subtype(CL_Obj type);
 
 /* --- Upgraded array element classes (shared by TYPEP and SUBTYPEP) ---
  *
- * clamiga specializes array storage on exactly these element classes:
+ * amilisp specializes array storage on exactly these element classes:
  * BIT (bit-vectors), CHAR (strings), U8/S8 (packed byte vectors), and the
  * annotated general-vector codes FIXNUM / SINGLE-FLOAT / DOUBLE-FLOAT; every
  * other element type upgrades to T.  TYPEP and SUBTYPEP must both map an
@@ -181,7 +181,7 @@ enum {
 };
 
 /* The standard type names, in COMMON-LISP, and their codes.  SHORT-FLOAT
- * and LONG-FLOAT are clamiga's single/double aliases; GENERIC-FUNCTION and
+ * and LONG-FLOAT are amilisp's single/double aliases; GENERIC-FUNCTION and
  * STANDARD-GENERIC-FUNCTION answer alike, as do STRUCTURE and
  * STRUCTURE-OBJECT.  Keep in sync with the switch in typep_builtin_code. */
 static const struct { const char *name; uint8_t code; } typep_name_codes[] = {
@@ -3052,7 +3052,7 @@ static CL_Obj bi_subtypep(CL_Obj *args, int n)
  * for the symbol NAME, or NIL if NAME has no deftype expander.
  *
  * Exposes the internal deftype type_table to Lisp so a portable typexpand
- * can be implemented on top of it (see the CL-Amiga introspect-environment
+ * can be implemented on top of it (see the AmiLisp introspect-environment
  * fork's #+cl-amiga typexpand in default.lisp).  The returned closure takes the
  * compound type's arguments — e.g. the expander for `(deftype foo (a b) ...)`
  * is applied to (a b); an atom deftype's expander takes no arguments. */

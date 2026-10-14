@@ -5,7 +5,7 @@
 ;; an actual perf measurement.
 ;;
 ;; Usage:
-;;   ./build/host/clamiga --heap 192M --load trunk/run-sento-bench.lisp
+;;   ./build/host/amilisp --heap 192M --load trunk/run-sento-bench.lisp
 ;;
 ;; Cold cache wants ~192M (cl-unicode + serapeum).  After the cache is
 ;; warm, --heap 64M is plenty.

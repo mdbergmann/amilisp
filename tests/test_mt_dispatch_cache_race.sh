@@ -28,9 +28,9 @@
 # simultaneously.  A cross-linked or half-swapped table shows up as a crash
 # (non-zero exit) or a wrong / errored dispatch result.
 #
-# Run: sh tests/test_mt_dispatch_cache_race.sh build/host/clamiga
+# Run: sh tests/test_mt_dispatch_cache_race.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then

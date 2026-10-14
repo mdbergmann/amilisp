@@ -1,5 +1,5 @@
 ;; Test loading FSet via (ql:quickload :fset)
-;; Run: clamiga --heap 24M --non-interactive --load tests/amiga/test-fset-asdf.lisp
+;; Run: amilisp --heap 24M --non-interactive --load tests/amiga/test-fset-asdf.lisp
 
 (format t "~%; === FSet quickload test ===~%")
 

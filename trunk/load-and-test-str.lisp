@@ -2,7 +2,7 @@
 ;; Works on both host and Amiga.
 ;;
 ;; Usage:
-;;   ./build/host/clamiga --heap 64M --load trunk/load-and-test-str.lisp
+;;   ./build/host/amilisp --heap 64M --load trunk/load-and-test-str.lisp
 
 (require "asdf")
 

@@ -1,4 +1,4 @@
-;;; amiga/gadtools.lisp — GadTools library abstractions for CL-Amiga
+;;; amiga/gadtools.lisp — GadTools library abstractions for AmiLisp
 ;;;
 ;;; Loaded via (require "amiga/gadtools").
 ;;; Provides gadget creation, menu construction, and GadTools message handling.

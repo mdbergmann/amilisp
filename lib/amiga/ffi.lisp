@@ -63,7 +63,7 @@ with this at load time."
 ;;; expunged while in use.  A module therefore declares its base -- and
 ;;; whatever it derives from it, the library's version -- with
 ;;; DEFINE-LIBRARY-VARIABLE: a DEFVAR whose init form runs again after a
-;;; restore, before ~/.clamigarc (the runtime's EXT::*SYSTEM-RESTORE-HOOKS*),
+;;; restore, before ~/.amilisprc (the runtime's EXT::*SYSTEM-RESTORE-HOOKS*),
 ;;; exactly as a fresh load runs it.
 
 (defvar *library-variables* '()
@@ -84,7 +84,7 @@ restore, so a version defined after its base sees the new base.")
   "DEFVAR NAME with INIT-FORM, a value the running system decides -- a
 library base (OPEN-LIBRARY-OR-DIE, AMIGA:OPEN-LIBRARY), the version of
 one, NIL for a device or resource base the program sets itself -- and
-evaluate INIT-FORM again after a heap-image restore, before ~/.clamigarc
+evaluate INIT-FORM again after a heap-image restore, before ~/.amilisprc
 runs: the image's copy belongs to the saving process (a restore zeroes
 every foreign pointer).  Variables are re-derived in the order they were
 defined.  An INIT-FORM that signals then leaves NAME NIL and says so on

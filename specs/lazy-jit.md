@@ -25,7 +25,7 @@ of what load time compiles is cold.
 
 And heap images: `image.c` drops native code on restore (the buffers are
 off-heap), and since the JIT ran only at creation, **nothing in an image
-was ever compiled again** — every shipped `clamiga.img` ran boot + CLOS as
+was ever compiled again** — every shipped `amilisp.img` ran boot + CLOS as
 bytecode.
 
 ## Policy

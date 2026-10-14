@@ -12,9 +12,9 @@
 #
 # Stress twin: the "read-label" case of tests/test_gc_stress_regression.sh.
 #
-# Run: sh tests/test_reader_label_gc.sh [path-to-clamiga]
+# Run: sh tests/test_reader_label_gc.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 case "$CLAMIGA" in
     /*|[A-Za-z]:/*) ;;
     *) CLAMIGA="$(cd "$(dirname "$CLAMIGA")" && pwd)/$(basename "$CLAMIGA")" ;;

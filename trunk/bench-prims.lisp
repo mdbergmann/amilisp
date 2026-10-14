@@ -5,7 +5,7 @@
 ;;; generic dispatch, slot access, dynamic binding, unwind-protect /
 ;;; handler-case, locks, allocation), each timed in a tight loop with the
 ;;; empty-loop cost subtracted.  The file is portable — the same rows run
-;;; unchanged on clamiga, ECL and SBCL — so every row carries its own
+;;; unchanged on amilisp, ECL and SBCL — so every row carries its own
 ;;; native-compiler reference point.  Baselines: docs/benchmarks.md
 ;;; 2026-09-08.
 ;;;
@@ -18,13 +18,13 @@
 ;;;   - Callees are declared NOTINLINE so a call really is a call.
 ;;;   - (optimize (speed 1) (safety 1) (debug 1)) everywhere: the settings
 ;;;     third-party code (sento) is compiled with by default.  Re-run
-;;;     clamiga with CLAMIGA_FORCE_SPEED=3 to see the peephole's effect
+;;;     amilisp with CLAMIGA_FORCE_SPEED=3 to see the peephole's effect
 ;;;     (2026-09-08: none — see the spec).
 ;;;   - Output is one machine-parseable line per row:
 ;;;       PRIM <name> ns=<net>
 ;;;
 ;;; Usage:
-;;;   clamiga: ./build/host/clamiga --no-userinit --heap 64M --non-interactive \
+;;;   amilisp: ./build/host/amilisp --no-userinit --heap 64M --non-interactive \
 ;;;                --load trunk/bench-prims.lisp
 ;;;   ECL:     ecl --norc --eval '(progn (load (compile-file "trunk/bench-prims.lisp"
 ;;;                :output-file "/tmp/bench-prims.fas")) (quit))'

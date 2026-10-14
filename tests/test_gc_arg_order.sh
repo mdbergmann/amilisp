@@ -10,7 +10,7 @@
 # heap size, and nowhere else.  That is not something a runtime test can
 # pin down, so this check reads the sources instead.
 #
-# Run: sh tests/test_gc_arg_order.sh        (no clamiga binary needed)
+# Run: sh tests/test_gc_arg_order.sh        (no amilisp binary needed)
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 CHECK="$ROOT/tests/gc_arg_order.pl"

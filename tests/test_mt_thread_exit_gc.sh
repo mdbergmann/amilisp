@@ -17,7 +17,7 @@
 #    host/scheduler — see Case 1b below for a deterministic trigger.
 #
 # 1b. Deterministic trigger for the same bug: when a second argument is
-#    given, it must be a clamiga built with -DDEBUG_THREAD_RACE_HOOKS (see
+#    given, it must be a amilisp built with -DDEBUG_THREAD_RACE_HOOKS (see
 #    `make test-mt-thread-exit-race`).  That build's constructor
 #    (src/core/thread.c) spawns one worker that never reaches a safepoint
 #    and forces it to unregister at the exact instant the STW initiator
@@ -34,9 +34,9 @@
 #    report 0 violations after threads were created from two racing
 #    parents.
 #
-# Run: sh tests/test_mt_thread_exit_gc.sh build/host/clamiga [race-hook-clamiga]
+# Run: sh tests/test_mt_thread_exit_gc.sh build/host/amilisp [race-hook-clamiga]
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 RACE_CLAMIGA="$2"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)

@@ -6,17 +6,17 @@
 # CLAMIGA_MEM_DIAG=1 prints whatever is still outstanding at exit.
 #
 # Why this is a real test and not hygiene: AmigaOS does not reclaim a
-# process's memory.  A block clamiga fails to free is Fast RAM gone from the
-# system pool until the machine reboots — this suite exists because clamiga
+# process's memory.  A block amilisp fails to free is Fast RAM gone from the
+# system pool until the machine reboots — this suite exists because amilisp
 # lost 3,743,160 bytes on every single launch, measured with `Avail` on a
 # Vampire.  A host build cannot observe that at all, so the tracer is the only
 # way to keep it fixed from CI.
 #
 # Each scenario below is run to completion and must report zero blocks live.
 #
-# Run: sh tests/test_memleak_tracked.sh build/host-memtrack/clamiga
+# Run: sh tests/test_memleak_tracked.sh build/host-memtrack/amilisp
 
-CLAMIGA="${1:-build/host-memtrack/clamiga}"
+CLAMIGA="${1:-build/host-memtrack/amilisp}"
 case "$CLAMIGA" in
   /*) ;;
   *) CLAMIGA="$(pwd)/$CLAMIGA" ;;

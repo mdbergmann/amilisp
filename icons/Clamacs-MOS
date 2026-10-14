@@ -1,10 +1,10 @@
 ; Clamacs-MOS -- double-click launcher (run by C:IconX, see Clamacs-MOS.info).
-; Starts the editor/IDE on the native MorphOS build: bin/mos/clamiga restored
+; Starts the editor/IDE on the native MorphOS build: bin/mos/amilisp restored
 ; from the clamacs.img next to it (the editor, already loaded) and told to
 ; run it.  MorphOS only -- on AmigaOS 3 use Clamacs or Clamacs-FPU.  The
-; editor talks to a running clamiga over ARexx and can start one itself
+; editor talks to a running amilisp over ARexx and can start one itself
 ; (PROGDIR:clamiga, i.e. the same binary).  MUI and TextEditor.mcc come with
 ; MorphOS.  Files to edit go after `--' when started from a shell;
 ; S:.clamacsrc is loaded first.
 Stack 131072
-Run >NIL: bin/mos/clamiga --image bin/mos/clamacs.img --heap 8M --non-interactive --eval "(clamacs::run)"
+Run >NIL: bin/mos/amilisp --image bin/mos/clamacs.img --heap 8M --non-interactive --eval "(clamacs::run)"

@@ -5,9 +5,9 @@
 # print, so a peer thread sampling *PRINT-BASE* while another thread runs
 # (write-to-string x :base 2) observed base 2 (pre-fix: ~19.5k of 20k
 # samples clobbered on the macOS scheduler; post-fix: zero).
-# Run: sh tests/test_mt_print_controls.sh build/host/clamiga
+# Run: sh tests/test_mt_print_controls.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0

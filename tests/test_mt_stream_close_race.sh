@@ -15,9 +15,9 @@
 #       stream whose symbol was bound to e.g. a string treated the
 #       string as a CL_Stream and scribbled stream fields into it.
 #
-# Run: sh tests/test_mt_stream_close_race.sh build/host/clamiga
+# Run: sh tests/test_mt_stream_close_race.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then

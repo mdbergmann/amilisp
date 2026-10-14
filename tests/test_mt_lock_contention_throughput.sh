@@ -27,9 +27,9 @@
 # Also hammers one lock from 8 threads with work under the lock and
 # checks the final counter: mutual exclusion + every parked waiter woken.
 #
-# Run: sh tests/test_mt_lock_contention_throughput.sh build/host/clamiga
+# Run: sh tests/test_mt_lock_contention_throughput.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then

@@ -18,9 +18,9 @@
 #      signal a clean, catchable error (never crash or corrupt), and the
 #      session must remain usable afterwards.
 #
-# Run: sh tests/test_stack_depth.sh build/host/clamiga
+# Run: sh tests/test_stack_depth.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then

@@ -1065,7 +1065,7 @@ void cl_builtins_pathname_init(void)
  *
  * Called at init and again after a heap-image restore (image.c): the value
  * is heap state and comes back with the image, i.e. it would name the cwd
- * of the process that SAVED the image — for a shipped clamiga.img, a
+ * of the process that SAVED the image — for a shipped amilisp.img, a
  * directory on the build machine — and every relative LOAD/REQUIRE would
  * resolve there while the existence checks look at the real cwd. */
 void cl_pathname_default_from_cwd(void)

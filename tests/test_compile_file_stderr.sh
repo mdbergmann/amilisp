@@ -11,9 +11,9 @@
 # completed all work but never exited.  Diagnostics from the runtime must go
 # through the Lisp stream layer (stdout / *ERROR-OUTPUT*), never raw stderr.
 #
-# Run: sh tests/test_compile_file_stderr.sh [path-to-clamiga]
+# Run: sh tests/test_compile_file_stderr.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 TMP="${TMPDIR:-/tmp}/clamiga-cfstderr-$$"
 mkdir -p "$TMP"
 cleanup() { rm -rf "$TMP" 2>/dev/null; }

@@ -1,4 +1,4 @@
-;;; amiga/intuition.lisp — Intuition library abstractions for CL-Amiga
+;;; amiga/intuition.lisp — Intuition library abstractions for AmiLisp
 ;;;
 ;;; Loaded via (require "amiga/intuition").
 ;;; Provides high-level window/screen/IDCMP management.
@@ -257,7 +257,7 @@ AMIGA.GFX:SET-RGB4 wants for setting the screen palette."
 ;;; title string; CLOSE-WINDOW/CLOSE-SCREEN free it.
 (defvar *title-strings* (make-hash-table))
 
-(defun open-window (&key (title "CL-Amiga") (left 0) (top 0)
+(defun open-window (&key (title "AmiLisp") (left 0) (top 0)
                          (width 320) (height 200) screen
                          (idcmp +idcmp-closewindow+)
                          (flags (logior +wflg-closegadget+
@@ -326,7 +326,7 @@ Returns a foreign pointer to the Window struct, or signals an error."
 ;;; ================================================================
 
 (defun open-screen (&key (width 640) (height 256) (depth 2)
-                         (title "CL-Amiga") mode-id show-title)
+                         (title "AmiLisp") mode-id show-title)
   "Open a custom Intuition screen via OpenScreenTagList.
 MODE-ID non-NIL requests that display mode (SA_DisplayID) -- obtain one
 RTG-safely with AMIGA.GFX:BEST-MODE-ID; NIL leaves the mode to

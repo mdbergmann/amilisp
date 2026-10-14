@@ -1972,7 +1972,7 @@ if left unspecified, will be the NEXT-VERSION of the immediate lower level of de
 
   #+cl-amiga
   (defmacro with-deprecation ((level) &body definitions)
-    "CL-Amiga simplified: no deprecation instrumentation."
+    "AmiLisp simplified: no deprecation instrumentation."
     (declare (ignore level))
     `(progn ,@definitions))
 
@@ -3289,7 +3289,7 @@ you need to still be able to use compile-op on that lisp file."))
         #+sbcl (sb-ext:native-namestring p)
         #-(or clozure cmucl sbcl scl)
         (os-cond
-         ;; CL-Amiga on Windows is :UNIX to UIOP, but a namestring there
+         ;; AmiLisp on Windows is :UNIX to UIOP, but a namestring there
          ;; has a drive letter, which is the pathname's device
          #+(and cl-amiga windows) (t (namestring p))
          ((os-unix-p) (unix-namestring p))
@@ -3310,7 +3310,7 @@ a CL pathname satisfying all the specified constraints as per ENSURE-PATHNAME"
                  #+scl (lisp::parse-unix-namestring string)
                  #-(or clozure cmucl sbcl scl)
                  (os-cond
-                  ;; CL-Amiga on Windows: the drive letter is the device, and
+                  ;; AmiLisp on Windows: the drive letter is the device, and
                   ;; what the environment hands over may be spelled with "\"
                   #+(and cl-amiga windows)
                   (t (parse-namestring (substitute #\/ #\\ string)))
@@ -3775,7 +3775,7 @@ Note that this operation is usually NOT thread-safe."
 (with-upgradability ()
   (defun inter-directory-separator ()
     "What character does the current OS conventionally uses to separate directories?"
-    ;; CL-Amiga on Windows is :UNIX to UIOP, but a directory there starts
+    ;; AmiLisp on Windows is :UNIX to UIOP, but a directory there starts
     ;; with a drive letter and its colon.
     #+(and cl-amiga windows) #\;
     #-(and cl-amiga windows)
@@ -14180,7 +14180,7 @@ using (SYS:UPDATE-ALLEGRO)."))
   (asdf-message ";; ASDF, version ~a~%" (asdf-version)))
 
 ;;; ===================================================================
-;;; CL-Amiga adaptations
+;;; AmiLisp adaptations
 ;;; Each form is individually guarded by #+cl-amiga so that
 ;;; (in-package ...) takes effect at read time between forms.
 ;;; ===================================================================
@@ -14227,7 +14227,7 @@ using (SYS:UPDATE-ALLEGRO)."))
   (defmethod (setf planned-output-action-count) (val (obj (eql nil))) val))
 
 ;;; --- FASL compilation mode ---
-;;; CL-Amiga uses real compile-file to produce binary FASLs, and
+;;; AmiLisp uses real compile-file to produce binary FASLs, and
 ;;; real FASL loading via load.  This ensures cross-session compatibility:
 ;;; compiled FASLs persist and can be loaded in subsequent sessions
 ;;; without recompiling from source.
@@ -14237,7 +14237,7 @@ using (SYS:UPDATE-ALLEGRO)."))
 
 #+cl-amiga
 (defun perform-lisp-compilation (o c)
-  "CL-Amiga: compile source to binary FASL using compile-file.
+  "AmiLisp: compile source to binary FASL using compile-file.
 Our compile-file reads, compiles, evaluates, and serializes each form."
   (let* ((input-file (first (input-files o c)))
          (outputs (output-files o c))
@@ -14250,7 +14250,7 @@ Our compile-file reads, compiles, evaluates, and serializes each form."
 
 #+cl-amiga
 (defun perform-lisp-load-fasl (o c)
-  "CL-Amiga: load the compiled FASL.
+  "AmiLisp: load the compiled FASL.
 If the FASL file doesn't exist (compile-file skipped caching), load from source."
   (if-let (fasl (first (input-files o c)))
     (let ((*package* (find-package '#:common-lisp-user)))

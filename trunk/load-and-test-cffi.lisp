@@ -14,7 +14,7 @@
 ;; NIL and the call/callback tests are skipped.
 ;;
 ;; Usage (host):
-;;   ./build/host/clamiga --heap 256M --load trunk/load-and-test-cffi.lisp
+;;   ./build/host/amilisp --heap 256M --load trunk/load-and-test-cffi.lisp
 
 (setq *load-verbose* nil)
 (require "asdf")
@@ -36,5 +36,5 @@
 
 ;; Run the suite; fiveam prints "Pass: N (...) / Fail: N (...)" which the
 ;; trunk/run-load-and-test-all.sh tally recognizes.
-(format t "~%--- Running CFFI clamiga test suite ---~%")
+(format t "~%--- Running CFFI amilisp test suite ---~%")
 (funcall (find-symbol "RUN-CFFI-CLAMIGA-TESTS" "CFFI-CLAMIGA-TEST"))

@@ -8,7 +8,7 @@
 #   -o OUTROOT   where lib/<module>.fasl lands (default: the repo root, i.e.
 #                next to the sources — what `make fasl-amiga` does; the
 #                binary release points it at its staging directory)
-#   -b CLAMIGA   host binary (default build/host/clamiga)
+#   -b CLAMIGA   host binary (default build/host/amilisp)
 #   -D, --no-docstrings
 #                bind AMIGA.FFI:*DEFCFUN-DOCSTRINGS* and
 #                EXT:*CAPTURE-DOCUMENTATION* to NIL for the run, so the
@@ -21,7 +21,7 @@
 #   FILE...      sources relative to the repo root (default: every .lisp
 #                under lib/amiga/, the ReAction/raw-bindings tree)
 #
-# Every file is compiled by ONE clamiga process with CLAMIGA_FASL_PORTABLE=1,
+# Every file is compiled by ONE amilisp process with CLAMIGA_FASL_PORTABLE=1,
 # so a string literal that the byte-string Amiga builds could not load
 # (anything above U+007F) fails the run here, on the host, with the source
 # line in the diagnostic — instead of the Amiga failing the module with
@@ -41,7 +41,7 @@ set -u
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 OUTROOT="$ROOT"
-CLAMIGA="$ROOT/build/host/clamiga"
+CLAMIGA="$ROOT/build/host/amilisp"
 HEAP="${LIBFASL_HEAP:-256M}"
 DOCSTRINGS=1
 
@@ -58,7 +58,7 @@ while [ $# -gt 0 ]; do
 done
 
 # Absolute already?  A drive-letter path (C:/...) is what the Makefile hands
-# the tests as TMPDIR on Windows -- it is absolute for the native clamiga.exe
+# the tests as TMPDIR on Windows -- it is absolute for the native amilisp.exe
 # the paths end up in, and must not get $(pwd) glued in front.
 case "$OUTROOT" in /*|[A-Za-z]:/*) ;; *) OUTROOT="$(pwd)/$OUTROOT" ;; esac
 case "$CLAMIGA" in /*|[A-Za-z]:/*) ;; *) CLAMIGA="$(pwd)/$CLAMIGA" ;; esac
@@ -136,7 +136,7 @@ for src in "$@"; do
 done
 
 if [ $rc -ne 0 ] && [ $fail -eq 0 ]; then
-    echo "compile-lib-fasls: clamiga exited with status $rc" >&2
+    echo "compile-lib-fasls: amilisp exited with status $rc" >&2
     grep -v '^; Loading\|^LIBFASL-' "$LOG" | tail -10 | sed 's/^/    /' >&2
     fail=1
 fi

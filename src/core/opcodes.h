@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 /*
- * Bytecode instruction set for the CL-Amiga VM.
+ * Bytecode instruction set for the AmiLisp VM.
  * Stack-based, byte-oriented encoding.
  *
  * Single source of truth: CL_OPCODE_LIST below is an X-macro that carries,

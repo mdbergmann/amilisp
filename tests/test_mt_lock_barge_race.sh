@@ -20,10 +20,10 @@
 # immediately re-acquires it plain (the barge) inside that window every
 # time; the waiter must still be woken by main's final release.
 #
-# Run: sh tests/test_mt_lock_barge_race.sh build/host/clamiga build/host-race/clamiga
+# Run: sh tests/test_mt_lock_barge_race.sh build/host/amilisp build/host-race/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
-RACE="${2:-build/host-race/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
+RACE="${2:-build/host-race/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then

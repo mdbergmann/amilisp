@@ -6,9 +6,9 @@
 # a new export now fails `make test` until the docs/*.md prose mentions it and
 # `make docs-update` has regenerated the snapshot.
 #
-# Run: sh tests/test_docs_symbols.sh [path-to-clamiga]
+# Run: sh tests/test_docs_symbols.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 case "$CLAMIGA" in
     /*|[A-Za-z]:/*) ;;
     *) CLAMIGA="$(cd "$(dirname "$CLAMIGA")" && pwd)/$(basename "$CLAMIGA")" ;;

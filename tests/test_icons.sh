@@ -1,7 +1,7 @@
 #!/bin/sh
 # The Workbench icons of the binary release (icons/*.info, written by
 # scripts/make-icons.py) -- their on-disk layout, byte by byte, independent
-# of the generator.  Takes no clamiga binary.
+# of the generator.  Takes no amilisp binary.
 #
 # Why a test: the drawer icon's layout is easy to "correct" into something
 # icon.library rejects.  On disk, struct DrawerData is split: its first 56
@@ -18,7 +18,7 @@
 #     UserData, a 48x24 two-plane image
 #   the launchers: project icons, default tool C:IconX, a WINDOW tool
 #     type, 128K stack, pinned to the first two columns of the package
-#     root's 3 x 3 grid (clamiga, Clamacs; soft-float, FPU, MorphOS as the
+#     root's 3 x 3 grid (amilisp, Clamacs; soft-float, FPU, MorphOS as the
 #     rows), each with its IconX script that starts its own build's binary
 #     and nothing else -- no platform detection
 #   the root guide icons: project icons, default tool SYS:Utilities/MultiView,
@@ -75,18 +75,18 @@ project() {
 # the 3 x 3 grid of the package root: columns 64/234/404, rows 8/60/112
 X0=00000040; X1=000000ea; X2=00000194; Y0=00000008; Y1=0000003c; Y2=00000070
 NOPOS=80000000
-project CLAmiga            "C:IconX" $X0 $Y0 131072
-project CLAmiga-FPU        "C:IconX" $X0 $Y1 131072
-project CLAmiga-MOS        "C:IconX" $X0 $Y2 131072
+project AmiLisp            "C:IconX" $X0 $Y0 131072
+project AmiLisp-FPU        "C:IconX" $X0 $Y1 131072
+project AmiLisp-MOS        "C:IconX" $X0 $Y2 131072
 project Clamacs            "C:IconX" $X1 $Y0 131072
 project Clamacs-FPU        "C:IconX" $X1 $Y1 131072
 project Clamacs-MOS        "C:IconX" $X1 $Y2 131072
 project README-FIRST.guide "SYS:Utilities/MultiView" $X2 $Y0 16384
-project cl-amiga.guide     "SYS:Utilities/MultiView" $X2 $Y1 16384
+project amilisp.guide     "SYS:Utilities/MultiView" $X2 $Y1 16384
 project clamacs.guide      "SYS:Utilities/MultiView" $X2 $Y2 16384
 project Guide              "SYS:Utilities/MultiView" $NOPOS $NOPOS 16384
 # the launchers carry their console window as a WINDOW= tool type
-for n in CLAmiga CLAmiga-FPU CLAmiga-MOS Clamacs Clamacs-FPU Clamacs-MOS; do
+for n in AmiLisp AmiLisp-FPU AmiLisp-MOS Clamacs Clamacs-FPU Clamacs-MOS; do
     if LC_ALL=C grep -q "WINDOW=" "icons/$n.info"; then ok "tooltype_window_$n"; else fail "tooltype_window_$n"; fi
 done
 # every launcher icon has its IconX script beside it, and each script runs
@@ -95,26 +95,26 @@ done
 launcher() {
     f="icons/$1"; bad=""
     [ -f "$f" ] || { fail "launcher_script_$1" "missing"; return; }
-    grep -v '^;' "$f" | grep -q "^[^;]*bin/$2/clamiga" || bad="$bad does-not-run-bin/$2"
+    grep -v '^;' "$f" | grep -q "^[^;]*bin/$2/amilisp" || bad="$bad does-not-run-bin/$2"
     for other in aos3 aos3-fpu mos; do
         [ "$other" = "$2" ] && continue
         grep -v '^;' "$f" | grep -q "bin/$other/" && bad="$bad runs-bin/$other"
     done
     grep -v '^;' "$f" | grep -qi 'MorphOS' && bad="$bad platform-detection"
     case $1 in
-        Clamacs*) grep -q "bin/$2/clamiga --image bin/$2/clamacs.img" "$f" || bad="$bad no-editor-image" ;;
+        Clamacs*) grep -q "bin/$2/amilisp --image bin/$2/clamacs.img" "$f" || bad="$bad no-editor-image" ;;
         *) grep -v '^;' "$f" | grep -q 'clamacs' && bad="$bad starts-editor" ;;
     esac
     [ -z "$bad" ] && ok "launcher_script_$1" || fail "launcher_script_$1" "$bad"
 }
-launcher CLAmiga     aos3
-launcher CLAmiga-FPU aos3-fpu
-launcher CLAmiga-MOS mos
+launcher AmiLisp     aos3
+launcher AmiLisp-FPU aos3-fpu
+launcher AmiLisp-MOS mos
 launcher Clamacs     aos3
 launcher Clamacs-FPU aos3-fpu
 launcher Clamacs-MOS mos
 # the root guide icons are Guide.info with a position and nothing else
-for n in README-FIRST cl-amiga clamacs; do
+for n in README-FIRST amilisp clamacs; do
     if [ "$(hex "icons/$n.guide.info" 66 382)" = "$(hex icons/Guide.info 66 382)" ]; then
         ok "guide_icon_same_image_$n"
     else

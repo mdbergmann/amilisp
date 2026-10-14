@@ -3,12 +3,12 @@
 #
 # A CL_Compiler used to hold its bytecode and constants as fixed arrays at the
 # hard limits (262144 bytes, 8192 entries): 366 KB per block, and the compiler
-# pool pre-warms eight blocks, so every clamiga process carried 3 MB of
+# pool pre-warms eight blocks, so every amilisp process carried 3 MB of
 # off-heap memory before its first form.  The buffers now start small, grow
 # on demand up to the same limits, and a pooled block keeps them between
 # compiles unless one compile grew them past the keep size.
 #
-#   sh tests/test_compiler_buffers.sh build/host/clamiga
+#   sh tests/test_compiler_buffers.sh build/host/amilisp
 #
 # Covered:
 #   1. The pool at rest: eight blocks, each a fraction of the old size
@@ -31,7 +31,7 @@
 #
 # Also run under the gc-stress binary (make test-gc-stress).
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 case "$CLAMIGA" in
   /*) ;;
   *) CLAMIGA="$(pwd)/$CLAMIGA" ;;

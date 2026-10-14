@@ -270,10 +270,10 @@ void platform_drain_input(void)
      * The leak has TWO layers, and both must be drained:
      *
      * 1. The Shell's RunCommand() stuffs the command-line tail (arguments +
-     *    terminating '\n' — just "\n" when clamiga is started with no
+     *    terminating '\n' — just "\n" when amilisp is started with no
      *    arguments) into the input FileHandle's internal buffer so that
      *    ReadArgs()-style commands can parse their arguments from Input().
-     *    clamiga takes its arguments from argv instead, so that text is
+     *    amilisp takes its arguments from argv instead, so that text is
      *    still sitting unread in fh_Buf when the REPL starts.
      *    WaitForChar() asks the console HANDLER for pending characters and
      *    never sees handle-level buffered bytes, so the loop below missed
@@ -789,7 +789,7 @@ uint32_t platform_run_time_ms(void)
 {
     /* AmigaOS exec has no per-task CPU accounting — wall-clock time is the
      * best available approximation (and close to exact on a machine where
-     * clamiga is the only busy task). */
+     * amilisp is the only busy task). */
     return platform_time_ms();
 }
 
@@ -981,7 +981,7 @@ const char *platform_executable_path(char *buf, int bufsize)
     /* PROGDIR: plus the program's own file name (dos.library 36+ keeps the
      * name for the process): what a Shell can start, whatever its cwd.
      * GetProgramName hands back the command as the Shell found it, which
-     * can be a full path (Work:apps/clamiga) -- PROGDIR: already stands for
+     * can be a full path (Work:apps/amilisp) -- PROGDIR: already stands for
      * its directory, so only the last component goes after it. */
     char name[128];
     const char *file;
@@ -1268,7 +1268,7 @@ const char *platform_expand_home(const char *path, char *buf, int bufsize)
  *
  * AmigaOS bsdsocket.library is task-specific: the library base AND every
  * socket fd are owned by the task that created them, so a socket cannot be
- * used from a different task.  clamiga threads are separate AmigaOS processes
+ * used from a different task.  amilisp threads are separate AmigaOS processes
  * (CreateNewProc), so naive cross-thread socket I/O blocks forever.
  *
  * To give POSIX-like semantics (any thread may use any socket, including one
@@ -2599,7 +2599,7 @@ static int reactor_ensure(void)
 #else
                 CL_PROC_STACK_TAGS(32768),
 #endif
-                NP_Name,      (ULONG)"clamiga_sockets",
+                NP_Name,      (ULONG)"amilisp_sockets",
                 TAG_DONE);
             if (reactor_proc) {
                 /* On timeout the reactor process may still be starting up
@@ -2618,7 +2618,7 @@ static int reactor_ensure(void)
         if (!reactor_port) {
             reactor_init_failed = 1;
             cl_write_cstring_to_stdout(
-                "clamiga: socket reactor process failed to start - "
+                "amilisp: socket reactor process failed to start - "
                 "sockets are unavailable.\n");
         }
     }
@@ -3188,7 +3188,7 @@ struct Library *IconBase = NULL;
  * freed FileHandle is a "Program failed" requester at exit (seen 2026-09-18
  * in the suite's Workbench leg).  The same goes for the current-directory
  * lock that start set: libnix's exit unlocks it. */
-char *__stdiowin = "CON:0/20/640/200/CL-Amiga/AUTO/CLOSE/WAIT";
+char *__stdiowin = "CON:0/20/640/200/AmiLisp/AUTO/CLOSE/WAIT";
 #endif
 
 static int    wb_started = 0;          /* main() was handed a WBStartup */
@@ -3253,7 +3253,7 @@ int platform_startup_args(int *argc, char ***argv)
     if (wbs && wbs->sm_NumArgs > 0 && wbs->sm_ArgList[0].wa_Name &&
         wbs->sm_ArgList[0].wa_Name[0])
         wb_tool_name = (const char *)wbs->sm_ArgList[0].wa_Name;
-    cl_argv_builder_add(&b, wb_tool_name ? wb_tool_name : "clamiga");
+    cl_argv_builder_add(&b, wb_tool_name ? wb_tool_name : "amilisp");
 
     IconBase = OpenLibrary((CONST_STRPTR)"icon.library", 36);
     if (wbs && wbs->sm_ArgList) {
@@ -3262,7 +3262,7 @@ int platform_startup_args(int *argc, char ***argv)
         for (i = 0; i < wbs->sm_NumArgs; i++)
             wb_read_icon(wbs->sm_ArgList[i].wa_Lock,
                          (const char *)wbs->sm_ArgList[i].wa_Name, &b, &window);
-        /* Every project (a file icon double-clicked with clamiga as its
+        /* Every project (a file icon double-clicked with amilisp as its
          * default tool, or shift-selected with the tool's icon) is one
          * argument after --, as a full path: the program decides what to
          * do with it — it is never loaded on the program's behalf. */
@@ -3296,13 +3296,13 @@ int platform_startup_args(int *argc, char ***argv)
             SelectInput(wb_window_console);
             SelectOutput(wb_window_console);
         } else {
-            platform_write_string("clamiga: cannot open the WINDOW tool type's console: ");
+            platform_write_string("amilisp: cannot open the WINDOW tool type's console: ");
             platform_write_string(window);
             platform_write_string("\n");
         }
     }
     if (b.overflow)
-        platform_write_string("clamiga: too many or too long arguments in the "
+        platform_write_string("amilisp: too many or too long arguments in the "
                               "icons' ARGS tool types and projects; some were dropped\n");
 
     *argc = b.argc;
@@ -3501,7 +3501,7 @@ int platform_ffi_call(void *fn, CLFFIType ret_type, CLFFIValue *ret_val,
  * frame[15] is the caller's return address, frame[16..] its C-stack
  * arguments.  Register arguments (struct Hook: a0/a2/a1; BOOPSI dispatcher:
  * the same) are read from frame[reg].  C-stack arguments follow the ABI of
- * the toolchain that compiles clamiga (m68k-amigaos-gcc, -mcpu=68020):
+ * the toolchain that compiles amilisp (m68k-amigaos-gcc, -mcpu=68020):
  * every scalar argument occupies one 4-byte slot — char / short are
  * promoted by the caller (`pea -3.l` for a char -3) — and a 64-bit one two,
  * high word first.  Verified by disassembling a probe (see
@@ -3808,7 +3808,7 @@ uint32_t platform_amiga_do_super_method(void *cl, void *object, void *message)
  * convention, so callers can't tell the ports apart.
  *
  * MyEmulHandle lives in r2 and is per-task, so this is MT-safe (every
- * clamiga thread is its own MorphOS process).
+ * amilisp thread is its own MorphOS process).
  *
  * Like the m68k trampoline, all 13 argument registers are loaded
  * unconditionally from the pre-zeroed regs[] array; reg_mask is accepted

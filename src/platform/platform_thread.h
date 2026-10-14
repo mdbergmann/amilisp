@@ -2,7 +2,7 @@
 #define CL_PLATFORM_THREAD_H
 
 /*
- * Platform threading abstraction for CL-Amiga.
+ * Platform threading abstraction for AmiLisp.
  *
  * Host (POSIX): pthreads, __sync_* atomics, pthread_key_t TLS
  * Amiga (OS3+): Exec Tasks, SignalSemaphore, Forbid/Permit atomics, tc_UserData TLS
@@ -23,7 +23,7 @@ void platform_thread_detach(void *handle);
 void platform_thread_yield(void);
 
 /* OS threads created by platform_thread_create that are still executing
- * clamiga code.  A worker leaves the MP registry (cl_thread_count) a few
+ * amilisp code.  A worker leaves the MP registry (cl_thread_count) a few
  * steps BEFORE its OS thread is gone; this count drops only at the very end
  * of the platform entry wrapper.  On AmigaOS that gap is fatal at process
  * exit: the process's code is unloaded when main returns, and nothing kills

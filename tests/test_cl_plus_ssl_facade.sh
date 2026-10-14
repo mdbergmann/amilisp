@@ -12,9 +12,9 @@
 # the original's three-state semantics feeding MAKE-SSL-CLIENT-STREAM's
 # :VERIFY default (never set -> the *...-VERIFY-DEFAULT* variable, set ->
 # :OPTIONAL, cleared -> the variable again).
-# Run: sh tests/test_cl_plus_ssl_facade.sh [path-to-clamiga]
+# Run: sh tests/test_cl_plus_ssl_facade.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 case "$CLAMIGA" in
     /*) ABS_CLAMIGA="$CLAMIGA" ;;
     *)  ABS_CLAMIGA="$(pwd)/$CLAMIGA" ;;

@@ -9,17 +9,17 @@
 #   - the registration resolves via *LOAD-TRUENAME*, so it must survive
 #     every asdf.lisp load mode: source compile AND faslcache hit
 #   - it must work in the deployed binary-release layout
-#     (bin/aos3/clamiga two levels below the root, lib/ at the root)
+#     (bin/aos3/amilisp two levels below the root, lib/ at the root)
 #   - CLAMIGA_NO_SHIMS=1 disables it (to run the real cl+ssl on a host)
-# Run: sh tests/test_shim_registry.sh [path-to-clamiga]
+# Run: sh tests/test_shim_registry.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 case "$CLAMIGA" in
     /*) ABS_CLAMIGA="$CLAMIGA" ;;
     *)  ABS_CLAMIGA="$(pwd)/$CLAMIGA" ;;
 esac
 . "$(dirname "$0")/shpath.sh"
-# Compared against paths clamiga PRINTS, so use clamiga's spelling.
+# Compared against paths amilisp PRINTS, so use amilisp's spelling.
 ROOT="$(native_path "$(pwd)")"
 
 WORKDIR="$(mktemp -d)"
@@ -98,10 +98,10 @@ check_contains "cached_resolves_cl+ssl_shim" "CL+SSL-AT $ROOT/lib/shims/cl+ssl/"
 # smoke test and a real binary install). ---
 
 mkdir -p "$WORKDIR/rel/bin/aos3"
-cp "$ABS_CLAMIGA" "$WORKDIR/rel/bin/aos3/clamiga"
+cp "$ABS_CLAMIGA" "$WORKDIR/rel/bin/aos3/amilisp"
 cp -R "$ROOT/lib" "$WORKDIR/rel/lib"
 result=$(cd "$WORKDIR" && env -u CLAMIGA_HOME \
-    CLAMIGA_FASL_CACHE_DIR="$CACHE" ./rel/bin/aos3/clamiga --no-userinit \
+    CLAMIGA_FASL_CACHE_DIR="$CACHE" ./rel/bin/aos3/amilisp --no-userinit \
     --non-interactive --heap 48M \
     --eval "$EVAL_REQUIRE" --eval "$EVAL_RESOLVE" </dev/null 2>&1)
 check_contains "release_layout_resolves_shim" "rel/lib/shims/cl+ssl/" "$result"

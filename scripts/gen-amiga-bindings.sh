@@ -71,7 +71,7 @@ set -e
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 PREFIX=${PREFIX:-$ROOT/tools/m68k-amigaos-gcc/prefix}
-HOST_BIN=${HOST_BIN:-$ROOT/build/host/clamiga}
+HOST_BIN=${HOST_BIN:-$ROOT/build/host/amilisp}
 NDK=${NDK:-$ROOT/tools/aos32-ndk}
 OUT=${OUT:-$ROOT/lib/amiga/raw}
 

@@ -1,9 +1,9 @@
 #!/bin/sh
 # Cross-session FASL compatibility tests
 # Verifies that FASL files created in one session work correctly in another.
-# Run: make test (or sh tests/test_fasl_compat.sh build/host/clamiga)
+# Run: make test (or sh tests/test_fasl_compat.sh build/host/amilisp)
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 passed=0
 failed=0
 total=0
@@ -61,7 +61,7 @@ check_not_contains() {
     fi
 }
 
-# Helper: run clamiga in batch mode with *load-verbose* suppressed
+# Helper: run amilisp in batch mode with *load-verbose* suppressed
 # Usage: run_quiet '(lisp expression)'
 run_quiet() {
     echo "(setf *load-verbose* nil) $1" | "$CLAMIGA" --no-userinit --batch 2>&1
@@ -275,7 +275,7 @@ T
 (A B &OPTIONAL (C 7) &KEY KW)" "$result"
 
 # --- Tests for compile-file CLHS 3.2.3.1 top-level form handling ---
-# All tests use a single clamiga process: compile-file + load in one session.
+# All tests use a single amilisp process: compile-file + load in one session.
 
 # Regression: compile-file must NOT evaluate DEFVAR initforms at compile time.
 # Bug: (make-package :foo) was called twice (once during compile-file, once on

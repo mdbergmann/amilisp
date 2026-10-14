@@ -6,7 +6,7 @@
 ;; in a single rt:do-tests pass.
 ;;
 ;; Usage (host):
-;;   ./build/host/clamiga --heap 96M --load trunk/load-and-test-ansi.lisp
+;;   ./build/host/amilisp --heap 96M --load trunk/load-and-test-ansi.lisp
 ;;
 ;; Notes
 ;; - Each load is its own top-level form: (in-package :cl-test) needs to
@@ -31,7 +31,7 @@
 ;; ansi-aux-macros.lsp and ansi-aux.lsp have no (in-package :cl-test) at
 ;; their top — they assume the caller is already in :cl-test (gclload1.lsp
 ;; switches before loading them).  Compiling them in CL-USER causes the
-;; clamiga compiler to runaway (observed: 17 GB host memory, 100% CPU,
+;; amilisp compiler to runaway (observed: 17 GB host memory, 100% CPU,
 ;; indefinite hang).  Switch package first.
 (in-package :cl-test)
 
@@ -43,7 +43,7 @@
 ;; universe.lsp must come BEFORE ansi-aux.lsp (per gclload1.lsp ordering) —
 ;; ansi-aux.lsp consumes *universe* / *mini-universe* / *condition-types* etc.
 ;; Loads in <1s once nconc-on-self-aliasing, copy-tree GC root recursion, and
-;; bit-vector :displaced-to are working in clamiga.
+;; bit-vector :displaced-to are working in amilisp.
 (common-lisp:format common-lisp:t "~%--- Loading universe.lsp ---~%")
 (common-lisp:load
  (common-lisp:merge-pathnames "universe.lsp"

@@ -2,7 +2,7 @@
 # Interactive REPL: multiple-value echo and the value history variables.
 #
 # CLHS 25.1 says the REPL prints "the results" of the form, plural — SBCL
-# prints 3 and 1 for (floor 7 2).  clamiga used to print only the primary
+# prints 3 and 1 for (floor 7 2).  amilisp used to print only the primary
 # value, because printing all of them would have been WRONG more often than
 # right: value-propagating opcodes leave the multiple-value buffer alone, so
 # (let ((x (floor 7 2))) x) still carried floor's second value.  The
@@ -21,9 +21,9 @@
 # handing the reader an "Unterminated string"), and prin1 prints a newline
 # inside a string literally, escaping only " and \ (CLHS 22.1.3.4).
 #
-# Run: sh tests/test_repl_values.sh build/host/clamiga
+# Run: sh tests/test_repl_values.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then

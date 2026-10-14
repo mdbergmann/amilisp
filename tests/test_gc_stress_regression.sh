@@ -8,11 +8,11 @@
 # Safety" and the [GC-stress debug flag] memory note).
 #
 #   make test-gc-stress            # builds the stress binary and runs this
-#   sh tests/test_gc_stress_regression.sh build/host-gcstress/clamiga
+#   sh tests/test_gc_stress_regression.sh build/host-gcstress/amilisp
 #
 # The binary MUST be a DEBUG_GC_STRESS build — the env var is a no-op otherwise.
 
-CLAMIGA="${1:-build/host-gcstress/clamiga}"
+CLAMIGA="${1:-build/host-gcstress/amilisp}"
 
 # macOS has no `timeout`; coreutils installs it as `gtimeout` (same detection
 # as the other shell tests).

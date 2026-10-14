@@ -1,8 +1,8 @@
-# CL-Amiga: Performance Optimization Specification
+# AmiLisp: Performance Optimization Specification
 
 ## Goal
 
-Maximize throughput and minimize latency of the CL-Amiga bytecode VM and runtime, with primary focus on the 68020 @ 14MHz / 8MB RAM target. All optimizations must preserve correctness and CL compliance.
+Maximize throughput and minimize latency of the AmiLisp bytecode VM and runtime, with primary focus on the 68020 @ 14MHz / 8MB RAM target. All optimizations must preserve correctness and CL compliance.
 
 ## Constraints
 
@@ -343,7 +343,7 @@ samples vs 874 for the whole VM loop) — the next profiling-driven candidate.
 
 Benchmark suite: `bench.lisp` — factorial, fibonacci, Takeuchi, list-ops, hash-table.
 
-| Benchmark | CL-Amiga (before) | CL-Amiga (after) | ECL | vs ECL |
+| Benchmark | AmiLisp (before) | AmiLisp (after) | ECL | vs ECL |
 |-----------|-------------------|------------------|-----|--------|
 | factorial 1000 x5000 | 5.908s | **2.677s** | 1.348s | 2.0x slower |
 | fib-iter 1000 x5000 | 0.590s | 0.595s | 0.919s | **1.5x faster** |
@@ -351,7 +351,7 @@ Benchmark suite: `bench.lisp` — factorial, fibonacci, Takeuchi, list-ops, hash
 | list-ops 10000 | 0.032s | 0.034s | 0.062s | **1.8x faster** |
 | hash 100000 | 4.129s | **0.037s** | 0.025s | 1.5x slower |
 
-CL-Amiga beats ECL on 3/5 benchmarks. The two remaining gaps are in bignum-heavy arithmetic (schoolbook vs Karatsuba) and hash table implementation (cons-chain vs open addressing).
+AmiLisp beats ECL on 3/5 benchmarks. The two remaining gaps are in bignum-heavy arithmetic (schoolbook vs Karatsuba) and hash table implementation (cons-chain vs open addressing).
 
 ---
 
@@ -571,11 +571,11 @@ figure is that thread's cost.  Full numbers in docs/benchmarks.md 2026-09-08.
 
 | | msg/s | µs per message |
 | --- | ---: | ---: |
-| clamiga 0.9, 4 load threads | 175k | 5.7 |
+| amilisp 0.9, 4 load threads | 175k | 5.7 |
 | ECL 26.5.5 (benchmarks.md 2026-07-15, 8 load threads) | 512k | 2.0 |
 
 **Compile speed is not part of the gap**: `(asdf:load-system "sento" :force t)`
-recompiles in 0.39 s on clamiga and 15.06 s on ECL (gcc per file).
+recompiles in 0.39 s on amilisp and 15.06 s on ECL (gcc per file).
 
 **Sampled profile** (macOS `sample`, on-CPU samples only): about **70% self time
 in `cl_vm_run`** — opcode dispatch plus the OP_CALL/OP_RET protocol, which is
@@ -600,9 +600,9 @@ dispatches as a pair), FLOAD+CALL+TAILCALL+RET 21%, GLOAD 5% (72 per message —
 twice per slot access by the SLOT-VALUE compiler macro), MV_RESET 3%.
 
 **Per-primitive cost** (`trunk/bench-prims.lisp`, ns net of the loop baseline —
-30 ns clamiga / 20 ns ECL — so an absolute 1-arg call is 48 vs 13 ns):
+30 ns amilisp / 20 ns ECL — so an absolute 1-arg call is 48 vs 13 ns):
 
-| primitive | clamiga | ECL | notes |
+| primitive | amilisp | ECL | notes |
 | --- | ---: | ---: | --- |
 | call, 1 arg | 18 | 0 | OP_CALL: safepoint via TLS, 2 funcallable probes, arity check, arg-shift loop, NIL fill, 8-field frame, 4 validations; OP_RET: 2 validations |
 | call, &key 2 of 3 | 44 | 3 | keyword parse in OP_CALL |

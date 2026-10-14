@@ -27,10 +27,10 @@
  *     (require "gray-streams") does not load the module a second time.
  *     PROVIDE's own duplicate check stays exact, so a module may register
  *     both spellings like asdf.lisp does — matching SBCL's *modules*.
- *   - the host $CLAMIGA_HOME fallback lets clamiga find its lib/ when it is
+ *   - the host $CLAMIGA_HOME fallback lets amilisp find its lib/ when it is
  *     launched from a directory whose cwd-relative "lib/" does not contain the
  *     module — so an editor/Sly session can keep its working directory on the
- *     file buffer instead of pinning it to clamiga's source root.
+ *     file buffer instead of pinning it to amilisp's source root.
  */
 
 #define HOME_DIR "/tmp/cl_test_require_home"

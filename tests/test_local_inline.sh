@@ -4,7 +4,7 @@
 # closure — every call compiles to its body in place, with the names the
 # call site bound since the definition hidden from the body.
 #
-#   sh tests/test_local_inline.sh build/host/clamiga
+#   sh tests/test_local_inline.sh build/host/amilisp
 #
 # Covered:
 #   1. Semantics of an inlined call: values, multiple values, argument
@@ -27,7 +27,7 @@
 #      call to an empty slot.
 #   5. COMPILE-FILE round trip; a method body; the bench-prims row shape.
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 

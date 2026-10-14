@@ -3995,10 +3995,10 @@ static void module_locate(const char *name, uint32_t len,
         *have_fasl = platform_file_exists(fasl_path);
         *have_lisp = platform_file_exists(lisp_path);
     }
-    /* Executable-relative in-repo layout (build/amiga/clamiga with
+    /* Executable-relative in-repo layout (build/amiga/amilisp with
        lib/ two levels up) — mirrors the boot.lisp search in repl.c
        and the host's "../../" fallback, so REQUIRE works when
-       clamiga is launched from any cwd (e.g. an example project
+       amilisp is launched from any cwd (e.g. an example project
        directory).  "PROGDIR://" cannot express this (parent-climb
        slashes only apply to cwd-relative paths), so the ancestor is
        resolved through dos.library ParentDir. */
@@ -4015,7 +4015,7 @@ static void module_locate(const char *name, uint32_t len,
         }
     }
 #else
-    /* Host fallback: when clamiga is launched from a directory other
+    /* Host fallback: when amilisp is launched from a directory other
        than its source root (e.g. an editor/Sly session whose cwd
        follows the file buffer), cwd-relative "lib/" won't exist.
        Honour $CLAMIGA_HOME so the bundled lib/ is still found without
@@ -4040,8 +4040,8 @@ static void module_locate(const char *name, uint32_t len,
     /* Executable-relative fallback (mirrors the boot.lisp search in
        repl.c, sharing its cl_lib_rel_dirs table): a deployed layout
        has lib/ next to the binary, an install prefix has
-       ../lib/clamiga/, the in-repo build has lib/ two levels above
-       build/host/clamiga — so a plain `clamiga` on $PATH works from
+       ../lib/amilisp/, the in-repo build has lib/ two levels above
+       build/host/amilisp — so a plain `amilisp` on $PATH works from
        any directory without CLAMIGA_HOME. */
     if (!*have_fasl && !*have_lisp) {
         char prefix[300];
@@ -4217,9 +4217,9 @@ static CL_Obj bi_require(CL_Obj *args, int n)
                      "directory, PROGDIR: and two levels above the binary "
                      "(in-repo layout).",
 #else
-                     "directory, $CLAMIGA_HOME, and - relative to the clamiga "
-                     "executable - lib/, ../lib/clamiga/ (installed layout) "
-                     "and ../../lib/ (in-repo build). If clamiga runs outside "
+                     "directory, $CLAMIGA_HOME, and - relative to the amilisp "
+                     "executable - lib/, ../lib/amilisp/ (installed layout) "
+                     "and ../../lib/ (in-repo build). If amilisp runs outside "
                      "its installation, set CLAMIGA_HOME to the cl-amiga "
                      "directory.",
 #endif
@@ -4244,7 +4244,7 @@ static CL_Obj bi_require(CL_Obj *args, int n)
 static CL_Obj bi_lisp_implementation_type(CL_Obj *args, int n)
 {
     CL_UNUSED(args); CL_UNUSED(n);
-    return cl_make_string("CL-Amiga", 8);
+    return cl_make_string("AmiLisp", 7);
 }
 
 static CL_Obj bi_lisp_implementation_version(CL_Obj *args, int n)
@@ -4494,10 +4494,10 @@ static CL_Obj bi_copy_rows(CL_Obj *args, int n)
 }
 
 /* (ext:executable-path) => string or NIL
- * The path of the running clamiga as another process can start it:
- * "/usr/local/bin/clamiga" (symlinks resolved), "C:/.../clamiga.exe",
+ * The path of the running amilisp as another process can start it:
+ * "/usr/local/bin/amilisp" (symlinks resolved), "C:/.../amilisp.exe",
  * "PROGDIR:clamiga".  NIL when the platform cannot tell.  What the host
- * Clamacs starts a second clamiga with. */
+ * Clamacs starts a second amilisp with. */
 static CL_Obj bi_executable_path(CL_Obj *args, int n)
 {
     char buf[1024];

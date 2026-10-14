@@ -1,10 +1,10 @@
 #!/bin/sh
 # Executable specification of scripts/aminet-upload.sh — the Aminet
 # packaging rules (wiki.aminet.net/Uploading_instructions, The_Readme_file)
-# as checks against the pair the script stages.  Runs without clamiga and
+# as checks against the pair the script stages.  Runs without amilisp and
 # without the network: every run is --dry-run.
 #
-# Part 1  staging: the release archive clamiga-<v>-bin.lha becomes
+# Part 1  staging: the release archive amilisp-<v>-bin.lha becomes
 #         clamiga.lha (byte-identical — Aminet updates overwrite the SAME
 #         name, the version lives in the readme), the readme is built from
 #         the template with @VERSION@/@UPLOADER@/@NOTES@ filled in, notes
@@ -55,28 +55,28 @@ expect_fail() {  # expect_fail DESC PATTERN -- args...: script must exit non-zer
 # 9.9.9: no tag v9.9 exists, so the tag fallback is exercised as an error and
 # every good run passes --notes.
 V=9.9.9
-mkdir -p "$TMPD/clamiga-$V/bin/aos3"
-echo "fixture" > "$TMPD/clamiga-$V/README-FIRST.md"
-echo "binary"  > "$TMPD/clamiga-$V/bin/aos3/clamiga"
+mkdir -p "$TMPD/amilisp-$V/bin/aos3"
+echo "fixture" > "$TMPD/amilisp-$V/README-FIRST.md"
+echo "binary"  > "$TMPD/amilisp-$V/bin/aos3/amilisp"
 HAVE_LHA=0
 if command -v lha > /dev/null 2>&1; then
     HAVE_LHA=1
-    ( cd "$TMPD" && lha aq "clamiga-$V-bin.lha" "clamiga-$V" ) || exit 1
-    # a second archive whose top directory is NOT clamiga-<version>/
+    ( cd "$TMPD" && lha aq "amilisp-$V-bin.lha" "amilisp-$V" ) || exit 1
+    # a second archive whose top directory is NOT amilisp-<version>/
     mkdir -p "$TMPD/other" "$TMPD/wrongtop" "$TMPD/broken"
-    cp -R "$TMPD/clamiga-$V" "$TMPD/other/clamiga-1.0.0"
-    ( cd "$TMPD/other" && lha aq "$TMPD/wrongtop/clamiga-$V-bin.lha" "clamiga-1.0.0" ) || exit 1
-    printf 'garbage' > "$TMPD/broken/clamiga-$V-bin.lha"
+    cp -R "$TMPD/amilisp-$V" "$TMPD/other/amilisp-1.0.0"
+    ( cd "$TMPD/other" && lha aq "$TMPD/wrongtop/amilisp-$V-bin.lha" "amilisp-1.0.0" ) || exit 1
+    printf 'garbage' > "$TMPD/broken/amilisp-$V-bin.lha"
 else
-    printf 'not really an lha\n' > "$TMPD/clamiga-$V-bin.lha"
+    printf 'not really an lha\n' > "$TMPD/amilisp-$V-bin.lha"
 fi
-ARCHIVE="$TMPD/clamiga-$V-bin.lha"
+ARCHIVE="$TMPD/amilisp-$V-bin.lha"
 UPL="tester@example.org (Test Person)"
 
 # notes with an em dash, an arrow, curly quotes and a 130-column line
 LONG="the quick brown fox jumps over the lazy dog and keeps running because this line is deliberately far longer than seventy-eight columns end"
 # (U+2014 em dash, U+2192 arrow, U+201C/U+201D curly quotes)
-printf 'CL-Amiga %s \342\200\224 heap images (EXT:SAVE-IMAGE / --image); footprint 1.42 MB \342\206\222 0.18 MB; \342\200\234quoted\342\200\235 done\n%s\n' \
+printf 'AmiLisp %s \342\200\224 heap images (EXT:SAVE-IMAGE / --image); footprint 1.42 MB \342\206\222 0.18 MB; \342\200\234quoted\342\200\235 done\n%s\n' \
     "$V" "$LONG" > "$TMPD/notes.txt"
 
 run_ok() {  # run_ok OUTDIR [extra args...]
@@ -98,9 +98,9 @@ fi
 RM="$OUT1/clamiga.readme"
 grep -q "^Version:      $V\$" "$RM" && ok "Version: $V from the archive name" || fail "Version: must be $V" "$(head -12 "$RM")"
 grep -q "^Uploader:     $UPL\$" "$RM" && ok "Uploader: from --uploader" || fail "Uploader: line wrong" "$(grep Uploader "$RM")"
-grep -q "cd Work:clamiga-$V\$" "$RM" && ok "@VERSION@ substituted in the body (getting-started cd line)" || fail "body must mention clamiga-$V"
+grep -q "cd Work:amilisp-$V\$" "$RM" && ok "@VERSION@ substituted in the body (getting-started cd line)" || fail "body must mention amilisp-$V"
 grep -q '@[A-Z]*@' "$RM" && fail "unreplaced placeholder" "$(grep -n '@[A-Z]*@' "$RM")" || ok "no placeholder left"
-grep -q "^CL-Amiga $V - heap images" "$RM" && ok "notes inserted; em dash -> '-'" || fail "notes/em dash" "$(grep -n 'heap images' "$RM")"
+grep -q "^AmiLisp $V - heap images" "$RM" && ok "notes inserted; em dash -> '-'" || fail "notes/em dash" "$(grep -n 'heap images' "$RM")"
 grep -q '1.42 MB ->' "$RM" && ok "arrow -> '->'" || fail "arrow transliteration" "$(grep -n '1.42' "$RM")"
 grep -q '"quoted" done' "$RM" && ok "curly quotes -> '\"'" || fail "curly quotes" "$(grep -n quoted "$RM")"
 if grep -q 'far longer than' "$RM" && grep -q 'columns end$' "$RM" && ! grep -q "^$LONG\$" "$RM"; then
@@ -119,7 +119,7 @@ n_curl=$(echo "$out" | grep -c '^  curl ')
 echo "$out" | grep -q '^  ok      Short:' && ok "checks are reported" || fail "check report missing"
 if [ $HAVE_LHA = 1 ]; then
     echo "$out" | grep -q 'lha t: archive is sound' && ok "lha t ran on the staged archive" || fail "lha t report missing" "$out"
-    echo "$out" | grep -q "unpacks into clamiga-$V/" && ok "top-level directory clamiga-$V/ verified" || fail "top dir check" "$out"
+    echo "$out" | grep -q "unpacks into amilisp-$V/" && ok "top-level directory amilisp-$V/ verified" || fail "top dir check" "$out"
 fi
 
 OUT2="$TMPD/out2"
@@ -155,7 +155,7 @@ grep -q '^Type:         dev/lang$' "$RM" && ok "Type: dev/lang" || fail "Type:"
 grep -q '^Architecture: m68k-amigaos >= 3.0.0; ppc-morphos$' "$RM" && ok "Architecture: both binaries' targets, qualified" || fail "Architecture:" "$(grep Architecture "$RM")"
 grep -q '^Distribution: Aminet$' "$RM" && ok "Distribution: Aminet" || fail "Distribution:"
 # the heading underline follows its heading
-title_len=$(awk 'NR > 1 && /^CL-Amiga / { print length($0); exit }' "$RM")
+title_len=$(awk 'NR > 1 && /^AmiLisp / { print length($0); exit }' "$RM")
 ul_len=$(awk 'NR > 1 && /^=+$/ { print length($0); exit }' "$RM")
 [ -n "$title_len" ] && [ "$title_len" = "$ul_len" ] && ok "heading underline matches the heading ($title_len)" || fail "underline $ul_len vs heading $title_len"
 [ "$(grep -c '^$' "$RM")" -gt 0 ] && awk 'NR > 1 && prev == "" && $0 == "" { bad = 1 } { prev = $0 } END { exit bad }' "$RM" \
@@ -168,9 +168,9 @@ out=$(AMINET_UPLOADER= "$SCRIPT" $BASE 2>&1); rc=$?
 [ $rc -ne 0 ] && echo "$out" | grep -q 'AMINET_UPLOADER' && ok "no uploader: refused, names AMINET_UPLOADER" || fail "no uploader (rc=$rc)" "$out"
 expect_fail "uploader without an e-mail: refused" 'no e-mail address' -- $BASE --uploader "Just A Name"
 expect_fail "no notes and no tag v9.9: refused, points at --notes" '--notes' -- --dry-run --archive "$ARCHIVE" --uploader "$UPL" --out "$TMPD/out3"
-expect_fail "missing archive: points at make-binary-release.sh" 'make-binary-release.sh' -- --dry-run --archive "$TMPD/nowhere/clamiga-$V-bin.lha" --notes "$TMPD/notes.txt" --uploader "$UPL" --out "$TMPD/out3"
+expect_fail "missing archive: points at make-binary-release.sh" 'make-binary-release.sh' -- --dry-run --archive "$TMPD/nowhere/amilisp-$V-bin.lha" --notes "$TMPD/notes.txt" --uploader "$UPL" --out "$TMPD/out3"
 [ ! -e "$TMPD/out3/clamiga.lha" ] && ok "a refused run before staging leaves nothing behind" || fail "out3 populated"
-expect_fail "archive name without a version: refused" 'clamiga-<version>-bin.lha' -- --dry-run --archive "$TMPD/clamiga.lha" --notes "$TMPD/notes.txt" --uploader "$UPL" --out "$TMPD/out3"
+expect_fail "archive name without a version: refused" 'amilisp-<version>-bin.lha' -- --dry-run --archive "$TMPD/clamiga.lha" --notes "$TMPD/notes.txt" --uploader "$UPL" --out "$TMPD/out3"
 
 printf 'Umlaut \303\274 here\n' > "$TMPD/notes-umlaut.txt"
 out=$("$SCRIPT" --dry-run --archive "$ARCHIVE" --notes "$TMPD/notes-umlaut.txt" --uploader "$UPL" --out "$TMPD/out4" 2>&1); rc=$?
@@ -200,8 +200,8 @@ sed 's/^Uploader:     @UPLOADER@$/Uploader:     nobody (Anon)/' "$ROOT/scripts/a
 expect_fail "template that drops the uploader's e-mail: refused" 'Uploader: must carry' -- $BASE --uploader "$UPL" --template "$TMPD/noemail.in"
 
 if [ $HAVE_LHA = 1 ]; then
-    expect_fail "archive whose top directory is not clamiga-$V/: refused" 'top-level entries' -- --dry-run --archive "$TMPD/wrongtop/clamiga-$V-bin.lha" --notes "$TMPD/notes.txt" --uploader "$UPL" --out "$TMPD/out5"
-    expect_fail "corrupt archive: lha t fails the run" 'lha t failed' -- --dry-run --archive "$TMPD/broken/clamiga-$V-bin.lha" --notes "$TMPD/notes.txt" --uploader "$UPL" --out "$TMPD/out6"
+    expect_fail "archive whose top directory is not amilisp-$V/: refused" 'top-level entries' -- --dry-run --archive "$TMPD/wrongtop/amilisp-$V-bin.lha" --notes "$TMPD/notes.txt" --uploader "$UPL" --out "$TMPD/out5"
+    expect_fail "corrupt archive: lha t fails the run" 'lha t failed' -- --dry-run --archive "$TMPD/broken/amilisp-$V-bin.lha" --notes "$TMPD/notes.txt" --uploader "$UPL" --out "$TMPD/out6"
 else
     echo "  skip  lha not installed: archive integrity refusals not exercised"
 fi

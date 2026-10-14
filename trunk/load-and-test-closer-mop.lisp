@@ -1,4 +1,4 @@
-;; Load and exercise closer-mop via the CL-Amiga library fork.
+;; Load and exercise closer-mop via the AmiLisp library fork.
 ;; Works on both host and Amiga.
 
 (require "asdf")
@@ -6,12 +6,12 @@
 
 ;; Make the quicklisp-managed dependencies resolvable through ASDF.
 ;; All quicklisp handling lives in this helper; this script only uses
-;; asdf:load-system. closer-mop itself is the CL-Amiga library fork,
+;; asdf:load-system. closer-mop itself is the AmiLisp library fork,
 ;; cloned into quicklisp's local-projects tree and picked up via its
 ;; local-projects searcher (see README's Quicklisp section).
 (load "trunk/load-libs-ql.lisp")
 
-(format t "~%--- Loading closer-mop (CL-Amiga fork) ---~%")
+(format t "~%--- Loading closer-mop (AmiLisp fork) ---~%")
 (asdf:load-system :closer-mop)
 
 (in-package :cl-user)

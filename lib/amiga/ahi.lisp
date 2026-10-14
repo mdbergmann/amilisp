@@ -1,4 +1,4 @@
-;;; amiga/ahi.lisp — ahi.device (AHI) playback for CL-Amiga
+;;; amiga/ahi.lisp — ahi.device (AHI) playback for AmiLisp
 ;;;
 ;;; Loaded via (require "amiga/ahi") -- and only then: AHI support is
 ;;; OPT-IN.  Nothing else in the runtime or the library opens or probes

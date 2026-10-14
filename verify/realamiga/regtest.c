@@ -1,7 +1,7 @@
 /*
  * regtest -- do the callee-saved registers survive task switches on THIS
  * machine, on the stack the Shell gave us and on a stack of our own
- * (exec StackSwap, as clamiga's platform_run_main does)?
+ * (exec StackSwap, as amilisp's platform_run_main does)?
  *
  * The 2026-09-18 Clamacs finding: C locals of a live frame come back
  * holding words that look like an FPU context save (0x3c000000,

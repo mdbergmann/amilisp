@@ -1,27 +1,27 @@
 #!/bin/sh
-# The program's own arguments: `--` ends clamiga's options and what follows
+# The program's own arguments: `--` ends amilisp's options and what follows
 # is EXT:*COMMAND-LINE-ARGS* -- a list of strings, never loaded, whatever it
 # looks like.  Before it, a bare argument is still a --load.
 #
 # Why: an application (the Clamacs editor is the first) started as
-# `clamiga --image app.img -- file1 file2` must get its files without
-# clamiga trying to LOAD them.
+# `amilisp --image app.img -- file1 file2` must get its files without
+# amilisp trying to LOAD them.
 #
 # Covered:
 #   after --: every argument verbatim, in order, including ones that look
 #     like options, empty strings and blanks
 #   no --, or -- with nothing after it: NIL
 #   a bare file before -- is loaded, the same file after -- is not
-#   the variables are set BEFORE ~/.clamigarc and EXT:*RESTORE-HOOKS* run,
+#   the variables are set BEFORE ~/.amilisprc and EXT:*RESTORE-HOOKS* run,
 #     and a restored image reports the RESTORING process's arguments, not
 #     the saver's (the image carries the saver's value; the restore replaces it)
 #   the same in --script mode and in --batch mode
 #   EXT:*WORKBENCH-STARTED-P* is NIL from a command line
 #   both are EXT exports (no reader error on the qualified names)
 #
-# Run: sh tests/test_command_line_args.sh [path-to-clamiga]
+# Run: sh tests/test_command_line_args.sh [path-to-amilisp]
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 case "$CLAMIGA" in
     /*|[A-Za-z]:/*) ;;
     *) CLAMIGA="$(pwd)/$CLAMIGA" ;;
@@ -97,13 +97,13 @@ check "--batch sees the arguments" 'BATCH-ARGS ("three")' "$out"
 
 # --- set before the user init file runs ------------------------------------
 mkdir -p home
-cat > home/.clamigarc <<'EOF'
+cat > home/.amilisprc <<'EOF'
 (format t "RC-ARGS ~S RC-WB ~S~%" ext:*command-line-args* ext:*workbench-started-p*)
 EOF
 # (make test exports CLAMIGA_NO_USERINIT so no test reads the developer's
 # rc file; this one wants its own read, so clear it as test_userinit.sh does)
 out=$(HOME="$WORK/home" CLAMIGA_NO_USERINIT= "$TIMEOUT" 30 "$CLAMIGA" --no-image --non-interactive -- rc-arg </dev/null 2>&1 | tr -d '\r' | grep RC-ARGS)
-check "~/.clamigarc already sees them" 'RC-ARGS ("rc-arg") RC-WB NIL' "$out"
+check "~/.amilisprc already sees them" 'RC-ARGS ("rc-arg") RC-WB NIL' "$out"
 
 # --- image: the restoring process's arguments, before the restore hooks ----
 cat > save.lisp <<'EOF'

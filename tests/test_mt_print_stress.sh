@@ -14,9 +14,9 @@
 # Scheduler-dependent; runs as a smoke guard (the deterministic
 # single-thread coverage lives in the gc-stress printer suite).
 #
-# Run: sh tests/test_mt_print_stress.sh build/host/clamiga
+# Run: sh tests/test_mt_print_stress.sh build/host/amilisp
 
-CLAMIGA="${1:-build/host/clamiga}"
+CLAMIGA="${1:-build/host/amilisp}"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then

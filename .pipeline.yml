@@ -12,7 +12,7 @@ image: ai-pipeline-agent-c:latest
 #
 # The test stage mounts the workspace READ-ONLY, but a C build writes object
 # files and binaries. cl-amiga's Makefile derives every output path from
-# BUILDDIR (the clamiga binary AND $(BUILDDIR)/tests/*), so we redirect it to
+# BUILDDIR (the amilisp binary AND $(BUILDDIR)/tests/*), so we redirect it to
 # /tmp/build — the exec-capable scratch tmpfs run-stage.sh provides — leaving
 # the repo untouched. `test-fast` is the quick tier (skips the quicklisp/sento
 # host-cold-test, which isn't available in the container anyway).
@@ -40,14 +40,14 @@ max_fix_retries: 20
 fix_prompt_file: .pipeline/prompts/review-guideline.md
 
 
-extra_allowed_tools: "Bash(./build/host/clamiga:*)"
+extra_allowed_tools: "Bash(./build/host/amilisp:*)"
 
 # note! analyze has 'allowEdits' basically allowing it to use any Bash tools.
-#analyze_extra_tools: "Bash(make:*),Bash(ls:*),Bash(sed:*),Bash(cat:*),Bash(mkdir:*),Bash(cd:*),Bash(awk:*),Bash(find:*),Bash(cp:*), Bash(mv:*),Bash(wc:*),Bash(tail:*),Bash(./build/host/clamiga:*)"
+#analyze_extra_tools: "Bash(make:*),Bash(ls:*),Bash(sed:*),Bash(cat:*),Bash(mkdir:*),Bash(cd:*),Bash(awk:*),Bash(find:*),Bash(cp:*), Bash(mv:*),Bash(wc:*),Bash(tail:*),Bash(./build/host/amilisp:*)"
 
-implement_extra_tools: "Bash(make:*),Bash(sed:*),Bash(mkdir:*),Bash(awk:*),Bash(cp:*),Bash(mv:*),Bash(tail:*),Bash(./build/host/clamiga:*),Bash(./build/host/tests/*),Bash(build/host/tests/*)"
+implement_extra_tools: "Bash(make:*),Bash(sed:*),Bash(mkdir:*),Bash(awk:*),Bash(cp:*),Bash(mv:*),Bash(tail:*),Bash(./build/host/amilisp:*),Bash(./build/host/tests/*),Bash(build/host/tests/*)"
 
-fix_extra_tools: "Bash(make:*),Bash(sed:*),Bash(mkdir:*),Bash(awk:*),Bash(cp:*),Bash(mv:*),Bash(tail:*),Bash(./build/host/clamiga:*),Bash(./build/host/tests/*),Bash(build/host/tests/*)"
+fix_extra_tools: "Bash(make:*),Bash(sed:*),Bash(mkdir:*),Bash(awk:*),Bash(cp:*),Bash(mv:*),Bash(tail:*),Bash(./build/host/amilisp:*),Bash(./build/host/tests/*),Bash(build/host/tests/*)"
 
 # Egress entries are bare HOSTNAMES (matched against the host AND its subdomains
 # by the per-run proxy), NOT URLs — a scheme/path here never matches the host

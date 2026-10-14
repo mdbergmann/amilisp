@@ -167,7 +167,7 @@ static CL_Obj bi_code_char(CL_Obj *args, int n)
 }
 
 /* (char-int character) => integer  — implementation-specific integer rep.
- * In clamiga this is identical to char-code (Unicode code point). */
+ * In amilisp this is identical to char-code (Unicode code point). */
 static CL_Obj bi_char_int(CL_Obj *args, int n)
 {
     CL_UNUSED(n);

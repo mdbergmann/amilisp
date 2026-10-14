@@ -4,7 +4,7 @@
 ;;; Five lines bounce off the window edges; pen color is cycled per line.
 ;;;
 ;;; Run on Amiga (or in FS-UAE):
-;;;   clamiga --load examples/amiga/gfx/bouncing-lines.lisp
+;;;   amilisp --load examples/amiga/gfx/bouncing-lines.lisp
 ;;; Click the close gadget to quit.
 
 (require "amiga/intuition")
