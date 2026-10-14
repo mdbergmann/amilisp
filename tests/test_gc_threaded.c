@@ -42,6 +42,23 @@ static void teardown(void)
     platform_shutdown();
 }
 
+/* A mid-process heap re-init frees the arena the packages and the boot
+ * symbols live in, but the SYM_* / KW_* globals keep their old offsets.
+ * The next code path that stores one of them into a live object — every
+ * cl_error does, through cl_create_condition_from_error's type symbol —
+ * plants a stale offset the next mark walks ([GC-BADMARK] in
+ * error_unwind_restores_gc_roots_nested under DEBUG_GC, once the new
+ * arena's bump front had grown past the old SYM_SIMPLE_ERROR offset).
+ * So a re-init here always re-runs the package + symbol init, the same
+ * contract main() and tests/test_gc_immix.c follow. */
+static void reinit_heap(uint32_t size)
+{
+    cl_mem_shutdown();
+    cl_mem_init(size);
+    cl_package_init();
+    cl_symbol_init();
+}
+
 /* ================================================================
  * Thread registry tests
  * ================================================================ */
@@ -240,8 +257,7 @@ TEST(concurrent_alloc_with_gc)
     int i;
 
     /* Shrink heap to force frequent GC */
-    cl_mem_shutdown();
-    cl_mem_init(256 * 1024);  /* 256KB — forces GC during concurrent alloc */
+    reinit_heap(256 * 1024);  /* 256KB — forces GC during concurrent alloc */
 
     for (i = 0; i < 3; i++) {
         memset(&workers[i], 0, sizeof(WorkerCtx));
@@ -262,8 +278,7 @@ TEST(concurrent_alloc_with_gc)
         ASSERT_EQ_INT(workers[i].result_ok, 1);
 
     /* Restore normal heap */
-    cl_mem_shutdown();
-    cl_mem_init(4 * 1024 * 1024);
+    reinit_heap(4 * 1024 * 1024);
 }
 
 /* ================================================================
@@ -285,16 +300,14 @@ TEST(concurrent_alloc_with_gc)
 
 static void reinit_classic(void)
 {
-    cl_mem_shutdown();
     setenv("CLAMIGA_GENGC", "0", 1);
-    cl_mem_init(4 * 1024 * 1024);
+    reinit_heap(4 * 1024 * 1024);
 }
 
 static void reinit_default(void)
 {
-    cl_mem_shutdown();
     unsetenv("CLAMIGA_GENGC");
-    cl_mem_init(4 * 1024 * 1024);
+    reinit_heap(4 * 1024 * 1024);
 }
 
 #ifdef CL_GC_CLASSIC   /* cl_gc_if_stale is the classic backend's entry point */
@@ -1221,8 +1234,7 @@ TEST(concurrent_gc_vs_map_error_unwind)
 
     /* Small heap so the concurrent GC compacts (moves objects) often —
      * relocation is when a stale root does the most damage. */
-    cl_mem_shutdown();
-    cl_mem_init(512 * 1024);
+    reinit_heap(512 * 1024);
 
     memset(&ctx, 0, sizeof(ctx));
     ctx.thread.id = 1;
@@ -1252,8 +1264,7 @@ TEST(concurrent_gc_vs_map_error_unwind)
     ASSERT_EQ_INT(ctx.done, 1);
 
     /* Restore normal heap. */
-    cl_mem_shutdown();
-    cl_mem_init(4 * 1024 * 1024);
+    reinit_heap(4 * 1024 * 1024);
 }
 
 /* ================================================================
@@ -1281,12 +1292,10 @@ TEST(mv_save_top_reset_on_heap_reinit)
 
     /* The re-init path resets every registered thread through it. */
     t->mv_save_top = 3;
-    cl_mem_shutdown();
-    cl_mem_init(512 * 1024);
+    reinit_heap(512 * 1024);
     ASSERT_EQ_INT(cl_current_thread->mv_save_top, 0);
 
-    cl_mem_shutdown();
-    cl_mem_init(4 * 1024 * 1024);
+    reinit_heap(4 * 1024 * 1024);
 }
 
 /* ================================================================
@@ -1317,7 +1326,9 @@ TEST(shared_tables_reset_on_heap_reinit)
     int cycle, i;
 
     /* setup() populated the package registry et al. in the original 4MB
-     * heap, at low offsets.  Re-init with a fresh small heap. */
+     * heap, at low offsets.  Re-init with a fresh small heap — the raw
+     * cl_mem_init here, since the invariant below is about what IT
+     * clears; the package/symbol init is re-run once that is checked. */
     cl_mem_shutdown();
     cl_mem_init(512 * 1024);
 
@@ -1336,6 +1347,9 @@ TEST(shared_tables_reset_on_heap_reinit)
     ASSERT(CL_NULL_P(condition_slot_table));
     ASSERT(CL_NULL_P(condition_default_initargs));
     ASSERT(CL_NULL_P(condition_slot_initforms));
+
+    cl_package_init();
+    cl_symbol_init();
 
     /* The behavioral leg: push the bump front well past every old
      * table offset, then GC repeatedly.  Pre-fix, one of these marks
@@ -1361,11 +1375,9 @@ TEST(shared_tables_reset_on_heap_reinit)
     }
     CL_GC_UNPROTECT(1);
 
-    /* Restore the standard test heap.  NOTE: package/symbol state is
-     * gone either way (the arena it lived in was freed at the first
-     * re-init above) — same contract every heap-re-init test lives by. */
-    cl_mem_shutdown();
-    cl_mem_init(4 * 1024 * 1024);
+    /* Restore the standard test heap (packages + symbols included —
+     * see reinit_heap). */
+    reinit_heap(4 * 1024 * 1024);
 }
 
 /* ================================================================
@@ -1458,8 +1470,7 @@ TEST(tlab_concurrent_refills_and_gc)
     /* 512K heap → 8K chunks; 4 workers × 2000 pairs (cons+string ≈ 48+
      * bytes each) → each worker refills its TLAB many times and the
      * combined churn forces several STW GC cycles mid-allocation. */
-    cl_mem_shutdown();
-    cl_mem_init(512 * 1024);
+    reinit_heap(512 * 1024);
     refills_before = cl_heap.tlab_refills;
 
     for (i = 0; i < 4; i++) {
@@ -1482,8 +1493,7 @@ TEST(tlab_concurrent_refills_and_gc)
      * vacuously green while the TLAB never ran. */
     ASSERT(cl_heap.tlab_refills > refills_before);
 
-    cl_mem_shutdown();
-    cl_mem_init(4 * 1024 * 1024);
+    reinit_heap(4 * 1024 * 1024);
 }
 
 /* Worker: alternate TLAB-sized allocations with vectors ABOVE
@@ -1569,8 +1579,7 @@ TEST(tlab_mixed_sizes_vs_concurrent_compaction)
     TlabMixCtx ctxs[2];
     int i, spins;
 
-    cl_mem_shutdown();
-    cl_mem_init(512 * 1024);
+    reinit_heap(512 * 1024);
 
     for (i = 0; i < 2; i++) {
         memset(&ctxs[i], 0, sizeof(TlabMixCtx));
@@ -1603,8 +1612,7 @@ TEST(tlab_mixed_sizes_vs_concurrent_compaction)
         ASSERT_EQ_INT(ctxs[i].result_ok, 1);
     }
 
-    cl_mem_shutdown();
-    cl_mem_init(4 * 1024 * 1024);
+    reinit_heap(4 * 1024 * 1024);
 }
 
 /* Regression (Immix, 2026-10-13): a chunk claim walks the header chain
@@ -1723,8 +1731,7 @@ TEST(claims_vs_concurrent_cuts)
     ClaimCutCtx ctxs[4];
     int i;
 
-    cl_mem_shutdown();
-    cl_mem_init(1024 * 1024);
+    reinit_heap(1024 * 1024);
 
     for (i = 0; i < 4; i++) {
         memset(&ctxs[i], 0, sizeof(ClaimCutCtx));
@@ -1760,8 +1767,7 @@ TEST(claims_vs_concurrent_cuts)
     }
     ASSERT(cl_gc_audit_hdr_index() <= 0);
 
-    cl_mem_shutdown();
-    cl_mem_init(4 * 1024 * 1024);
+    reinit_heap(4 * 1024 * 1024);
 }
 
 /* Multi→single transition: workers leave abandoned (retired) chunks
@@ -1776,8 +1782,7 @@ TEST(tlab_leftover_holes_reclaimed_after_threads_exit)
     CL_Obj keep = CL_NIL;
     uint32_t live_before, live_after;
 
-    cl_mem_shutdown();
-    cl_mem_init(512 * 1024);
+    reinit_heap(512 * 1024);
 
     keep = CL_NIL;
     CL_GC_PROTECT(keep);
@@ -1823,8 +1828,7 @@ TEST(tlab_leftover_holes_reclaimed_after_threads_exit)
     }
 
     CL_GC_UNPROTECT(1);
-    cl_mem_shutdown();
-    cl_mem_init(4 * 1024 * 1024);
+    reinit_heap(4 * 1024 * 1024);
 }
 
 #endif /* CL_TLAB */
