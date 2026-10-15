@@ -104,10 +104,6 @@ Because execution is bytecode, the object model is **architecture-agnostic**: th
 
 In short: it exists to bring a modern, ANSI-aiming, library-capable Common Lisp to hardware every other implementation left behind — without giving up comfortable development on a fast host.
 
-### The name
-
-**AmiLisp** is Common Lisp for the Amiga, and *amiga* is Spanish/Portuguese for a (female) friend. So the name does double duty: the Lisp that runs on your Amiga, and the Lisp that's your *amiga*. 🙂 The project started as **CL-Amiga**, said out loud *Clamiga*, and code written for that name keeps working: `CLAMIGA` is a nickname of the `AMILISP` package, `*features*` has `:clamiga` and `:cl-amiga` next to `:amilisp` and `:amicl`, and an `AMILISP_*` environment variable that is not set is read under its old `CLAMIGA_*` name.
-
 A side-by-side with SBCL, ECL, CCL, Clasp and CLISP is at the end of this
 document: [How it compares](#how-it-compares).
 
