@@ -17,7 +17,7 @@ qualified name you would use from a package that does not inherit it.
 | `FFI` | `ffi:` | Foreign-function interface — foreign pointers, typed peek/poke, libffi calls & callbacks | [ffi.md](ffi.md) |
 | `GRAY` | `gray:` (nick `...`) | Gray-streams protocol — define your own stream classes in Lisp | [gray.md](gray.md) |
 | `MOP` | `mop:` | CLOS Metaobject Protocol (AMOP / closer-mop subset) | [mop.md](mop.md) |
-| `AMILISP` | `clamiga:` | Implementation extras — IEEE float bits, package-local nicknames, JIT/trace toggles | [amilisp.md](amilisp.md) |
+| `AMILISP` | `amilisp:` | Implementation extras — IEEE float bits, package-local nicknames, JIT/trace toggles | [amilisp.md](amilisp.md) |
 | `AMIGA`, `AMIGA.*` | `amiga:`, `amiga.intuition:` … | AmigaOS bindings — raw library calls, FFI tag lists, Intuition, Graphics, GadTools | [amiga.md](amiga.md) |
 
 Each page lists the exported symbols and points at the runnable test file that is
