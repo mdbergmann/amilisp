@@ -3863,18 +3863,31 @@ TYPE itself and NIL."
 (shadow '(with-lock-held make-recursive-lock with-recursive-lock-held
           read-memory-barrier write-memory-barrier))
 
-(defmacro with-lock-held ((lock) &body body)
+;; (with-lock-held (lock &key timeout) body...) -- BODY runs with LOCK held
+;; and the lock is released however BODY exits.  With a TIMEOUT (seconds, or
+;; NIL to wait forever) that elapses before the lock is acquired, BODY does
+;; not run and the form returns NIL; this is the shape of sb-thread:with-mutex
+;; and of bordeaux-threads' with-lock-held :timeout, whose AmiLisp backend
+;; forwards to this macro.  (Only IF / LET / UNWIND-PROTECT here: this block is
+;; read before boot.lisp's own CL macros are external, see the note above.)
+(defmacro with-lock-held ((lock &key timeout) &body body)
   (let ((l (gensym "LOCK")))
-    `(let ((,l ,lock))
-       (acquire-lock ,l t)
-       (unwind-protect (progn ,@body)
-         (release-lock ,l)))))
+    (if timeout
+        `(let ((,l ,lock))
+           (if (acquire-lock ,l t ,timeout)
+               (unwind-protect (progn ,@body)
+                 (release-lock ,l))
+               nil))
+        `(let ((,l ,lock))
+           (acquire-lock ,l t)
+           (unwind-protect (progn ,@body)
+             (release-lock ,l))))))
 
 (defun make-recursive-lock (&optional name)
   (%make-recursive-lock name))
 
-(defmacro with-recursive-lock-held ((lock) &body body)
-  `(with-lock-held (,lock) ,@body))
+(defmacro with-recursive-lock-held ((lock &key timeout) &body body)
+  `(with-lock-held (,lock :timeout ,timeout) ,@body))
 
 (defun read-memory-barrier ()
   nil)

@@ -1340,8 +1340,10 @@ acquire parks the waiting thread on its own handle (a signal bit on
 AmigaOS) and a release wakes exactly one waiter.  `(mp:acquire-lock lock
 &optional (wait-p t) timeout)` takes the timeout in seconds and returns
 `nil` when it elapses (`nil` timeout = wait forever, `0` = one attempt);
-bordeaux-threads' `:timeout` on `acquire-lock` / `with-lock-held` maps
-onto it.  Misuse signals instead of hanging or corrupting: acquiring a
+`(mp:with-lock-held (lock :timeout secs) ...)` skips its body and returns
+`nil` on the same condition, and bordeaux-threads' `:timeout` on
+`acquire-lock` / `with-lock-held` maps onto both.  Misuse signals instead
+of hanging or corrupting: acquiring a
 plain lock the thread already holds (use `mp:make-recursive-lock`),
 releasing a lock the thread does not hold, and `condition-wait` without
 holding the lock are all errors.  A recursive lock held at depth *n*

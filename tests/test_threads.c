@@ -365,6 +365,65 @@ TEST(lock_with_lock_held)
     ASSERT_STR_EQ(r, "42");
 }
 
+/* (with-lock-held (lock :timeout secs) ...): the body runs when the lock is
+ * acquired within the timeout, and the form returns NIL without running the
+ * body when it is not (the sb-thread:with-mutex / bordeaux-threads shape). */
+TEST(lock_with_lock_held_timeout_free_lock_runs_body)
+{
+    const char *r = eval_print(
+        "(let ((lk (mp:make-lock)))"
+        "  (list (mp:with-lock-held (lk :timeout 1) 42)"
+        "        (mp:with-lock-held (lk :timeout nil) 43)"
+        /* released afterwards: a non-blocking acquire succeeds */
+        "        (mp:acquire-lock lk nil)))");
+    ASSERT_STR_EQ(r, "(42 43 T)");
+}
+
+TEST(lock_with_lock_held_timeout_elapses_skips_body)
+{
+    const char *r = eval_print(
+        "(let ((lk (mp:make-lock)) (ran nil))"
+        "  (mp:acquire-lock lk t)"
+        "  (let ((th (mp:make-thread"
+        "              (lambda ()"
+        "                (mp:with-lock-held (lk :timeout 0.05) (setq ran t) :got)))))"
+        "    (let ((res (mp:join-thread th)))"
+        "      (mp:release-lock lk)"
+        "      (list res ran))))");
+    ASSERT_STR_EQ(r, "(NIL NIL)");
+}
+
+TEST(lock_with_lock_held_timeout_waits_for_release)
+{
+    const char *r = eval_print(
+        "(let ((lk (mp:make-lock)))"
+        "  (mp:acquire-lock lk t)"
+        "  (let ((th (mp:make-thread"
+        "              (lambda () (mp:with-lock-held (lk :timeout 5) :got)))))"
+        "    (sleep 0.05)"
+        "    (mp:release-lock lk)"
+        "    (mp:join-thread th)))");
+    ASSERT_STR_EQ(r, ":GOT");
+}
+
+TEST(lock_with_lock_held_timeout_form_evaluated_once)
+{
+    /* the timeout is an evaluated form; NIL at run time waits forever */
+    const char *r = eval_print(
+        "(let ((lk (mp:make-lock)) (n 0))"
+        "  (list (mp:with-lock-held (lk :timeout (progn (incf n) nil)) :ok) n))");
+    ASSERT_STR_EQ(r, "(:OK 1)");
+}
+
+TEST(lock_with_recursive_lock_held_timeout)
+{
+    const char *r = eval_print(
+        "(let ((lk (mp:make-recursive-lock)))"
+        "  (mp:with-recursive-lock-held (lk :timeout 1)"
+        "    (mp:with-recursive-lock-held (lk :timeout 1) :nested)))");
+    ASSERT_STR_EQ(r, ":NESTED");
+}
+
 TEST(lock_contention_two_threads)
 {
     /* Two threads increment a shared counter protected by a lock */
@@ -1053,6 +1112,11 @@ int main(void)
     RUN(lock_acquire_release);
     RUN(lock_trylock);
     RUN(lock_with_lock_held);
+    RUN(lock_with_lock_held_timeout_free_lock_runs_body);
+    RUN(lock_with_lock_held_timeout_elapses_skips_body);
+    RUN(lock_with_lock_held_timeout_waits_for_release);
+    RUN(lock_with_lock_held_timeout_form_evaluated_once);
+    RUN(lock_with_recursive_lock_held_timeout);
     RUN(lock_contention_two_threads);
 
     /* Condition variables */

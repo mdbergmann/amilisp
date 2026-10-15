@@ -9554,6 +9554,35 @@ y" 1))
     (mp:with-lock-held (lk)
       42)))
 
+; (with-lock-held (lock :timeout secs) ...): body runs when acquired in time
+; (and the lock is released after), NIL and no body when the timeout elapses.
+(check "with-lock-held :timeout on a free lock runs the body" '(42 43 t)
+  (let ((lk (mp:make-lock)))
+    (list (mp:with-lock-held (lk :timeout 1) 42)
+          (mp:with-lock-held (lk :timeout nil) 43)
+          (mp:acquire-lock lk nil))))
+(check "with-lock-held :timeout elapsed skips the body" '(nil nil)
+  (let ((lk (mp:make-lock)) (ran nil))
+    (mp:acquire-lock lk t)
+    (let ((th (mp:make-thread
+               (lambda ()
+                 (mp:with-lock-held (lk :timeout 0.05) (setq ran t) :got)))))
+      (let ((res (mp:join-thread th)))
+        (mp:release-lock lk)
+        (list res ran)))))
+(check "with-lock-held :timeout waits for a release" :got
+  (let ((lk (mp:make-lock)))
+    (mp:acquire-lock lk t)
+    (let ((th (mp:make-thread
+               (lambda () (mp:with-lock-held (lk :timeout 5) :got)))))
+      (sleep 0.05)
+      (mp:release-lock lk)
+      (mp:join-thread th))))
+(check "with-recursive-lock-held :timeout nests" :nested
+  (let ((lk (mp:make-recursive-lock)))
+    (mp:with-recursive-lock-held (lk :timeout 1)
+      (mp:with-recursive-lock-held (lk :timeout 1) :nested))))
+
 ; --- Lock contention (two threads) ---
 (check "lock contention two threads" 200
   (let ((counter (list 0))

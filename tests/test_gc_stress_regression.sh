@@ -6259,6 +6259,29 @@ check_contains "stop workers: every worker left the registry" "SW-LEFT:0" "$out"
 check_contains "stop workers: cleanup results survive compaction" "SW-OUT:((0 0) (1 1) (2 2))" "$out"
 check_absent   "stop workers: no bad mark" "BADMARK\|FATAL" "$out"
 
+# --- Case: WITH-LOCK-HELD :TIMEOUT under GC stress ---------------------------
+# The timed branch of the macro (acquire with a timeout, body only on
+# success) -- a worker that times out against a held lock, then a timed
+# acquire that succeeds and conses inside the body, every allocation
+# compacting.  bordeaux-threads' with-lock-held :timeout expands to this.
+cat > "$WORK/locktimeout.lisp" <<'EOF'
+(let ((lk (mp:make-lock "lt")) (ran nil))
+  (mp:acquire-lock lk t)
+  (let ((th (mp:make-thread
+             (lambda () (mp:with-lock-held (lk :timeout 0.02) (setq ran t) :got)))))
+    (format t "LT-MISS:~S~%" (mp:join-thread th)))
+  (mp:release-lock lk)
+  (format t "LT-RAN:~S~%" ran)
+  (format t "LT-HIT:~S~%" (mp:with-lock-held (lk :timeout 1) (list :got (make-list 3 :initial-element 7))))
+  (format t "LT-FREE:~S~%" (mp:acquire-lock lk nil)))
+EOF
+out=$(run_stress "$WORK/locktimeout.lisp")
+check_contains "with-lock-held :timeout elapsed returns NIL under stress"   "LT-MISS:NIL" "$out"
+check_contains "with-lock-held :timeout elapsed ran no body under stress"   "LT-RAN:NIL" "$out"
+check_contains "with-lock-held :timeout acquired runs the body under stress" "LT-HIT:(:GOT (7 7 7))" "$out"
+check_contains "with-lock-held :timeout released the lock under stress"    "LT-FREE:T" "$out"
+check_absent   "with-lock-held :timeout: no bad mark"                       "BADMARK\|FATAL\|Undefined" "$out"
+
 # --- Case: ~F / ~$ / ~R with five parameters -------------------------------
 # The fixed-format directives format through C buffers and princ a
 # non-number argument; every allocation around them compacts here.

@@ -73,8 +73,8 @@ A lock the thread held when it died stays held: no cleanup ran for it. See
 | `(make-recursive-lock &optional name)` | function | Create a recursive (re-entrant) lock |
 | `(acquire-lock lock &optional (wait-p t) timeout)` | function | Acquire a lock; with `wait-p` `nil`, try once without blocking; `timeout` (seconds) bounds a blocking acquire — `nil` on timeout |
 | `(release-lock lock)` | function | Release a held lock (an error unless the caller holds it) |
-| `(with-lock-held (lock) &body body)` | macro | Acquire/release around a body |
-| `(with-recursive-lock-held (lock) &body body)` | macro | As above for a recursive lock |
+| `(with-lock-held (lock &key timeout) &body body)` | macro | Acquire/release around a body; with a `timeout` (seconds) that elapses first, the body does not run and the form returns `nil` |
+| `(with-recursive-lock-held (lock &key timeout) &body body)` | macro | As above for a recursive lock |
 | `(lockp object)` | function | Type predicate for locks |
 | `(lock-name lock)` | function | A lock's name |
 
