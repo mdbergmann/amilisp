@@ -35,7 +35,7 @@ passed=0
 failed=0
 total=0
 TMPDIR="${TMPDIR:-/tmp}"
-WORK="$TMPDIR/clamiga_linline_$$"
+WORK="$TMPDIR/amilisp_linline_$$"
 mkdir -p "$WORK"
 trap 'rm -rf "$WORK"' EXIT
 

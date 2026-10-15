@@ -61,9 +61,10 @@ under `docs/` next to its Markdown.  Every guide gets a Workbench icon
 (`icons/Guide.info`, default tool `SYS:Utilities/MultiView`, copied as
 `<name>.guide.info` by the release script), so the documentation is
 visible and readable from Workbench.  The top-level README is named
-`amilisp.guide` rather than `README.guide` (taken by the index) or
-`clamiga.guide` (taken by the `AMILISP` package page; AmigaDOS file names
-are case-insensitive).  `README-FIRST.md` lives in the repository root so
+`amilisp.guide` rather than `README.guide` (taken by the index); the
+`AMILISP` package page is `docs/amilisp.guide`, one drawer down, so the two
+never meet (AmigaDOS file names are case-insensitive).  `README-FIRST.md`
+lives in the repository root so
 that its links resolve identically in the checkout and in the release
 (same relative position); it replaces the `README-BINARY.txt` the release
 script used to generate.

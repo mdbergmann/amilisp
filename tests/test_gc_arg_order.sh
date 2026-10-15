@@ -15,7 +15,7 @@
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 CHECK="$ROOT/tests/gc_arg_order.pl"
 TMPDIR="${TMPDIR:-/tmp}"
-WORK="$TMPDIR/clamiga_argorder_$$"
+WORK="$TMPDIR/amilisp_argorder_$$"
 passed=0
 failed=0
 total=0

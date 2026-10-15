@@ -25,8 +25,8 @@ if [ -z "$TIMEOUT" ]; then
     exit 0
 fi
 
-tmp=$(mktemp "${TMPDIR:-/tmp}/clamiga_closerace_XXXXXX") || exit 1
-workdir=$(mktemp -d "${TMPDIR:-/tmp}/clamiga_closerace_dir_XXXXXX") || exit 1
+tmp=$(mktemp "${TMPDIR:-/tmp}/amilisp_closerace_XXXXXX") || exit 1
+workdir=$(mktemp -d "${TMPDIR:-/tmp}/amilisp_closerace_dir_XXXXXX") || exit 1
 trap 'rm -f "$tmp"; rm -rf "$workdir"' EXIT
 
 cat > "$tmp" <<EOF

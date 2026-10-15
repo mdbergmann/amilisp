@@ -35,7 +35,7 @@ passed=0
 failed=0
 total=0
 TMPDIR="${TMPDIR:-/tmp}"
-WORK="$TMPDIR/clamiga_tier4p1_$$"
+WORK="$TMPDIR/amilisp_tier4p1_$$"
 mkdir -p "$WORK"
 trap 'rm -rf "$WORK"' EXIT
 

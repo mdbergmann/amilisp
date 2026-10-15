@@ -44,7 +44,7 @@ fi
 passed=0
 failed=0
 
-WORK=$(mktemp -d "${TMPDIR:-/tmp}/clamiga_image_XXXXXX") || exit 1
+WORK=$(mktemp -d "${TMPDIR:-/tmp}/amilisp_image_XXXXXX") || exit 1
 trap 'rm -rf "$WORK"' EXIT INT TERM
 cd "$WORK" || exit 1
 
@@ -382,7 +382,7 @@ out=$(HOME="$WORK/rc-home" AMILISP_NO_USERINIT= "$TIMEOUT" 60 "$AMILISP" \
     --image session.img --non-interactive \
     --eval '(format t "RC-DONE~%")' </dev/null 2>&1)
 ec=$?
-check "clamigarc_sees_restored_p" 0 "$ec" "$out" "RC-RESTORED=T" "RC-DONE"
+check "amilisprc_sees_restored_p" 0 "$ec" "$out" "RC-RESTORED=T" "RC-DONE"
 
 # --- :SHAKE-BINDINGS — image delivery sheds the binding tables -----------
 # (specs/raw-bindings-footprint.md Phase 3.)  A delivered image has a CLOSED
@@ -580,7 +580,7 @@ check "library_variables_save" 0 "$ec" "$out" \
 out=$(HOME="$WORK/lv-home" AMILISP_NO_USERINIT= "$TIMEOUT" 60 "$AMILISP" \
     --image libvar.img --non-interactive --load libvar-verify.lisp </dev/null 2>&1)
 ec=$?
-check "library_variables_rederived_before_clamigarc" 0 "$ec" "$out" \
+check "library_variables_rederived_before_amilisprc" 0 "$ec" "$out" \
     "RC-LV=(4096 4097)"
 check "library_variables_rederived_in_order_once_each" 0 "$ec" "$out" \
     "LV=(1 4096 4097 NIL REDERIVED 4)" "LV-DOC=The last library variable."

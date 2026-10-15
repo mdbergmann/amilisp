@@ -409,7 +409,7 @@ static void fasl_mlf_free_walk_state(void)
     fasl_mlf_index_free(&g_mlf.seen_index);
 }
 
-/* Resolve a CLAMIGA-package function by name; CL_NIL if undefined
+/* Resolve a AMILISP-package function by name; CL_NIL if undefined
  * (e.g. CLOS not loaded — the pre-pass then no-ops). */
 static CL_Obj fasl_mlf_amilisp_fn(const char *name, int len)
 {
@@ -1025,7 +1025,7 @@ void cl_fasl_set_portable_mode(int on)
  * compile-file input).  CL_Bytecode.source_file is serialized into every
  * function's FASL unit and is what a backtrace, the debugger and
  * EXT.DEV's SOURCE-LOCATION print — so a release compiled on the build
- * host used to show "/Users/<builder>/.../cl-amiga/lib/amiga/ahi.lisp" in
+ * host used to show "/Users/<builder>/.../amilisp/lib/amiga/ahi.lisp" in
  * every Amiga backtrace through a shipped module: a path that exists on no
  * user's machine.  In portable mode the name is made relative to the
  * compiling process's current directory when the source lies under it

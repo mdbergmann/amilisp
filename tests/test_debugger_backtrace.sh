@@ -38,7 +38,7 @@ fi
 
 # The debugger prompt only appears on a real tty, and the frame text has to be
 # long enough to outgrow the inline buffer — hence a deep directory.
-dir=$(mktemp -d "${TMPDIR:-/tmp}/clamiga_dbgbt_XXXXXX") || exit 1
+dir=$(mktemp -d "${TMPDIR:-/tmp}/amilisp_dbgbt_XXXXXX") || exit 1
 trap 'rm -rf "$dir"' EXIT
 
 deep="$dir/a-long-directory-name-making-every-backtrace-line-big/so-the-rendered-text-passes-the-old-two-kilobyte-ceiling"

@@ -1205,8 +1205,8 @@ void cl_repl_init_no_userinit(int no_userinit)
                 ";        Searched lib/ under the current directory, $AMILISP_HOME/lib/,\n"
                 ";        and - relative to the amilisp executable - lib/,\n"
                 ";        ../lib/amilisp/ (installed layout) and ../../lib/ (in-repo build).\n"
-                ";        Set AMILISP_HOME to your cl-amiga checkout/installation, e.g.\n"
-                ";            export AMILISP_HOME=/path/to/cl-amiga\n"
+                ";        Set AMILISP_HOME to your AmiLisp checkout/installation, e.g.\n"
+                ";            export AMILISP_HOME=/path/to/amilisp\n"
 #endif
                 ";        Continuing without the standard library - most Common Lisp\n"
                 ";        features and REQUIRE will not work.\n");

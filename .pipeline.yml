@@ -1,4 +1,4 @@
-# .pipeline.yml — AI pipeline config for cl-amiga (a Common Lisp VM in C89/C99).
+# .pipeline.yml — AI pipeline config for AmiLisp (a Common Lisp VM in C89/C99).
 #
 # Used by the ai-pipeline orchestrator (~/Development/MySources/ai-pipeline).
 # Run manually:
@@ -11,7 +11,7 @@ image: ai-pipeline-agent-c:latest
 # TEST stage command, run inside the container at /workspace.
 #
 # The test stage mounts the workspace READ-ONLY, but a C build writes object
-# files and binaries. cl-amiga's Makefile derives every output path from
+# files and binaries. AmiLisp's Makefile derives every output path from
 # BUILDDIR (the amilisp binary AND $(BUILDDIR)/tests/*), so we redirect it to
 # /tmp/build — the exec-capable scratch tmpfs run-stage.sh provides — leaving
 # the repo untouched. `test-fast` is the quick tier (skips the quicklisp/sento
@@ -34,7 +34,7 @@ max_fix_retries: 20
 
 # Project rules appended to the review/fix prompts (GC-safety, 32-bit-clean
 # structs, C89/C99, HyperSpec, mandatory regression tests). Without this the
-# generic prompt knows nothing about cl-amiga's invariants.
+# generic prompt knows nothing about AmiLisp's invariants.
 # review: auto-discovered at .pipeline/prompts/review-guideline.md (no key needed).
 # fix: reuse the same rules by pointing fix_prompt_file at that file.
 fix_prompt_file: .pipeline/prompts/review-guideline.md

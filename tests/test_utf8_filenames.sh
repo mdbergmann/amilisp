@@ -16,7 +16,7 @@
 # Run: sh tests/test_utf8_filenames.sh [path-to-amilisp]
 
 AMILISP="${1:-build/host/amilisp}"
-TMP="${TMPDIR:-/tmp}/clamiga_utf8names_$$"
+TMP="${TMPDIR:-/tmp}/amilisp_utf8names_$$"
 mkdir -p "$TMP"
 trap 'rm -rf "$TMP"' EXIT
 

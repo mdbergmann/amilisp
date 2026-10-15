@@ -16,9 +16,9 @@ if [ -z "$TIMEOUT" ]; then
     exit 0
 fi
 
-tmp=$(mktemp "${TMPDIR:-/tmp}/clamiga_iodiag_XXXXXX") || exit 1
-out=$(mktemp "${TMPDIR:-/tmp}/clamiga_iodiag_out_XXXXXX") || exit 1
-dat=$(mktemp "${TMPDIR:-/tmp}/clamiga_iodiag_dat_XXXXXX") || exit 1
+tmp=$(mktemp "${TMPDIR:-/tmp}/amilisp_iodiag_XXXXXX") || exit 1
+out=$(mktemp "${TMPDIR:-/tmp}/amilisp_iodiag_out_XXXXXX") || exit 1
+dat=$(mktemp "${TMPDIR:-/tmp}/amilisp_iodiag_dat_XXXXXX") || exit 1
 trap 'rm -f "$tmp" "$out" "$dat"' EXIT
 
 fail=0

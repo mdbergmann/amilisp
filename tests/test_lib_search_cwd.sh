@@ -13,8 +13,8 @@
 
 AMILISP="${1:-build/host/amilisp}"
 case "$AMILISP" in
-    /*) ABS_CLAMIGA="$AMILISP" ;;
-    *)  ABS_CLAMIGA="$(pwd)/$AMILISP" ;;
+    /*) ABS_AMILISP="$AMILISP" ;;
+    *)  ABS_AMILISP="$(pwd)/$AMILISP" ;;
 esac
 ROOT="$(pwd)"
 
@@ -62,16 +62,16 @@ EVAL_REQUIRE='(progn (require "gray-streams") (format t "GS-OK R=~A~%" (+ 1 2)))
 
 # --- Executable-relative fallback: repo binary run from elsewhere ---
 
-result=$(cd "$WORKDIR" && env -u AMILISP_HOME "$ABS_CLAMIGA" --no-userinit \
+result=$(cd "$WORKDIR" && env -u AMILISP_HOME "$ABS_AMILISP" --no-userinit \
     --non-interactive --eval "$EVAL_REQUIRE" </dev/null 2>&1)
 check_contains     "exedir_boot_and_require"  "GS-OK R=3" "$result"
 check_not_contains "exedir_no_boot_error"     "cannot locate its runtime library" "$result"
 
 # --- Executable-relative fallback through a $PATH-style symlink ---
 
-ln -s "$ABS_CLAMIGA" "$WORKDIR/clamiga-link" 2>/dev/null
-if [ -L "$WORKDIR/clamiga-link" ]; then
-    result=$(cd "$WORKDIR" && env -u AMILISP_HOME ./clamiga-link --no-userinit \
+ln -s "$ABS_AMILISP" "$WORKDIR/amilisp-link" 2>/dev/null
+if [ -L "$WORKDIR/amilisp-link" ]; then
+    result=$(cd "$WORKDIR" && env -u AMILISP_HOME ./amilisp-link --no-userinit \
         --non-interactive --eval "$EVAL_REQUIRE" </dev/null 2>&1)
     check_contains "symlink_boot_and_require" "GS-OK R=3" "$result"
 else
@@ -91,7 +91,7 @@ fi
 
 mkdir -p "$WORKDIR/prefix/bin" "$WORKDIR/prefix/lib"
 cp -pR "$ROOT/lib" "$WORKDIR/prefix/lib/amilisp"
-cp "$ABS_CLAMIGA" "$WORKDIR/prefix/bin/amilisp"
+cp "$ABS_AMILISP" "$WORKDIR/prefix/bin/amilisp"
 result=$(cd "$WORKDIR" && env -u AMILISP_HOME "$WORKDIR/prefix/bin/amilisp" \
     --no-userinit --non-interactive --eval "$EVAL_REQUIRE" </dev/null 2>&1)
 check_contains     "fhs_install_boot_and_require" "GS-OK R=3" "$result"
@@ -102,7 +102,7 @@ check_not_contains "fhs_install_no_boot_error"    "cannot locate its runtime lib
 # binary must keep booting, so ../lib/clamiga/ stays a leg of the search.
 mkdir -p "$WORKDIR/prefix-old/bin" "$WORKDIR/prefix-old/lib"
 cp -pR "$ROOT/lib" "$WORKDIR/prefix-old/lib/clamiga"
-cp "$ABS_CLAMIGA" "$WORKDIR/prefix-old/bin/amilisp"
+cp "$ABS_AMILISP" "$WORKDIR/prefix-old/bin/amilisp"
 result=$(cd "$WORKDIR" && env -u AMILISP_HOME "$WORKDIR/prefix-old/bin/amilisp" \
     --no-userinit --non-interactive --eval "$EVAL_REQUIRE" </dev/null 2>&1)
 check_contains     "fhs_install_pre_rename_lib_clamiga" "GS-OK R=3" "$result"
@@ -122,14 +122,14 @@ check_contains "fhs_install_shims_under_prefix" \
 
 # --- $AMILISP_HOME fallback: bare copied binary, lib/ nowhere nearby ---
 
-cp "$ABS_CLAMIGA" "$WORKDIR/clamiga-copy"
-result=$(cd "$WORKDIR" && AMILISP_HOME="$ROOT" ./clamiga-copy --no-userinit \
+cp "$ABS_AMILISP" "$WORKDIR/amilisp-copy"
+result=$(cd "$WORKDIR" && AMILISP_HOME="$ROOT" ./amilisp-copy --no-userinit \
     --non-interactive --eval "$EVAL_REQUIRE" </dev/null 2>&1)
-check_contains "clamiga_home_boot_and_require" "GS-OK R=3" "$result"
+check_contains "amilisp_home_boot_and_require" "GS-OK R=3" "$result"
 
 # --- Nothing findable: clear diagnostics instead of a generic error ---
 
-result=$(cd "$WORKDIR" && env -u AMILISP_HOME ./clamiga-copy --no-userinit \
+result=$(cd "$WORKDIR" && env -u AMILISP_HOME ./amilisp-copy --no-userinit \
     --non-interactive --eval '(require "gray-streams")' </dev/null 2>&1)
 check_contains "lost_boot_names_problem"   "cannot locate its runtime library" "$result"
 check_contains "lost_boot_names_fix"       "AMILISP_HOME" "$result"
@@ -145,8 +145,8 @@ check_contains "lost_require_names_module" 'cannot find module "gray-streams"' "
 
 mkdir -p "$WORKDIR/poison/lib"
 printf '(defmacro dummy () nil)\n((((( \n' > "$WORKDIR/poison/lib/boot.lisp"
-cp "$ABS_CLAMIGA" "$WORKDIR/poison/clamiga-poison"
-result=$(cd "$WORKDIR/poison" && env -u AMILISP_HOME ./clamiga-poison --no-userinit \
+cp "$ABS_AMILISP" "$WORKDIR/poison/amilisp-poison"
+result=$(cd "$WORKDIR/poison" && env -u AMILISP_HOME ./amilisp-poison --no-userinit \
     --non-interactive --eval '(list 1 2)' </dev/null 2>&1)
 check_contains     "poisoned_boot_names_load_failure" "but loading it FAILED" "$result"
 check_contains     "poisoned_boot_still_reports_no_runtime" "cannot locate its runtime library" "$result"

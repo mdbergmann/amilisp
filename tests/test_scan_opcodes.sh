@@ -34,7 +34,7 @@ passed=0
 failed=0
 total=0
 TMPDIR="${TMPDIR:-/tmp}"
-WORK="$TMPDIR/clamiga_scanops_$$"
+WORK="$TMPDIR/amilisp_scanops_$$"
 mkdir -p "$WORK"
 trap 'rm -rf "$WORK"' EXIT
 

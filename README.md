@@ -810,7 +810,7 @@ After that, `(asdf:load-system "alexandria")` resolves against the `ocicl`-insta
 
 Several third-party libraries don't recognise AmiLisp and either lack a porting
 layer for it or assume features of other implementations. For these, the project
-maintains forks that add a AmiLisp backend (a new `*-clamiga.lisp` file) or a
+maintains forks that add an AmiLisp backend (a new `*-clamiga.lisp` file) or a
 small `#+cl-amiga` / `#+clamiga` adaptation. Clone them into
 `~/quicklisp/local-projects/` (Amiga: `S:quicklisp/local-projects/`) so
 Quicklisp's local-projects searcher picks them up ahead of the stock dist

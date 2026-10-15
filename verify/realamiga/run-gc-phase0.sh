@@ -3,7 +3,7 @@
 #
 # The GC measurement of specs/gc-backend-immix.md (trunk/gc-phase0.lisp:
 # explicit collections, allocation churn, a compaction; bare and with
-# Clamacs loaded) run unattended in FS-UAE with BINDIR/clamiga, so the
+# Clamacs loaded) run unattended in FS-UAE with BINDIR/amilisp, so the
 # classic and the Immix m68k binaries can be measured on the same emulated
 # machine and read side by side (docs/gc-phase0-results.md).
 #

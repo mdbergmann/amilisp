@@ -139,8 +139,8 @@
 ;; MorphOS box turned out to have a class of that name in MUI:Libs/mui.)
 (check "mui-new-object-unknown-class-is-error" '(t t)
   (if *mui-p*
-      (list (handler-case (progn (amiga.mui:new-object "Clamigabogus.mui") nil)
-              (error (e) (and (search "Clamigabogus.mui" (format nil "~A" e)) t)))
+      (list (handler-case (progn (amiga.mui:new-object "Amilispbogus.mui") nil)
+              (error (e) (and (search "Amilispbogus.mui" (format nil "~A" e)) t)))
             (handler-case (progn (amiga.mui:new-object :no-such-class) nil)
               (error (e) (let ((m (format nil "~A" e)))
                            (and (search "Nosuchclass.mui" m) (search ":NO-SUCH-CLASS" m) t)))))
@@ -198,7 +198,7 @@ STRING-CELL for the notification test.  Returns the application."
                                                           (%m "+MUIA-GROUP-CHILD+") str)))
          (app (amiga.mui:new-object :application
                                     (%m "+MUIA-APPLICATION-TITLE+") "AmiLispMUITest"
-                                    (%m "+MUIA-APPLICATION-BASE+") "CLAMIGAMUITEST"
+                                    (%m "+MUIA-APPLICATION-BASE+") "AMILISPMUITEST"
                                     (%m "+MUIA-APPLICATION-WINDOW+") win)))
     (setf (car string-cell) str)
     (values app win)))
@@ -453,7 +453,7 @@ STRING-CELL for the notification test.  Returns the application."
                                           (%m "+MUIA-WINDOW-ROOT-OBJECT+")
                                           (amiga.mui:new-object :listview (%m "+MUIA-LISTVIEW-LIST+") list)))
                (app (amiga.mui:new-object :application
-                                          (%m "+MUIA-APPLICATION-BASE+") "CLAMIGAMUIHOOK"
+                                          (%m "+MUIA-APPLICATION-BASE+") "AMILISPMUIHOOK"
                                           (%m "+MUIA-APPLICATION-WINDOW+") win)))
           (unwind-protect
                (progn
@@ -544,7 +544,7 @@ STRING-CELL for the notification test.  Returns the application."
                                             (%m "+MUIA-WINDOW-ROOT-OBJECT+")
                                             (amiga.mui:new-object :group (%m "+MUIA-GROUP-CHILD+") obj)))
                  (app (amiga.mui:new-object :application
-                                            (%m "+MUIA-APPLICATION-BASE+") "CLAMIGAMUICLASS"
+                                            (%m "+MUIA-APPLICATION-BASE+") "AMILISPMUICLASS"
                                             (%m "+MUIA-APPLICATION-WINDOW+") win)))
             (unwind-protect
                  (progn
@@ -594,7 +594,7 @@ STRING-CELL for the notification test.  Returns the application."
                                             (%m "+MUIA-WINDOW-ROOT-OBJECT+")
                                             (amiga.mui:new-object :group (%m "+MUIA-GROUP-CHILD+") obj)))
                  (app (amiga.mui:new-object :application
-                                            (%m "+MUIA-APPLICATION-BASE+") "CLAMIGAMUIMETHODS"
+                                            (%m "+MUIA-APPLICATION-BASE+") "AMILISPMUIMETHODS"
                                             (%m "+MUIA-APPLICATION-WINDOW+") win)))
             (unwind-protect
                  (progn
@@ -670,7 +670,7 @@ STRING-CELL for the notification test.  Returns the application."
                                             (%m "+MUIA-WINDOW-TITLE+") "AMIGA.MUI layout hook"
                                             (%m "+MUIA-WINDOW-ROOT-OBJECT+") group))
                  (app (amiga.mui:new-object :application
-                                            (%m "+MUIA-APPLICATION-BASE+") "CLAMIGAMUILAYOUT"
+                                            (%m "+MUIA-APPLICATION-BASE+") "AMILISPMUILAYOUT"
                                             (%m "+MUIA-APPLICATION-WINDOW+") win)))
             (unwind-protect
                  (progn
@@ -748,7 +748,7 @@ STRING-CELL for the notification test.  Returns the application."
                                             (amiga.mui:new-object :group
                                                                   (%m "+MUIA-GROUP-CHILD+") slider)))
                  (app (amiga.mui:new-object :application
-                                            (%m "+MUIA-APPLICATION-BASE+") "CLAMIGAMUIINPUT"
+                                            (%m "+MUIA-APPLICATION-BASE+") "AMILISPMUIINPUT"
                                             (%m "+MUIA-APPLICATION-WINDOW+") win)))
             (unwind-protect
                  (handler-case
@@ -787,7 +787,7 @@ STRING-CELL for the notification test.  Returns the application."
                              (amiga.mui:do-super-method class object message)))))
                  (obj (amiga.mui:new-object (amiga.mui:custom-class-class mcc)))
                  (app (amiga.mui:new-object :application
-                                            (%m "+MUIA-APPLICATION-BASE+") "CLAMIGAMUIKEYHOOK"))
+                                            (%m "+MUIA-APPLICATION-BASE+") "AMILISPMUIKEYHOOK"))
                  (hook (amiga.mui:make-string-key-hook app obj method
                                                        '((#x42 #x19 #x00 4242))))  ; TAB
                  (sgw (ffi:alloc-foreign 44))

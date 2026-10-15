@@ -140,7 +140,7 @@ f=icons/Drawer.info; bad=""
 
 # --- generator reproduces the committed files ---------------------------
 if command -v python3 > /dev/null 2>&1; then
-    WORK=$(mktemp -d "${TMPDIR:-/tmp}/clamiga_icons_XXXXXX")
+    WORK=$(mktemp -d "${TMPDIR:-/tmp}/amilisp_icons_XXXXXX")
     trap 'rm -rf "$WORK"' EXIT INT TERM
     if python3 scripts/make-icons.py "$WORK" > /dev/null 2>&1; then
         bad=""

@@ -47,7 +47,7 @@ if [ -z "$TIMEOUT" ]; then
     exit 0
 fi
 
-tmp=$(mktemp "${TMPDIR:-/tmp}/clamiga_mtcompact_XXXXXX") || exit 1
+tmp=$(mktemp "${TMPDIR:-/tmp}/amilisp_mtcompact_XXXXXX") || exit 1
 cleanup() { rm -f "$tmp"; }
 trap cleanup EXIT INT TERM
 

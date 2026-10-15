@@ -3,13 +3,13 @@
 ;; This is the SSL-enabled counterpart to the other trunk scripts.  Unlike
 ;; chipi (which sets :drakma-no-ssl and stays on plain HTTP), this script loads
 ;; drakma together with cl+ssl so the HTTPS path is exercised end to end.  It
-;; brings three cl-amiga capabilities together:
+;; brings three AmiLisp capabilities together:
 ;;
 ;;   - the host FFI engine + CFFI backend (cffi-clamiga),
 ;;   - cl+ssl loading against the host's OpenSSL — enabled by the :darwin /
-;;     :linux + arch features cl-amiga now exposes, which let cl+ssl's
+;;     :linux + arch features AmiLisp now exposes, which let cl+ssl's
 ;;     define-foreign-library pick the right library names and locations, and
-;;   - the usocket cl-amiga backend (usocket/backend/clamiga.lisp) that maps
+;;   - the usocket AmiLisp backend (usocket/backend/clamiga.lisp) that maps
 ;;     usocket onto ext:open-tcp-stream / ext:socket-listen / ext:socket-accept.
 ;;
 ;; The upstream drakma test-suite (ASDF system :drakma-test, run via fiveam)
@@ -17,8 +17,8 @@
 ;; network access and is HOST-ONLY: the Amiga/FS-UAE target has no TCP/IP stack
 ;; in the test harness, so there is no Amiga counterpart to this script.
 ;;
-;; SCOPE: cl-amiga runs drakma as an HTTP/HTTPS *client* over the usocket
-;; cl-amiga backend + cl+ssl.  The tests that exercise that — plain HTTP and
+;; SCOPE: AmiLisp runs drakma as an HTTP/HTTPS *client* over the usocket
+;; AmiLisp backend + cl+ssl.  The tests that exercise that — plain HTTP and
 ;; HTTPS, GET and POST, streamed responses, and cl+ssl certificate
 ;; verification (the badssl.com VERIFY.* tests) — pass reliably.  Tests that
 ;; instead need a local hunchentoot SERVER, chipz streaming decompression, or
@@ -60,7 +60,7 @@
 (asdf:load-system :drakma-test)
 
 ;; The form-POST tests run drakma against a LOCAL hunchentoot server over the
-;; usocket cl-amiga backend.  The cl-amiga Hunchentoot/cl-fad/rfc2388
+;; usocket AmiLisp backend.  The AmiLisp Hunchentoot/cl-fad/rfc2388
 ;; portability now lives as in-source #+cl-amiga branches in those forks
 ;; (local-projects), installed when the systems load above.
 

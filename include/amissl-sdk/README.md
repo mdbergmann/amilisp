@@ -17,7 +17,7 @@ the library itself (`amisslmaster.library`, AmiSSL 5+) is opened lazily at
 runtime.
 
 Kept subdirectories: `amissl/`, `clib/`, `inline/`, `ppcinline/`,
-`libraries/`, `openssl/`, `proto/`.  Dropped (unused by cl-amiga):
+`libraries/`, `openssl/`, `proto/`.  Dropped (unused by AmiLisp):
 `inline4/` + `interfaces/` (AmigaOS 4), `defines/` (AROS), `pragmas/`
 (SAS/C, vbcc).
 

@@ -31,7 +31,7 @@ passed=0
 failed=0
 total=0
 
-tmp=$(mktemp "${TMPDIR:-/tmp}/clamiga_load_exit_XXXXXX") || exit 1
+tmp=$(mktemp "${TMPDIR:-/tmp}/amilisp_load_exit_XXXXXX") || exit 1
 fifo=""
 cleanup() { rm -f "$tmp"; [ -n "$fifo" ] && rm -f "$fifo"; }
 trap cleanup EXIT INT TERM
@@ -64,7 +64,7 @@ check() {
 # regression that drops into the REPL would block reading it and time out (124).
 # Using a FIFO + background sleep avoids blocking $(...) for the full 12s
 # (POSIX pipeline-wait would hold $(sleep 12 | ...) until sleep finishes).
-fifo=$(mktemp -u "${TMPDIR:-/tmp}/clamiga_fifo_XXXXXX")
+fifo=$(mktemp -u "${TMPDIR:-/tmp}/amilisp_fifo_XXXXXX")
 mkfifo "$fifo"
 sleep 12 >"$fifo" &
 sleep_pid=$!

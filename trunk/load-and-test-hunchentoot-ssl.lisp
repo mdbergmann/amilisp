@@ -1,7 +1,7 @@
 ;; Load and test Hunchentoot as an HTTPS server — the TLS counterpart to
 ;; trunk/load-and-test-hunchentoot.lisp.
 ;;
-;; cl-amiga is BOTH ends of every connection here: a Hunchentoot
+;; AmiLisp is BOTH ends of every connection here: a Hunchentoot
 ;; EASY-SSL-ACCEPTOR serves https://localhost over the native TLS layer
 ;; (EXT:SOCKET-START-TLS — OpenSSL on the host, AmiSSL on AmigaOS), reached
 ;; through the cl+ssl facade (lib/shims/cl+ssl) that hunchentoot's
@@ -55,7 +55,7 @@
 ;; original would "work" on the host and hide facade regressions.  The
 ;; facade is recognisable by its internal %START-TLS helper.
 (unless (find-symbol "%START-TLS" "CL+SSL")
-  (error "the loaded cl+ssl is not the cl-amiga facade: lib/shims/cl+ssl ~
+  (error "the loaded cl+ssl is not the AmiLisp facade: lib/shims/cl+ssl ~
           should have been auto-registered on ASDF:*CENTRAL-REGISTRY* when ~
           ASDF loaded (is AMILISP_NO_SHIMS set?)"))
 
@@ -66,18 +66,18 @@
 ;; the rationale there): count every leaf assertion and the failing ones.
 (in-package :hunchentoot-test)
 
-(defvar *clamiga-checks* 0)
-(defvar *clamiga-fails* 0)
+(defvar *amilisp-checks* 0)
+(defvar *amilisp-fails* 0)
 
 (let ((orig-assert (fdefinition 'http-assert))
       (orig-header  (fdefinition 'http-assert-header)))
   (flet ((counting (orig)
            (lambda (&rest args)
-             (incf *clamiga-checks*)
+             (incf *amilisp-checks*)
              (handler-bind ((test-failure
                               (lambda (c)
                                 (declare (ignore c))
-                                (incf *clamiga-fails*))))
+                                (incf *amilisp-fails*))))
                (apply orig args)))))
     (setf (fdefinition 'http-assert)        (counting orig-assert)
           (fdefinition 'http-assert-header) (counting orig-header))))
@@ -99,16 +99,16 @@
        (progn
          ;; Give the acceptor's taskmaster thread a moment to come up.
          (sleep 2)
-         (setf hunchentoot-test::*clamiga-checks* 0
-               hunchentoot-test::*clamiga-fails*  0)
+         (setf hunchentoot-test::*amilisp-checks* 0
+               hunchentoot-test::*amilisp-fails*  0)
          (format t "~%--- Running hunchentoot confidence suite over HTTPS ---~%")
          (handler-case
              (hunchentoot-test:test-hunchentoot
               (format nil "https://localhost:~A" *ht-ssl-test-port*))
            (error (e)
              (format t "~&;; confidence suite aborted with an error: ~A~%" e)))
-         (let* ((checks hunchentoot-test::*clamiga-checks*)
-                (fails  hunchentoot-test::*clamiga-fails*)
+         (let* ((checks hunchentoot-test::*amilisp-checks*)
+                (fails  hunchentoot-test::*amilisp-fails*)
                 (pass   (max 0 (- checks fails)))
                 (total  (max checks (+ pass fails)))
                 (ppct   (if (plusp total) (round (* 100 pass) total) 100))

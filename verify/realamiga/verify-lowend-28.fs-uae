@@ -1,4 +1,4 @@
-# Accelerated lower-end machine for cl-amiga — verify-lowend.fs-uae at 2x clock.
+# Accelerated lower-end machine for AmiLisp — verify-lowend.fs-uae at 2x clock.
 # A1200 / 68020 28 MHz (uae_cpu_multiplier = 8: 8 x 3.547 MHz, cycle-exact —
 # note the fs-uae cpu_frequency option is parsed but has no effect in this
 # build) — otherwise identical to the 14 MHz baseline.  Represents a modest

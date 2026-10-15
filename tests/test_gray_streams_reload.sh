@@ -49,8 +49,8 @@ if [ ! -f "$gray" ]; then
     exit 0
 fi
 
-tmp=$(mktemp "${TMPDIR:-/tmp}/clamiga_gray_reload_XXXXXX") || exit 1
-data=$(mktemp "${TMPDIR:-/tmp}/clamiga_gray_data_XXXXXX") || exit 1
+tmp=$(mktemp "${TMPDIR:-/tmp}/amilisp_gray_reload_XXXXXX") || exit 1
+data=$(mktemp "${TMPDIR:-/tmp}/amilisp_gray_data_XXXXXX") || exit 1
 cleanup() { rm -f "$tmp" "$data"; }
 trap cleanup EXIT INT TERM
 

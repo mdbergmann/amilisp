@@ -1,4 +1,4 @@
-;;;; cl-plus-ssl.lisp --- cl+ssl-compatible facade over cl-amiga native TLS.
+;;;; cl-plus-ssl.lisp --- cl+ssl-compatible facade over AmiLisp native TLS.
 ;;;
 ;;; Implements the slice of the CL+SSL API that drakma, hunchentoot and
 ;;; websocket-driver's client actually use (see cl+ssl.asd for the
@@ -51,7 +51,7 @@
 ;;; callers that insist on it (websocket-driver's client calls it before
 ;;; every wss:// connect).
 (defun ensure-initialized (&key method rand-seed)
-  "cl+ssl compatibility: TLS needs no explicit initialisation on cl-amiga.
+  "cl+ssl compatibility: TLS needs no explicit initialisation on AmiLisp.
 METHOD and RAND-SEED are accepted and ignored."
   (declare (ignore method rand-seed))
   t)
@@ -95,7 +95,7 @@ once the deprecated switch is on, else *MAKE-SSL-CLIENT-STREAM-VERIFY-DEFAULT*
 (defvar *ssl-global-context* nil)
 
 (defun %directory-location-p (loc)
-  "True when LOC names an existing directory (cl-amiga's PROBE-FILE returns
+  "True when LOC names an existing directory (AmiLisp's PROBE-FILE returns
 directory truenames with a trailing slash)."
   (let ((probed (ignore-errors (probe-file loc))))
     (and probed
@@ -140,7 +140,7 @@ inside the native handshake)."
   (declare (ignore verify-depth))
   (when verify-callback
     (error 'ssl-error :message
-           "custom :verify-callback functions are not supported by the cl-amiga cl+ssl facade"))
+           "custom :verify-callback functions are not supported by the AmiLisp cl+ssl facade"))
   (multiple-value-bind (ca-file ca-path)
       (%parse-verify-location verify-location)
     (%make-ssl-context

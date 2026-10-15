@@ -37,7 +37,7 @@ total=0
 # amilisp reads it: on Windows $TMPDIR is "C:\Users\..." and the reader would
 # eat the backslashes as escapes.  Shell-side uses of $WORK are fine either way.
 . "$(dirname "$0")/shpath.sh"
-WORK=$(mktemp -d "${TMPDIR:-/tmp}/clamiga_exit_hooks_XXXXXX") || exit 1
+WORK=$(mktemp -d "${TMPDIR:-/tmp}/amilisp_exit_hooks_XXXXXX") || exit 1
 trap 'rm -rf "$WORK"' EXIT INT TERM
 WORK_LISP=$(native_path "$WORK")
 

@@ -27,7 +27,7 @@ passed=0
 failed=0
 total=0
 TMPDIR="${TMPDIR:-/tmp}"
-WORK="$TMPDIR/clamiga_gcstress_$$"
+WORK="$TMPDIR/amilisp_gcstress_$$"
 mkdir -p "$WORK"
 trap 'rm -rf "$WORK"' EXIT
 
@@ -1571,11 +1571,11 @@ check_absent   "no split ITEM/ACC gensym from stale BLOCK body"    "Unbound\|cor
 # 3-byte UTF-8 form a default character stream would have produced.
 cat > "$WORK/latin1-open.lisp" <<'EOF'
 (dotimes (i 8)
-  (with-open-file (o "/tmp/clamiga_gcstress_latin1.tmp" :direction :output
+  (with-open-file (o "/tmp/amilisp_gcstress_latin1.tmp" :direction :output
                      :if-exists :supersede :external-format :latin-1)
     (write-char (code-char 252) o)
     (write-char #\A o)))
-(let ((bytes (with-open-file (in "/tmp/clamiga_gcstress_latin1.tmp"
+(let ((bytes (with-open-file (in "/tmp/amilisp_gcstress_latin1.tmp"
                                  :element-type '(unsigned-byte 8))
                (list (read-byte in) (read-byte in) (read-byte in nil :eof)))))
   (format t "LATIN1:~a~%" bytes))

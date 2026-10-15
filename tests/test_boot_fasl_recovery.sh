@@ -16,7 +16,7 @@
 AMILISP="${1:-build/host/amilisp}"
 AMILISP_ABS=$(cd "$(dirname "$AMILISP")" && pwd)/$(basename "$AMILISP")
 TMPDIR="${TMPDIR:-/tmp}"
-WORK="$TMPDIR/clamiga_boot_recover_$$"
+WORK="$TMPDIR/amilisp_boot_recover_$$"
 
 passed=0
 failed=0

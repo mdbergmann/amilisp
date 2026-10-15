@@ -1153,7 +1153,7 @@ static CL_Obj bi_typep(CL_Obj *args, int n)
 /* (upgraded-complex-part-type type &optional env) — the implementation's
  * upgraded element type for a complex of `type` parts.
  *
- * cl-amiga doesn't specialize complex storage; CL_Complex holds two
+ * AmiLisp doesn't specialize complex storage; CL_Complex holds two
  * untagged CL_Obj slots that can hold any real number.  Per CLHS the
  * returned upgraded type just has to:
  *   - be a supertype of the requested type, and
@@ -1166,7 +1166,7 @@ static CL_Obj bi_typep(CL_Obj *args, int n)
 static CL_Obj bi_upgraded_complex_part_type(CL_Obj *args, int n)
 {
     CL_UNUSED(n);
-    /* Ignore optional environment arg (args[1]); cl-amiga has no
+    /* Ignore optional environment arg (args[1]); AmiLisp has no
      * environment-specific upgrades. */
     return TYPE_SYM_REAL;
 }
@@ -2860,7 +2860,7 @@ static CL_Obj bi_subtypep(CL_Obj *args, int n)
         type2 = st->slots[0]; /* class name */
     }
 
-    /* (complex part-type) — since cl-amiga doesn't specialize complex
+    /* (complex part-type) — since AmiLisp doesn't specialize complex
      * storage, UPGRADED-COMPLEX-PART-TYPE always returns REAL.  Two
      * (complex X) specs are therefore mutually subtype, and any
      * (complex X) is equivalent to bare COMPLEX.  Collapse to atomic

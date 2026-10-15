@@ -45,7 +45,7 @@ fi
 passed=0
 failed=0
 
-WORK=$(mktemp -d "${TMPDIR:-/tmp}/clamiga_exe_XXXXXX") || exit 1
+WORK=$(mktemp -d "${TMPDIR:-/tmp}/amilisp_exe_XXXXXX") || exit 1
 trap 'rm -rf "$WORK"' EXIT INT TERM
 cd "$WORK" || exit 1
 mkdir away home
@@ -154,7 +154,7 @@ check "exit_hooks_run_after_toplevel" 0 "$ec" "$out" "EXIT-HOOK-RAN"
 check_absent "no_banner" "$out" "AmiLisp v"
 check_absent "no_user_init_file" "$out" "RC-RAN"
 check_absent "no_library_needed" "$out" "cannot locate its runtime library"
-check_absent "embedded_image_wins_over_cwd_clamiga_img" "$out" "--image"
+check_absent "embedded_image_wins_over_cwd_amilisp_img" "$out" "--image"
 
 run_app
 check "no_arguments" 0 "$ec" "$out" "ARGS=NIL"

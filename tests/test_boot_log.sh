@@ -76,7 +76,7 @@ check_not_contains "batch_stays_quiet" "; [boot]" "$result"
 # to the post-restore init, whose own clock would otherwise report the one
 # number this line exists for as 0 ms.  No FASL boot phases on this path.
 
-WORK=$(mktemp -d "${TMPDIR:-/tmp}/clamiga_bootlog_XXXXXX")
+WORK=$(mktemp -d "${TMPDIR:-/tmp}/amilisp_bootlog_XXXXXX")
 trap 'rm -rf "$WORK"' EXIT INT TERM
 "$AMILISP" --no-userinit --no-image --non-interactive \
     --eval "(ext:save-image \"$WORK/bootlog.img\")" </dev/null >/dev/null 2>&1

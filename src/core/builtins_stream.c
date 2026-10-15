@@ -1587,7 +1587,7 @@ static CL_Obj bi_readtablep(CL_Obj *args, int n)
 /* Callable wrapper for the built-in #\" string reader, returned by
  * GET-MACRO-CHARACTER so libraries that grab and re-dispatch the standard
  * string reader (e.g. pythonic-string-reader) get a real function instead of
- * NIL.  Registered as CL-AMIGA's %READ-STANDARD-STRING; kept here so
+ * NIL.  Registered as AMILISP's %READ-STANDARD-STRING; kept here so
  * GET-MACRO-CHARACTER can hand it back.  GC-rooted in cl_builtins_stream_init. */
 static CL_Obj standard_string_reader_fn = CL_NIL;
 
@@ -1983,7 +1983,7 @@ static CL_Obj bi_listen(CL_Obj *args, int n)
          * immediately available; NIL at end of file or when a read would block
          * — exactly the CLHS LISTEN contract.  For a listener stream "data
          * available" means a client connection is pending, which is what the
-         * usocket cl-amiga backend's wait-for-input uses to drive
+         * usocket AmiLisp backend's wait-for-input uses to drive
          * hunchentoot's accept loop. */
         /* Capture the handle BEFORE the probe and re-derive st AFTER it:
          * on AmigaOS the probe goes through the socket reactor's safe

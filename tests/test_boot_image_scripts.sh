@@ -1,6 +1,6 @@
 #!/bin/sh
 # The two deployment scripts behind a shipped amilisp.img, run on the host
-# in a release-shaped layout (bin/<target>/clamiga two levels below lib/):
+# in a release-shaped layout (bin/<target>/amilisp two levels below lib/):
 #
 #   scripts/save-boot-image.lisp    writes amilisp.img into the cwd (the
 #                                   binary's own directory) and quits
@@ -41,7 +41,7 @@ fi
 passed=0
 failed=0
 
-WORK=$(mktemp -d "${TMPDIR:-/tmp}/clamiga_bootimg_XXXXXX") || exit 1
+WORK=$(mktemp -d "${TMPDIR:-/tmp}/amilisp_bootimg_XXXXXX") || exit 1
 trap 'rm -rf "$WORK"' EXIT INT TERM
 cd "$WORK" || exit 1
 

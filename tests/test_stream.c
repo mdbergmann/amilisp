@@ -3919,8 +3919,8 @@ TEST(echo_stream_binary_file_components)
      * streams echo bytes (make-echo-stream.4/.9); stream-element-type
      * reports the input component's type. */
     CL_Obj result = cl_eval_string(
-        "(let ((pn (format nil \"~a/clamiga-echo-~d.dat\" (or (ext:getenv \"TMPDIR\") \"/tmp\") (random 100000)))"
-        "      (pn2 (format nil \"~a/clamiga-echo2-~d.dat\" (or (ext:getenv \"TMPDIR\") \"/tmp\") (random 100000)))"
+        "(let ((pn (format nil \"~a/amilisp-echo-~d.dat\" (or (ext:getenv \"TMPDIR\") \"/tmp\") (random 100000)))"
+        "      (pn2 (format nil \"~a/amilisp-echo2-~d.dat\" (or (ext:getenv \"TMPDIR\") \"/tmp\") (random 100000)))"
         "      (et '(unsigned-byte 8)))"
         "  (with-open-file (os pn :direction :output :element-type et :if-exists :supersede)"
         "    (dolist (x '(2 3 5 7 11)) (write-byte x os)))"

@@ -16,5 +16,5 @@ IMAGE=amilisp-verify-linux-arm64
 docker build -q -t "$IMAGE" "$REPO/verify/linux-arm64" >/dev/null
 
 exec docker run --rm --platform linux/arm64 \
-    -v "$REPO":/cl-amiga:ro \
-    "$IMAGE" /cl-amiga/verify/linux-arm64/container-entry.sh "$@"
+    -v "$REPO":/amilisp:ro \
+    "$IMAGE" /amilisp/verify/linux-arm64/container-entry.sh "$@"

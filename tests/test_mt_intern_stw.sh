@@ -38,7 +38,7 @@ if [ -z "$TIMEOUT" ]; then
     exit 0
 fi
 
-tmp=$(mktemp "${TMPDIR:-/tmp}/clamiga_mtintern_XXXXXX") || exit 1
+tmp=$(mktemp "${TMPDIR:-/tmp}/amilisp_mtintern_XXXXXX") || exit 1
 trap 'rm -f "$tmp"' EXIT
 
 if [ -n "$AMILISP_GC_STRESS" ]; then

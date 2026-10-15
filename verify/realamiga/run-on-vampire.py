@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""run-on-vampire.py LISP-FILE [CLAMIGA-ARGS...] -- run one Lisp file on the
+"""run-on-vampire.py LISP-FILE [AMILISP-ARGS...] -- run one Lisp file on the
 real Amiga through amiagent, with the cross-built binary.
 
 Pushes build/cross/amilisp beside the installed release's binary (as
-bin/aos3/clamiga-dev, so it finds the release's lib/), pushes LISP-FILE
+bin/aos3/amilisp-dev, so it finds the release's lib/), pushes LISP-FILE
 into a scratch drawer, runs it detached under `stack 128000` with the
 output redirected to a log, waits for the run's done sentinel and prints
 the log (also saved as build/amiga/vamp-<name>.log).  Any further
@@ -45,7 +45,7 @@ def sh(cmd, timeout=120):
 
 print("box:", a.system_info())
 if not BINARY:
-    BINARY = RELEASE + "/bin/aos3/clamiga-dev"
+    BINARY = RELEASE + "/bin/aos3/amilisp-dev"
     a.write_file(BINARY, open(os.path.join(ROOT, "build", "cross", "amilisp"), "rb").read())
     sh(f"Protect {BINARY} +e")
     print("pushed build/cross/amilisp ->", BINARY)

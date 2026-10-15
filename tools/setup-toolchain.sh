@@ -2,7 +2,7 @@
 # Install the m68k-amigaos-gcc cross toolchain into tools/m68k-amigaos-gcc/prefix.
 #
 # Default behavior (no args):
-#   - macOS arm64: download the prebuilt prefix tarball from the cl-amiga
+#   - macOS arm64: download the prebuilt prefix tarball from the AmiLisp
 #     release, verify sha256, extract.
 #   - everything else: initialize the submodule and build from source via
 #     the upstream Makefile (`make all`).
@@ -24,8 +24,8 @@ GCC_BIN="$PREFIX_DIR/bin/m68k-amigaos-gcc"
 
 # --- Pinned prebuilt release (macOS arm64) ----------------------------------
 # Updated together with the submodule pin in .gitmodules. To rebuild and
-# republish, see tools/README-toolchain.md (or the cl-amiga README).
-RELEASE_REPO="mdbergmann/cl-amiga"
+# republish, see tools/README-toolchain.md (or the AmiLisp README).
+RELEASE_REPO="mdbergmann/amilisp"
 RELEASE_TAG="toolchain-macos-arm64-6.5.0b-251015"
 TARBALL_NAME="clamiga-toolchain-macos-arm64-6.5.0b-251015.tar.xz"
 TARBALL_SHA256="e42963e984b5fc1704032ec6f4444a64389646cf4ee5677325ac316221adfb29"
@@ -82,7 +82,7 @@ Re-run with --build to compile from source."
 Either pin it (after publishing the tarball) or use --build."
     fi
 
-    tmp=$(mktemp -d -t clamiga-toolchain.XXXXXX)
+    tmp=$(mktemp -d -t amilisp-toolchain.XXXXXX)
     trap 'rm -rf "$tmp"' EXIT
 
     log "downloading $TARBALL_URL"

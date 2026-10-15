@@ -40,10 +40,10 @@
 
 (require "asdf")
 
-;; cl-amiga has no CFFI backend, so the cl+ssl/cffi chain can never load
+;; AmiLisp has no CFFI backend, so the cl+ssl/cffi chain can never load
 ;; here.  Tell HTTP libraries that pull it in transitively to fall back to
 ;; plain HTTP: drakma honours :drakma-no-ssl and then skips cl+ssl, which
-;; is what lets drakma-based systems (e.g. chipi) compile on cl-amiga.
+;; is what lets drakma-based systems (e.g. chipi) compile on AmiLisp.
 ;; Harmless to other scripts — it only affects drakma's own dependencies.
 (pushnew :drakma-no-ssl *features*)
 
@@ -53,12 +53,12 @@
   #-amigaos (merge-pathnames "quicklisp/setup.lisp" (user-homedir-pathname)))
 
 ;; Install quicklisp if missing. Use FIND-SYMBOL to invoke the entry
-;; point because the CL-AMIGA-QL package does not exist at read time.
+;; point because the AMILISP-QL package does not exist at read time.
 (unless (probe-file *ql-setup*)
   (load "lib/quicklisp-install.lisp")
-  (funcall (find-symbol "INSTALL" "CL-AMIGA-QL")))
+  (funcall (find-symbol "INSTALL" "AMILISP-QL")))
 
-;; Skip the SETUP load when CL-AMIGA-QL:INSTALL has just initialised
+;; Skip the SETUP load when AMILISP-QL:INSTALL has just initialised
 ;; quicklisp in this image (re-loading SETUP.LISP triggers a second
 ;; ASDF:OOS on the QL client, which redefines its CLOS classes and
 ;; corrupts generic-function dispatch). Same goes for QUICKLISP-COMPAT:

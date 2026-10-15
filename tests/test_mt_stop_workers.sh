@@ -22,7 +22,7 @@ if [ -z "$TIMEOUT" ]; then
     exit 0
 fi
 
-tmp=$(mktemp -d "${TMPDIR:-/tmp}/clamiga_stopworkers_XXXXXX") || exit 1
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/amilisp_stopworkers_XXXXXX") || exit 1
 trap 'rm -rf "$tmp"' EXIT
 fails=0
 

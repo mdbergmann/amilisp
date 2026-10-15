@@ -886,7 +886,7 @@ TEST(rounding_huge_float)
 }
 
 /* ================================================================
- * IEEE-754 raw bit access (CLAMIGA: builtins; float-features backend
+ * IEEE-754 raw bit access (AMILISP: builtins; float-features backend
  * that jzon relies on to serialise floats to JSON).
  * ================================================================ */
 

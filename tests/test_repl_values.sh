@@ -31,7 +31,7 @@ if [ -z "$TIMEOUT" ]; then
     exit 0
 fi
 
-out=$(mktemp "${TMPDIR:-/tmp}/clamiga_replvals_XXXXXX") || exit 1
+out=$(mktemp "${TMPDIR:-/tmp}/amilisp_replvals_XXXXXX") || exit 1
 trap 'rm -f "$out"' EXIT
 
 fail=0

@@ -25,7 +25,7 @@ if [ -z "$TIMEOUT" ]; then
     exit 0
 fi
 
-tmp=$(mktemp "${TMPDIR:-/tmp}/clamiga_outbuf_XXXXXX") || exit 1
+tmp=$(mktemp "${TMPDIR:-/tmp}/amilisp_outbuf_XXXXXX") || exit 1
 trap 'rm -f "$tmp"' EXIT
 
 cat > "$tmp" <<'EOF'

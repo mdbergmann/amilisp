@@ -10,7 +10,7 @@
 ;; The chipi-ui/tests suite is browser-free: the rendering tests stub the CLOG
 ;; connection (clog-connection:execute/query) and assert on the generated DOM
 ;; commands, so no websocket/Hunchentoot acceptor is started here — and the
-;; cl-amiga hunchentoot acceptor portability is therefore not exercised.
+;; AmiLisp hunchentoot acceptor portability is therefore not exercised.
 ;;
 ;; Usage (host):
 ;;   ./build/host/amilisp --heap 256M --load trunk/load-and-test-chipi-ui.lisp
@@ -27,7 +27,7 @@
 (load "trunk/load-libs-ql.lisp")
 
 ;; babel is normally pulled in transitively via the cffi/cl+ssl chain; since
-;; cl-amiga skips SSL it is fetched + loaded explicitly (pure Lisp).
+;; AmiLisp skips SSL it is fetched + loaded explicitly (pure Lisp).
 (ensure-ql-lib :babel)
 (asdf:load-system :babel)
 

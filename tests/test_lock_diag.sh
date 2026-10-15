@@ -21,7 +21,7 @@ if [ -z "$TIMEOUT" ]; then
     exit 0
 fi
 
-tmp=$(mktemp "${TMPDIR:-/tmp}/clamiga_lockdiag_XXXXXX") || exit 1
+tmp=$(mktemp "${TMPDIR:-/tmp}/amilisp_lockdiag_XXXXXX") || exit 1
 trap 'rm -f "$tmp"' EXIT
 
 # Worker takes the named lock, signals via a shared global (so the main

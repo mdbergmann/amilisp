@@ -7,7 +7,7 @@
 #
 # The canonical snapshot (docs/package-symbols.txt) lists, as sorted
 # "PACKAGE|SYMBOL" lines, the external symbols of every documented extension
-# package EXCEPT CLAMIGA:
+# package EXCEPT AMILISP:
 #   - EXT, MP, FFI, GRAY, MOP   -> queried live from the running image
 #   - AMIGA, AMIGA.FFI/INTUITION/GFX/GADTOOLS/REACTION/... -> parsed from source
 #       (these packages don't exist in the host build)
@@ -95,15 +95,15 @@ generate() {
     } | LC_ALL=C sort -u
 }
 
-check_clamiga_documented() {
+check_amilisp_documented() {
     # Every documented AMILISP symbol must still be a live export.
     [ -f "$AMILISP_DOC_LIST" ] || return 0
-    live_clamiga=$(live_dump | grep '^AMILISP|' | sed 's/^AMILISP|//')
+    live_amilisp=$(live_dump | grep '^AMILISP|' | sed 's/^AMILISP|//')
     missing=""
     # strip comments/blank lines from the curated list
     sed 's/#.*//' "$AMILISP_DOC_LIST" | tr -d ' \t' | while read -r sym; do
         [ -z "$sym" ] && continue
-        if ! printf '%s\n' "$live_clamiga" | grep -qxF "$sym"; then
+        if ! printf '%s\n' "$live_amilisp" | grep -qxF "$sym"; then
             echo "  AMILISP|$sym (in docs/amilisp.md, no longer exported)"
         fi
     done
@@ -130,7 +130,7 @@ case "$MODE" in
             rm -f /tmp/docs-symdiff.$$
             rc=1
         fi
-        amilisp_missing=$(check_clamiga_documented)
+        amilisp_missing=$(check_amilisp_documented)
         if [ -n "$amilisp_missing" ]; then
             echo "docs-check: docs/amilisp.md documents symbols that are no longer exported:" >&2
             echo "$amilisp_missing" >&2

@@ -166,7 +166,7 @@ check_contains "DEFSTRUCT after the user function leaves it alone"       'LATE:(
 check_contains "typed (:type list) structure likewise"                   'LIST:(:USER-LIST 1 2)/(NIL 9)' "$out"
 check_contains "INCF through the accessor"                               'INCF:13'        "$out"
 check_contains "no %SET-<acc> symbol in the user package"                'NOSYM:NIL'      "$out"
-check_contains "the setter lives in CLAMIGA"                             'HOME:#<PACKAGE "AMILISP">\|HOME:#<PACKAGE AMILISP>' "$out"
+check_contains "the setter lives in AMILISP"                             'HOME:#<PACKAGE "AMILISP">\|HOME:#<PACKAGE AMILISP>' "$out"
 
 echo ""
 echo "$passed passed, $failed failed, $total total"

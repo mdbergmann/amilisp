@@ -4969,17 +4969,17 @@ TEST(eval_end_of_file_condition)
         "(with-input-from-string (s \"\") (read-byte s nil :eof))"), ":EOF");
     /* read-char-no-hang EOF — regression: must signal END-OF-FILE, not a generic error.
      * Uses a file stream so CL_STREAM_FLAG_EOF gets set (string streams don't set it). */
-    eval_print("(with-open-file (out \"/tmp/.cl-clamiga-eof-test\""
+    eval_print("(with-open-file (out \"/tmp/.amilisp-eof-test\""
                "  :direction :output :if-exists :supersede"
                "  :if-does-not-exist :create))");
     ASSERT_STR_EQ(eval_print(
         "(handler-case"
-        "  (with-open-file (s \"/tmp/.cl-clamiga-eof-test\")"
+        "  (with-open-file (s \"/tmp/.amilisp-eof-test\")"
         "    (read-char s nil nil)"   /* reaches EOF, sets CL_STREAM_FLAG_EOF */
         "    (read-char-no-hang s))"  /* flag set → signals END-OF-FILE */
         "  (end-of-file () :caught))"), ":CAUGHT");
     ASSERT_STR_EQ(eval_print(
-        "(with-open-file (s \"/tmp/.cl-clamiga-eof-test\")"
+        "(with-open-file (s \"/tmp/.amilisp-eof-test\")"
         "  (read-char s nil nil)"
         "  (read-char-no-hang s nil :eof))"), ":EOF");
 }

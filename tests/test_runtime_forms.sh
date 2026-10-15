@@ -46,7 +46,7 @@ passed=0
 failed=0
 total=0
 TMPDIR="${TMPDIR:-/tmp}"
-WORK="$TMPDIR/clamiga_rtforms_$$"
+WORK="$TMPDIR/amilisp_rtforms_$$"
 mkdir -p "$WORK"
 trap 'rm -rf "$WORK"' EXIT
 

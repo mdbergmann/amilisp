@@ -2,7 +2,7 @@
 ;; the :drakma-test system is loaded (so the DRAKMA-TEST and FIVEAM packages
 ;; exist and the original tests are defined).
 ;;
-;; cl-amiga runs drakma as an HTTP/HTTPS *client* over the usocket cl-amiga
+;; AmiLisp runs drakma as an HTTP/HTTPS *client* over the usocket AmiLisp
 ;; backend + cl+ssl.  The tests left running here exercise exactly that and
 ;; pass reliably: plain HTTP and HTTPS, GET and POST (google.com), streamed
 ;; responses (STREAM / FORCE-BINARY), cl+ssl certificate verification (the
@@ -13,11 +13,11 @@
 ;; branch in the hunchentoot/cl-fad/rfc2388 forks).
 ;;
 ;; The tests redefined below are flaky for reasons ORTHOGONAL to the
-;; client+server-on-cl-amiga goal:
+;; client+server-on-AmiLisp goal:
 ;;
 ;;   httpbin.org dependency — these assert on httpbin.org responses, but
 ;;   httpbin rate-limits aggressively (returns 503) and sometimes stalls,
-;;   which makes them flaky/hang in unattended runs regardless of cl-amiga.
+;;   which makes them flaky/hang in unattended runs regardless of AmiLisp.
 ;;   gzip-content/deflate-content also exercise chipz streaming decode
 ;;   (now supported, see below) but httpbin remains their real blocker.
 ;;
@@ -29,7 +29,7 @@
 ;;   the bottom); the two cert-rejection (signals error) assertions are kept.
 ;;
 ;; NOTE: chipz streaming decompression (drakma's :decode-content t, which wraps
-;; the reply in chipz:make-decompressing-stream) IS now supported on cl-amiga
+;; the reply in chipz:make-decompressing-stream) IS now supported on AmiLisp
 ;; via the mdbergmann/chipz fork's #+cl-amiga gray-stream branch, so the
 ;; google.com gzip-decode tests (get-google-gzip / get-google-gzip-no-close)
 ;; run here and pass.  Only the httpbin-backed decode tests stay skipped, for
@@ -47,7 +47,7 @@
   ;; Assert on httpbin.org, which rate-limits (503) and stalls.
   ;; gzip-content/deflate-content also stream-gunzip via chipz (now supported),
   ;; but httpbin — not chipz — is what makes them flaky here.
-  (skip-tests "cl-amiga: depends on httpbin.org which rate-limits (503) / stalls — flaky"
+  (skip-tests "AmiLisp: depends on httpbin.org which rate-limits (503) / stalls — flaky"
               gzip-content deflate-content
               gzip-content-undecoded deflate-content-undecoded))
 
@@ -57,7 +57,7 @@
 ;; sub-check.  That last form requires the external badssl.com host to actually
 ;; complete a TLS connection, so when the server drops the connection
 ;; mid-handshake it fails with SSL-ERROR-SSL "unexpected eof while reading" —
-;; pure external-network flakiness, ORTHOGONAL to cl-amiga's cl+ssl client path
+;; pure external-network flakiness, ORTHOGONAL to AmiLisp's cl+ssl client path
 ;; (same class as the httpbin skips above).  Both tests have flaked this way in
 ;; unattended runs, so both have the :verify nil connect removed.
 (5am:test verify.wrong.host

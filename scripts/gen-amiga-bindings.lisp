@@ -110,12 +110,12 @@
 ;; its exports can be detected (see INHERITED-NAME-P).
 (require "amiga/ffi")
 
-(defpackage "CLAMIGA-BINDGEN"
+(defpackage "AMILISP-BINDGEN"
   (:use "CL")
   (:export "RUN" "LISPIFY" "CONSTANT-NAME" "PARSE-SFD-FILE" "PARSE-I-FILES"
            "EVAL-ASM-EXPR"))
 
-(in-package "CLAMIGA-BINDGEN")
+(in-package "AMILISP-BINDGEN")
 
 ;;; ================================================================
 ;;; Small string utilities

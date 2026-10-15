@@ -10956,7 +10956,7 @@ y" 1))
 ; read-char-no-hang EOF requires a file stream (CL_STREAM_FLAG_EOF is only
 ; set by byte-oriented streams); create a temp file to test against.
 (let ((eof-path #+amigaos "T:cl-rcnh-eof.tmp"
-                #-amigaos "/tmp/.cl-clamiga-rcnh-eof.tmp"))
+                #-amigaos "/tmp/.amilisp-rcnh-eof.tmp"))
   (with-open-file (out eof-path :direction :output
                    :if-exists :supersede :if-does-not-exist :create))
   (check "read-char-no-hang EOF signals end-of-file" :eof

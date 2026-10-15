@@ -24,8 +24,8 @@ if [ -z "$TIMEOUT" ]; then
     exit 0
 fi
 
-tmp=$(mktemp "${TMPDIR:-/tmp}/clamiga_mtprint_XXXXXX") || exit 1
-outdir=$(mktemp -d "${TMPDIR:-/tmp}/clamiga_mtprint_dir_XXXXXX") || exit 1
+tmp=$(mktemp "${TMPDIR:-/tmp}/amilisp_mtprint_XXXXXX") || exit 1
+outdir=$(mktemp -d "${TMPDIR:-/tmp}/amilisp_mtprint_dir_XXXXXX") || exit 1
 trap 'rm -f "$tmp"; rm -rf "$outdir"' EXIT
 
 cat > "$tmp" <<EOF

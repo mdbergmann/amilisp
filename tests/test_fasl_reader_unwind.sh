@@ -37,7 +37,7 @@ esac
 
 passed=0
 failed=0
-TMP="${TMPDIR:-/tmp}/clamiga-faslunwind-$$"
+TMP="${TMPDIR:-/tmp}/amilisp-faslunwind-$$"
 mkdir -p "$TMP"
 trap 'rm -rf "$TMP"' EXIT
 

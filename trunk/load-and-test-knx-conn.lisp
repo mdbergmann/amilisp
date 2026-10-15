@@ -3,7 +3,7 @@
 ;;
 ;; knx-conn resolves through ASDF's source registry the same way the other
 ;; load-and-test-*.lisp scripts do — its .asd is symlinked into ~/common-lisp
-;; on the host (and its two cl-amiga-relevant deps, usocket and sento, resolve
+;; on the host (and its two AmiLisp-relevant deps, usocket and sento, resolve
 ;; to the local forks: usocket from quicklisp's local-projects, sento from
 ;; ~/common-lisp).  Like the sibling scripts this file contains NO quicklisp
 ;; references: load-libs-ql.lisp sets up the dist + local-projects searchers,

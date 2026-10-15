@@ -5,7 +5,7 @@
 ;; so no central-registry push or path hard-coding is needed here.  Like
 ;; the sibling load-and-test-*.lisp scripts this file contains NO quicklisp
 ;; references: load-libs-ql.lisp sets up the dist + local-projects searchers
-;; (and the :drakma-no-ssl feature cl-amiga needs), ENSURE-QL-LIB fetches
+;; (and the :drakma-no-ssl feature AmiLisp needs), ENSURE-QL-LIB fetches
 ;; each system from the dist on a cold cache, and ASDF does the rest.
 ;;
 ;; Usage (host):
@@ -18,7 +18,7 @@
 (load "trunk/load-libs-ql.lisp")
 
 ;; babel is normally pulled in transitively via the cffi chain (cl+ssl);
-;; since cl-amiga skips SSL it must be fetched + loaded explicitly.  It is
+;; since AmiLisp skips SSL it must be fetched + loaded explicitly.  It is
 ;; pure Lisp (alexandria + trivial-features) so it loads fine here.
 ;; chipi's persistence-influx.lisp uses babel:octets-to-string.
 (ensure-ql-lib :babel)

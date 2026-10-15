@@ -1018,7 +1018,7 @@ void cl_builtins_package_init(void)
     /* Package-local nicknames (CDR-10) live in AMILISP.
      * CL :uses AMILISP so internal code (boot.lisp, clos.lisp, tests)
      * sees them as bare symbols.  User packages that only (:use :common-lisp)
-     * must add (:use :amilisp) or qualify with the CLAMIGA: prefix. */
+     * must add (:use :amilisp) or qualify with the AMILISP: prefix. */
     cl_register_builtin("PACKAGE-LOCAL-NICKNAMES", bi_package_local_nicknames, 1, 1, cl_package_amilisp);
     cl_register_builtin("ADD-PACKAGE-LOCAL-NICKNAME", bi_add_package_local_nickname, 2, 3, cl_package_amilisp);
     cl_register_builtin("REMOVE-PACKAGE-LOCAL-NICKNAME", bi_remove_package_local_nickname, 1, 2, cl_package_amilisp);

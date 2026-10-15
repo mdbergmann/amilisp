@@ -1,4 +1,4 @@
-;; Load and test CFFI (the Common Foreign Function Interface) on cl-amiga.
+;; Load and test CFFI (the Common Foreign Function Interface) on AmiLisp.
 ;;
 ;; cl-amiga ships a CFFI-SYS backend (cffi-clamiga.lisp) built on the FFI
 ;; package's libffi-based engine (host: dlopen/dlsym + ffi:call-foreign +
@@ -8,7 +8,7 @@
 ;; NB: the *upstream* cffi-tests system is NOT run here — it depends on
 ;; cffi-grovel, cffi-libffi (struct-by-value), bordeaux-threads and rt, and
 ;; builds C test libraries via cffi-toolchain, none of which are available on
-;; cl-amiga yet.  This suite drives the same public API against libc/libSystem
+;; AmiLisp yet.  This suite drives the same public API against libc/libSystem
 ;; symbols instead, so it runs unattended on the host.  The foreign-call paths
 ;; are host-only (POSIX dlopen + libffi); on AmigaOS ffi:symbol-pointer returns
 ;; NIL and the call/callback tests are skipped.

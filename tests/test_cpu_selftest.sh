@@ -102,7 +102,7 @@ TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || t
 if [ -z "$TIMEOUT" ]; then
     echo "  SKIP  heap-image legs: neither timeout nor gtimeout on PATH"
 else
-    WORK=$(mktemp -d "${TMPDIR:-/tmp}/clamiga_cpuself_XXXXXX") || exit 1
+    WORK=$(mktemp -d "${TMPDIR:-/tmp}/amilisp_cpuself_XXXXXX") || exit 1
     trap 'rm -rf "$WORK"' EXIT INT TERM
     cd "$WORK" || exit 1
 

@@ -4220,7 +4220,7 @@ static CL_Obj bi_require(CL_Obj *args, int n)
                      "directory, $AMILISP_HOME, and - relative to the amilisp "
                      "executable - lib/, ../lib/amilisp/ (installed layout) "
                      "and ../../lib/ (in-repo build). If amilisp runs outside "
-                     "its installation, set AMILISP_HOME to the cl-amiga "
+                     "its installation, set AMILISP_HOME to the AmiLisp "
                      "directory.",
 #endif
                      (int)len, name, (int)len, name, (int)len, name);

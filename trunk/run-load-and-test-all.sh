@@ -31,7 +31,7 @@ CACHE_PARENT=${AMILISP_FASL_CACHE_PARENT:-$HOME/.cache/common-lisp}
 # Each script gets its own FASL cache under here (see the per-script isolation
 # note below). Kept separate from CACHE_PARENT/amilisp-* so we never disturb
 # the user's interactive cache.
-PERSCRIPT_CACHE="$CACHE_PARENT/clamiga-test-extra"
+PERSCRIPT_CACHE="$CACHE_PARENT/amilisp-test-extra"
 COLD=0
 TALLY_DIR=""
 
@@ -260,7 +260,7 @@ fi
 # --cold wipes each script's cache per-script (below), so the binary guard is a
 # no-op there.
 if [ "$COLD" -eq 0 ]; then
-  BINID_FILE="$PERSCRIPT_CACHE/.clamiga-binid"
+  BINID_FILE="$PERSCRIPT_CACHE/.amilisp-binid"
   # cksum is POSIX and present on macOS + Linux; output is "<crc> <size> <name>"
   # — keep crc+size, drop the path so a moved tree doesn't force a wipe.
   # The boot and CLOS FASLs count as part of the binary: they hold the macros

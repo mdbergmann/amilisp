@@ -1,4 +1,4 @@
-;; cffi-clamiga-tests.lisp — fiveam test suite for the cl-amiga CFFI backend.
+;; cffi-clamiga-tests.lisp — fiveam test suite for the AmiLisp CFFI backend.
 ;;
 ;; Loaded by trunk/load-and-test-cffi.lisp AFTER CFFI and FIVEAM are loaded
 ;; (so the package references below read cleanly).  Exercises the public CFFI
@@ -12,7 +12,7 @@
 
 (in-package :cffi-clamiga-test)
 
-(def-suite cffi-clamiga :description "cl-amiga CFFI backend tests")
+(def-suite cffi-clamiga :description "AmiLisp CFFI backend tests")
 (in-suite cffi-clamiga)
 
 ;;;; Pointers

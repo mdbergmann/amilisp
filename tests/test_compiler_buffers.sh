@@ -43,7 +43,7 @@ passed=0
 failed=0
 total=0
 TMPDIR="${TMPDIR:-/tmp}"
-WORK="$TMPDIR/clamiga_compbuf_$$"
+WORK="$TMPDIR/amilisp_compbuf_$$"
 mkdir -p "$WORK"
 trap 'rm -rf "$WORK"' EXIT
 

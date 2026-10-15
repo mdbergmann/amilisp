@@ -971,7 +971,7 @@ built with the *old* `defcfun` macro will not carry them.  The FASL
 infrastructure only mtime-checks the consuming file (e.g.
 `graphics.lisp` → `graphics.fasl`), not transitive macro sources
 (`ffi.lisp`).  When the `defcfun` macro changes, the consuming FASLs
-under `verify/realamiga/aos3/S/cl-amiga/faslcache/.../lib/amiga/*.fasl`
+under `verify/realamiga/aos3/S/amilisp/faslcache/.../lib/amiga/*.fasl`
 (`graphics.fasl`, `intuition.fasl`, `gadtools.fasl`) must be deleted
 by hand.  Symptom of missing this: bench delta is ~0 because the
 wrappers still go through `cl_vm_apply` even though the new defcfun

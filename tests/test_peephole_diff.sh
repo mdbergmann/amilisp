@@ -30,7 +30,7 @@ if [ -z "$TIMEOUT" ]; then
 fi
 
 TMPDIR="${TMPDIR:-/tmp}"
-WORK="$TMPDIR/clamiga_peep_$$"
+WORK="$TMPDIR/amilisp_peep_$$"
 mkdir -p "$WORK"
 trap 'rm -rf "$WORK"' EXIT
 

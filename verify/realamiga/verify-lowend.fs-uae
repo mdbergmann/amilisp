@@ -1,4 +1,4 @@
-# Lower-end baseline for cl-amiga — matches CLAUDE.md target.
+# Lower-end baseline for AmiLisp — matches CLAUDE.md target.
 # A1200 / 68020 14 MHz / 2 MB chip + 8 MB fast (trapdoor) + 16 MB Zorro III /
 # cycle-accurate / no JIT.  Stock A1200 has no Zorro slots; the Zorro III
 # block here represents accelerator-board RAM — FS-UAE auto-configs it.

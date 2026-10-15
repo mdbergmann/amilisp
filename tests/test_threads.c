@@ -832,7 +832,7 @@ TEST(worker_function_gc_protected_across_apply)
 
 /* Zombie reaper: when GC can't reclaim slots because user code still
  * holds wrappers (e.g. bordeaux-threads' .known-threads. registry, which
- * is non-weak in cl-amiga), bi_make_thread falls back to scanning the
+ * is non-weak in AmiLisp), bi_make_thread falls back to scanning the
  * table for status>=2 entries and reaps them, invalidating the
  * wrapper's thread_id so it becomes a zombie (alive-p => NIL).
  *

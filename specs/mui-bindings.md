@@ -720,7 +720,7 @@ in MUI).  Deviations from §4.2, all deliberate:
   setup) — the object destination works on both, and the usual "set up
   notifications, then open" order is fine either way; and a real MorphOS
   box can have a class called `Nonexistent.mui`, so the bogus-class test
-  asks for `Clamigabogus.mui`.  Test files that `require` the raw module
+  asks for `Amilispbogus.mui`.  Test files that `require` the raw module
   conditionally must look every constant up with `find-symbol`: a
   `amiga.raw.muimaster:` prefix is read before the `when` runs.
 

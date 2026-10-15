@@ -34,10 +34,10 @@
 #    report 0 violations after threads were created from two racing
 #    parents.
 #
-# Run: sh tests/test_mt_thread_exit_gc.sh build/host/amilisp [race-hook-clamiga]
+# Run: sh tests/test_mt_thread_exit_gc.sh build/host/amilisp [race-hook-amilisp]
 
 AMILISP="${1:-build/host/amilisp}"
-RACE_CLAMIGA="$2"
+RACE_AMILISP="$2"
 
 TIMEOUT=$(command -v timeout 2>/dev/null || command -v gtimeout 2>/dev/null || true)
 if [ -z "$TIMEOUT" ]; then
@@ -50,7 +50,7 @@ if [ ! -x "$AMILISP" ]; then
     exit 0
 fi
 
-WORK="${TMPDIR:-/tmp}/clamiga_mt_exit_gc_$$"
+WORK="${TMPDIR:-/tmp}/amilisp_mt_exit_gc_$$"
 mkdir -p "$WORK"
 trap 'rm -rf "$WORK"' EXIT
 
@@ -112,12 +112,12 @@ else
     failed=1
 fi
 
-if [ -n "$RACE_CLAMIGA" ]; then
-    if [ ! -x "$RACE_CLAMIGA" ]; then
-        echo "FAIL test_mt_thread_exit_gc: no race-hook binary at $RACE_CLAMIGA"
+if [ -n "$RACE_AMILISP" ]; then
+    if [ ! -x "$RACE_AMILISP" ]; then
+        echo "FAIL test_mt_thread_exit_gc: no race-hook binary at $RACE_AMILISP"
         failed=1
     else
-        race_out=$("$TIMEOUT" 30 "$RACE_CLAMIGA" 2>&1)
+        race_out=$("$TIMEOUT" 30 "$RACE_AMILISP" 2>&1)
         race_status=$?
         if [ $race_status -eq 0 ] && echo "$race_out" | grep -q "RACE-SELFTEST-OK"; then
             echo "  ok  deterministic STW-hang-on-thread-exit trigger does not hang"

@@ -537,7 +537,7 @@ static CL_Obj bi_make_thread(CL_Obj *args, int n)
         /* GC didn't free any slot: every occupant has a still-reachable
          * wrapper.  In real workloads this happens because external
          * registries (e.g. bordeaux-threads' .known-threads. weak hash
-         * — which is non-weak under cl-amiga today) hold wrappers for
+         * — which is non-weak under AmiLisp today) hold wrappers for
          * workers that have long since finished.  Reap any slot whose
          * worker reached status >= 2 (finished/aborted): NULL the slot,
          * detach the OS handle, free the worker.  The wrapper stays

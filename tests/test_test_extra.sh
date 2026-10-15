@@ -171,9 +171,9 @@ run_guard() {
     sh "$RUNNER" >/dev/null 2>&1 )
 }
 
-# The runner keeps its per-script caches under <cache_parent>/clamiga-test-extra
+# The runner keeps its per-script caches under <cache_parent>/amilisp-test-extra
 # and records the binary fingerprint there.
-guard_perscript="$guard_cache/clamiga-test-extra"
+guard_perscript="$guard_cache/amilisp-test-extra"
 
 seed_marker() {
   mkdir -p "$guard_perscript/somescript"
@@ -190,7 +190,7 @@ seed_marker
 run_guard
 check "guard_wipes_cache_when_binid_unknown" "gone" "$(marker_state)"
 check "guard_records_binid" "yes" \
-  "$([ -f "$guard_perscript/.clamiga-binid" ] && echo yes || echo no)"
+  "$([ -f "$guard_perscript/.amilisp-binid" ] && echo yes || echo no)"
 
 # Second run, same binary, cache repopulated: fingerprint matches -> keep warm.
 seed_marker

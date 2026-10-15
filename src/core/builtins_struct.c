@@ -1624,7 +1624,7 @@ void cl_builtins_struct_init(void)
     /* STRUCTUREP — implementation predicate in AMILISP.
      * CL :uses AMILISP so existing internal code sees it as a bare symbol.
      * User packages that only (:use :common-lisp) must add (:use :amilisp)
-     * or qualify with the CLAMIGA: prefix. */
+     * or qualify with the AMILISP: prefix. */
     cl_register_builtin("STRUCTUREP", bi_structurep, 1, 1, cl_package_amilisp);
     cl_register_builtin("%STRUCT-SLOT-NAMES", bi_struct_slot_names, 1, 1, cl_package_amilisp);
     cl_register_builtin("%STRUCT-SLOT-SPECS", bi_struct_slot_specs, 1, 1, cl_package_amilisp);

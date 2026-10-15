@@ -23,7 +23,7 @@ if [ -z "$EXPECT" ]; then
     exit 0
 fi
 
-script=$(mktemp "${TMPDIR:-/tmp}/clamiga_inspeof_XXXXXX") || exit 1
+script=$(mktemp "${TMPDIR:-/tmp}/amilisp_inspeof_XXXXXX") || exit 1
 trap 'rm -f "$script"' EXIT
 
 cat > "$script" <<'EOF'

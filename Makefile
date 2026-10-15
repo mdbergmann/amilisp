@@ -505,7 +505,7 @@ $(BUILDDIR)/tests/%: $(TEST_SRCDIR)/%.c $(TEST_SRCDIR)/test.h $(LIB_TEST_OBJS)
 # carries lib/clos.lisp + lib/asdf.lisp + sento's full dependency tree
 # through the compiler and FASL writer in one shot.  Catches regressions
 # the C tests don't see — e.g. a missing/stock trivial-garbage backend
-# (upstream trivial-garbage rejects cl-amiga as an unsupported Lisp,
+# (upstream trivial-garbage rejects AmiLisp as an unsupported Lisp,
 # so the AmiLisp fork must be present in local-projects).
 #
 # Auto-skipped when prerequisites aren't met (no quicklisp install, no

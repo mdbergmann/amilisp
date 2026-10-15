@@ -165,7 +165,7 @@ static int write_home_module(void)
     return 1;
 }
 
-TEST(require_resolves_via_clamiga_home)
+TEST(require_resolves_via_amilisp_home)
 {
     /* The module does not exist under cwd-relative lib/, so the only way
        REQUIRE can find it is the $AMILISP_HOME/lib/ fallback. */
@@ -181,7 +181,7 @@ TEST(require_resolves_via_clamiga_home)
     rmdir(HOME_DIR);
 }
 
-TEST(require_clamiga_home_tolerates_trailing_slash)
+TEST(require_amilisp_home_tolerates_trailing_slash)
 {
     ASSERT(write_home_module());
     setenv("AMILISP_HOME", HOME_DIR "/", 1);
@@ -243,8 +243,8 @@ int main(void)
     RUN(require_folds_case_against_modules);
     RUN(require_unknown_module_still_errors);
     RUN(provide_keeps_both_spellings);
-    RUN(require_resolves_via_clamiga_home);
-    RUN(require_clamiga_home_tolerates_trailing_slash);
+    RUN(require_resolves_via_amilisp_home);
+    RUN(require_amilisp_home_tolerates_trailing_slash);
     RUN(require_symbol_designator_finds_lowercase_file);
 
     teardown();

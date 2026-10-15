@@ -1,16 +1,16 @@
 ;; Load and test Hunchentoot — the HTTP server — running as a real SERVER on
-;; cl-amiga over the usocket cl-amiga backend.
+;; AmiLisp over the usocket AmiLisp backend.
 ;;
 ;; This is the server-side counterpart to trunk/load-and-test-drakma.lisp
-;; (which exercises drakma as an HTTP/HTTPS *client*).  Here cl-amiga itself
+;; (which exercises drakma as an HTTP/HTTPS *client*).  Here AmiLisp itself
 ;; IS the web server: we start a Hunchentoot easy-acceptor over
 ;; usocket/backend/clamiga.lisp (ext:socket-listen / ext:socket-accept on a
 ;; per-connection taskmaster thread) and then run Hunchentoot's own built-in
 ;; confidence suite against it.  The suite drives drakma over the loopback
 ;; interface and asserts on the responses — so a single run exercises:
 ;;
-;;   - the usocket cl-amiga *server* path (listen / accept / wake-for-shutdown),
-;;   - cl-amiga MP threads + bordeaux-threads (the acceptor's taskmaster),
+;;   - the usocket AmiLisp *server* path (listen / accept / wake-for-shutdown),
+;;   - AmiLisp MP threads + bordeaux-threads (the acceptor's taskmaster),
 ;;   - Hunchentoot request/response, cookies, sessions, multipart uploads,
 ;;     range requests, static-file + folder dispatchers, basic auth, and
 ;;     latin-1/utf-8 parameter decoding (cl-who renders the test pages), and
@@ -54,7 +54,7 @@
 (format t "~%--- Loading hunchentoot (plain HTTP; :hunchentoot-no-ssl) ---~%")
 (asdf:load-system :hunchentoot)
 
-;; The cl-amiga Hunchentoot portability (SET-TIMEOUTS) now ships as an in-source
+;; The AmiLisp Hunchentoot portability (SET-TIMEOUTS) now ships as an in-source
 ;; #+cl-amiga branch in the hunchentoot fork (local-projects), so loading the
 ;; system above already installs it — no separate patch load needed.
 
@@ -76,18 +76,18 @@
 ;; ---------------------------------------------------------------------------
 (in-package :hunchentoot-test)
 
-(defvar *clamiga-checks* 0)
-(defvar *clamiga-fails* 0)
+(defvar *amilisp-checks* 0)
+(defvar *amilisp-fails* 0)
 
 (let ((orig-assert (fdefinition 'http-assert))
       (orig-header  (fdefinition 'http-assert-header)))
   (flet ((counting (orig)
            (lambda (&rest args)
-             (incf *clamiga-checks*)
+             (incf *amilisp-checks*)
              (handler-bind ((test-failure
                               (lambda (c)
                                 (declare (ignore c))
-                                (incf *clamiga-fails*))))
+                                (incf *amilisp-fails*))))
                (apply orig args)))))
     (setf (fdefinition 'http-assert)        (counting orig-assert)
           (fdefinition 'http-assert-header) (counting orig-header))))
@@ -110,16 +110,16 @@
        (progn
          ;; Give the acceptor's taskmaster thread a moment to come up.
          (sleep 2)
-         (setf hunchentoot-test::*clamiga-checks* 0
-               hunchentoot-test::*clamiga-fails*  0)
+         (setf hunchentoot-test::*amilisp-checks* 0
+               hunchentoot-test::*amilisp-fails*  0)
          (format t "~%--- Running hunchentoot confidence suite (HTTP server + drakma client) ---~%")
          (handler-case
              (hunchentoot-test:test-hunchentoot
               (format nil "http://localhost:~A" *ht-test-port*))
            (error (e)
              (format t "~&;; confidence suite aborted with an error: ~A~%" e)))
-         (let* ((checks hunchentoot-test::*clamiga-checks*)
-                (fails  hunchentoot-test::*clamiga-fails*)
+         (let* ((checks hunchentoot-test::*amilisp-checks*)
+                (fails  hunchentoot-test::*amilisp-fails*)
                 (pass   (max 0 (- checks fails)))
                 (total  (max checks (+ pass fails)))
                 (ppct   (if (plusp total) (round (* 100 pass) total) 100))

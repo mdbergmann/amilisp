@@ -16,8 +16,8 @@
 
 AMILISP="${1:-build/host/amilisp}"
 case "$AMILISP" in
-    /*) ABS_CLAMIGA="$AMILISP" ;;
-    *)  ABS_CLAMIGA="$(pwd)/$AMILISP" ;;
+    /*) ABS_AMILISP="$AMILISP" ;;
+    *)  ABS_AMILISP="$(pwd)/$AMILISP" ;;
 esac
 
 WORKDIR="$(mktemp -d)"
@@ -78,7 +78,7 @@ EVAL_CHECKS='(progn
 # Isolated FASL cache, as in test_shim_registry.sh.
 CACHE="$WORKDIR/faslcache"
 
-result=$(AMILISP_FASL_CACHE_DIR="$CACHE" "$ABS_CLAMIGA" --no-userinit \
+result=$(AMILISP_FASL_CACHE_DIR="$CACHE" "$ABS_AMILISP" --no-userinit \
     --non-interactive --heap 48M \
     --eval "$EVAL_REQUIRE" --eval "$EVAL_LOAD" --eval "$EVAL_CHECKS" \
     </dev/null 2>&1)

@@ -408,7 +408,7 @@ done
 # The root is a 3 x 3 grid (amilisp launchers, Clamacs launchers, guides as
 # the columns; soft-float, FPU, MorphOS as the rows) by positions in these
 # icons; the reference guides under docs/ get the unpositioned copy.
-for n in README-FIRST cl-amiga clamacs; do
+for n in README-FIRST amilisp clamacs; do
     cp "icons/$n.guide.info" "$STAGE/$n.guide.info"
 done
 for g in "$STAGE"/docs/*.guide; do

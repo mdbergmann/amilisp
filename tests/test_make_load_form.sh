@@ -17,7 +17,7 @@
 AMILISP="${1:-build/host/amilisp}"
 passed=0
 failed=0
-TMP="${TMPDIR:-/tmp}/clamiga-mlf-$$"
+TMP="${TMPDIR:-/tmp}/amilisp-mlf-$$"
 mkdir -p "$TMP"
 cleanup() { rm -rf "$TMP" "$HOME/.cache/common-lisp/amilisp-"*"$TMP"* 2>/dev/null; }
 trap cleanup EXIT

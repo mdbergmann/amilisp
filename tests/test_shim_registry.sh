@@ -15,8 +15,8 @@
 
 AMILISP="${1:-build/host/amilisp}"
 case "$AMILISP" in
-    /*) ABS_CLAMIGA="$AMILISP" ;;
-    *)  ABS_CLAMIGA="$(pwd)/$AMILISP" ;;
+    /*) ABS_AMILISP="$AMILISP" ;;
+    *)  ABS_AMILISP="$(pwd)/$AMILISP" ;;
 esac
 . "$(dirname "$0")/shpath.sh"
 # Compared against paths amilisp PRINTS, so use amilisp's spelling.
@@ -77,7 +77,7 @@ CACHE="$WORKDIR/faslcache"
 
 # --- Source-compile load: cold cache, run from the repo root ---
 
-result=$(AMILISP_FASL_CACHE_DIR="$CACHE" "$ABS_CLAMIGA" --no-userinit \
+result=$(AMILISP_FASL_CACHE_DIR="$CACHE" "$ABS_AMILISP" --no-userinit \
     --non-interactive --heap 48M \
     --eval "$EVAL_REQUIRE" --eval "$EVAL_RESOLVE" </dev/null 2>&1)
 check_contains "cold_resolves_cl+ssl_shim" "CL+SSL-AT $ROOT/lib/shims/cl+ssl/" "$result"
@@ -87,7 +87,7 @@ check_contains "cold_resolves_swank_shim"  "SWANK-AT $ROOT/lib/shims/swank/" "$r
 # *LOAD-TRUENAME* to the SOURCE path on a cache hit, so the registration
 # must still point at lib/shims/ (not into the cache tree). ---
 
-result=$(AMILISP_FASL_CACHE_DIR="$CACHE" "$ABS_CLAMIGA" --no-userinit \
+result=$(AMILISP_FASL_CACHE_DIR="$CACHE" "$ABS_AMILISP" --no-userinit \
     --non-interactive --heap 48M \
     --eval "$EVAL_REQUIRE" --eval "$EVAL_RESOLVE" </dev/null 2>&1)
 check_contains "cached_loads_asdf_fasl"     "asdf.fasl" "$result"
@@ -98,7 +98,7 @@ check_contains "cached_resolves_cl+ssl_shim" "CL+SSL-AT $ROOT/lib/shims/cl+ssl/"
 # smoke test and a real binary install). ---
 
 mkdir -p "$WORKDIR/rel/bin/aos3"
-cp "$ABS_CLAMIGA" "$WORKDIR/rel/bin/aos3/amilisp"
+cp "$ABS_AMILISP" "$WORKDIR/rel/bin/aos3/amilisp"
 cp -R "$ROOT/lib" "$WORKDIR/rel/lib"
 result=$(cd "$WORKDIR" && env -u AMILISP_HOME \
     AMILISP_FASL_CACHE_DIR="$CACHE" ./rel/bin/aos3/amilisp --no-userinit \
@@ -109,7 +109,7 @@ check_contains "release_layout_resolves_shim" "rel/lib/shims/cl+ssl/" "$result"
 # --- AMILISP_NO_SHIMS=1: nothing registered; the shims must not resolve
 # through the central registry (find-system with error-p nil). ---
 
-result=$(AMILISP_NO_SHIMS=1 AMILISP_FASL_CACHE_DIR="$CACHE" "$ABS_CLAMIGA" \
+result=$(AMILISP_NO_SHIMS=1 AMILISP_FASL_CACHE_DIR="$CACHE" "$ABS_AMILISP" \
     --no-userinit --non-interactive --heap 48M \
     --eval "$EVAL_REQUIRE" \
     --eval '(format t "REGISTRY=[~{~a~^ ~}]~%" asdf:*central-registry*)' \

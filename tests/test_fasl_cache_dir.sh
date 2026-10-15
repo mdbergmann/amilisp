@@ -15,7 +15,7 @@
 AMILISP="${1:-build/host/amilisp}"
 passed=0
 failed=0
-TMP="${TMPDIR:-/tmp}/clamiga-cachedir-$$"
+TMP="${TMPDIR:-/tmp}/amilisp-cachedir-$$"
 mkdir -p "$TMP"
 trap 'rm -rf "$TMP"' EXIT
 

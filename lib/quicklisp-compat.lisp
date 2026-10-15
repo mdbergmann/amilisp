@@ -39,7 +39,7 @@
 ;; Timeouts (30s connect, 60s read/write silence) make a stalled dist
 ;; download raise EXT:SOCKET-TIMEOUT instead of blocking the image forever
 ;; in the socket reactor — same field hang as the quickstart bootstrap
-;; (see the cl-amiga implementation of open-connection in lib/quicklisp.lisp).
+;; (see the AmiLisp implementation of open-connection in lib/quicklisp.lisp).
 (defun open-connection (host port)
   (let ((stream (ext:open-tcp-stream host port 30)))
     (when stream

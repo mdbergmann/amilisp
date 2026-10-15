@@ -1,4 +1,4 @@
-;;;; swank.asd --- Minimal SWANK shim system for cl-amiga.
+;;;; swank.asd --- Minimal SWANK shim system for AmiLisp.
 ;;;
 ;;; Several quicklisp libraries (clack, mgl-pax, dref/full, ...) name the
 ;;; `swank' ASDF system in their :depends-on list purely to reach a handful
@@ -7,7 +7,7 @@
 ;;; a remote-debug server, but ONLY when its :swank-port argument is non-NIL
 ;;; (the default is NIL, so the calls never fire).
 ;;;
-;;; cl-amiga has its own native SLY/SLYNK transport and does not ship the
+;;; AmiLisp has its own native SLY/SLYNK transport and does not ship the
 ;;; full SWANK backend, so the real swank system is unavailable here.  This
 ;;; shim provides just enough of the SWANK package for those libraries to
 ;;; compile and load.  The stubs SIGNAL a clear error if actually invoked,
@@ -18,10 +18,10 @@
 ;;; searcher.  Opt out with AMILISP_NO_SHIMS=1.
 
 #-cl-amiga
-(error "The cl-amiga swank shim is only intended for cl-amiga.")
+(error "The AmiLisp swank shim is only intended for AmiLisp.")
 
 (defsystem swank
-  :description "Minimal SWANK shim so clack/mgl-pax & co. load on cl-amiga."
-  :author "cl-amiga"
+  :description "Minimal SWANK shim so clack/mgl-pax & co. load on AmiLisp."
+  :author "AmiLisp"
   :license "Public Domain"
   :components ((:file "swank")))

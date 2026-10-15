@@ -36,7 +36,7 @@ fi
 passed=0
 failed=0
 
-WORK=$(mktemp -d "${TMPDIR:-/tmp}/clamiga_args_XXXXXX") || exit 1
+WORK=$(mktemp -d "${TMPDIR:-/tmp}/amilisp_args_XXXXXX") || exit 1
 trap 'rm -rf "$WORK"' EXIT INT TERM
 cd "$WORK" || exit 1
 

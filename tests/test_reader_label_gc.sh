@@ -22,7 +22,7 @@ esac
 
 passed=0
 failed=0
-TMP="${TMPDIR:-/tmp}/clamiga-rdlabel-$$"
+TMP="${TMPDIR:-/tmp}/amilisp-rdlabel-$$"
 mkdir -p "$TMP"
 trap 'rm -rf "$TMP"' EXIT
 

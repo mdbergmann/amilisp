@@ -17,7 +17,7 @@
 
 ;; Fail loudly if we fell back to stream-fallback.lisp.
 (unless (member 'chipz-system:gray-streams *features*)
-  (error "chipz gray-streams feature NOT pushed — cl-amiga branch missing"))
+  (error "chipz gray-streams feature NOT pushed — AmiLisp branch missing"))
 
 (in-package :chipz)
 
@@ -43,7 +43,7 @@
     (let ((b0 (read-byte ds)))
       (format t "first byte via read-byte = ~D (#\\~C)~%" b0 (code-char b0))
       (assert (= b0 (char-code #\h))))
-    ;; (2) read-sequence path (drives stream-read-byte under cl-amiga)
+    ;; (2) read-sequence path (drives stream-read-byte under AmiLisp)
     (let* ((buf (make-array 16 :element-type '(unsigned-byte 8)))
            (n (read-sequence buf ds))
            (rest (octets->string (subseq buf 0 n))))

@@ -42,7 +42,7 @@ total=0
 ok()   { total=$((total + 1)); passed=$((passed + 1)); echo "  ok  $1"; }
 fail() { total=$((total + 1)); failed=$((failed + 1)); echo "  FAIL  $1"; shift; for l in "$@"; do echo "    $l"; done; }
 
-WORK=$(mktemp -d "${TMPDIR:-/tmp}/clamiga_md2guide_XXXXXX")
+WORK=$(mktemp -d "${TMPDIR:-/tmp}/amilisp_md2guide_XXXXXX")
 trap 'rm -rf "$WORK"' EXIT INT TERM
 WORK_NATIVE=$(native_path "$WORK")
 

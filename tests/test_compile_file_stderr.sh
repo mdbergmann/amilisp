@@ -14,7 +14,7 @@
 # Run: sh tests/test_compile_file_stderr.sh [path-to-amilisp]
 
 AMILISP="${1:-build/host/amilisp}"
-TMP="${TMPDIR:-/tmp}/clamiga-cfstderr-$$"
+TMP="${TMPDIR:-/tmp}/amilisp-cfstderr-$$"
 mkdir -p "$TMP"
 cleanup() { rm -rf "$TMP" 2>/dev/null; }
 trap cleanup EXIT

@@ -1336,9 +1336,9 @@ static CL_Obj bi_scale_float(CL_Obj *args, int n)
  * float-features' SINGLE/DOUBLE-FLOAT-BITS accessors (and their inverses)
  * have no portable branch — on any unrecognised Lisp they signal
  * "Implementation not supported."  jzon relies on DOUBLE-FLOAT-BITS to
- * serialise floats to JSON, so cl-amiga would silently fail to emit any
+ * serialise floats to JSON, so AmiLisp would silently fail to emit any
  * float (breaking SSE item-change messages, etc.).  We expose the raw
- * IEEE-754 bit reinterpretation as CLAMIGA-package builtins; float-features'
+ * IEEE-754 bit reinterpretation as AMILISP-package builtins; float-features'
  * #+cl-amiga branch calls these.  Registered in cl_builtins_arith_init. */
 
 /* uint64 -> CL integer (fixnum if it fits, else 4-limb bignum). */

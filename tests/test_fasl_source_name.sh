@@ -6,7 +6,7 @@
 # COMPILE-FILE merges its input with *default-pathname-defaults*, so the
 # recorded name was the build host's absolute path — and the binary release
 # (compiled on a Mac, run on an Amiga) put
-# "/Users/<builder>/Development/.../cl-amiga/lib/amiga/ahi.lisp" into every
+# "/Users/<builder>/Development/.../amilisp/lib/amiga/ahi.lisp" into every
 # Amiga backtrace through a shipped module.
 #
 # With AMILISP_FASL_PORTABLE=1 (what the release script, `make fasl` and
@@ -32,7 +32,7 @@ if [ -z "$TIMEOUT" ]; then
     exit 0
 fi
 
-dir=$(mktemp -d "${TMPDIR:-/tmp}/clamiga_srcname_XXXXXX") || exit 1
+dir=$(mktemp -d "${TMPDIR:-/tmp}/amilisp_srcname_XXXXXX") || exit 1
 trap 'rm -rf "$dir"' EXIT
 # The tree the compile runs in, and a source outside it.
 mkdir -p "$dir/tree/lib/mod" "$dir/elsewhere"

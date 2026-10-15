@@ -23,9 +23,9 @@
         (format s "(error \"arexx test error one\")~%")
         (format s "(arexx-test-undefined-function)~%")
         (format s "(defvar *arexx-test-end* t)~%"))
-      (let ((port (amiga.arexx:start :name "CLAMIGATEST")))
-        (check "arexx start returns the port name" "CLAMIGATEST" port)
-        (check "arexx port-name" "CLAMIGATEST" (amiga.arexx:port-name))
+      (let ((port (amiga.arexx:start :name "AMILISPTEST")))
+        (check "arexx start returns the port name" "AMILISPTEST" port)
+        (check "arexx port-name" "AMILISPTEST" (amiga.arexx:port-name))
         (check "arexx running-p" t (amiga.arexx:running-p))
         ; START registers STOP as an exit hook, so a process that ends with
         ; the port up takes it down instead of leaving a zombie task on it.
@@ -194,7 +194,7 @@
                  (position-if (lambda (s) (and (>= (length s) (length prefix))
                                                (string= prefix s :end2 (length prefix))))
                               sent)))
-          (multiple-value-bind (rc text) (amiga.arexx:send port "REPL-ATTACH CLAMIGATEST")
+          (multiple-value-bind (rc text) (amiga.arexx:send port "REPL-ATTACH AMILISPTEST")
             (check "arexx REPL-ATTACH rc" 0 rc)
             (check "arexx REPL-ATTACH answers the package" "CL-USER" text))
           ; REPL-ATTACH loads lib/dev-repl.lisp on first use, which registers
@@ -270,7 +270,7 @@
           ; thread and announces DEBUGGER 1 over the port; BACKTRACE and
           ; FRAME are answered while it is parked, RESTART 0 (the REPL's
           ; own ABORT) lets it go, and RESULT follows.
-          (multiple-value-bind (rc text) (amiga.arexx:send port "REPL-ATTACH CLAMIGATEST DEBUG")
+          (multiple-value-bind (rc text) (amiga.arexx:send port "REPL-ATTACH AMILISPTEST DEBUG")
             (declare (ignore text))
             (check "arexx REPL-ATTACH DEBUG rc" 0 rc))
           (multiple-value-bind (rc text)
@@ -357,7 +357,7 @@
 ; send and the open port hold a reference now; the library closes with the
 ; last one.
 (handler-case
-    (let* ((port (amiga.arexx:start :name "CLAMIGATEST2"))
+    (let* ((port (amiga.arexx:start :name "AMILISPTEST2"))
            (slow-rc :none) (slow-text nil) (queued-rc :none)
            (a nil) (b nil))
       (check "arexx rexxsyslib held once by the open port" 1 (amiga::%arexx-lib-users))
@@ -383,7 +383,7 @@
              (amiga::%arexx-lib-users))
       ; A send from a process with no port of its own opens and closes it.
       (check "arexx send to a missing port leaves rexxsyslib closed" '(t 0)
-             (list (handler-case (progn (amiga.arexx:send "CLAMIGA-NO-SUCH-PORT" "PING") nil)
+             (list (handler-case (progn (amiga.arexx:send "AMILISP-NO-SUCH-PORT" "PING") nil)
                      (error () t))
                    (amiga::%arexx-lib-users))))
   (error (e)

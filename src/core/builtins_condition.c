@@ -2189,7 +2189,7 @@ void cl_builtins_condition_init(void)
     /* Implementation-specific predicates / accessors live in AMILISP.
      * CL :uses AMILISP, so boot.lisp / clos.lisp / test code can see
      * them as bare symbols.  User packages that only (:use :common-lisp)
-     * must add (:use :amilisp) or qualify with the CLAMIGA: prefix. */
+     * must add (:use :amilisp) or qualify with the AMILISP: prefix. */
     cl_register_builtin("CONDITIONP", bi_conditionp, 1, 1, cl_package_amilisp);
     cl_register_builtin("CONDITION-TYPE-NAME", bi_condition_type_name, 1, 1, cl_package_amilisp);
     defun("SIMPLE-CONDITION-FORMAT-CONTROL", bi_simple_condition_format_control, 1, 1);

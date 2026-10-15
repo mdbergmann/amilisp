@@ -16,7 +16,7 @@
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 TMPDIR="${TMPDIR:-/tmp}"
-WORK="$TMPDIR/clamiga_symfn_$$"
+WORK="$TMPDIR/amilisp_symfn_$$"
 passed=0
 failed=0
 total=0

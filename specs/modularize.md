@@ -72,7 +72,7 @@ The codebase already has a clean seam: every subsystem registers through a
 in `#ifdef CL_FEATURE_X`, exactly like `JIT_M68K` already does
 (`src/jit/jit.c`, gated init, `cl_jit_enabled()`).
 
-Ship e.g. `amilisp` (full) and `clamiga-min` (no JIT/threads/FFI/introspection).
+Ship e.g. `amilisp` (full) and `amilisp-min` (no JIT/threads/FFI/introspection).
 
 Caveats — not all are cleanly severable:
 - `bignum` / `ratio` are reached on integer overflow; dropping them needs a

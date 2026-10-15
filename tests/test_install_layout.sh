@@ -39,7 +39,7 @@ fi
 passed=0
 failed=0
 
-WORK=$(mktemp -d "${TMPDIR:-/tmp}/clamiga_install_XXXXXX") || exit 1
+WORK=$(mktemp -d "${TMPDIR:-/tmp}/amilisp_install_XXXXXX") || exit 1
 trap 'rm -rf "$WORK"' EXIT INT TERM
 cd "$WORK" || exit 1
 
@@ -124,7 +124,7 @@ INST="$DEST$PFX"
 exists "installed_binary" "$INST/bin/amilisp"
 exists "installed_boot_fasl" "$INST/lib/amilisp/boot.fasl"
 exists "installed_clos_fasl" "$INST/lib/amilisp/clos.fasl"
-exists "installed_image_in_lib_clamiga" "$INST/lib/amilisp/amilisp.img"
+exists "installed_image_in_lib_amilisp" "$INST/lib/amilisp/amilisp.img"
 absent "no_image_beside_installed_binary" "$INST/bin/amilisp.img"
 absent "no_nested_lib_dir" "$INST/lib/amilisp/lib"
 if cmp -s "$builddir/image/amilisp.img" "$INST/lib/amilisp/amilisp.img"; then
@@ -144,7 +144,7 @@ out=$(cd elsewhere && AMILISP_HOME= "$TIMEOUT" 120 "$INST/bin/amilisp" \
     --no-userinit --non-interactive \
     --load "$ROOT/scripts/verify-boot-image.lisp" </dev/null 2>&1)
 ec=$?
-check "installed_binary_restores_from_lib_clamiga_image" 0 "$ec" "$out" \
+check "installed_binary_restores_from_lib_amilisp_image" 0 "$ec" "$out" \
     "^IMAGE-RESTORED-P T" "^BOOT-IMAGE-VERIFIED"
 
 # --- --no-image still boots from the installed FASLs --------------------
@@ -164,7 +164,7 @@ out=$(mk uninstall DESTDIR="$DEST" PREFIX="$PFX")
 ec=$?
 check "uninstall_from_destdir" 0 "$ec" "$out"
 absent "uninstall_removed_binary" "$INST/bin/amilisp"
-absent "uninstall_removed_lib_clamiga_with_image" "$INST/lib/amilisp"
+absent "uninstall_removed_lib_amilisp_with_image" "$INST/lib/amilisp"
 
 # --- Report --------------------------------------------------------------
 

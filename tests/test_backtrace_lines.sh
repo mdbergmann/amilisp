@@ -27,7 +27,7 @@ if [ -z "$TIMEOUT" ]; then
     exit 0
 fi
 
-dir=$(mktemp -d "${TMPDIR:-/tmp}/clamiga_btlines_XXXXXX") || exit 1
+dir=$(mktemp -d "${TMPDIR:-/tmp}/amilisp_btlines_XXXXXX") || exit 1
 trap 'rm -rf "$dir"' EXIT
 
 src="$dir/lines.lisp"

@@ -30,7 +30,7 @@ failed=0
 total=0
 
 # Fake HOME holding a ~/.amilisprc that prints an unmistakable marker.
-FAKE_HOME=$(mktemp -d "${TMPDIR:-/tmp}/clamiga_userinit_XXXXXX") || exit 1
+FAKE_HOME=$(mktemp -d "${TMPDIR:-/tmp}/amilisp_userinit_XXXXXX") || exit 1
 cleanup() { rm -rf "$FAKE_HOME"; }
 trap cleanup EXIT INT TERM
 printf '(format t "~&USERINIT-WAS-LOADED~%%")\n' > "$FAKE_HOME/.amilisprc"
@@ -62,14 +62,14 @@ out=$(echo '(quit)' | HOME="$FAKE_HOME" AMILISP_NO_USERINIT= "$TIMEOUT" 10 "$AMI
 check "baseline_loads_userinit" yes "$?" "$out"
 
 # --- The pre-rename ~/.clamigarc is still read when ~/.amilisprc is absent ---
-OLD_HOME=$(mktemp -d "${TMPDIR:-/tmp}/clamiga_userinit_old_XXXXXX") || exit 1
+OLD_HOME=$(mktemp -d "${TMPDIR:-/tmp}/amilisp_userinit_old_XXXXXX") || exit 1
 trap 'rm -rf "$FAKE_HOME" "$OLD_HOME" "$BOTH_HOME"' EXIT INT TERM
 printf '(format t "~&USERINIT-WAS-LOADED~%%")\n' > "$OLD_HOME/.clamigarc"
 out=$(echo '(quit)' | HOME="$OLD_HOME" AMILISP_NO_USERINIT= "$TIMEOUT" 10 "$AMILISP" --batch 2>&1)
 check "pre_rename_rc_still_loads" yes "$?" "$out"
 
 # --- With both files, ~/.amilisprc wins and ~/.clamigarc is NOT read too ---
-BOTH_HOME=$(mktemp -d "${TMPDIR:-/tmp}/clamiga_userinit_both_XXXXXX") || exit 1
+BOTH_HOME=$(mktemp -d "${TMPDIR:-/tmp}/amilisp_userinit_both_XXXXXX") || exit 1
 printf '(format t "~&USERINIT-WAS-LOADED~%%")\n' > "$BOTH_HOME/.amilisprc"
 printf '(format t "~&OLD-RC-WAS-LOADED~%%")\n' > "$BOTH_HOME/.clamigarc"
 out=$(echo '(quit)' | HOME="$BOTH_HOME" AMILISP_NO_USERINIT= "$TIMEOUT" 10 "$AMILISP" --batch 2>&1)

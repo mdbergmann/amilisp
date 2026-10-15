@@ -37,7 +37,7 @@ fi
 
 . "$(dirname "$0")/shpath.sh"
 
-work=$(mktemp -d "${TMPDIR:-/tmp}/clamiga_fo_XXXXXX") || exit 1
+work=$(mktemp -d "${TMPDIR:-/tmp}/amilisp_fo_XXXXXX") || exit 1
 tmp="$work/probe.lisp"
 out="$work/out.txt"
 trap 'rm -rf "$work"' EXIT

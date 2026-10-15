@@ -27,7 +27,7 @@ esac
 
 passed=0
 failed=0
-TMP="${TMPDIR:-/tmp}/clamiga-litident-$$"
+TMP="${TMPDIR:-/tmp}/amilisp-litident-$$"
 mkdir -p "$TMP"
 trap 'rm -rf "$TMP"' EXIT
 

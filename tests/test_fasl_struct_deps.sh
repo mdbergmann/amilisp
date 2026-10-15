@@ -27,7 +27,7 @@ esac
 
 passed=0
 failed=0
-TMP="${TMPDIR:-/tmp}/clamiga-structdeps-$$"
+TMP="${TMPDIR:-/tmp}/amilisp-structdeps-$$"
 mkdir -p "$TMP"
 trap 'rm -rf "$TMP"' EXIT
 
