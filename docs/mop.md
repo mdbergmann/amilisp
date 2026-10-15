@@ -165,5 +165,5 @@ supported.
 
 `tests/test_clos.c` and the CLOS/MOP blocks in `tests/amiga/run-tests.lisp`;
 implementation in `lib/clos.lisp`. The closer-mop re-export mapping lives in
-the AmiLisp `closer-mop` fork (`#+clamiga` branch of `closer-mop-packages.lisp`
-plus `closer-clamiga.lisp`), installed into quicklisp's local-projects.
+the AmiLisp `closer-mop` fork (`#+amilisp` branch of `closer-mop-packages.lisp`
+plus `closer-amilisp.lisp`), installed into quicklisp's local-projects.

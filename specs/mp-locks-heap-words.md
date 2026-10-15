@@ -528,7 +528,7 @@ ever on master).
 - Test hooks `mp::%condvar-waiters` and `mp::%lock-held-p` (internal).
 - The bordeaux-threads fork's `%acquire-lock`, `%acquire-recursive-lock`
   and both `%with-lock` macros pass the timeout through
-  (`~/quicklisp/local-projects/bordeaux-threads/apiv2/impl-clamiga.lisp`,
+  (`~/quicklisp/local-projects/bordeaux-threads/apiv2/impl-amilisp.lisp`,
   edited alongside this change).
 
 **Measured** (host: Apple M-series, 28 cores, same-session A/B against a

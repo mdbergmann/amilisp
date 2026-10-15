@@ -12,7 +12,7 @@ cache under `S:amilisp/faslcache/` / `~/.cache/common-lisp/amilisp-<v>-fasl<n>/`
 The old names stay as **compatibility aliases, never as the primary
 spelling in new code**: `CLAMIGA` is a nickname of the `AMILISP` package,
 `*features*` carries `:amilisp` and `:amicl` next to `:clamiga` and
-`:cl-amiga` (all four stay — the library forks say `#+clamiga`), an
+`:cl-amiga` (all four stay for third-party code written against the old names; the library forks themselves say `#+amilisp` and name their backend files `*-amilisp.lisp` since 2026-10-15), an
 `AMILISP_X` variable that is unset is read as `CLAMIGA_X`
 (`platform_getenv` in `string_utils.c`), and the runtime still finds the
 pre-rename files (`clamiga.img` after `amilisp.img`, `~/.clamigarc` /

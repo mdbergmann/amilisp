@@ -5,11 +5,11 @@
 ;; drakma together with cl+ssl so the HTTPS path is exercised end to end.  It
 ;; brings three AmiLisp capabilities together:
 ;;
-;;   - the host FFI engine + CFFI backend (cffi-clamiga),
+;;   - the host FFI engine + CFFI backend (cffi-amilisp),
 ;;   - cl+ssl loading against the host's OpenSSL — enabled by the :darwin /
 ;;     :linux + arch features AmiLisp now exposes, which let cl+ssl's
 ;;     define-foreign-library pick the right library names and locations, and
-;;   - the usocket AmiLisp backend (usocket/backend/clamiga.lisp) that maps
+;;   - the usocket AmiLisp backend (usocket/backend/amilisp.lisp) that maps
 ;;     usocket onto ext:open-tcp-stream / ext:socket-listen / ext:socket-accept.
 ;;
 ;; The upstream drakma test-suite (ASDF system :drakma-test, run via fiveam)
@@ -61,7 +61,7 @@
 
 ;; The form-POST tests run drakma against a LOCAL hunchentoot server over the
 ;; usocket AmiLisp backend.  The AmiLisp Hunchentoot/cl-fad/rfc2388
-;; portability now lives as in-source #+cl-amiga branches in those forks
+;; portability now lives as in-source #+amilisp branches in those forks
 ;; (local-projects), installed when the systems load above.
 
 ;; Redefine the out-of-scope tests as skips (see file header for the three

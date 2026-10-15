@@ -1,6 +1,6 @@
 ;; Load and test CFFI (the Common Foreign Function Interface) on AmiLisp.
 ;;
-;; cl-amiga ships a CFFI-SYS backend (cffi-clamiga.lisp) built on the FFI
+;; amilisp ships a CFFI-SYS backend (cffi-amilisp.lisp) built on the FFI
 ;; package's libffi-based engine (host: dlopen/dlsym + ffi:call-foreign +
 ;; ffi:make-callback).  This script loads CFFI and exercises the high-level
 ;; API with a fiveam suite.
@@ -32,9 +32,9 @@
 ;; The test definitions below reference the CFFI and FIVEAM packages, which
 ;; only exist after the loads above — they are read now (a later top-level
 ;; form is read after the earlier ones have been evaluated).
-(load "trunk/cffi-clamiga-tests.lisp")
+(load "trunk/cffi-amilisp-tests.lisp")
 
 ;; Run the suite; fiveam prints "Pass: N (...) / Fail: N (...)" which the
 ;; trunk/run-load-and-test-all.sh tally recognizes.
 (format t "~%--- Running CFFI amilisp test suite ---~%")
-(funcall (find-symbol "RUN-CFFI-CLAMIGA-TESTS" "CFFI-CLAMIGA-TEST"))
+(funcall (find-symbol "RUN-CFFI-AMILISP-TESTS" "CFFI-AMILISP-TEST"))

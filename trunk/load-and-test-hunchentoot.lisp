@@ -4,7 +4,7 @@
 ;; This is the server-side counterpart to trunk/load-and-test-drakma.lisp
 ;; (which exercises drakma as an HTTP/HTTPS *client*).  Here AmiLisp itself
 ;; IS the web server: we start a Hunchentoot easy-acceptor over
-;; usocket/backend/clamiga.lisp (ext:socket-listen / ext:socket-accept on a
+;; usocket/backend/amilisp.lisp (ext:socket-listen / ext:socket-accept on a
 ;; per-connection taskmaster thread) and then run Hunchentoot's own built-in
 ;; confidence suite against it.  The suite drives drakma over the loopback
 ;; interface and asserts on the responses — so a single run exercises:
@@ -55,7 +55,7 @@
 (asdf:load-system :hunchentoot)
 
 ;; The AmiLisp Hunchentoot portability (SET-TIMEOUTS) now ships as an in-source
-;; #+cl-amiga branch in the hunchentoot fork (local-projects), so loading the
+;; #+amilisp branch in the hunchentoot fork (local-projects), so loading the
 ;; system above already installs it — no separate patch load needed.
 
 ;; Load Hunchentoot's own test system: the example handlers (test-handlers),

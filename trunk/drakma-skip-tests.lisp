@@ -9,7 +9,7 @@
 ;; VERIFY.* badssl.com tests), AND — as of 2026-06-12 — the form-POST/PUT
 ;; tests that stand up a LOCAL hunchentoot server (post/put-x-www-form,
 ;; post/put-multipart-form).  Hunchentoot now runs as a server over the
-;; usocket cl-amiga backend (cl-amiga portability is an in-source #+cl-amiga
+;; usocket amilisp backend (amilisp portability is an in-source #+amilisp
 ;; branch in the hunchentoot/cl-fad/rfc2388 forks).
 ;;
 ;; The tests redefined below are flaky for reasons ORTHOGONAL to the
@@ -30,7 +30,7 @@
 ;;
 ;; NOTE: chipz streaming decompression (drakma's :decode-content t, which wraps
 ;; the reply in chipz:make-decompressing-stream) IS now supported on AmiLisp
-;; via the mdbergmann/chipz fork's #+cl-amiga gray-stream branch, so the
+;; via the mdbergmann/chipz fork's #+amilisp gray-stream branch, so the
 ;; google.com gzip-decode tests (get-google-gzip / get-google-gzip-no-close)
 ;; run here and pass.  Only the httpbin-backed decode tests stay skipped, for
 ;; the httpbin flakiness above — not for any chipz limitation.

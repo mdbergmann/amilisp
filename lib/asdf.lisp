@@ -983,7 +983,7 @@ MIX directives, and reexport their contents as per the REEXPORT directive."
   #+(or mcl cmucl) (:shadow #:user-homedir-pathname))
 (in-package :uiop/common-lisp)
 
-#-(or cl-amiga abcl allegro clasp clisp clozure cmucl cormanlisp ecl gcl genera lispworks mcl mezzano mkcl sbcl scl xcl)
+#-(or amilisp abcl allegro clasp clisp clozure cmucl cormanlisp ecl gcl genera lispworks mcl mezzano mkcl sbcl scl xcl)
 (error "ASDF is not supported on your implementation. Please help us port it.")
 
 ;; (declaim (optimize (speed 1) (debug 3) (safety 3))) ; DON'T: trust implementation defaults.
@@ -1970,13 +1970,13 @@ if left unspecified, will be the NEXT-VERSION of the immediate lower level of de
       ((and warning (version<= warning version)) :warning)
       ((and style-warning (version<= style-warning version)) :style-warning)))
 
-  #+cl-amiga
+  #+amilisp
   (defmacro with-deprecation ((level) &body definitions)
     "AmiLisp simplified: no deprecation instrumentation."
     (declare (ignore level))
     `(progn ,@definitions))
 
-  #-cl-amiga
+  #-amilisp
   (defmacro with-deprecation ((level) &body definitions)
     "Given a deprecation LEVEL (a form to be EVAL'ed at macro-expansion time), instrument the
 DEFUN and DEFMETHOD forms in DEFINITIONS to notify the programmer of the deprecation of the function
@@ -2150,7 +2150,7 @@ use getenvp to return NIL in such a case."
         (ct:free buffer1)))
     #+gcl (system:getenv x)
     #+(or genera mezzano) nil
-    #+cl-amiga (ext:getenv x)
+    #+amilisp (ext:getenv x)
     #+lispworks (lispworks:environment-variable x)
     #+mcl (ccl:with-cstrs ((name x))
             (let ((value (_getenv name)))
@@ -2158,7 +2158,7 @@ use getenvp to return NIL in such a case."
                 (ccl:%get-cstring value))))
     #+mkcl (#.(or (find-symbol* 'getenv :si nil) (find-symbol* 'getenv :mk-ext nil)) x)
     #+sbcl (sb-ext:posix-getenv x)
-    #-(or abcl allegro clasp clisp clozure cmucl cormanlisp ecl gcl genera lispworks mcl mezzano mkcl sbcl scl xcl cl-amiga)
+    #-(or abcl allegro clasp clisp clozure cmucl cormanlisp ecl gcl genera lispworks mcl mezzano mkcl sbcl scl xcl amilisp)
     (not-implemented-error 'getenv))
 
   (defsetf getenv (x) (val)
@@ -2383,8 +2383,8 @@ suitable for use as a directory name to segregate Lisp FASLs, C dynamic librarie
         #+mkcl (mk-ext:getcwd)
         #+sbcl (sb-ext:parse-native-namestring (sb-unix:posix-getcwd/))
         #+xcl (extensions:current-directory)
-        #+cl-amiga (parse-namestring (ext:getcwd))
-        #-(or cl-amiga abcl allegro clasp clisp clozure cmucl cormanlisp ecl gcl lispworks mkcl sbcl scl xcl genera mezzano)
+        #+amilisp (parse-namestring (ext:getcwd))
+        #-(or amilisp abcl allegro clasp clisp clozure cmucl cormanlisp ecl gcl lispworks mkcl sbcl scl xcl genera mezzano)
         (not-implemented-error 'getcwd)))
 
   (defun chdir (x)
@@ -2582,7 +2582,7 @@ by the underlying implementation's MAKE-PATHNAME and other primitives"
   ;; This will be :unspecific if supported, or NIL if not.
   (defparameter *unspecific-pathname-type*
     #+(or abcl allegro clozure cmucl lispworks sbcl scl) :unspecific
-    #+(or genera clasp clisp ecl mkcl gcl xcl cl-amiga #|These haven't been tested:|# cormanlisp mcl mezzano) nil
+    #+(or genera clasp clisp ecl mkcl gcl xcl amilisp #|These haven't been tested:|# cormanlisp mcl mezzano) nil
     "Unspecific type component to use with the underlying implementation's MAKE-PATHNAME")
 
   (defun make-pathname* (&rest keys &key directory host device name type version defaults
@@ -3291,7 +3291,7 @@ you need to still be able to use compile-op on that lisp file."))
         (os-cond
          ;; AmiLisp on Windows is :UNIX to UIOP, but a namestring there
          ;; has a drive letter, which is the pathname's device
-         #+(and cl-amiga windows) (t (namestring p))
+         #+(and amilisp windows) (t (namestring p))
          ((os-unix-p) (unix-namestring p))
          ;; AmigaOS uses Device:path — unix-namestring loses device component
          ((os-amigaos-p) (namestring p))
@@ -3312,7 +3312,7 @@ a CL pathname satisfying all the specified constraints as per ENSURE-PATHNAME"
                  (os-cond
                   ;; AmiLisp on Windows: the drive letter is the device, and
                   ;; what the environment hands over may be spelled with "\"
-                  #+(and cl-amiga windows)
+                  #+(and amilisp windows)
                   (t (parse-namestring (substitute #\/ #\\ string)))
                   ((os-unix-p) (parse-unix-namestring string :ensure-directory ensure-directory))
                   ;; AmigaOS uses Device:path — parse-unix-namestring loses device component
@@ -3777,8 +3777,8 @@ Note that this operation is usually NOT thread-safe."
     "What character does the current OS conventionally uses to separate directories?"
     ;; AmiLisp on Windows is :UNIX to UIOP, but a directory there starts
     ;; with a drive letter and its colon.
-    #+(and cl-amiga windows) #\;
-    #-(and cl-amiga windows)
+    #+(and amilisp windows) #\;
+    #-(and amilisp windows)
     (os-cond ((or (os-unix-p) (os-amigaos-p)) #\:) (t #\;)))
 
   (defun split-native-pathnames-string (string &rest constraints &key &allow-other-keys)
@@ -4764,7 +4764,7 @@ This is designed to abstract away the implementation specific quit forms."
       (finish-outputs))
     #+(or abcl xcl) (ext:quit :status code)
     #+allegro (excl:exit code :quiet t)
-    #+cl-amiga (cl-user::quit code)
+    #+amilisp (cl-user::quit code)
     #+(or clasp ecl) (si:quit code)
     #+clisp (ext:quit code)
     #+clozure (ccl:quit code)
@@ -4780,7 +4780,7 @@ This is designed to abstract away the implementation specific quit forms."
                (cond
                  (exit `(,exit :code code :abort (not finish-output)))
                  (quit `(,quit :unix-status code :recklessly-p (not finish-output)))))
-    #-(or abcl allegro clasp clisp clozure cmucl ecl gcl genera lispworks mcl mkcl sbcl scl xcl cl-amiga)
+    #-(or abcl allegro clasp clisp clozure cmucl ecl gcl genera lispworks mcl mkcl sbcl scl xcl amilisp)
     (not-implemented-error 'quit "(called with exit code ~S)" code))
 
   (defun die (code format &rest arguments)
@@ -4934,12 +4934,12 @@ depending on whether *LISP-INTERACTION* is set, enter debugger or die"
     #+clozure ccl:*command-line-argument-list*
     #+(or cmucl scl) extensions:*command-line-strings*
     #+gcl si:*command-args*
-    #+(or genera mcl mezzano cl-amiga) nil
+    #+(or genera mcl mezzano amilisp) nil
     #+lispworks sys:*line-arguments-list*
     #+mkcl (loop :for i :from 0 :below (mkcl:argc) :collect (mkcl:argv i))
     #+sbcl sb-ext:*posix-argv*
     #+xcl system:*argv*
-    #-(or abcl allegro clasp clisp clozure cmucl ecl gcl genera lispworks mcl mezzano mkcl sbcl scl xcl cl-amiga)
+    #-(or abcl allegro clasp clisp clozure cmucl ecl gcl genera lispworks mcl mezzano mkcl sbcl scl xcl amilisp)
     (not-implemented-error 'raw-command-line-arguments))
 
   (defun command-line-arguments (&optional (arguments (raw-command-line-arguments)))
@@ -7230,13 +7230,13 @@ or whether it's already taken care of by the implementation's underlying run-pro
        (return-from %system
          (wait-process
           (apply 'launch-program (%normalize-system-command command) keys)))))
-    #+(or cl-amiga abcl clasp clisp cormanlisp ecl gcl genera (and lispworks os-windows) mkcl xcl)
+    #+(or amilisp abcl clasp clisp cormanlisp ecl gcl genera (and lispworks os-windows) mkcl xcl)
     (let ((%command (%redirected-system-command command input output error-output directory)))
       ;; see comments for these functions
       (%handle-if-does-not-exist input if-input-does-not-exist)
       (%handle-if-exists output if-output-exists)
       (%handle-if-exists error-output if-error-output-exists)
-      #+cl-amiga (ext:system-command %command)
+      #+amilisp (ext:system-command %command)
       #+abcl (ext:run-shell-command %command)
       #+(or clasp ecl) (let ((*standard-input* *stdin*)
                              (*standard-output* *stdout*)
@@ -7355,7 +7355,7 @@ RUN-PROGRAM returns 3 values:
 or an indication of failure via the EXIT-CODE of the process"
     (declare (ignorable input output error-output if-input-does-not-exist if-output-exists
                         if-error-output-exists element-type external-format ignore-error-status))
-    #-(or cl-amiga abcl allegro clasp clisp clozure cmucl cormanlisp ecl gcl lispworks mcl mkcl sbcl scl xcl)
+    #-(or amilisp abcl allegro clasp clisp clozure cmucl cormanlisp ecl gcl lispworks mcl mkcl sbcl scl xcl)
     (not-implemented-error 'run-program)
     (apply (if (or force-shell
                    ;; Per doc string, set FORCE-SHELL to T if we get command as a string.
@@ -7363,7 +7363,7 @@ or an indication of failure via the EXIT-CODE of the process"
                    (and (stringp command)
                         (or (not force-shell-suppliedp)
                             #-(or allegro clisp clozure sbcl) (os-cond ((os-windows-p) t))))
-                   #+(or cl-amiga clasp clisp cormanlisp gcl (and lispworks os-windows) mcl xcl) t
+                   #+(or amilisp clasp clisp cormanlisp gcl (and lispworks os-windows) mcl xcl) t
                    ;; A race condition in ECL <= 16.0.0 prevents using ext:run-program
                    #+ecl #.(if-let (ver (parse-version (lisp-implementation-version)))
                                    (lexicographic<= '< ver '(16 0 0)))
@@ -8922,14 +8922,14 @@ the primary one."
     `(progn ,@(mapcar (lambda (slot-name)
                         `(define-system-virtual-slot-reader ,slot-name))
                 *system-virtual-slots*)))
-  #+cl-amiga ;; Single-pass: macro call must be in a separate top-level form
+  #+amilisp ;; Single-pass: macro call must be in a separate top-level form
   (defun system-license (system)
     (system-virtual-slot-value system 'licence)))
 
-#+cl-amiga
+#+amilisp
 (define-system-virtual-slot-readers)
 
-#-cl-amiga
+#-amilisp
 (with-upgradability ()
   (define-system-virtual-slot-readers)
   (defun system-license (system)
@@ -14181,7 +14181,7 @@ using (SYS:UPDATE-ALLEGRO)."))
 
 ;;; ===================================================================
 ;;; AmiLisp adaptations
-;;; Each form is individually guarded by #+cl-amiga so that
+;;; Each form is individually guarded by #+amilisp so that
 ;;; (in-package ...) takes effect at read time between forms.
 ;;; ===================================================================
 
@@ -14200,10 +14200,10 @@ using (SYS:UPDATE-ALLEGRO)."))
 ;;; found". The NIL-accessor methods below cover the edge cases where
 ;;; ASDF momentarily reads a session accessor outside a with-asdf-session.
 
-#+cl-amiga
+#+amilisp
 (in-package #:asdf/session)
 
-#+cl-amiga
+#+amilisp
 (let ((empty-ht (make-hash-table :test 'equal)))
   (defmethod session-ancestor ((obj (eql nil))) nil)
   (defmethod session-cache ((obj (eql nil))) empty-ht)
@@ -14232,10 +14232,10 @@ using (SYS:UPDATE-ALLEGRO)."))
 ;;; compiled FASLs persist and can be loaded in subsequent sessions
 ;;; without recompiling from source.
 
-#+cl-amiga
+#+amilisp
 (in-package #:asdf/lisp-action)
 
-#+cl-amiga
+#+amilisp
 (defun perform-lisp-compilation (o c)
   "AmiLisp: compile source to binary FASL using compile-file.
 Our compile-file reads, compiles, evaluates, and serializes each form."
@@ -14248,7 +14248,7 @@ Our compile-file reads, compiles, evaluates, and serializes each form."
           (*readtable* *readtable*))
       (compile-file input-file :output-file output-file))))
 
-#+cl-amiga
+#+amilisp
 (defun perform-lisp-load-fasl (o c)
   "AmiLisp: load the compiled FASL.
 If the FASL file doesn't exist (compile-file skipped caching), load from source."
@@ -14260,7 +14260,7 @@ If the FASL file doesn't exist (compile-file skipped caching), load from source.
           (let ((source (first (input-files (make-operation 'compile-op) c))))
             (when source (load* source)))))))
 
-#+cl-amiga
+#+amilisp
 (in-package #:cl-user)
 
 ;;; --- Bundled shim systems (lib/shims/) ---
@@ -14285,7 +14285,7 @@ If the FASL file doesn't exist (compile-file skipped caching), load from source.
 ;;;
 ;;; Opt out with AMILISP_NO_SHIMS=1 (e.g. to run the real cl+ssl on the
 ;;; host, where the native FFI can support it).
-#+cl-amiga
+#+amilisp
 (unless (equal (ext:getenv "AMILISP_NO_SHIMS") "1")
   (let ((here (or *load-truename* *load-pathname*)))
     (when here

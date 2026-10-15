@@ -1,4 +1,4 @@
-;; cffi-clamiga-tests.lisp — fiveam test suite for the AmiLisp CFFI backend.
+;; cffi-amilisp-tests.lisp — fiveam test suite for the AmiLisp CFFI backend.
 ;;
 ;; Loaded by trunk/load-and-test-cffi.lisp AFTER CFFI and FIVEAM are loaded
 ;; (so the package references below read cleanly).  Exercises the public CFFI
@@ -6,14 +6,14 @@
 ;; callbacks, and foreign structs.  Foreign-call/callback tests are host-only
 ;; (POSIX dlopen + libffi) and #-amigaos-guarded.
 
-(defpackage :cffi-clamiga-test
+(defpackage :cffi-amilisp-test
   (:use :cl :cffi :fiveam)
-  (:export #:run-cffi-clamiga-tests))
+  (:export #:run-cffi-amilisp-tests))
 
-(in-package :cffi-clamiga-test)
+(in-package :cffi-amilisp-test)
 
-(def-suite cffi-clamiga :description "AmiLisp CFFI backend tests")
-(in-suite cffi-clamiga)
+(def-suite cffi-amilisp :description "AmiLisp CFFI backend tests")
+(in-suite cffi-amilisp)
 
 ;;;; Pointers
 
@@ -143,6 +143,6 @@
     (is (= -22 (foreign-slot-value pt '(:struct point) 'y)))
     (is (>= (foreign-type-size '(:struct point)) 16))))
 
-(defun run-cffi-clamiga-tests ()
+(defun run-cffi-amilisp-tests ()
   "Run the suite and return T if every test passed."
-  (run! 'cffi-clamiga))
+  (run! 'cffi-amilisp))
