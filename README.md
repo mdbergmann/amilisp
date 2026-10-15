@@ -140,7 +140,7 @@ The same programs on MorphOS 3.20 (MUI 4, built into the OS) — layout, slidora
 ## Building
 
 Ready-made AmigaOS 3 and MorphOS binaries are on Aminet as
-[dev/lang/clamiga.lha](https://aminet.net/package/dev/lang/clamiga); everything
+[dev/lang/amilisp.lha](https://aminet.net/package/dev/lang/amilisp); everything
 else is built from source.  A plain clone is enough for the host build
 ([Getting started](#getting-started) has the three commands).  Two things
 are git submodules and are fetched on demand: the editor
@@ -341,9 +341,9 @@ produces `.zip` and `.lha` archives. The binaries find `lib/` relative to themse
 tree runs from any directory without assigns or environment variables.
 
 The release is published on Aminet as
-[dev/lang/clamiga.lha](https://aminet.net/package/dev/lang/clamiga).
+[dev/lang/amilisp.lha](https://aminet.net/package/dev/lang/amilisp).
 `scripts/aminet-upload.sh` takes the `.lha` the release script produced,
-writes the accompanying `clamiga.readme` from `scripts/aminet-readme.in`
+writes the accompanying `amilisp.readme` from `scripts/aminet-readme.in`
 (version, uploader and the release notes filled in — the annotated tag's
 message by default, or `--notes FILE`), checks the pair against Aminet's
 rules (readme fields, 40-character `Short:`, 78-column ASCII lines,
@@ -357,8 +357,10 @@ AMINET_UPLOADER="you@example.org (Your Name)" scripts/aminet-upload.sh          
 ```
 
 Aminet updates a package by an upload under the same file name, so the
-archive goes up as `clamiga.lha` with the version in the readme.  The
-script runs from macOS or Linux (not from MSYS2 on Windows).
+archive goes up as `amilisp.lha` with the version in the readme.  The
+first upload under that name adds `--replaces dev/lang/clamiga.lha`, which
+retires the package the project had as CL-Amiga.  The script runs from
+macOS or Linux (not from MSYS2 on Windows).
 `tests/test_aminet_upload.sh` is the executable specification of the
 rules the script enforces.
 

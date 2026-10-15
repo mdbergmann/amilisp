@@ -23,7 +23,7 @@ same compiled FASLs run unchanged on 68k and PowerPC.
 Getting started
 ---------------
 1. Unpack anywhere - no installer, no assigns:
-     lha x clamiga.lha Work:
+     lha x amilisp.lha Work:
 
 2. Pick your binary:
      bin/aos3/amilisp      AmigaOS 3.x, any 68020+ (floats in software)

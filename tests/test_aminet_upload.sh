@@ -5,7 +5,7 @@
 # without the network: every run is --dry-run.
 #
 # Part 1  staging: the release archive amilisp-<v>-bin.lha becomes
-#         clamiga.lha (byte-identical — Aminet updates overwrite the SAME
+#         amilisp.lha (byte-identical — Aminet updates overwrite the SAME
 #         name, the version lives in the readme), the readme is built from
 #         the template with @VERSION@/@UPLOADER@/@NOTES@ filled in, notes
 #         are folded to 78 columns and typographic punctuation is
@@ -89,13 +89,13 @@ echo "=== test_aminet_upload: staging ==="
 OUT1="$TMPD/out1"
 out=$(run_ok "$OUT1"); rc=$?
 if [ $rc -eq 0 ]; then ok "dry run exits 0"; else fail "dry run must exit 0 (rc=$rc)" "$(echo "$out" | tail -8)"; fi
-if [ -f "$OUT1/clamiga.lha" ] && cmp -s "$ARCHIVE" "$OUT1/clamiga.lha"; then
-    ok "clamiga.lha is the release archive, byte for byte (no version in the file name)"
+if [ -f "$OUT1/amilisp.lha" ] && cmp -s "$ARCHIVE" "$OUT1/amilisp.lha"; then
+    ok "amilisp.lha is the release archive, byte for byte (no version in the file name)"
 else
-    fail "clamiga.lha must be a copy of $ARCHIVE"
+    fail "amilisp.lha must be a copy of $ARCHIVE"
 fi
-[ -f "$OUT1/clamiga.readme" ] && ok "clamiga.readme staged next to it" || fail "clamiga.readme missing"
-RM="$OUT1/clamiga.readme"
+[ -f "$OUT1/amilisp.readme" ] && ok "amilisp.readme staged next to it" || fail "amilisp.readme missing"
+RM="$OUT1/amilisp.readme"
 grep -q "^Version:      $V\$" "$RM" && ok "Version: $V from the archive name" || fail "Version: must be $V" "$(head -12 "$RM")"
 grep -q "^Uploader:     $UPL\$" "$RM" && ok "Uploader: from --uploader" || fail "Uploader: line wrong" "$(grep Uploader "$RM")"
 grep -q "cd Work:amilisp-$V\$" "$RM" && ok "@VERSION@ substituted in the body (getting-started cd line)" || fail "body must mention amilisp-$V"
@@ -111,7 +111,7 @@ fi
 grep -q '^Replaces:' "$RM" && fail "Replaces: must not appear unless requested" || ok "no Replaces: by default (same-name update)"
 echo "$out" | grep -q 'DRY RUN' && echo "$out" | grep -q 'ftp://main.aminet.net/new/' \
     && ok "dry run names the FTP target" || fail "dry run must print the target" "$(echo "$out" | tail -4)"
-echo "$out" | grep -q -- '--upload-file .*clamiga\.lha .*anonymous:tester@example\.org' \
+echo "$out" | grep -q -- '--upload-file .*amilisp\.lha .*anonymous:tester@example\.org' \
     && ok "curl command: archive as anonymous with the uploader's e-mail as password" \
     || fail "curl command line" "$(echo "$out" | grep curl)"
 n_curl=$(echo "$out" | grep -c '^  curl ')
@@ -124,13 +124,13 @@ fi
 
 OUT2="$TMPD/out2"
 out=$(run_ok "$OUT2" --replaces dev/lang/clamiga.lha); rc=$?
-if [ $rc -eq 0 ] && grep -q '^Replaces:     dev/lang/clamiga\.lha$' "$OUT2/clamiga.readme"; then
+if [ $rc -eq 0 ] && grep -q '^Replaces:     dev/lang/clamiga\.lha$' "$OUT2/amilisp.readme"; then
     ok "--replaces emits Replaces: in the header"
 else
-    fail "--replaces" "$(head -12 "$OUT2/clamiga.readme" 2>/dev/null)"
+    fail "--replaces" "$(head -12 "$OUT2/amilisp.readme" 2>/dev/null)"
 fi
-hdr_end=$(awk '/^$/ { print NR; exit }' "$OUT2/clamiga.readme")
-repl_line=$(grep -n '^Replaces:' "$OUT2/clamiga.readme" | cut -d: -f1)
+hdr_end=$(awk '/^$/ { print NR; exit }' "$OUT2/amilisp.readme")
+repl_line=$(grep -n '^Replaces:' "$OUT2/amilisp.readme" | cut -d: -f1)
 [ "$repl_line" -lt "$hdr_end" ] && ok "Replaces: sits inside the header block" || fail "Replaces: outside the header"
 
 # ---------------------------------------------------------------- Part 2
@@ -169,8 +169,8 @@ out=$(AMINET_UPLOADER= "$SCRIPT" $BASE 2>&1); rc=$?
 expect_fail "uploader without an e-mail: refused" 'no e-mail address' -- $BASE --uploader "Just A Name"
 expect_fail "no notes and no tag v9.9: refused, points at --notes" '--notes' -- --dry-run --archive "$ARCHIVE" --uploader "$UPL" --out "$TMPD/out3"
 expect_fail "missing archive: points at make-binary-release.sh" 'make-binary-release.sh' -- --dry-run --archive "$TMPD/nowhere/amilisp-$V-bin.lha" --notes "$TMPD/notes.txt" --uploader "$UPL" --out "$TMPD/out3"
-[ ! -e "$TMPD/out3/clamiga.lha" ] && ok "a refused run before staging leaves nothing behind" || fail "out3 populated"
-expect_fail "archive name without a version: refused" 'amilisp-<version>-bin.lha' -- --dry-run --archive "$TMPD/clamiga.lha" --notes "$TMPD/notes.txt" --uploader "$UPL" --out "$TMPD/out3"
+[ ! -e "$TMPD/out3/amilisp.lha" ] && ok "a refused run before staging leaves nothing behind" || fail "out3 populated"
+expect_fail "archive name without a version: refused" 'amilisp-<version>-bin.lha' -- --dry-run --archive "$TMPD/amilisp.lha" --notes "$TMPD/notes.txt" --uploader "$UPL" --out "$TMPD/out3"
 
 printf 'Umlaut \303\274 here\n' > "$TMPD/notes-umlaut.txt"
 out=$("$SCRIPT" --dry-run --archive "$ARCHIVE" --notes "$TMPD/notes-umlaut.txt" --uploader "$UPL" --out "$TMPD/out4" 2>&1); rc=$?

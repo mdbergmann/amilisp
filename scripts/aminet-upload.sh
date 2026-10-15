@@ -1,5 +1,5 @@
 #!/bin/bash
-# aminet-upload.sh — push the binary release to Aminet (dev/lang/clamiga.lha).
+# aminet-upload.sh — push the binary release to Aminet (dev/lang/amilisp.lha).
 #
 # How an Aminet upload works (wiki.aminet.net/Uploading_instructions and
 # wiki.aminet.net/The_Readme_file — the web form is offline, FTP is the way):
@@ -9,7 +9,7 @@
 #     into the tree; it is not listable, so the only receipt is the FTP
 #     status of the transfer.
 #   - every file is accompanied by a .readme with the SAME base name
-#     (clamiga.lha + clamiga.readme).  The readme starts with header fields,
+#     (amilisp.lha + amilisp.readme).  The readme starts with header fields,
 #     then an empty line, then free text.  Mandatory fields: Short:,
 #     Uploader:, Type:, Architecture:.  Short: is at most 40 characters and
 #     names what the program does — no version, no platform.  Lines are at
@@ -29,8 +29,8 @@
 # What this script does:
 #   1. takes the archive scripts/make-binary-release.sh produced
 #      (build/release/amilisp-<version>-bin.lha) and copies it to
-#      clamiga.lha — Aminet's name for the package;
-#   2. writes clamiga.readme from scripts/aminet-readme.in: @VERSION@ and
+#      amilisp.lha — Aminet's name for the package;
+#   2. writes amilisp.readme from scripts/aminet-readme.in: @VERSION@ and
 #      @UPLOADER@ are filled in, @NOTES@ becomes the release notes — the
 #      file given with --notes, else the message of the annotated tag
 #      v<major>.<minor> (the release headline, see CLAUDE.md).  Typographic
@@ -52,10 +52,12 @@
 #   --notes FILE       release notes for the readme (default: tag message)
 #   --archive FILE     the release .lha (default: build/release/amilisp-<version>-bin.lha;
 #                      the version is then taken from the file name)
-#   --out DIR          where clamiga.lha + clamiga.readme are staged
+#   --out DIR          where amilisp.lha + amilisp.readme are staged
 #                      (default: build/release/aminet)
-#   --replaces PATH    emit "Replaces: PATH" (e.g. dev/lang/clamiga.lha when
-#                      the Type: changes; not needed for a same-name update)
+#   --replaces PATH    emit "Replaces: PATH": dev/lang/clamiga.lha on the
+#                      first upload under the amilisp name, so Aminet
+#                      retires the package the project had as CL-Amiga;
+#                      not needed for a same-name update
 #   --template FILE    readme template (default: scripts/aminet-readme.in)
 #   --uploader "EMAIL (NAME)"   same as AMINET_UPLOADER
 #
@@ -70,7 +72,7 @@ cd "$(dirname "$0")/.."
 ROOT=$(pwd)
 
 AMINET_FTP_URL=${AMINET_FTP_URL:-ftp://main.aminet.net/new/}
-AMINET_NAME=clamiga            # the package's name on Aminet (dev/lang/clamiga.lha)
+AMINET_NAME=amilisp            # the package's name on Aminet (dev/lang/amilisp.lha)
 
 DRY_RUN=0; YES=0
 NOTES=""; ARCHIVE=""; OUT="$ROOT/build/release/aminet"; REPLACES=""
@@ -322,6 +324,6 @@ echo "--- uploading $(basename "$LHA_OUT") ---"
 "${CURL_ARCHIVE[@]}" || die "archive upload failed — nothing to moderate yet, rerun when the connection is back"
 echo "--- uploading $(basename "$README_OUT") ---"
 "${CURL_README[@]}" || die "readme upload failed — the archive is in /new/ without its readme: rerun the script (same names overwrite)"
-echo "=== uploaded clamiga.lha + clamiga.readme ($VERSION) to $AMINET_FTP_URL ==="
+echo "=== uploaded amilisp.lha + amilisp.readme ($VERSION) to $AMINET_FTP_URL ==="
 echo "The Aminet moderators move it into dev/lang/; the entry then updates at"
-echo "https://aminet.net/package/dev/lang/clamiga (and the recent list). Usually a day or two."
+echo "https://aminet.net/package/dev/lang/amilisp (and the recent list). Usually a day or two."
