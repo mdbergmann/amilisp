@@ -2807,6 +2807,43 @@ y" 1))
 (check "%type-expander parameterized alias expands" '(integer 0 9)
        (funcall (amilisp::%type-expander '%tx-range) 0 9))
 
+; AMILISP:TYPEXPAND-1 / AMILISP:TYPEXPAND (lib/boot.lisp): the native type
+; expanders the introspect-environment backend delegates to.  One step vs.
+; the fixpoint, the second value, unchanged standard/compound/class
+; specifiers, the ignored ENV argument, and a TYPE-ERROR for a non-specifier.
+(deftype %tx-mid () '%tx-disj)
+(check "typexpand-1 atom alias one step" '(%tx-disj t)
+       (multiple-value-list (amilisp:typexpand-1 '%tx-mid)))
+(check "typexpand resolves an alias chain" '((or string number) t)
+       (multiple-value-list (amilisp:typexpand '%tx-mid)))
+(check "typexpand-1 applies a parameterized alias" '((integer 0 9) t)
+       (multiple-value-list (amilisp:typexpand-1 '(%tx-range 0 9))))
+(check "typexpand standard type name unchanged" '(string nil)
+       (multiple-value-list (amilisp:typexpand 'string)))
+(check "typexpand compound standard type unchanged" '(t nil)
+       (let ((ty '(integer 0 9)))
+         (multiple-value-bind (new exp) (amilisp:typexpand ty)
+           (list (eq new ty) exp))))
+(check "typexpand class object unchanged" '(t nil)
+       (multiple-value-bind (new exp) (amilisp:typexpand (find-class 'integer))
+         (list (eq new (find-class 'integer)) exp)))
+(check "typexpand accepts an env argument" 'fixnum
+       (progn (deftype %tx-fix () 'fixnum) (amilisp:typexpand '%tx-fix nil)))
+(check "typexpand non-specifier is a type-error" 42
+       (handler-case (amilisp:typexpand 42)
+         (type-error (e) (type-error-datum e))))
+; CLHS deftype: unsupplied &optional / &key parameters default to *, not NIL.
+(deftype %tx-opt (&optional lo (hi)) `(integer ,lo ,hi))
+(check "deftype unsupplied optionals default to *" '(integer * *)
+       (amilisp:typexpand '(%tx-opt)))
+(check "deftype supplied optional keeps its value" '(integer 3 *)
+       (amilisp:typexpand '(%tx-opt 3)))
+(deftype %tx-key (&key lo (hi nil)) `(list ,lo ,hi))
+(check "deftype unsupplied &key defaults to *, written NIL kept" '(list * nil)
+       (amilisp:typexpand '(%tx-key)))
+(check "typep through a * default sees an unbounded range" t
+       (typep -99 '(%tx-opt)))
+
 ; Integer subtypes of BIT upgrade to a bit-vector (serapeum RANGE/SBIT regression).
 (check "uaet (integer 0 1)" 'bit (upgraded-array-element-type '(integer 0 1)))
 (check "uaet (integer 0 (1))" 'bit (upgraded-array-element-type '(integer 0 (1))))

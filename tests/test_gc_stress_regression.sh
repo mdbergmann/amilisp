@@ -1195,42 +1195,45 @@ check_contains "copy-seq/subseq/make-sequence preserve SINGLE-FLOAT under stress
 check_absent   "no element-type corruption from seq fns under stress" \
                "Unbound variable\|type 0\|corrupted\|Undefined" "$out"
 
-# --- Case: AMILISP::%TYPE-EXPANDER-driven TYPEXPAND under GC stress ----------
-# %type-expander returns the deftype expander closure; a portable typexpand
-# applies it to the compound type's args.  That apply runs user code that
-# conses the expansion, so a compaction can land mid-expand.  Exercise the
-# atom-alias (0-arg) and parameterized (N-arg) apply paths in a loop, plus the
-# fully-resolving fixpoint loop, to surface any stale-CL_Obj bug.  This is the
-# mechanism serapeum's EXPLODE-TYPE relies on (introspect-environment shim).
+# --- Case: AMILISP:TYPEXPAND / %TYPE-EXPANDER under GC stress ----------------
+# %type-expander returns the deftype expander closure; amilisp:typexpand-1
+# (lib/boot.lisp) applies it to the compound type's args and amilisp:typexpand
+# iterates to the fixpoint.  That apply runs user code that conses the
+# expansion, so a compaction can land mid-expand.  Exercise the atom-alias
+# (0-arg) and parameterized (N-arg) apply paths in a loop, plus the alias
+# chain the fixpoint walks, to surface any stale-CL_Obj bug.  This is the
+# mechanism serapeum's EXPLODE-TYPE relies on (introspect-environment backend).
 cat > "$WORK/type-expander.lisp" <<'EOF'
-(defun tx1 (type)
-  (multiple-value-bind (head args)
-      (if (consp type) (values (car type) (cdr type)) (values type nil))
-    (if (symbolp head)
-        (let ((ex (amilisp::%type-expander head)))
-          (if ex (values (apply ex args) t) (values type nil)))
-        (values type nil))))
-(defun tx (type)
-  (loop (multiple-value-bind (new exp) (tx1 type)
-          (if exp (setf type new) (return type)))))
 (deftype tx-disj () '(or string number (member :x :y)))
+(deftype tx-mid () 'tx-disj)
 (deftype tx-range (lo hi) `(integer ,lo ,hi))
-(let ((a nil) (b nil) (c nil))
+;; compile_deftype rewrites default-less &optional/&key params to (VAR '*)
+;; with a consing loop at compile time (deftype_star_defaults).
+(deftype tx-opt (&optional lo (hi) &key (k 1) j) `(integer ,lo ,hi ,k ,j))
+(let ((a nil) (a2 nil) (b nil) (b2 nil) (c nil) (d nil))
   (dotimes (i 30)
-    (setq a (tx 'tx-disj))
+    (multiple-value-setq (a a2) (amilisp:typexpand 'tx-mid))
     (setq b (funcall (amilisp::%type-expander 'tx-range) i (+ i 1)))
-    (setq c (amilisp::%type-expander 'list)))
-  (format t "TX-DISJ:~a~%" a)
+    (multiple-value-setq (b2) (amilisp:typexpand-1 (list 'tx-range i (+ i 1))))
+    (setq c (amilisp::%type-expander 'list))
+    (setq d (amilisp:typexpand '(tx-opt))))
+  (format t "TX-DISJ:~a ~a~%" a a2)
   (format t "TX-RANGE:~a~%" b)
-  (format t "TX-BUILTIN:~a~%" c))
+  (format t "TX-RANGE-1:~a~%" b2)
+  (format t "TX-BUILTIN:~a~%" c)
+  (format t "TX-OPT:~a~%" d)
+  (format t "TX-STRING:~a~%" (multiple-value-list (amilisp:typexpand 'string))))
 EOF
 out=$(run_stress "$WORK/type-expander.lisp")
 # NB: ~a (princ) drops the keyword colon, so (MEMBER :X :Y) prints as (MEMBER X Y);
 # the dotimes loop ends at i=29, so the last tx-range apply is (29 30).
-check_contains "%type-expander atom alias fully expands under stress"  "TX-DISJ:(OR STRING NUMBER (MEMBER X Y))" "$out"
+check_contains "typexpand resolves an alias chain under stress"          "TX-DISJ:(OR STRING NUMBER (MEMBER X Y)) T" "$out"
 check_contains "%type-expander parameterized alias applies under stress" "TX-RANGE:(INTEGER 29 30)" "$out"
-check_contains "%type-expander returns NIL for a built-in type name"   "TX-BUILTIN:NIL" "$out"
-check_absent   "no corruption from %type-expander apply under stress"  "Unbound variable\|type 0\|corrupted\|Undefined" "$out"
+check_contains "typexpand-1 applies a parameterized alias under stress"  "TX-RANGE-1:(INTEGER 29 30)" "$out"
+check_contains "%type-expander returns NIL for a built-in type name"     "TX-BUILTIN:NIL" "$out"
+check_contains "deftype * defaults survive the compile-time rewrite under stress" "TX-OPT:(INTEGER \* \* 1 \*)" "$out"
+check_contains "typexpand leaves a standard type name alone under stress" "TX-STRING:(STRING NIL)" "$out"
+check_absent   "no corruption from typexpand apply under stress"         "Unbound variable\|type 0\|corrupted\|Undefined" "$out"
 
 # --- Case: DESTRUCTURING-BIND &optional+&rest+&key under GC stress ----------
 # Regression for the compile_destructure_pattern fix: the &rest handler nested

@@ -1,11 +1,13 @@
-/* test_type_expander.c — AMILISP::%TYPE-EXPANDER builtin.
+/* test_type_expander.c — AMILISP::%TYPE-EXPANDER builtin and the
+ * AMILISP:TYPEXPAND-1 / AMILISP:TYPEXPAND functions built on it (lib/boot.lisp).
  *
- * %TYPE-EXPANDER exposes the internal deftype expander table to Lisp so a
- * portable TYPEXPAND can be implemented on top of it (the AmiLisp
- * introspect-environment fork's #+cl-amiga typexpand).  serapeum's
- * EXPLODE-TYPE relies on TYPEXPAND to resolve a user `deftype' alias to its
- * underlying disjunction — before this builtin existed it returned the alias
- * unexpanded and the EXPLODE-TYPE test failed.
+ * %TYPE-EXPANDER exposes the internal deftype expander table to Lisp;
+ * TYPEXPAND-1 / TYPEXPAND are the implementation's own type expanders in the
+ * shape of sb-ext:typexpand, which the introspect-environment library's
+ * #+amilisp backend delegates to with a one-liner.  serapeum's EXPLODE-TYPE
+ * relies on TYPEXPAND to resolve a user `deftype' alias to its underlying
+ * disjunction — before this existed it returned the alias unexpanded and the
+ * EXPLODE-TYPE test failed.
  */
 #include "test.h"
 #include "core/types.h"
@@ -119,6 +121,144 @@ TEST(type_expander_drives_portable_typexpand)
     ASSERT_STR_EQ(eval_print("(tx '(integer 0 9))"), "(INTEGER 0 9)");
 }
 
+/* ---- AMILISP:TYPEXPAND-1 / AMILISP:TYPEXPAND (the native entry points) ---- */
+
+/* An atom alias expands one step; the second value says so. */
+TEST(typexpand_1_atom_alias)
+{
+    (void)eval_print("(deftype tx1-color () '(member :red :green :blue))");
+    ASSERT_STR_EQ(eval_print("(multiple-value-list (amilisp:typexpand-1 'tx1-color))"),
+                  "((MEMBER :RED :GREEN :BLUE) T)");
+}
+
+/* A parameterized alias is applied to the compound specifier's arguments. */
+TEST(typexpand_1_parameterized_alias)
+{
+    (void)eval_print("(deftype tx1-range (lo hi) `(integer ,lo ,hi))");
+    ASSERT_STR_EQ(eval_print("(multiple-value-list (amilisp:typexpand-1 '(tx1-range 0 9)))"),
+                  "((INTEGER 0 9) T)");
+}
+
+/* CLHS deftype: "If the lambda-list has &optional or &key parameters that
+ * have no default supplied, the default is *" -- not NIL as in an ordinary
+ * lambda.  Bare VAR, (VAR) and ((:KEY VAR)) specs all get the * default; a
+ * written default (even NIL) is kept; &aux keeps its NIL default; and the
+ * expansion is the same whether the deftype is typed in or loaded from a
+ * FASL (the rewrite happens at compile time). */
+TEST(deftype_unsupplied_optional_and_key_default_to_star)
+{
+    (void)eval_print("(deftype tx-opt (&optional lo) `(integer ,lo))");
+    ASSERT_STR_EQ(eval_print("(multiple-value-list (amilisp:typexpand-1 '(tx-opt)))"),
+                  "((INTEGER *) T)");
+    ASSERT_STR_EQ(eval_print("(amilisp:typexpand-1 'tx-opt)"), "(INTEGER *)");
+    ASSERT_STR_EQ(eval_print("(amilisp:typexpand-1 '(tx-opt 3))"), "(INTEGER 3)");
+    /* (VAR) spec and two optionals */
+    (void)eval_print("(deftype tx-opt2 (&optional (lo) hi) `(integer ,lo ,hi))");
+    ASSERT_STR_EQ(eval_print("(amilisp:typexpand '(tx-opt2))"), "(INTEGER * *)");
+    ASSERT_STR_EQ(eval_print("(amilisp:typexpand '(tx-opt2 1))"), "(INTEGER 1 *)");
+    /* &key: bare and ((:key var)) spec; a written default is kept */
+    (void)eval_print("(deftype tx-key (&key lo ((:top hi)) (mid nil))"
+                     "  `(list ,lo ,hi ,mid))");
+    ASSERT_STR_EQ(eval_print("(amilisp:typexpand '(tx-key))"), "(LIST * * NIL)");
+    ASSERT_STR_EQ(eval_print("(amilisp:typexpand '(tx-key :top 7))"), "(LIST * 7 NIL)");
+    /* &rest and &aux are untouched: rest is the (empty) list, aux is NIL */
+    (void)eval_print("(deftype tx-rest (&rest r &aux a) `(list ,r ,a))");
+    ASSERT_STR_EQ(eval_print("(amilisp:typexpand '(tx-rest))"), "(LIST NIL NIL)");
+    /* typep sees the rewritten default too: (INTEGER *) is every integer */
+    ASSERT_STR_EQ(eval_print("(list (typep -5 '(tx-opt)) (typep 5 '(tx-opt 3))"
+                             "      (typep 1 '(tx-opt 3)))"),
+                  "(T T NIL)");
+    /* a required parameter and a supplied-p variable are left alone */
+    (void)eval_print("(deftype tx-sup (a &optional (b 'x b-p)) `(list ,a ,b ,b-p))");
+    ASSERT_STR_EQ(eval_print("(amilisp:typexpand '(tx-sup 1))"), "(LIST 1 X NIL)");
+}
+
+/* TYPEXPAND-1 takes exactly one step: an alias of an alias yields the
+ * intermediate alias, not the final type. */
+TEST(typexpand_1_single_step)
+{
+    (void)eval_print("(deftype tx1-base () '(or string number))");
+    (void)eval_print("(deftype tx1-mid () 'tx1-base)");
+    (void)eval_print("(deftype tx1-top () 'tx1-mid)");
+    ASSERT_STR_EQ(eval_print("(multiple-value-list (amilisp:typexpand-1 'tx1-top))"),
+                  "(TX1-MID T)");
+    ASSERT_STR_EQ(eval_print("(multiple-value-list (amilisp:typexpand 'tx1-top))"),
+                  "((OR STRING NUMBER) T)");
+}
+
+/* Nothing to expand: standard type names, compound standard types, and a
+ * compound whose head is not a symbol come back EQ with NIL. */
+TEST(typexpand_unchanged_returns_nil)
+{
+    ASSERT_STR_EQ(eval_print("(multiple-value-list (amilisp:typexpand-1 'string))"),
+                  "(STRING NIL)");
+    ASSERT_STR_EQ(eval_print("(multiple-value-list (amilisp:typexpand 'string))"),
+                  "(STRING NIL)");
+    ASSERT_STR_EQ(eval_print("(let ((ty '(integer 0 9)))"
+                             "  (multiple-value-bind (new exp) (amilisp:typexpand ty)"
+                             "    (list (eq new ty) exp)))"),
+                  "(T NIL)");
+    ASSERT_STR_EQ(eval_print("(multiple-value-list (amilisp:typexpand '((a) b)))"),
+                  "(((A) B) NIL)");
+}
+
+/* A class object is a type specifier (CLHS 4.2.3) and is never expanded. */
+TEST(typexpand_class_object_unchanged)
+{
+    ASSERT_STR_EQ(eval_print("(multiple-value-bind (new exp)"
+                             "    (amilisp:typexpand (find-class 'integer))"
+                             "  (list (eq new (find-class 'integer)) exp))"),
+                  "(T NIL)");
+}
+
+/* The standard signature takes an optional environment, which is ignored. */
+TEST(typexpand_accepts_env)
+{
+    (void)eval_print("(deftype tx-env-alias () 'fixnum)");
+    ASSERT_STR_EQ(eval_print("(amilisp:typexpand 'tx-env-alias nil)"), "FIXNUM");
+    ASSERT_STR_EQ(eval_print("(amilisp:typexpand-1 'tx-env-alias nil)"), "FIXNUM");
+    /* a real &environment object, passed as a quoted constant */
+    ASSERT_STR_EQ(eval_print("(macrolet ((m (&environment e)"
+                             "             `(amilisp:typexpand 'tx-env-alias ',e)))"
+                             "  (m))"),
+                  "FIXNUM");
+}
+
+/* Anything that is not a type specifier is a TYPE-ERROR, not a silent NIL. */
+TEST(typexpand_non_type_specifier_errors)
+{
+    ASSERT_STR_EQ(eval_print("(handler-case (amilisp:typexpand 42)"
+                             "  (type-error (e) (type-error-datum e)))"),
+                  "42");
+    ASSERT_STR_EQ(eval_print("(handler-case (amilisp:typexpand-1 \"string\")"
+                             "  (type-error (e) (type-error-datum e)))"),
+                  "\"string\"");
+}
+
+/* Redefining a deftype takes effect immediately: the expander table holds
+ * the latest expander. */
+TEST(typexpand_sees_redefinition)
+{
+    (void)eval_print("(deftype tx-redef () 'string)");
+    ASSERT_STR_EQ(eval_print("(amilisp:typexpand 'tx-redef)"), "STRING");
+    (void)eval_print("(deftype tx-redef () 'integer)");
+    ASSERT_STR_EQ(eval_print("(amilisp:typexpand 'tx-redef)"), "INTEGER");
+}
+
+/* The names are exported from AMILISP (and so visible from CL-USER), as the
+ * library's `amilisp:typexpand' reference requires. */
+TEST(typexpand_exported_from_amilisp)
+{
+    /* (CL-USER inherits AMILISP, so the printer shows no prefix: check the
+     * home package by name.) */
+    ASSERT_STR_EQ(eval_print("(multiple-value-bind (sym status)"
+                             "    (find-symbol \"TYPEXPAND\" \"AMILISP\")"
+                             "  (list (package-name (symbol-package sym)) status))"),
+                  "(\"AMILISP\" :EXTERNAL)");
+    ASSERT_STR_EQ(eval_print("(nth-value 1 (find-symbol \"TYPEXPAND-1\" \"AMILISP\"))"),
+                  ":EXTERNAL");
+}
+
 int main(void)
 {
     test_init();
@@ -129,6 +269,16 @@ int main(void)
     RUN(type_expander_atom_alias_expands);
     RUN(type_expander_parameterized_alias_expands);
     RUN(type_expander_drives_portable_typexpand);
+    RUN(typexpand_1_atom_alias);
+    RUN(typexpand_1_parameterized_alias);
+    RUN(deftype_unsupplied_optional_and_key_default_to_star);
+    RUN(typexpand_1_single_step);
+    RUN(typexpand_unchanged_returns_nil);
+    RUN(typexpand_class_object_unchanged);
+    RUN(typexpand_accepts_env);
+    RUN(typexpand_non_type_specifier_errors);
+    RUN(typexpand_sees_redefinition);
+    RUN(typexpand_exported_from_amilisp);
 
     teardown();
     REPORT();

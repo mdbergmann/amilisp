@@ -3770,6 +3770,54 @@ return the new value.  See MP:ATOMIC-INCF."
 (export '(mp::compare-and-swap mp::cas mp::atomic-incf mp::atomic-decf) :mp)
 
 ;;; ============================================================
+;;; AMILISP:TYPEXPAND-1 / AMILISP:TYPEXPAND -- deftype expansion
+;;; ============================================================
+;;;
+;;; The implementation's own type expanders, in the shape every other
+;;; implementation offers one (sb-ext:typexpand, ext:type-expand on CLISP,
+;;; si::expand-deftype on ECL): the introspect-environment library -- and
+;;; through it serapeum's EXPLODE-TYPE -- delegates to these with a
+;;; one-line backend instead of walking the deftype table itself.
+;;;
+;;; A type specifier is a symbol, a cons whose car is a symbol, or a class
+;;; object (CLHS 4.2.3).  Only a symbol that names a `deftype' has an
+;;; expander (amilisp::%type-expander, builtins_type.c): the expander for
+;;; (deftype foo (a b) ...) is applied to the compound specifier's
+;;; arguments, an atom alias's expander to none.  Standard type names
+;;; (INTEGER, STRING, ...) have no expander and come back unchanged, as do
+;;; class objects and compound specifiers whose head is not a symbol.
+;;; ENV is accepted for the standard signature; the compiler has no reified
+;;; lexical environment, so it is ignored.
+
+(defun amilisp::typexpand-1 (type &optional env)
+  "Expand TYPE once if it is a `deftype' alias.  Return the expansion and
+T, or TYPE itself and NIL when it is not a deftype alias (a standard type
+name, a class, a compound type whose head names no deftype)."
+  (declare (ignore env))
+  (check-type type (or symbol cons class) "a type specifier")
+  (multiple-value-bind (head args)
+      (if (consp type)
+          (values (car type) (cdr type))
+          (values type nil))
+    (let ((expander (and (symbolp head) (amilisp::%type-expander head))))
+      (if expander
+          (values (apply expander args) t)
+          (values type nil)))))
+
+(defun amilisp::typexpand (type &optional env)
+  "Expand TYPE repeatedly with TYPEXPAND-1 until it is no longer a `deftype'
+alias.  Return the final expansion and T if any expansion happened, else
+TYPE itself and NIL."
+  (declare (ignore env))
+  (check-type type (or symbol cons class) "a type specifier")
+  (let ((ever nil))
+    (loop
+      (multiple-value-bind (new expanded) (amilisp::typexpand-1 type)
+        (if expanded
+            (setq type new ever t)
+            (return (values type ever)))))))
+
+;;; ============================================================
 ;;; EXT package: defglobal
 ;;; ============================================================
 

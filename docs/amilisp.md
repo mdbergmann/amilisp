@@ -39,6 +39,29 @@ Convert between floats and their raw IEEE-754 bit patterns. Used by the
 | `(condition-type-name condition)` | function | The type name of a condition object |
 | `(condition-slot-value condition slot-name)` | function | Read a slot from a condition object |
 
+## Type expansion
+
+The implementation's own `deftype` expanders, with the signature and return
+convention of `sb-ext:typexpand` (CLISP's `ext:type-expand`). The
+**introspect-environment** AmiLisp backend delegates to these; through it,
+serapeum's `explode-type` resolves user `deftype` aliases. A type specifier is
+a symbol, a cons, or a class object; standard type names, class objects and
+compound types whose head names no `deftype` come back unchanged. The optional
+environment is accepted and ignored.
+
+| Signature | Kind | Description |
+|-----------|------|-------------|
+| `(typexpand-1 type &optional env)` | function | Expand `type` one step if it is a `deftype` alias. Returns the expansion and `T`, or `type` and `NIL` |
+| `(typexpand type &optional env)` | function | Expand `type` until it is no longer a `deftype` alias. Returns the final expansion and `T` if anything expanded, or `type` and `NIL` |
+
+```lisp
+(deftype color () '(member :red :green :blue))
+(deftype paint () 'color)
+(amilisp:typexpand-1 'paint)   ; => COLOR, T
+(amilisp:typexpand 'paint)     ; => (MEMBER :RED :GREEN :BLUE), T
+(amilisp:typexpand 'string)    ; => STRING, NIL
+```
+
 ## JIT & trace toggles (AmigaOS)
 
 The m68k JIT is on by default; these `%`-prefixed entry points toggle and inspect
@@ -71,6 +94,7 @@ isolating JIT bugs around a single `defun`.
 ## Source of truth
 
 Float bits: `tests/test_float.c`. Package-local nicknames: `tests/test_package.c`.
-`structurep`: `tests/test_struct.c`. JIT toggles/coverage:
+`structurep`: `tests/test_struct.c`. Type expansion: `tests/test_type_expander.c`.
+JIT toggles/coverage:
 `tests/amiga/test-jit.lisp`. See also the [JIT](../README.md#jit-m68k-and-aarch64) section of
 the main README.

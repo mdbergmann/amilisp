@@ -1645,6 +1645,71 @@ static CL_Obj body_docstring(CL_Obj body);
 static void emit_doc_call(CL_Compiler *c, CL_Obj name,
                           const char *doc_type, int doc_type_len, CL_Obj doc);
 
+/* A deftype &optional / &key parameter written without a default form:
+ * a bare VAR, or a (VAR) / ((:KEY VAR)) spec with nothing after the name. */
+static int deftype_param_lacks_default(CL_Obj p)
+{
+    return (CL_SYMBOL_P(p) && !defmacro_is_ll_keyword(p) && p != SYM_AMP_AUX) ||
+           (CL_CONS_P(p) && CL_NULL_P(cl_cdr(p)));
+}
+
+/* CLHS DEFTYPE: "If the lambda-list has &optional or &key parameters that
+ * have no default supplied, the default is *" -- not NIL, as it would be
+ * for an ordinary lambda.  (deftype foo (&optional lo) `(integer ,lo)) must
+ * expand (foo) to (INTEGER *), the specifier for an unbounded range; NIL
+ * there would read as the empty type.  The expander IS compiled as an
+ * ordinary lambda, so rewrite every default-less &optional / &key parameter
+ * at the top level of LL to (VAR '*) first.  Returns LL itself when nothing
+ * needs rewriting, and leaves a dotted lambda list alone.
+ *
+ * GC SAFETY: builds the new list with cl_cons in a loop; the cursor into the
+ * original list, the head and tail of the partial result and the shared
+ * (QUOTE *) default are all protected across every allocation. */
+static CL_Obj deftype_star_defaults(CL_Obj ll)
+{
+    CL_Obj cur, result = CL_NIL, tail = CL_NIL, star;
+    int defaulting = 0, needed = 0;
+
+    for (cur = ll; CL_CONS_P(cur); cur = cl_cdr(cur)) {
+        CL_Obj item = cl_car(cur);
+        if (item == SYM_AMP_OPTIONAL || item == SYM_AMP_KEY)
+            defaulting = 1;
+        else if (defmacro_is_ll_keyword(item) || item == SYM_AMP_AUX)
+            defaulting = 0;
+        else if (defaulting && deftype_param_lacks_default(item))
+            needed = 1;
+    }
+    if (!needed || !CL_NULL_P(cur))
+        return ll;
+
+    cur = ll;
+    CL_GC_PROTECT(cur);
+    CL_GC_PROTECT(result);
+    CL_GC_PROTECT(tail);
+    star = cl_list2(SYM_QUOTE, SYM_STAR);
+    CL_GC_PROTECT(star);
+    defaulting = 0;
+    while (CL_CONS_P(cur)) {
+        CL_Obj item = cl_car(cur);
+        CL_Obj cell;
+        if (item == SYM_AMP_OPTIONAL || item == SYM_AMP_KEY) {
+            defaulting = 1;
+        } else if (defmacro_is_ll_keyword(item) || item == SYM_AMP_AUX) {
+            defaulting = 0;
+        } else if (defaulting && deftype_param_lacks_default(item)) {
+            /* VAR -> (VAR '*);  (VAR) -> (VAR '*);  ((:K VAR)) -> ((:K VAR) '*) */
+            item = cl_list2(CL_CONS_P(item) ? cl_car(item) : item, star);
+        }
+        cell = cl_cons(item, CL_NIL);
+        if (CL_NULL_P(result)) result = cell;
+        else ((CL_Cons *)CL_OBJ_TO_PTR(tail))->cdr = cell;
+        tail = cell;
+        cur = cl_cdr(cur);
+    }
+    CL_GC_UNPROTECT(4);            /* star, tail, result, cur */
+    return result;
+}
+
 void compile_deftype(CL_Compiler *c, CL_Obj form)
 {
     /* (deftype name lambda-list body...)
@@ -1668,23 +1733,29 @@ void compile_deftype(CL_Compiler *c, CL_Obj form)
      * registers a NON-canonical name in type_table and cl_get_type_expander's
      * `cl_car(pair) == name` identity check never matches the interned symbol —
      * subtypep/upgraded-array-element-type then silently fail for the deftype.
-     * Protect BEFORE the first allocation, not after.  `doc` likewise. */
+     * Protect BEFORE the first allocation, not after.  `doc` likewise, and
+     * `lambda_list` / `body` across the default-rewriting conses below. */
     CL_GC_PROTECT(name);
     CL_GC_PROTECT(doc);
+    CL_GC_PROTECT(lambda_list);
+    CL_GC_PROTECT(body);
+
+    /* Unsupplied &optional / &key parameters default to * (CLHS deftype). */
+    lambda_list = deftype_star_defaults(lambda_list);
 
     lambda_form = cl_list_star3(SYM_LAMBDA, lambda_list, body);
     CL_GC_PROTECT(lambda_form);
 
     compile_expr(c, lambda_form);
 
-    CL_GC_UNPROTECT(1);            /* lambda_form — name, doc stay protected */
+    CL_GC_UNPROTECT(1);            /* lambda_form — the others stay protected */
 
     /* OP_DEFTYPE pops the closure, registers type, pushes name */
     idx = cl_add_constant(c, name);
     cl_emit(c, OP_DEFTYPE);
     cl_emit_u16(c, (uint16_t)idx);
     emit_doc_call(c, name, "TYPE", 4, doc);
-    CL_GC_UNPROTECT(2);            /* doc, name */
+    CL_GC_UNPROTECT(4);            /* body, lambda_list, doc, name */
 }
 
 /* --- Defvar / Defparameter --- */
