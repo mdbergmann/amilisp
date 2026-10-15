@@ -35,6 +35,8 @@ jobs:
 
       - name: Run tests
         run: make test
+        env:
+          AMILISP_STW_DIAG: "5000"   # a hung stop-the-world names its straggler in the log
 
   windows-test:
     name: host-test (windows-11-arm, CLANGARM64)
@@ -86,3 +88,5 @@ jobs:
 
       - name: Run tests
         run: make test CC_HOST=clang
+        env:
+          AMILISP_STW_DIAG: "5000"

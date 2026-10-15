@@ -46,6 +46,22 @@ uint32_t    cl_thread_count     = 0;
 static void *gc_mutex   = NULL;  /* protects GC state transitions */
 static void *gc_condvar = NULL;  /* threads wait here during STW; initiator waits for all stopped */
 
+/* Set (under gc_mutex) the moment a thread wins initiator-ship in
+ * cl_gc_stop_the_world, cleared by cl_gc_resume_the_world.  Holding
+ * gc_mutex is NOT the same thing: the initiator releases it inside every
+ * platform_condvar_wait of its straggler wait.  A thread that comes
+ * online (cl_gc_thread_online, a live cl_thread_register) or exhausts
+ * the heap in that window is not in the initiator's request set — it has
+ * gc_requested == 0 until the initiator's next rescan — so without this
+ * flag its trylock succeeds and it becomes a SECOND initiator: it
+ * requests the first one, the first one's rescan requests it, and each
+ * then waits for the other to stop, forever (two parked initiators, each
+ * the other's straggler; seen as the test_gc_threaded watchdog on the
+ * three-core CI runners, where a late-starting worker lands in exactly
+ * that window).  With the flag, a thread that finds an STW in flight
+ * requests itself and parks as a straggler instead. */
+static volatile int stw_in_progress = 0;
+
 #ifdef DEBUG_THREAD_RACE_HOOKS
 /* Set immediately before the STW initiator (cl_gc_stop_the_world) parks in
  * platform_condvar_wait, i.e. the instant it has found a straggler and is
@@ -64,12 +80,36 @@ static volatile int dbg_race_stw_parked = 0;
  * cl_gc_thread_online — see gc_live in thread.h. */
 static void cl_thread_register_ex(CL_Thread *t, uint8_t live)
 {
+    /* Serialize against the STW initiator (gc_mutex, then the list lock:
+     * the initiator's own order).  A registration that lands while an
+     * STW is in flight — the initiator parked in its straggler wait —
+     * must not hand the new thread to the heap: a live self-registration
+     * parks right here until the world resumes (same barrier as
+     * cl_gc_thread_online), a live registration on another thread's
+     * behalf marks it requested so its first safepoint parks it.  A
+     * newborn needs neither: its OS thread goes through
+     * cl_gc_thread_online before it touches the heap. */
+    if (gc_mutex) platform_mutex_lock(gc_mutex);
     platform_mutex_lock(cl_thread_list_lock);
     t->gc_live = live;
     t->next = cl_thread_list;
     cl_thread_list = t;
     cl_thread_count++;
     platform_mutex_unlock(cl_thread_list_lock);
+    if (gc_mutex) {
+        if (live && stw_in_progress) {
+            t->gc_requested = 1;
+            if ((CL_Thread *)platform_tls_get() == t) {
+                while (t->gc_requested) {
+                    t->gc_stopped = 1;
+                    platform_condvar_broadcast(gc_condvar);
+                    platform_condvar_wait(gc_condvar, gc_mutex);
+                }
+                t->gc_stopped = 0;
+            }
+        }
+        platform_mutex_unlock(gc_mutex);
+    }
 }
 
 /* Register an already-running thread (self-registration): live immediately. */
@@ -277,7 +317,14 @@ void cl_gc_thread_online(CL_Thread *self)
     platform_mutex_lock(gc_mutex);
     /* Park if a stop-the-world is in progress and requested us: we must not
      * enter the heap-touching caller while the world is stopped.  We stay a
-     * newborn (gc_live == 0) so the initiator's wait loop does not wait on us. */
+     * newborn (gc_live == 0) so the initiator's wait loop does not wait on us.
+     * An STW whose initiator is parked in its straggler wait has not
+     * requested us (we were a newborn at its request phase, and its rescan
+     * only runs when it wakes): request ourselves, or we would run on the
+     * heap — and, exhausting it, become a second initiator (see
+     * stw_in_progress). */
+    if (stw_in_progress)
+        self->gc_requested = 1;
     while (self->gc_requested) {
         self->gc_stopped = 1;
         platform_condvar_broadcast(gc_condvar);
@@ -353,16 +400,25 @@ void cl_gc_stop_the_world(void)
 
     for (;;) {
         if (platform_mutex_trylock(gc_mutex) == 0) {
-            if (!self || !self->gc_requested) break;  /* initiator */
-            /* We won the race for gc_mutex but in the meantime another
-             * thread (that hasn't released yet through resume_the_world)
-             * already marked us for stop.  Release the mutex so they can
-             * see all_stopped, then park ourselves. */
+            if (!stw_in_progress && (!self || !self->gc_requested))
+                break;  /* initiator */
+            /* We won the race for gc_mutex but either another thread
+             * (that hasn't released yet through resume_the_world) already
+             * marked us for stop, or an STW is in flight whose initiator
+             * is parked in its straggler wait (that is why the trylock
+             * succeeded) and has not rescanned since we came online, so
+             * it never requested us.  Becoming a second initiator here
+             * would deadlock both (stw_in_progress): request ourselves
+             * instead, release the mutex so the initiator can see
+             * all_stopped, and park. */
+            if (self && !self->gc_requested)
+                self->gc_requested = 1;
             platform_mutex_unlock(gc_mutex);
         }
         cl_gc_safepoint();           /* park if we've been requested */
         platform_thread_yield();
     }
+    stw_in_progress = 1;             /* under gc_mutex, until resume */
 
     /* Request all other threads to stop */
     platform_mutex_lock(cl_thread_list_lock);
@@ -459,6 +515,7 @@ void cl_gc_resume_the_world(void)
     platform_mutex_unlock(cl_thread_list_lock);
 
     /* Wake all waiting threads */
+    stw_in_progress = 0;
     platform_condvar_broadcast(gc_condvar);
     platform_mutex_unlock(gc_mutex);
 }

@@ -12,6 +12,7 @@
 #include "core/package.h"
 #include "core/symbol.h"
 #include "core/thread.h"
+#include "core/gc_internal.h"   /* cl_gc_stop_the_world / cl_gc_resume_the_world */
 #include "core/stream.h"
 #include "platform/platform.h"
 #include "platform/platform_thread.h"
@@ -1770,6 +1771,126 @@ TEST(claims_vs_concurrent_cuts)
     reinit_heap(4 * 1024 * 1024);
 }
 
+/* Regression (2026-10-15): two parked initiators, each the other's
+ * straggler.  The STW initiator releases gc_mutex inside every
+ * condvar_wait of its straggler wait; a thread that registers live in
+ * that window is not in its request set (gc_requested == 0 until the
+ * initiator's next rescan), so its own cl_gc_stop_the_world trylock
+ * succeeded and it became a SECOND initiator — requesting the first,
+ * whose rescan requested it back, and each then waited forever for the
+ * other to stop.  Seen as the claims_vs_concurrent_cuts watchdog on the
+ * three-core CI runners (a late-starting worker lands in the window) and
+ * reproduced 5/32 with 32 oversubscribed copies.  Fixed by
+ * stw_in_progress in thread.c: a live registration during an STW parks
+ * in cl_thread_register, and a thread that finds an STW in flight when
+ * it wins the trylock requests itself and parks instead of initiating.
+ *
+ * Choreography (no heap traffic on the workers, so the only
+ * synchronization is the STW protocol itself):
+ *   main: STW #1 with X live and not yet at a safepoint -> parks waiting.
+ *   Z   : sees main parked (wait_kind 4), lets Y register, then lets X
+ *         reach its safepoint.
+ *   Y   : registers live DURING main's wait, then runs an STW of its own.
+ *   With the bug: Y's trylock wins, Y requests main, main's rescan
+ *   requests Y, both wait -> watchdog.  With the fix: Y parks inside
+ *   cl_thread_register, main's STW completes once X parks, main resumes
+ *   the world and enters a safe region, Y's STW then completes against a
+ *   safe-region main and a safepoint-parked X. */
+static volatile int lr_y_start = 0;   /* Z -> Y: register now */
+static volatile int lr_x_go    = 0;   /* Z -> X: reach your safepoint */
+static volatile int lr_x_exit  = 0;   /* Y -> X: done, unregister */
+static volatile int lr_y_done  = 0;   /* Y -> main: STW #2 completed */
+
+typedef struct { CL_Thread thread; int ok; } LateRegCtx;
+
+static void *lr_x_worker(void *arg)
+{
+    LateRegCtx *c = (LateRegCtx *)arg;
+    platform_tls_set(&c->thread);
+    cl_thread_register(&c->thread);
+    while (!lr_x_go) platform_thread_yield();
+    while (!lr_x_exit) {
+        cl_gc_safepoint();        /* parks for STW #1, later for STW #2 */
+        platform_thread_yield();
+    }
+    cl_thread_unregister(&c->thread);
+    c->ok = 1;
+    return NULL;
+}
+
+static void *lr_y_worker(void *arg)
+{
+    LateRegCtx *c = (LateRegCtx *)arg;
+    platform_tls_set(&c->thread);
+    while (!lr_y_start) platform_thread_yield();
+    cl_thread_register(&c->thread);   /* lands during main's straggler wait */
+    cl_gc_stop_the_world();           /* STW #2 */
+    cl_gc_resume_the_world();
+    lr_x_exit = 1;
+    cl_thread_unregister(&c->thread);
+    c->ok = 1;
+    lr_y_done = 1;
+    return NULL;
+}
+
+static void *lr_z_driver(void *arg)
+{
+    int spins;
+    (void)arg;
+    /* main sets wait_kind 4 before its wait loop; the sleep puts it well
+     * inside platform_condvar_wait (gc_mutex released) when Y registers. */
+    for (spins = 0; cl_main_thread_ptr->wait_kind != 4 && spins < 1000000; spins++)
+        platform_thread_yield();
+    platform_sleep_ms(30);
+    lr_y_start = 1;
+    /* Y registers (and, fixed, parks) before X is released, so main's
+     * STW #1 always has Y in the world when it completes. */
+    for (spins = 0; cl_thread_count < 3 && spins < 1000000; spins++)
+        platform_thread_yield();
+    platform_sleep_ms(20);            /* Y past registration, into its STW */
+    lr_x_go = 1;                      /* X parks: main's STW #1 completes */
+    return NULL;
+}
+
+TEST(late_registrant_during_stw_wait_parks_instead_of_initiating)
+{
+    void *hx, *hy, *hz;
+    LateRegCtx x, y;
+    int spins;
+
+    reinit_heap(1024 * 1024);
+    lr_y_start = lr_x_go = lr_x_exit = lr_y_done = 0;
+    memset(&x, 0, sizeof(x)); x.thread.id = 1; x.thread.status = 1; x.thread.mv_count = 1;
+    memset(&y, 0, sizeof(y)); y.thread.id = 2; y.thread.status = 1; y.thread.mv_count = 1;
+
+    /* A hang is the failure mode: fail fast instead of the 120 s default. */
+    if (test_watchdog_secs) test_watchdog_arm(30);
+
+    platform_thread_create(&hx, lr_x_worker, &x, 0);
+    for (spins = 0; cl_thread_count < 2 && spins < 1000000; spins++)
+        platform_thread_yield();
+    ASSERT_EQ_INT((int)cl_thread_count, 2);
+    platform_thread_create(&hy, lr_y_worker, &y, 0);
+    platform_thread_create(&hz, lr_z_driver, NULL, 0);
+
+    cl_gc_stop_the_world();           /* STW #1: waits for X (and, fixed, Y) */
+    ASSERT_EQ_INT((int)cl_thread_count, 3);   /* Y registered during the wait */
+    cl_gc_resume_the_world();
+
+    /* Y's STW #2 needs main out of the way: a safe region around the joins. */
+    cl_gc_enter_safe_region();
+    platform_thread_join(hz, NULL);
+    platform_thread_join(hy, NULL);
+    platform_thread_join(hx, NULL);
+    cl_gc_leave_safe_region();
+
+    ASSERT_EQ_INT(x.ok, 1);
+    ASSERT_EQ_INT(y.ok, 1);
+    ASSERT_EQ_INT(lr_y_done, 1);
+    ASSERT_EQ_INT((int)cl_thread_count, 1);
+    if (test_watchdog_secs) test_watchdog_arm(test_watchdog_secs);
+}
+
 /* Multi→single transition: workers leave abandoned (retired) chunks
  * behind as formatted holes; after they exit, single-threaded sweep AND
  * compaction must parse those holes, reclaim them, and keep main-thread
@@ -1939,6 +2060,7 @@ int main(void)
     RUN(tlab_concurrent_refills_and_gc);
     RUN(tlab_mixed_sizes_vs_concurrent_compaction);
     RUN(claims_vs_concurrent_cuts);
+    RUN(late_registrant_during_stw_wait_parks_instead_of_initiating);
     RUN(tlab_leftover_holes_reclaimed_after_threads_exit);
 #endif
 
