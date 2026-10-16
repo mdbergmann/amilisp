@@ -375,7 +375,13 @@ test-jit-eager:
 # compacting GC before every allocation) and runs the GC-stress regression
 # suite against it.  Kept out of the fast tier because it needs a separate,
 # slow build; run it after touching GC, the FASL reader/writer, the compiler,
-# or any C builtin that holds CL_Obj values across allocating calls.
+# or any C builtin that holds CL_Obj values across allocating calls.  Its
+# last leg is the Clamacs editor's own test suite under stress (since
+# 2026-10-15): the largest Lisp program the runtime compiles, every file of
+# it compiled under a compaction at every allocation -- the corpus that
+# found the pre-scan GC bug of 2026-09-17.  It is AmiLisp's gate, not the
+# editor's (clamacs commits never wait for it), and is skipped with a NOTE
+# when the submodule is not checked out.
 GC_STRESS_BUILDDIR = build/host-gcstress$(GC_DIR_SUFFIX)
 test-gc-stress:
 	@$(MAKE) --no-print-directory host \
@@ -433,6 +439,12 @@ endif
 	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 sh $(TEST_SRCDIR)/test_defvar_init_once_fasl.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 	@echo "--- test_dev_tcp (AMILISP_GC_STRESS=1, forced compaction: the TCP dev port's frames, server, client, REPL leg and the two builtins under it) ---"
 	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 sh $(TEST_SRCDIR)/test_dev_tcp.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
+	@echo "--- clamacs test suite (AMILISP_GC_STRESS=1, forced compaction: the editor's lisp/ compiled and run under stress) ---"
+	@if [ -x clamacs/tests/run-lisp-tests.sh ]; then \
+		$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 clamacs/tests/run-lisp-tests.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE); \
+	else \
+		echo "NOTE: clamacs submodule not checked out -- its suite SKIPPED"; \
+	fi
 
 # `make test-memleak` builds a DEBUG_MEM_TRACK binary — every platform_alloc
 # tagged with its call site — and asserts that a run ends with ZERO off-heap

@@ -63,6 +63,12 @@ beside the sources) and saves a `clamacs.img` heap image next to each
 `make -f Makefile.mos editor-image` natively on MorphOS), which the
 `Clamacs` launcher starts with `amilisp --image clamacs.img --eval
 "(clamacs::run)"` — but it keeps its own suites and its own `CLAUDE.md`.
+(`make test-gc-stress` runs the editor's suite as its last leg since
+2026-10-15: the largest Lisp program the runtime compiles, under a
+compaction at every allocation -- the corpus that found the pre-scan GC
+bug of 2026-09-17.  That gate is ours; the editor's commits never wait
+for it, and the leg is skipped with a NOTE when the submodule is not
+checked out.)
 The same rule applies: editor work is a commit in the submodule (pin
 bumped here afterwards, `git add clamacs`), and anything it needs from
 the runtime (an `EXT.DEV` command in `lib/dev-commands.lisp`, a compiler
@@ -202,7 +208,7 @@ Any C code that holds `CL_Obj` values across allocating calls **must** GC-protec
 - Amiga tests: `tests/amiga/run-tests.lisp` — Lisp-based test suite run on AmigaOS via FS-UAE
 - **Tests must be tight on production code** — test the exact behavior, not just the happy path; cover edge cases, boundary conditions, and error paths thoroughly
 - **Target 90% test coverage** — aim for at least 90% coverage across the codebase
-- **The gc-stress test suite is critical for the stability and resiliency of amilisp** (`make test-gc-stress`, forces compaction every alloc via `DEBUG_GC_STRESS`/`AMILISP_GC_STRESS=1` to make unprotected-`CL_Obj` GC bugs deterministic). When changing or adding any code, make sure there is coverage not only in the unit tests but **also in the gc-stress suite** — exercise new allocating paths under GC stress so compaction/relocation bugs surface in CI rather than in the field.
+- **The gc-stress test suite is critical for the stability and resiliency of amilisp** (`make test-gc-stress`, forces compaction every alloc via `DEBUG_GC_STRESS`/`AMILISP_GC_STRESS=1` to make unprotected-`CL_Obj` GC bugs deterministic). When changing or adding any code, make sure there is coverage not only in the unit tests but **also in the gc-stress suite** — exercise new allocating paths under GC stress so compaction/relocation bugs surface in CI rather than in the field.  Its last leg is the Clamacs suite (`clamacs/tests/run-lisp-tests.sh` under the stress binary, about two hours with Immix): the editor as the collector's corpus.
 
 ### Off-heap memory must be handed back (AmigaOS has no exit reclaim)
 
