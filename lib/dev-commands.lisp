@@ -973,9 +973,11 @@ handler thread can see them; lib/dev-repl.lisp keeps it current.")
 ;;;
 ;;; The system is named by its definition FILE, since that is what an
 ;;; editor has in a window; the system loaded is the one the file is named
-;;; after (foo.asd defines "foo", and "foo/tests" beside it).  ASDF is
-;;; loaded on first use -- a session that never loads a system never pays
-;;; for it -- so nothing here may name an ASDF symbol at read time.
+;;; after (foo.asd defines "foo", and "foo/tests" beside it), unless the
+;;; caller names one of the file's other systems -- an editor that read
+;;; the file's defsystems and asked.  ASDF is loaded on first use -- a
+;;; session that never loads a system never pays for it -- so nothing here
+;;; may name an ASDF symbol at read time.
 ;;; ================================================================
 
 (defun %asdf (name &rest args)
@@ -993,26 +995,30 @@ says what is wrong with it."
     (or (probe-file path)
         (error "No such system definition file: ~a" path))))
 
-(defun %load-asd (path)
-  "Load the definitions in PATH; the name of its primary system and the
-file's truename."
+(defun %load-asd (path name)
+  "Load the definitions in PATH; the name of the system to act on -- NAME,
+or the file's own -- and the file's truename."
   (let ((file (%system-file path)))
+    (unless (or (null name) (and (stringp name) (string/= name "")))
+      (error "Not a system name: ~s" name))
     (require "asdf")
     (%asdf "LOAD-ASD" file)
-    (values (string-downcase (pathname-name file)) file)))
+    (values (or name (string-downcase (pathname-name file))) file)))
 
-(defun load-asd-system (path)
+(defun load-asd-system (path &optional name)
   "Load the system definition file PATH and then the system it is named
-after, with everything that system depends on.  Returns the system's name."
-  (multiple-value-bind (name file) (%load-asd path)
+after -- or NAME, one of the systems the file defines -- with everything
+that system depends on.  Returns the system's name."
+  (multiple-value-bind (name file) (%load-asd path name)
     (format t "~&; loading system ~a from ~a~%" name (namestring file))
     (%asdf "LOAD-SYSTEM" name)
     name))
 
-(defun test-asd-system (path)
+(defun test-asd-system (path &optional name)
   "Load the system definition file PATH and run ASDF:TEST-SYSTEM on the
-system it is named after.  Returns the system's name."
-  (multiple-value-bind (name file) (%load-asd path)
+system it is named after, or on NAME, one of the systems the file
+defines.  Returns the system's name."
+  (multiple-value-bind (name file) (%load-asd path name)
     (format t "~&; testing system ~a from ~a~%" name (namestring file))
     (%asdf "TEST-SYSTEM" name)
     name))

@@ -763,7 +763,8 @@ Amiga in sight, which is how the command layer is tested.
 
 The same package loads ASDF systems for an editor:
 `(ext.dev:load-asd-system "Work:src/foo/foo.asd")` loads ASDF on first use,
-the definition file and the system named after it, and
+the definition file and the system named after it (or the one a second
+argument names among the file's systems, `"foo/tests"`), and
 `(ext.dev:test-asd-system ...)` runs `asdf:test-system` on it.
 
 ## Source of truth

@@ -1081,7 +1081,7 @@ A command string starting with `(` is evaluated directly, so `ADDRESS AMILISP '(
 
 Replies are capped at `ext.dev:*max-result-length*` (8 KB) and truncated on a line boundary.
 
-**ASDF systems** are loaded by their definition file: `(ext.dev:load-asd-system "Work:src/foo/foo.asd")` loads ASDF if it is not there yet, then the file, then the system named after it with everything it depends on; `(ext.dev:test-asd-system ...)` runs `asdf:test-system` on it. Both are functions rather than commands, meant for `REPL-EVAL`: a system takes long enough to want its output as it happens, an interrupt and the debugger.
+**ASDF systems** are loaded by their definition file: `(ext.dev:load-asd-system "Work:src/foo/foo.asd")` loads ASDF if it is not there yet, then the file, then the system named after it with everything it depends on -- or, with a second argument (`"foo/tests"`), that one of the file's systems; `(ext.dev:test-asd-system ...)` runs `asdf:test-system` on it the same way. Both are functions rather than commands, meant for `REPL-EVAL`: a system takes long enough to want its output as it happens, an interrupt and the debugger.
 
 Runnable macros are in [`examples/amiga/arexx/`](examples/amiga/arexx/): `amilisp.rexx` (a shell client — `rx amilisp.rexx LOAD Work:src/foo.lisp`) and `load-current-file.ced` (save-and-load bound to a CygnusEd key). `AMIGA.AREXX:SEND` drives *other* applications' ARexx ports from Lisp with the same protocol.
 

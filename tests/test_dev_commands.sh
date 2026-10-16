@@ -901,7 +901,8 @@ check "without DEBUG an error is RESULT 10 as before" 'ERROR: plain' "$(dblock p
 #
 # What an editor's Load System evaluates: the system is named by its .asd
 # file, ASDF is loaded on first use, and the system loaded is the one the
-# file is named after.
+# file is named after -- or the one the caller names, of the file's
+# others (an editor that read the file's defsystems and asked).
 
 mkdir "$TMPD/devsys"
 cat > "$TMPD/devsys/devsys.asd" <<'EOF'
@@ -955,10 +956,15 @@ cat > "$TMPD/systems.lisp" <<EOF
 (multiple-value-bind (rc text)
     (ext.dev:handle-command "EVAL (ext.dev:load-asd-system \"$TMPD/devsys/nope.asd\")")
   (format t "~&<<missing RC=~d>>~%~a~%" rc text))
+(multiple-value-bind (rc text)
+    (ext.dev:handle-command "EVAL (ext.dev:load-asd-system \"$TMPD/devsys/devsys.asd\" 42)")
+  (format t "~&<<bad-name RC=~d>>~%~a~%" rc text))
 (format t "~&<<ASDF-AFTER-REFUSALS=~a>>~%" (and (find-package "ASDF") t))
 (format t "~&<<LOADED=~s>>~%" (ext.dev:load-asd-system "$TMPD/devsys/devsys.asd"))
 (format t "~&<<TWO=~a>>~%" (funcall (find-symbol "TWO" "DEVSYS")))
 (format t "~&<<TESTS-LOADED-BY-LOAD=~a>>~%" (and (fboundp (find-symbol "RUN-TESTS" "DEVSYS")) t))
+(format t "~&<<LOADED-NAMED=~s>>~%" (ext.dev:load-asd-system "$TMPD/devsys/devsys.asd" "devsys/tests"))
+(format t "~&<<TESTS-LOADED-BY-NAME=~a>>~%" (and (fboundp (find-symbol "RUN-TESTS" "DEVSYS")) t))
 (format t "~&<<TESTED=~s>>~%" (ext.dev:test-asd-system "$TMPD/devsys/devsys.asd"))
 EOF
 sys_out=$(run_script "$TMPD/systems.lisp")
@@ -968,11 +974,16 @@ check "a file that is no .asd is refused"        '<<not-asd RC=10>>'  "$sys_out"
 check "and the refusal names it"                 'Not a system definition file (.asd): .*one.lisp' "$sys_out"
 check "a missing .asd is refused"                '<<missing RC=10>>'  "$sys_out"
 check "and that refusal names it"                'No such system definition file: .*nope.asd' "$sys_out"
+check "a system name that is no string is refused" '<<bad-name RC=10>>' "$sys_out"
+check "and that refusal says so"                 'Not a system name: 42' "$sys_out"
 check "a refusal did not load ASDF"              '<<ASDF-AFTER-REFUSALS=NIL>>' "$sys_out"
 check "LOAD-ASD-SYSTEM says what it loads"       '; loading system devsys from .*devsys.asd' "$sys_out"
 check "and returns the system's name"            '<<LOADED="devsys">>' "$sys_out"
 check "the system's files are loaded in order"   '<<TWO=2>>'          "$sys_out"
 check "the test system is not loaded by a load"  '<<TESTS-LOADED-BY-LOAD=NIL>>' "$sys_out"
+check "a named system of the file is loaded instead" '; loading system devsys/tests from .*devsys.asd' "$sys_out"
+check "and its name is returned"                 '<<LOADED-NAMED="devsys/tests">>' "$sys_out"
+check "and it is the one loaded"                 '<<TESTS-LOADED-BY-NAME=T>>' "$sys_out"
 check "TEST-ASD-SYSTEM runs the test-op"         '<<DEVSYS-TESTS two=2>>' "$sys_out"
 check "and returns the tested system's name"     '<<TESTED="devsys">>' "$sys_out"
 # check shows the head of the output only, and what went wrong with a system
