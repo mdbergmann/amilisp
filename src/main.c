@@ -509,10 +509,9 @@ static void print_banner(void)
     for (i = 0; i < 6; i++) {
         banner_art_line(i, text[i] != NULL);
         if (text[i]) {
-            /* Name and platform in the accent colour, the facts plain. */
-            if (i < 3) cl_color_set(CL_COLOR_DIM_CYAN);
+            cl_color_set(CL_COLOR_DIM_CYAN);
             platform_write_string(text[i]);
-            if (i < 3) cl_color_reset();
+            cl_color_reset();
         }
         platform_write_string("\n");
     }
