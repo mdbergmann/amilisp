@@ -62,6 +62,10 @@ don't have one yet, but it keeps the command reproducible) and
 ./build/host/amilisp
 ```
 
+The banner names the build you are running (CPU and float variant, heap
+size, collector, JIT state) and whether it booted from a heap image or
+from `lib/`.
+
 ```
 COMMON-LISP-USER> (defun fib (n) (if (< n 2) n (+ (fib (- n 1)) (fib (- n 2)))))
 FIB

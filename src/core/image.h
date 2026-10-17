@@ -176,6 +176,11 @@ int cl_image_restore_staged(void);
 /* T once a restore completed this process. */
 int cl_image_restored_p(void);
 
+/* The restored image's file name without its directory ("amilisp.img"),
+ * "embedded image" for a delivered executable, "" before any restore.
+ * For the REPL banner. */
+const char *cl_image_restored_name(void);
+
 /* --- Lisp surface (registered from cl_builtins_init) --- */
 void cl_image_builtins_init(void);
 

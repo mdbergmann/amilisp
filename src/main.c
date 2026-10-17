@@ -374,6 +374,151 @@ static void win32_utf8_argv(int *argc_out, char ***argv_out)
 }
 #endif
 
+/* --- The REPL banner -----------------------------------------------------
+ *
+ *   (((      \\
+ *  (((        \\        AmiLisp v0.12
+ * (((          \\       Common Lisp for AmigaOS
+ * )))         //\\      68020+ FPU, 8M heap, Immix GC, JIT
+ *  )))       //  \\     booted from amilisp.img
+ *   )))     //    \\
+ *
+ * Type (quit) to exit.
+ *
+ * The right column carries what a user asks first when the REPL comes up
+ * on an Amiga, and what a bug report needs: which binary this is (CPU and
+ * float variant, wide strings), the heap it got, the collector and the
+ * JIT state of THIS run, and whether it booted from an image or from the
+ * library.  ASCII only: the Amiga console draws Topaz.  "AmiLisp v" and
+ * the exact "Type (quit) to exit." line are what the shell tests key on. */
+
+/* The art, each line padded to BANNER_ART_WIDTH so the text column aligns. */
+#define BANNER_ART_WIDTH 20
+static const char *const banner_parens[6] = {
+    "  (((      ", " (((        ", "(((          ",
+    ")))         ", " )))       ", "  )))     "
+};
+static const char *const banner_lambda[6] = {
+    "\\\\", "\\\\", "\\\\", "//\\\\", "//  \\\\", "//    \\\\"
+};
+
+/* "8M" / "512K" / "<n> bytes" -- a heap size the way --heap spells it. */
+static void banner_heap_size(char *buf, size_t len, uint32_t bytes)
+{
+    if (bytes && (bytes & ((1u << 20) - 1)) == 0)
+        snprintf(buf, len, "%luM", (unsigned long)(bytes >> 20));
+    else if (bytes && (bytes & 1023u) == 0)
+        snprintf(buf, len, "%luK", (unsigned long)(bytes >> 10));
+    else
+        snprintf(buf, len, "%lu bytes", (unsigned long)bytes);
+}
+
+/* The "CPU, heap, GC, JIT" line: every segment is a build-time or run-time
+ * fact, joined with ", "; an absent one (no native JIT in this build) is
+ * simply left out. */
+static void banner_facts_line(char *buf, size_t len)
+{
+    char heap[32];
+    const char *cpu =
+#if defined(PLATFORM_MORPHOS)
+        "PowerPC";
+#elif defined(PLATFORM_AMIGA)
+#  if defined(__HAVE_68881__)
+        "68020+ FPU";
+#  else
+        "68020+";
+#  endif
+#elif defined(__aarch64__) || defined(__arm64__)
+        "arm64";
+#elif defined(__x86_64__) || defined(_M_X64)
+        "x86-64";
+#else
+        "";
+#endif
+    const char *gc =
+#if defined(CL_GC_IMMIX)
+        "Immix GC";
+#else
+        cl_gengc_enabled() ? "generational GC" : "mark-sweep GC";
+#endif
+    const char *jit =
+#if defined(CL_JIT_NATIVE)
+        cl_jit_enabled() ? ", JIT" : ", JIT off";
+#else
+        "";
+#endif
+    const char *wide =
+#if defined(CL_WIDE_STRINGS)
+        ", unicode";
+#else
+        "";
+#endif
+    banner_heap_size(heap, sizeof(heap), cl_heap.arena_size);
+    snprintf(buf, len, "%s%s%s heap, %s%s%s",
+             cpu, cpu[0] ? ", " : "", heap, gc, jit, wide);
+}
+
+/* One art line; padded out to the text column only when text follows (no
+ * trailing blanks on the bare lines). */
+static void banner_art_line(int i, int text_follows)
+{
+    int pad = BANNER_ART_WIDTH - (int)strlen(banner_parens[i])
+                               - (int)strlen(banner_lambda[i]);
+    cl_color_set(CL_COLOR_LIGHT_BLUE);
+    platform_write_string(banner_parens[i]);
+    cl_color_set(CL_COLOR_RED);
+    platform_write_string(banner_lambda[i]);
+    cl_color_reset();
+    while (text_follows && pad-- > 0) platform_write_string(" ");
+}
+
+static void print_banner(void)
+{
+    char facts[128];
+    char boot[128];
+    const char *text[6];
+    int i;
+
+    banner_facts_line(facts, sizeof(facts));
+    if (cl_image_restored_p())
+        snprintf(boot, sizeof(boot), "booted from %s",
+                 cl_image_restored_name());
+    else
+        snprintf(boot, sizeof(boot), "booted from lib/ (no image)");
+
+    text[0] = NULL;
+    text[1] = "AmiLisp v" CL_VERSION_STRING;
+#if defined(PLATFORM_MORPHOS)
+    text[2] = "Common Lisp for MorphOS";
+#elif defined(PLATFORM_AMIGA)
+    text[2] = "Common Lisp for AmigaOS";
+#elif defined(PLATFORM_WIN32)
+    text[2] = "Common Lisp for Windows";
+#elif defined(__APPLE__)
+    text[2] = "Common Lisp for macOS";
+#elif defined(__linux__)
+    text[2] = "Common Lisp for Linux";
+#else
+    text[2] = "Common Lisp for POSIX hosts";
+#endif
+    text[3] = facts;
+    text[4] = boot;
+    text[5] = NULL;
+
+    platform_write_string("\n");
+    for (i = 0; i < 6; i++) {
+        banner_art_line(i, text[i] != NULL);
+        if (text[i]) {
+            /* Name and platform in the accent colour, the facts plain. */
+            if (i < 3) cl_color_set(CL_COLOR_DIM_CYAN);
+            platform_write_string(text[i]);
+            if (i < 3) cl_color_reset();
+        }
+        platform_write_string("\n");
+    }
+    platform_write_string("\nType (quit) to exit.\n\n");
+}
+
 static void print_usage(void)
 {
     platform_write_string(
@@ -1140,55 +1285,7 @@ static int amilisp_main(int argc, char *argv[])
     } else {
         /* Drain residual CLI data from stdin (AmigaOS leaks command line to Input()) */
         platform_drain_input();
-        platform_write_string("\n");
-        /* Line 1:   (((      \\ */
-        cl_color_set(CL_COLOR_LIGHT_BLUE);
-        platform_write_string("  (((      ");
-        cl_color_set(CL_COLOR_RED);
-        platform_write_string("\\\\\n");
-        /* Line 2:  (((        \\          AmiLisp v<version> */
-        cl_color_set(CL_COLOR_LIGHT_BLUE);
-        platform_write_string(" (((        ");
-        cl_color_set(CL_COLOR_RED);
-        platform_write_string("\\\\          ");
-        cl_color_set(CL_COLOR_DIM_CYAN);
-        platform_write_string("AmiLisp v" CL_VERSION_STRING "\n");
-        /* Line 3: (((          \\ */
-        cl_color_set(CL_COLOR_LIGHT_BLUE);
-        platform_write_string("(((          ");
-        cl_color_set(CL_COLOR_RED);
-        platform_write_string("\\\\\n");
-        /* Line 4: )))         /\\        Common Lisp for <platform> */
-        cl_color_set(CL_COLOR_LIGHT_BLUE);
-        platform_write_string(")))         ");
-        cl_color_set(CL_COLOR_RED);
-        platform_write_string("//\\\\        ");
-        cl_color_set(CL_COLOR_DIM_CYAN);
-#if defined(PLATFORM_MORPHOS)
-        platform_write_string("Common Lisp for MorphOS\n");
-#elif defined(PLATFORM_AMIGA)
-        platform_write_string("Common Lisp for AmigaOS\n");
-#elif defined(PLATFORM_WIN32)
-        platform_write_string("Common Lisp for Windows\n");
-#elif defined(__APPLE__)
-        platform_write_string("Common Lisp for macOS\n");
-#elif defined(__linux__)
-        platform_write_string("Common Lisp for Linux\n");
-#else
-        platform_write_string("Common Lisp for POSIX hosts\n");
-#endif
-        /* Line 5:  )))       //  \\ */
-        cl_color_set(CL_COLOR_LIGHT_BLUE);
-        platform_write_string(" )))       ");
-        cl_color_set(CL_COLOR_RED);
-        platform_write_string("//  \\\\\n");
-        /* Line 6:   )))     //    \\ */
-        cl_color_set(CL_COLOR_LIGHT_BLUE);
-        platform_write_string("  )))     ");
-        cl_color_set(CL_COLOR_RED);
-        platform_write_string("//    \\\\\n");
-        cl_color_reset();
-        platform_write_string("\nType (quit) to exit.\n\n");
+        print_banner();
 
         /* Interactive: execute --load/--eval actions after banner */
         for (i = 0; i < action_count; i++) {

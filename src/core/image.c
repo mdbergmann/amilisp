@@ -238,6 +238,9 @@ static uint8_t        image_staged_head[CL_IMAGE_HEADER_BYTES];
 static CL_ImageHeader image_staged_hdr;
 
 static int image_restored = 0;
+/* The file name (no directory) of the restored image, for the REPL banner;
+ * "" until a restore completed.  Copied before the staged path is freed. */
+static char image_restored_name[64];
 
 /* Lisp surface symbols (registered as GC roots during C init, so they are
  * part of the boot-root restore set and survive into images). */
@@ -271,6 +274,30 @@ int cl_image_save_pending_p(void)
 int cl_image_restored_p(void)
 {
     return image_restored;
+}
+
+const char *cl_image_restored_name(void)
+{
+    return image_restored_name;
+}
+
+/* Keep the staged file's base name (after the last '/', ':' or '\\') for
+ * cl_image_restored_name; an embedded image is named after what it is. */
+static void image_note_restored_name(void)
+{
+    const char *base = image_staged_path ? image_staged_path : "";
+    const char *p;
+    size_t n;
+    if (image_embedded) {
+        strcpy(image_restored_name, "embedded image");
+        return;
+    }
+    for (p = base; *p; p++)
+        if (*p == '/' || *p == ':' || *p == '\\') base = p + 1;
+    n = strlen(base);
+    if (n >= sizeof(image_restored_name)) n = sizeof(image_restored_name) - 1;
+    memcpy(image_restored_name, base, n);
+    image_restored_name[n] = '\0';
 }
 
 /* ================================================================
@@ -1893,6 +1920,7 @@ int cl_image_restore_staged(void)
         ((CL_Symbol *)CL_OBJ_TO_PTR(SYM_IMAGE_RESTORED_P))->value = SYM_T;
 
     image_restored = 1;
+    image_note_restored_name();
     cl_image_discard_staged();
     return 0;
 }
