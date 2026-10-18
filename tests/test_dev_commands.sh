@@ -917,8 +917,6 @@ EOF
 cat > "$TMPD/devsys/one.lisp" <<'EOF'
 (defpackage :devsys (:use :cl) (:export #:one #:two #:run-tests))
 (in-package :devsys)
-(defvar *one-loads* 0)
-(incf *one-loads*)
 (defun one () 1)
 EOF
 cat > "$TMPD/devsys/two.lisp" <<'EOF'
@@ -968,21 +966,6 @@ cat > "$TMPD/systems.lisp" <<EOF
 (format t "~&<<LOADED-NAMED=~s>>~%" (ext.dev:load-asd-system "$TMPD/devsys/devsys.asd" "devsys/tests"))
 (format t "~&<<TESTS-LOADED-BY-NAME=~a>>~%" (and (fboundp (find-symbol "RUN-TESTS" "DEVSYS")) t))
 (format t "~&<<TESTED=~s>>~%" (ext.dev:test-asd-system "$TMPD/devsys/devsys.asd"))
-;; The .asd was loaded once for all of that: ASDF has the systems, and
-;; loads and tests what it has incrementally.  Loading the file on every
-;; call redefined them, and ASDF then reloaded every file each time.
-(defun one-loads () (symbol-value (find-symbol "*ONE-LOADS*" "DEVSYS")))
-(format t "~&<<ONE-LOADS=~a>>~%" (one-loads))
-(format t "~&<<LOADED-AGAIN=~s>>~%" (ext.dev:load-asd-system "$TMPD/devsys/devsys.asd"))
-(format t "~&<<TESTED-AGAIN=~s>>~%" (ext.dev:test-asd-system "$TMPD/devsys/devsys.asd"))
-(format t "~&<<ONE-LOADS-AGAIN=~a>>~%" (one-loads))
-;; A changed .asd ASDF reloads by itself (FIND-SYSTEM compares the date),
-;; and with it the system.  A second later, for the date to differ.
-(sleep 1.1)
-(with-open-file (o "$TMPD/devsys/devsys.asd" :direction :output :if-exists :append)
-  (format o "~%;; changed~%"))
-(format t "~&<<LOADED-CHANGED=~s>>~%" (ext.dev:load-asd-system "$TMPD/devsys/devsys.asd"))
-(format t "~&<<ONE-LOADS-CHANGED=~a>>~%" (one-loads))
 EOF
 sys_out=$(run_script "$TMPD/systems.lisp")
 sys_failed_before=$failed
@@ -1003,13 +986,6 @@ check "and its name is returned"                 '<<LOADED-NAMED="devsys/tests">
 check "and it is the one loaded"                 '<<TESTS-LOADED-BY-NAME=T>>' "$sys_out"
 check "TEST-ASD-SYSTEM runs the test-op"         '<<DEVSYS-TESTS two=2>>' "$sys_out"
 check "and returns the tested system's name"     '<<TESTED="devsys">>' "$sys_out"
-check "the .asd was loaded once for the load, the named load and the test" '<<ONE-LOADS=1>>' "$sys_out"
-check "a second load does not reload the .asd"   '<<LOADED-AGAIN="devsys">>' "$sys_out"
-check "nor does a second test"                   '<<TESTED-AGAIN="devsys">>' "$sys_out"
-check "and neither reloads the system's files"   '<<ONE-LOADS-AGAIN=1>>' "$sys_out"
-check "but the second test ran the test-op again" '<<DEVSYS-TESTS two=2>>.*<<DEVSYS-TESTS two=2>>' "$(echo "$sys_out" | tr '\n' ' ')"
-check "a changed .asd is reloaded, by ASDF, with the system" '<<ONE-LOADS-CHANGED=2>>' "$sys_out"
-check "and the file's second load is the only other" '^2$' "$(echo "$sys_out" | grep -c 'Loading .*devsys\.asd')"
 # check shows the head of the output only, and what went wrong with a system
 # is said after the refusals -- so a failure here prints all of it.
 if [ "$failed" -ne "$sys_failed_before" ]; then

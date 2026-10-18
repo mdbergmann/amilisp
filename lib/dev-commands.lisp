@@ -978,13 +978,6 @@ handler thread can see them; lib/dev-repl.lisp keeps it current.")
 ;;; the file's defsystems and asked.  ASDF is loaded on first use -- a
 ;;; session that never loads a system never pays for it -- so nothing here
 ;;; may name an ASDF symbol at read time.
-;;;
-;;; The definition file is loaded only when ASDF does not have that
-;;; system from it yet.  Loading it on every call redefined the systems,
-;;; and ASDF then reloaded every file of the system on every Load System
-;;; and Test System; left to itself ASDF reloads a .asd that changed on
-;;; disk (FIND-SYSTEM compares the file's date) and otherwise loads and
-;;; tests incrementally, which is what an editor's menu is for.
 ;;; ================================================================
 
 (defun %asdf (name &rest args)
@@ -1002,44 +995,29 @@ says what is wrong with it."
     (or (probe-file path)
         (error "No such system definition file: ~a" path))))
 
-(defun %system-defined-by-p (name file)
-  "Whether ASDF has a system NAME defined by the system definition FILE
-(a truename) already."
-  (let ((system (%asdf "REGISTERED-SYSTEM" name)))
-    (and system
-         (let ((source (%asdf "SYSTEM-SOURCE-FILE" system)))
-           (and source
-                (let ((truename (probe-file source)))
-                  (and truename
-                       (string= (namestring truename) (namestring file)))))))))
-
 (defun %load-asd (path name)
-  "See that ASDF has the definitions in PATH, loading the file when it
-does not have the system to act on from it yet; the name of that system
--- NAME, or the file's own -- and the file's truename."
+  "Load the definitions in PATH; the name of the system to act on -- NAME,
+or the file's own -- and the file's truename."
   (let ((file (%system-file path)))
     (unless (or (null name) (and (stringp name) (string/= name "")))
       (error "Not a system name: ~s" name))
     (require "asdf")
-    (let ((name (or name (string-downcase (pathname-name file)))))
-      (unless (%system-defined-by-p name file)
-        (%asdf "LOAD-ASD" file))
-      (values name file))))
+    (%asdf "LOAD-ASD" file)
+    (values (or name (string-downcase (pathname-name file))) file)))
 
 (defun load-asd-system (path &optional name)
-  "Load the system definition file PATH, unless ASDF has it, and then the
-system it is named after -- or NAME, one of the systems the file defines
--- with everything that system depends on, as far as it is not loaded
-yet.  Returns the system's name."
+  "Load the system definition file PATH and then the system it is named
+after -- or NAME, one of the systems the file defines -- with everything
+that system depends on.  Returns the system's name."
   (multiple-value-bind (name file) (%load-asd path name)
     (format t "~&; loading system ~a from ~a~%" name (namestring file))
     (%asdf "LOAD-SYSTEM" name)
     name))
 
 (defun test-asd-system (path &optional name)
-  "Load the system definition file PATH, unless ASDF has it, and run
-ASDF:TEST-SYSTEM on the system it is named after, or on NAME, one of the
-systems the file defines.  Returns the system's name."
+  "Load the system definition file PATH and run ASDF:TEST-SYSTEM on the
+system it is named after, or on NAME, one of the systems the file
+defines.  Returns the system's name."
   (multiple-value-bind (name file) (%load-asd path name)
     (format t "~&; testing system ~a from ~a~%" name (namestring file))
     (%asdf "TEST-SYSTEM" name)
