@@ -641,6 +641,90 @@ TEST(condition_variable_p_false)
     ASSERT_STR_EQ(r, "NIL");
 }
 
+/* MP:THREAD, MP:LOCK and MP:CONDITION-VARIABLE are type specifiers.
+ * CLHS TYPE-OF: (typep x (type-of x)) must hold; before this the names
+ * came back interned in *PACKAGE* and TYPEP rejected them as unknown. */
+TEST(type_of_mp_objects_is_the_mp_symbol)
+{
+    const char *r = eval_print(
+        "(mapcar (lambda (x) (let ((ty (type-of x)))"
+        "                      (list ty (package-name (symbol-package ty)))))"
+        "        (list (mp:make-lock) (mp:make-recursive-lock)"
+        "              (mp:make-condition-variable) (mp:current-thread)))");
+    ASSERT_STR_EQ(r, "((LOCK \"MP\") (LOCK \"MP\") (CONDITION-VARIABLE \"MP\")"
+                     " (THREAD \"MP\"))");
+}
+
+TEST(typep_type_of_mp_objects_holds)
+{
+    const char *r = eval_print(
+        "(mapcar (lambda (x) (typep x (type-of x)))"
+        "        (list (mp:make-lock) (mp:make-recursive-lock)"
+        "              (mp:make-condition-variable) (mp:current-thread)))");
+    ASSERT_STR_EQ(r, "(T T T T)");
+}
+
+TEST(typep_mp_types_discriminate)
+{
+    const char *r = eval_print(
+        "(list (typep (mp:make-lock) 'mp:lock)"
+        "      (typep (mp:make-recursive-lock) 'mp:lock)"
+        "      (typep (mp:make-condition-variable) 'mp:condition-variable)"
+        "      (typep (mp:current-thread) 'mp:thread)"
+        "      (typep (mp:make-lock) 'mp:condition-variable)"
+        "      (typep (mp:make-condition-variable) 'mp:lock)"
+        "      (typep (mp:make-lock) 'mp:thread)"
+        "      (typep (mp:current-thread) 'mp:lock)"
+        "      (typep 42 'mp:lock) (typep nil 'mp:thread)"
+        "      (typep \"cv\" 'mp:condition-variable))");
+    ASSERT_STR_EQ(r, "(T T T T NIL NIL NIL NIL NIL NIL NIL)");
+}
+
+/* bordeaux-threads' backend shape: a DEFTYPE over the MP type. */
+TEST(deftype_over_mp_lock)
+{
+    const char *r = eval_print(
+        "(progn (deftype bt-native-lock () 'mp:lock)"
+        "       (list (typep (mp:make-lock) 'bt-native-lock)"
+        "             (typep (mp:make-condition-variable) 'bt-native-lock)))");
+    ASSERT_STR_EQ(r, "(T NIL)");
+}
+
+/* A program's own struct / class / deftype on a symbol MP exports (CL-USER
+ * inherits LOCK, THREAD) shadows the built-in object type.  The struct
+ * names its constructor: the default MAKE-LOCK would be the inherited
+ * MP:MAKE-LOCK and redefine it. */
+TEST(user_types_shadow_mp_type_names)
+{
+    const char *r = eval_print(
+        "(progn (defstruct (mp::lock (:constructor make-user-lock)) a)"
+        "       (defclass mp::thread () ())"
+        "       (deftype mp::condition-variable () 'integer)"
+        "       (list (typep (make-user-lock) 'mp::lock)"
+        "             (typep (mp:make-lock) 'mp::lock)"
+        "             (typep (make-instance 'mp::thread) 'mp::thread)"
+        "             (typep (mp:current-thread) 'mp::thread)"
+        "             (typep 5 'mp::condition-variable)"
+        "             (typep (mp:make-condition-variable) 'mp::condition-variable)))");
+    ASSERT_STR_EQ(r, "(T NIL T NIL T NIL)");
+}
+
+TEST(check_type_mp_lock_signals_type_error)
+{
+    const char *r = eval_print(
+        "(handler-case (progn (check-type 42 mp:lock) :no-error)"
+        "  (type-error () :type-error))");
+    ASSERT_STR_EQ(r, ":TYPE-ERROR");
+}
+
+TEST(mp_type_names_are_exported)
+{
+    const char *r = eval_print(
+        "(mapcar (lambda (n) (nth-value 1 (find-symbol n :mp)))"
+        "        '(\"THREAD\" \"LOCK\" \"CONDITION-VARIABLE\"))");
+    ASSERT_STR_EQ(r, "(:EXTERNAL :EXTERNAL :EXTERNAL)");
+}
+
 /* ================================================================
  * interrupt-thread
  * ================================================================ */
@@ -1137,6 +1221,12 @@ int main(void)
     RUN(lockp_false);
     RUN(condition_variable_p_true);
     RUN(condition_variable_p_false);
+    RUN(type_of_mp_objects_is_the_mp_symbol);
+    RUN(typep_type_of_mp_objects_holds);
+    RUN(typep_mp_types_discriminate);
+    RUN(deftype_over_mp_lock);
+    RUN(check_type_mp_lock_signals_type_error);
+    RUN(mp_type_names_are_exported);
 
     /* Interrupt thread */
     RUN(interrupt_thread_basic);
@@ -1187,6 +1277,8 @@ int main(void)
     /* MP:DUMP-THREAD-WAITS */
     RUN(dump_thread_waits_returns_nil);
     RUN(dump_thread_waits_with_live_worker);
+    /* last: redefines MP:LOCK/THREAD as user types for the rest of the process */
+    RUN(user_types_shadow_mp_type_names);
 
     teardown();
 

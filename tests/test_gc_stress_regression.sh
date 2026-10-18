@@ -6282,6 +6282,26 @@ check_contains "with-lock-held :timeout acquired runs the body under stress" "LT
 check_contains "with-lock-held :timeout released the lock under stress"    "LT-FREE:T" "$out"
 check_absent   "with-lock-held :timeout: no bad mark"                       "BADMARK\|FATAL\|Undefined" "$out"
 
+# --- Case: MP type specifiers under GC stress --------------------------------
+# TYPE-OF on a thread/lock/condvar answers the MP symbol; TYPEP on it is a
+# symbol-code dispatch, and a DEFTYPE over it (bordeaux-threads' native-lock)
+# runs the expander -- an allocating call with the object live across it.
+cat > "$WORK/mptypes.lisp" <<'EOF'
+(deftype bt-lock () 'mp:lock)
+(let ((objs (list (mp:make-lock "l") (mp:make-recursive-lock "r")
+                  (mp:make-condition-variable "c") (mp:current-thread))))
+  (format t "MT-OF:~S~%" (mapcar #'type-of objs))
+  (format t "MT-SELF:~S~%" (mapcar (lambda (x) (typep x (type-of x))) objs))
+  (format t "MT-BT:~S~%" (mapcar (lambda (x) (typep x 'bt-lock)) objs))
+  (format t "MT-CV:~S~%" (mapcar (lambda (x) (typep x 'mp:condition-variable)) objs)))
+EOF
+out=$(run_stress "$WORK/mptypes.lisp")
+check_contains "mp types: type-of answers the MP symbols under stress" "MT-OF:(LOCK LOCK CONDITION-VARIABLE THREAD)" "$out"
+check_contains "mp types: typep x (type-of x) holds under stress"      "MT-SELF:(T T T T)" "$out"
+check_contains "mp types: deftype over mp:lock under stress"           "MT-BT:(T T NIL NIL)" "$out"
+check_contains "mp types: condition-variable discriminates under stress" "MT-CV:(NIL NIL T NIL)" "$out"
+check_absent   "mp types: no bad mark"                                 "BADMARK\|FATAL\|Undefined\|unknown type" "$out"
+
 # --- Case: ~F / ~$ / ~R with five parameters -------------------------------
 # The fixed-format directives format through C buffers and princ a
 # non-number argument; every allocation around them compacts here.

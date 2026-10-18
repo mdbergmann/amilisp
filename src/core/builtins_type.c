@@ -177,6 +177,8 @@ enum {
     TS_ECHO_STREAM,
     TS_RANDOM_STATE, TS_PATHNAME, TS_LOGICAL_PATHNAME, TS_READTABLE,
     TS_STRUCTURE,
+    /* The MP package's object types (stamped on MP symbols, below). */
+    TS_THREAD, TS_LOCK, TS_CONDITION_VARIABLE,
     TS_LAST
 };
 
@@ -226,25 +228,50 @@ static const struct { const char *name; uint8_t code; } typep_name_codes[] = {
     { "STRUCTURE", TS_STRUCTURE }, { "STRUCTURE-OBJECT", TS_STRUCTURE }
 };
 
-/* Stamp each standard type name's COMMON-LISP symbol with its code.  Called
- * from cl_builtins_type_init, after the package system is up.  The symbols
- * are interned (created if need be) so the code survives however they are
- * first referenced later; no GC rooting is needed because the code lives in
- * the symbol itself, which the collector moves as one object. */
+/* The MP package's object types: MP:THREAD, MP:LOCK (recursive locks are
+ * locks too) and MP:CONDITION-VARIABLE.  TYPE-OF answers these symbols for
+ * thread, lock and condition-variable objects, so (typep x (type-of x))
+ * holds for them as CLHS TYPE-OF requires, and a (declare (type mp:lock
+ * l)) or a DEFTYPE over them (bordeaux-threads' native-lock) is checked
+ * for real instead of signalling "unknown type specifier".  They are kept
+ * out of typep_name_codes on purpose: that table is also the by-name
+ * compatibility net, and a stray FOO::LOCK must stay unknown. */
+static const struct { const char *name; uint8_t code; } mp_typep_name_codes[] = {
+    { "THREAD", TS_THREAD }, { "LOCK", TS_LOCK },
+    { "CONDITION-VARIABLE", TS_CONDITION_VARIABLE }
+};
+
+/* Intern NAME in PKG, export it and stamp CODE into its flags word. */
+static void typep_stamp_code(const char *nm, uint8_t code, CL_Obj pkg,
+                             int export_it)
+{
+    CL_Obj sym = cl_intern_in(nm, (uint32_t)strlen(nm), pkg);
+    if (!CL_NULL_P(sym) && CL_SYMBOL_P(sym)) {
+        CL_Symbol *s = (CL_Symbol *)CL_OBJ_TO_PTR(sym);
+        s->flags = (s->flags & ~CL_SYM_TYPECODE_MASK)
+                   | ((uint32_t)code << CL_SYM_TYPECODE_SHIFT);
+        if (export_it)
+            cl_export_symbol(sym, pkg);
+    }
+}
+
+/* Stamp each standard type name's COMMON-LISP symbol, and each MP type
+ * name's MP symbol, with its code.  Called from cl_builtins_type_init,
+ * after the package system is up.  The symbols are interned (created if
+ * need be) so the code survives however they are first referenced later;
+ * no GC rooting is needed because the code lives in the symbol itself,
+ * which the collector moves as one object. */
 static void cl_typep_codes_init(void)
 {
     size_t i;
     for (i = 0; i < sizeof(typep_name_codes) / sizeof(typep_name_codes[0]);
-         i++) {
-        const char *nm = typep_name_codes[i].name;
-        CL_Obj sym = cl_intern_in(nm, (uint32_t)strlen(nm), cl_package_cl);
-        if (!CL_NULL_P(sym) && CL_SYMBOL_P(sym)) {
-            CL_Symbol *s = (CL_Symbol *)CL_OBJ_TO_PTR(sym);
-            s->flags = (s->flags & ~CL_SYM_TYPECODE_MASK)
-                       | ((uint32_t)typep_name_codes[i].code
-                          << CL_SYM_TYPECODE_SHIFT);
-        }
-    }
+         i++)
+        typep_stamp_code(typep_name_codes[i].name, typep_name_codes[i].code,
+                         cl_package_cl, 0);
+    for (i = 0; i < sizeof(mp_typep_name_codes) / sizeof(mp_typep_name_codes[0]);
+         i++)
+        typep_stamp_code(mp_typep_name_codes[i].name,
+                         mp_typep_name_codes[i].code, cl_package_mp, 1);
     /* NIL is the tag 0; its flags live on the SYM_NIL storage shadow. */
     if (!CL_NULL_P(SYM_NIL) && CL_SYMBOL_P(SYM_NIL)) {
         CL_Symbol *s = (CL_Symbol *)CL_OBJ_TO_PTR(SYM_NIL);
@@ -432,6 +459,9 @@ static int typep_builtin_code(CL_Obj obj, uint8_t code)
         { int idx = CL_FIXNUM_VAL(obj);
           return idx >= 0 && idx < CL_RT_POOL_SIZE; }
     case TS_STRUCTURE: return CL_STRUCT_P(obj);
+    case TS_THREAD:    return CL_THREAD_P(obj);
+    case TS_LOCK:      return CL_LOCK_P(obj);
+    case TS_CONDITION_VARIABLE: return CL_CONDVAR_P(obj);
     case TS_STREAM: {
         if (CL_STREAM_P(obj)) return 1;
         /* Gray streams are CLOS instances (CL_STRUCT_P); check CPL for
@@ -564,6 +594,18 @@ static int typep_symbol(CL_Obj obj, CL_Obj type_sym)
         return typep_user_type(obj, type_sym);
 
     code = (uint8_t)CL_SYM_TYPECODE((CL_Symbol *)CL_OBJ_TO_PTR(type_sym));
+    if (code == TS_THREAD || code == TS_LOCK || code == TS_CONDITION_VARIABLE) {
+        /* MP's exported names are common ones that CL-USER inherits: a
+         * program's own (defstruct lock ...), DEFCLASS or DEFTYPE of the
+         * same symbol shadows the built-in object type. */
+        extern int cl_is_struct_type(CL_Obj type_sym);
+        extern int cl_is_condition_type(CL_Obj type_sym);
+        extern int cl_clos_class_exists(CL_Obj name);
+        if (cl_is_struct_type(type_sym) || cl_is_condition_type(type_sym) ||
+            cl_clos_class_exists(type_sym) ||
+            !CL_NULL_P(cl_get_type_expander(type_sym)))
+            return typep_user_type(obj, type_sym);
+    }
     if (code != TS_NONE)
         return typep_builtin_code(obj, code);
     return typep_user_type(obj, type_sym);
@@ -1139,6 +1181,12 @@ static CL_Obj bi_type_of(CL_Obj *args, int n)
         else
             name = "VECTOR";
         return cl_intern(name, (uint32_t)strlen(name));
+    }
+    /* Threads, locks and condition variables: the MP symbols TYPEP knows
+     * (mp_typep_name_codes), never a fresh symbol in *PACKAGE*. */
+    if (CL_THREAD_P(args[0]) || CL_LOCK_P(args[0]) || CL_CONDVAR_P(args[0])) {
+        name = cl_type_name(args[0]);
+        return cl_intern_in(name, (uint32_t)strlen(name), cl_package_mp);
     }
     name = cl_type_name(args[0]);
     return cl_intern(name, (uint32_t)strlen(name));

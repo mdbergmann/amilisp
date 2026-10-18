@@ -89,6 +89,19 @@ A lock the thread held when it died stays held: no cleanup ran for it. See
 | `(condition-variable-p object)` | function | Type predicate |
 | `(condition-name condition-variable)` | function | A condition variable's name |
 
+## Types
+
+`mp:thread`, `mp:lock` and `mp:condition-variable` are type specifiers:
+`type-of` returns them for the respective objects (a recursive lock is an
+`mp:lock` too), and they work in `typep`, `check-type`, `(declare (type
+mp:lock l))` and as the target of a `deftype` -- which is what the
+bordeaux-threads backend's `native-lock` / `native-recursive-lock` /
+`condition-variable` types are.  `COMMON-LISP-USER` inherits `MP`, so a
+program's own `defstruct`, `defclass` or `deftype` named `lock`, `thread`
+or `condition-variable` there shadows the built-in type in `typep`.  See
+the "mp types" checks in `tests/test_threads.c` and
+`tests/amiga/run-tests.lisp`.
+
 ## Memory barriers
 
 | Signature | Kind | Description |

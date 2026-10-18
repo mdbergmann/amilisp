@@ -10234,6 +10234,43 @@ y" 1))
 (check "condition-variable-p false" nil
   (mp:condition-variable-p nil))
 
+; MP:THREAD / MP:LOCK / MP:CONDITION-VARIABLE are type specifiers: TYPE-OF
+; answers the MP symbol (CLHS: (typep x (type-of x)) holds) and TYPEP,
+; CHECK-TYPE and a DEFTYPE over them (bordeaux-threads' native-lock) work.
+(check "type-of mp objects = the MP symbols" '(mp:lock mp:lock mp:condition-variable mp:thread)
+  (list (type-of (mp:make-lock)) (type-of (mp:make-recursive-lock))
+        (type-of (mp:make-condition-variable)) (type-of (mp:current-thread))))
+
+(check "typep x (type-of x) holds for mp objects" '(t t t t)
+  (mapcar (lambda (x) (typep x (type-of x)))
+          (list (mp:make-lock) (mp:make-recursive-lock)
+                (mp:make-condition-variable) (mp:current-thread))))
+
+(check "typep mp types discriminate" '(t t t t nil nil nil nil nil nil)
+  (list (typep (mp:make-lock) 'mp:lock)
+        (typep (mp:make-recursive-lock) 'mp:lock)
+        (typep (mp:make-condition-variable) 'mp:condition-variable)
+        (typep (mp:current-thread) 'mp:thread)
+        (typep (mp:make-lock) 'mp:condition-variable)
+        (typep (mp:make-condition-variable) 'mp:lock)
+        (typep (mp:make-lock) 'mp:thread)
+        (typep (mp:current-thread) 'mp:lock)
+        (typep 42 'mp:lock)
+        (typep "cv" 'mp:condition-variable)))
+
+(check "deftype over mp:lock" '(t nil)
+  (progn (deftype bt-native-lock-test () 'mp:lock)
+         (list (typep (mp:make-lock) 'bt-native-lock-test)
+               (typep (mp:make-condition-variable) 'bt-native-lock-test))))
+
+(check "check-type mp:lock signals type-error" :type-error
+  (handler-case (progn (check-type 42 mp:lock) :no-error)
+    (type-error () :type-error)))
+
+(check "mp type names exported" '(:external :external :external)
+  (mapcar (lambda (n) (nth-value 1 (find-symbol n :mp)))
+          '("THREAD" "LOCK" "CONDITION-VARIABLE")))
+
 ; --- interrupt-thread ---
 (check "interrupt-thread self" 42
   (let ((x 0))
