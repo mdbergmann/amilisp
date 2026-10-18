@@ -1085,7 +1085,7 @@ A command string starting with `(` is evaluated directly, so `ADDRESS AMILISP '(
 
 Replies are capped at `ext.dev:*max-result-length*` (8 KB) and truncated on a line boundary.
 
-**ASDF systems** are loaded by their definition file: `(ext.dev:load-asd-system "Work:src/foo/foo.asd")` loads ASDF if it is not there yet, then the file, then the system named after it with everything it depends on -- or, with a second argument (`"foo/tests"`), that one of the file's systems; `(ext.dev:test-asd-system ...)` runs `asdf:test-system` on it the same way. Both are functions rather than commands, meant for `REPL-EVAL`: a system takes long enough to want its output as it happens, an interrupt and the debugger.
+**ASDF systems** are loaded by their definition file: `(ext.dev:load-asd-system "Work:src/foo/foo.asd")` loads ASDF if it is not there yet, the file if ASDF does not have its system yet, then the system named after it with everything it depends on, as far as that is not loaded -- or, with a second argument (`"foo/tests"`), that one of the file's systems; `(ext.dev:test-asd-system ...)` runs `asdf:test-system` on it the same way.  A `.asd` that changed on disk ASDF reloads by itself. Both are functions rather than commands, meant for `REPL-EVAL`: a system takes long enough to want its output as it happens, an interrupt and the debugger.
 
 Runnable macros are in [`examples/amiga/arexx/`](examples/amiga/arexx/): `amilisp.rexx` (a shell client — `rx amilisp.rexx LOAD Work:src/foo.lisp`) and `load-current-file.ced` (save-and-load bound to a CygnusEd key). `AMIGA.AREXX:SEND` drives *other* applications' ARexx ports from Lisp with the same protocol.
 
@@ -1351,7 +1351,9 @@ of hanging or corrupting: acquiring a
 plain lock the thread already holds (use `mp:make-recursive-lock`),
 releasing a lock the thread does not hold, and `condition-wait` without
 holding the lock are all errors.  A recursive lock held at depth *n*
-across `condition-wait` comes back at depth *n*.  See
+across `condition-wait` comes back at depth *n*.  `mp:thread`, `mp:lock`
+and `mp:condition-variable` are type specifiers (`type-of`, `typep`,
+`check-type`, `deftype`).  See
 `tests/test_mp_heap_locks.sh` and [docs/mp.md](docs/mp.md).
 
 `mp:make-thread` accepts per-thread size keywords — `:stack-size` (C stack,
