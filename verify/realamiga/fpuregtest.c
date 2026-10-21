@@ -108,8 +108,8 @@ static void loop(ULONG rounds)
         "9:\n"
         "    fmove.x %%fp3,%[sink]\n"
         "    .chip 68020\n"
-        : [bad_reg] "=m" (bad_reg), [bad_val] "=m" (bad_val), [bad_val2] "=m" (bad_val2),
-          [bad_round] "=m" (bad_round), [sink] "=m" (fpu_sink)
+        : [bad_reg] "+m" (bad_reg), [bad_val] "+m" (bad_val), [bad_val2] "+m" (bad_val2),
+          [bad_round] "+m" (bad_round), [sink] "=m" (fpu_sink)
         : [rounds] "m" (rounds), [dosbase] "m" (DOSBase),
           [use_fpu] "m" (use_fpu), [use_sin] "m" (use_sin), [use_cr] "m" (use_cr)
         : "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "a0", "a1", "a2", "a3", "a4", "cc", "memory");
@@ -117,7 +117,16 @@ static void loop(ULONG rounds)
 
 static ULONG rounds;
 
-static int body(void)
+/* The swap runs the body on a stack of its own.  Everything touched after
+ * StackSwap() must be reachable without the caller's stack: a compiler
+ * that addresses locals through sp (GCC 16 at -O1 omits the frame
+ * pointer and inlines body()) would otherwise read them from the NEW
+ * stack and hand the second StackSwap() garbage -- so these live in
+ * statics and body() is never inlined. */
+static struct StackSwapStruct ss;
+static void *mem_p;
+
+static __attribute__((noinline)) int body(void)
 {
     struct Task *t = FindTask(NULL);
     printf("stack now lower=%p upper=%p (%lu bytes)\n", t->tc_SPLower, t->tc_SPUpper,
@@ -147,8 +156,7 @@ int main(int argc, char **argv)
     rounds = (ULONG)secs * (use_sin || use_cr ? 200000UL : 1000000UL);
 
     if (swap) {
-        struct StackSwapStruct ss;
-        void *mem_p = AllocVec(128 * 1024, MEMF_ANY);
+        mem_p = AllocVec(128 * 1024, MEMF_ANY);
         if (!mem_p) { printf("no memory\n"); return 10; }
         ss.stk_Lower = mem_p;
         ss.stk_Upper = (ULONG)mem_p + 128 * 1024;

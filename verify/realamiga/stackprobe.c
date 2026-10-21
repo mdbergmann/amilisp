@@ -111,7 +111,16 @@ static void spin(volatile ULONG *live)
     (void)pad;
 }
 
-static int body(void)
+/* The swap runs the body on a stack of its own.  Everything touched after
+ * StackSwap() must be reachable without the caller's stack: a compiler
+ * that addresses locals through sp (GCC 16 at -O1 omits the frame
+ * pointer and inlines body()) would otherwise read them from the NEW
+ * stack and hand the second StackSwap() garbage -- so these live in
+ * statics and body() is never inlined. */
+static struct StackSwapStruct ss;
+static void *mem_p;
+
+static __attribute__((noinline)) int body(void)
 {
     volatile ULONG live[LIVE_WORDS];
     struct Task *t = FindTask(NULL);
@@ -151,9 +160,7 @@ int main(int argc, char **argv)
     report[0] = '\0';
 
     if (swap) {
-        struct StackSwapStruct ss;
         ULONG flags = MEMF_ANY;
-        void *mem_p;
         if (strstr(mem, "chip")) flags = MEMF_CHIP;
         if (strstr(mem, "reverse")) flags |= MEMF_REVERSE;
         if (strstr(mem, "clear")) flags |= MEMF_CLEAR;

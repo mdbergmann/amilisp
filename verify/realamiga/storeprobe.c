@@ -183,7 +183,16 @@ static void run(ULONG rounds, ULONG *heap)
 static ULONG rounds;
 static ULONG *heapbuf;
 
-static int body(void)
+/* The swap runs the body on a stack of its own.  Everything touched after
+ * StackSwap() must be reachable without the caller's stack: a compiler
+ * that addresses locals through sp (GCC 16 at -O1 omits the frame
+ * pointer and inlines body()) would otherwise read them from the NEW
+ * stack and hand the second StackSwap() garbage -- so these live in
+ * statics and body() is never inlined. */
+static struct StackSwapStruct ss;
+static void *mem_p;
+
+static __attribute__((noinline)) int body(void)
 {
     struct Task *t = FindTask(NULL);
     printf("stack now lower=%p upper=%p (%lu bytes)\n", t->tc_SPLower, t->tc_SPUpper,
@@ -223,8 +232,7 @@ int main(int argc, char **argv)
     if (!heapbuf) { printf("no memory\n"); return 10; }
 
     if (swap) {
-        struct StackSwapStruct ss;
-        void *mem_p = AllocVec(128 * 1024, MEMF_ANY);
+        mem_p = AllocVec(128 * 1024, MEMF_ANY);
         if (!mem_p) { printf("no memory\n"); return 10; }
         ss.stk_Lower = mem_p;
         ss.stk_Upper = (ULONG)mem_p + 128 * 1024;

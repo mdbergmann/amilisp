@@ -90,7 +90,7 @@ static void reg_loop(ULONG rounds)
         "    move.l  %%d2,%[bad_val]\n"
         "    move.l  #1,%[bad_reg]\n"
         "9:\n"
-        : [bad_reg] "=m" (bad_reg), [bad_val] "=m" (bad_val), [bad_round] "=m" (bad_round)
+        : [bad_reg] "+m" (bad_reg), [bad_val] "+m" (bad_val), [bad_round] "+m" (bad_round)
         : [rounds] "m" (rounds), [dosbase] "m" (DOSBase)
         : "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "a0", "a1", "a2", "a3", "a4", "cc", "memory");
     if (bad_reg) {
@@ -121,7 +121,16 @@ static void c_loop(ULONG rounds)
 
 static ULONG rounds_asm, rounds_c;
 
-static int body(void)
+/* The swap runs the body on a stack of its own.  Everything touched after
+ * StackSwap() must be reachable without the caller's stack: a compiler
+ * that addresses locals through sp (GCC 16 at -O1 omits the frame
+ * pointer and inlines body()) would otherwise read them from the NEW
+ * stack and hand the second StackSwap() garbage -- so these live in
+ * statics and body() is never inlined. */
+static struct StackSwapStruct ss;
+static void *mem_p;
+
+static __attribute__((noinline)) int body(void)
 {
     struct Task *t = FindTask(NULL);
     printf("stack now lower=%p upper=%p (%lu bytes)\n", t->tc_SPLower, t->tc_SPUpper,
@@ -155,9 +164,7 @@ int main(int argc, char **argv)
     report[0] = '\0';
 
     if (swap) {
-        struct StackSwapStruct ss;
         ULONG flags = MEMF_ANY;
-        void *mem_p;
         if (strstr(mem, "chip")) flags = MEMF_CHIP;
         if (strstr(mem, "reverse")) flags |= MEMF_REVERSE;
         if (strstr(mem, "clear")) flags |= MEMF_CLEAR;

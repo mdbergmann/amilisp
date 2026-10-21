@@ -153,8 +153,18 @@ enough and cannot take the machine down.
 
 ## Results so far
 
+Verdicts dated before 2026-10-21 in the `fpu / reg` column rest on a probe
+bug: `regtest` and `fpuregtest` declared their result variables as
+write-only asm outputs, so the compiler dropped the zero-initialisation and
+a completed run reported whatever the stack slot held (zero with gcc 6's
+a5 frames, `printf` leftovers with GCC 16, which is how it was found).  The
+same day the `swap` variants of all four probes stopped relying on the
+caller's stack after `StackSwap()`.  Probes built with a new compiler go
+through FS-UAE before they go near a Vampire.
+
 | machine                                   | CPU / core                      | v1 (5 launches)      | v5 / v9 / v20 / v14 / v8         | fpu / reg / stack | date       |
 |-------------------------------------------|---------------------------------|----------------------|----------------------------------|-------------------|------------|
+| Apollo V4 Standalone, KS 47.115, WB 47.5  | AC68080 core 11350, 92 MHz      | clean                | clean                            | fpu, stack clean; reg = see above | 2026-10-21 |
 | Apollo V4 Standalone, KS 47.13, WB 3.2.3  | AC68080 core 10760, 92 MHz      | LOST on ~half        | LOST / LOST 74% / ok / ok / flips | clean             | 2026-09-19 |
 | FS-UAE (verify.fs-uae, 68040 JIT)         | emulated 68040                  | clean                | clean                            | clean             | 2026-09-19 |
 | Amiga 4000, KS 47.102, WB 47.5            | 68060 Rev1 + 68882, CopyBack    | clean                | clean                            | clean             | 2026-09-20 |
