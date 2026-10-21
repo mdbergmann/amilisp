@@ -29,13 +29,9 @@ GCC_BIN="$PREFIX_DIR/bin/m68k-amigaos-gcc"
 #   shasum -a 256 <TARBALL_NAME> > <TARBALL_NAME>.sha256
 # and attach both to a GitHub release of RELEASE_REPO tagged RELEASE_TAG.
 RELEASE_REPO="mdbergmann/amilisp"
-# The upstream release the submodule pin corresponds to: every module
-# (gcc, binutils, libnix, ...) carries this tag, and --build checks them
-# out at it so a from-source build gets the same, CI-tested set.
-TOOLCHAIN_REF="m68k-amigaos-gcc-v16.2-rc18"
-RELEASE_TAG="toolchain-macos-arm64-16.2.1b-rc18"
-TARBALL_NAME="amilisp-toolchain-macos-arm64-16.2.1b-rc18.tar.xz"
-TARBALL_SHA256="0113a10843efcc65b9db3a8f61d67179ffb93e71decffb4b224f6ee3b36a78f1"
+RELEASE_TAG="toolchain-macos-arm64-6.5.0b-251015"
+TARBALL_NAME="clamiga-toolchain-macos-arm64-6.5.0b-251015.tar.xz"
+TARBALL_SHA256="e42963e984b5fc1704032ec6f4444a64389646cf4ee5677325ac316221adfb29"
 TARBALL_URL="https://github.com/${RELEASE_REPO}/releases/download/${RELEASE_TAG}/${TARBALL_NAME}"
 
 mode=auto
@@ -129,13 +125,13 @@ do_build() {
     log "host build deps required — see tools/m68k-amigaos-gcc/README.md"
     log "(on macOS put Homebrew's bison, flex, make and coreutils first on PATH, as that README says)"
     jobs=$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
-    # The upstream Makefile has no default PREFIX any more (the build tree
-    # remembers the one it is given), and `make all` would otherwise clone
-    # the modules at their branch heads: pin them to the release first.
-    ( cd "$TOOLCHAIN_DIR" \
-      && cp default-repos .repos \
-      && make v ref="$TOOLCHAIN_REF" \
-      && make all PREFIX="$PREFIX_DIR" -j"$jobs" )
+    # gcc 6.5.0b (branch amiga6) at the pinned submodule state.  Note that
+    # upstream's current head builds GCC 16 by default and amiga6 is its
+    # unmaintained legacy branch: a from-source build on a current macOS
+    # needs two source fixes (zlib/zutil.h TARGET_OS_MAC, gcc/fibonacci_heap.h
+    # union_with) and the compiler it then produces crashes in dwarf2cfi at
+    # -O2 on libstdc++ -- which is why macOS uses the prebuilt tarball.
+    ( cd "$TOOLCHAIN_DIR" && make all PREFIX="$PREFIX_DIR" -j"$jobs" )
 
     [ -x "$GCC_BIN" ] || fail "build finished but $GCC_BIN is missing"
     log "installed: $("$GCC_BIN" --version | head -1)"

@@ -227,8 +227,7 @@ Three Windows-specific notes:
 ### AmigaOS (cross-compile with m68k-amigaos-gcc)
 
 The AmigaOS binary is cross-compiled on a POSIX host with `m68k-amigaos-gcc`
-(GCC 16.2 with binutils 2.46 and libnix, the AmigaPorts toolchain release
-`v16.2-rc18`).
+(gcc 6.5.0b from the AmigaPorts toolchain, pinned as a submodule).
 
 First, install the `m68k-amigaos-gcc` cross toolchain:
 
