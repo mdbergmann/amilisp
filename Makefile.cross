@@ -327,7 +327,11 @@ test-amiga-lowend: $(BUILDDIR)/amilisp $(BUILDDIR)/wbrun
 	cp $(BUILDDIR)/wbrun build/amiga/wbrun
 	@rm -f build/amiga/amilisp-test.img build/amiga/boot.img build/amiga/exe-test build/amiga/exe-wb.log
 	@echo "=== Launching FS-UAE (lower-end 68020 baseline) — auto-quits when tests finish ==="
-	verify/realamiga/run-fs-uae.sh verify/realamiga/verify-lowend.fs-uae
+	@# The 68020 config runs the suite at about 500 checks per 4-5 minutes:
+	@# both passes take around 90 minutes, well past the runner's 30-minute
+	@# default ceiling (2026-10-21: killed at 2500 checks while progressing).
+	HARD_TIMEOUT=$${HARD_TIMEOUT:-7200} STALL_TIMEOUT=$${STALL_TIMEOUT:-900} \
+		verify/realamiga/run-fs-uae.sh verify/realamiga/verify-lowend.fs-uae
 	@$(MAKE) --no-print-directory -f Makefile.cross verify-amiga
 
 verify-amiga:

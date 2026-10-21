@@ -164,7 +164,7 @@ through FS-UAE before they go near a Vampire.
 
 | machine                                   | CPU / core                      | v1 (5 launches)      | v5 / v9 / v20 / v14 / v8         | fpu / reg / stack | date       |
 |-------------------------------------------|---------------------------------|----------------------|----------------------------------|-------------------|------------|
-| Apollo V4 Standalone, KS 47.115, WB 47.5  | AC68080 core 11350, 92 MHz      | clean                | clean                            | fpu, stack clean; reg = see above | 2026-10-21 |
+| Apollo V4 Standalone, KS 47.115, WB 47.5  | AC68080 core 11350, 92 MHz      | clean (gcc 6 + GCC 16 builds) | clean                            | clean (fixed probes) | 2026-10-21 |
 | Apollo V4 Standalone, KS 47.13, WB 3.2.3  | AC68080 core 10760, 92 MHz      | LOST on ~half        | LOST / LOST 74% / ok / ok / flips | clean             | 2026-09-19 |
 | FS-UAE (verify.fs-uae, 68040 JIT)         | emulated 68040                  | clean                | clean                            | clean             | 2026-09-19 |
 | Amiga 4000, KS 47.102, WB 47.5            | 68060 Rev1 + 68882, CopyBack    | clean                | clean                            | clean             | 2026-09-20 |
