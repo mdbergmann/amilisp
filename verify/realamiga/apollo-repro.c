@@ -30,20 +30,29 @@
 #include <stdlib.h>
 
 /* One static block, so the distance between source and target is fixed by
- * the binary: src[16 - d/4] is d bytes below buf[0]. */
+ * the binary: src[16 - d/4] is d bytes below buf[0].  The asm below names
+ * the block by its linker symbol, so the name is pinned here. */
 static struct {
     unsigned long src[16];
     unsigned long buf[8];
-} D;
+} D __asm__("_apollo_D");
 
-#define CHAIN(K) __asm__ volatile (             \
-        "movea.l %0,%%a0\n\t"                   \
-        "move.l  %1,(%%a0)+\n\t"                \
-        "clr.l   (%%a0)+\n\t"                   \
-        "clr.l   (%%a0)\n"                      \
-        : : "r"(D.buf), "m"(D.src[K]) : "a0", "memory")
+/* The source is written into the instruction text as the symbol plus a
+ * constant offset, which the assembler encodes as absolute long (opcode
+ * 20f9).  An "m" input operand would NOT do: gcc is free to satisfy it
+ * with any memory operand, and at -O1 it inlines replay() into run(),
+ * puts the block's address in a4 and emits move.l (d,a4),(a0)+ -- an
+ * indirect source, the form the comment above says never loses.
+ * Check with: m68k-amigaos-objdump -d apollo-repro | grep 20f9  */
+#define CHAIN(K) __asm__ volatile (                     \
+        "movea.l %0,%%a0\n\t"                           \
+        "move.l  _apollo_D+4*" #K ",(%%a0)+\n\t"        \
+        "clr.l   (%%a0)+\n\t"                           \
+        "clr.l   (%%a0)\n"                              \
+        : : "r"(D.buf) : "a0", "memory")
 
-/* K must be a constant: only then is the source an absolute operand. */
+/* K must be a literal: it is pasted into the instruction (a variable would
+ * be an undefined assembler symbol, i.e. a build error, not a wrong test). */
 static void replay(int k)
 {
     switch (k) {
