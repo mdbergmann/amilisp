@@ -14,7 +14,9 @@ Environment: AMIGA_HOST (default 192.168.50.235), AMIGA_TOKEN (default
 "vamp"), VAMP_RELEASE (the release drawer, default
 Work:Download/amilisp-0.10.0), VAMP_OUT (scratch drawer, default
 Work:Download/bench), VAMP_SETENV=NAME=VALUE (one AmigaDOS environment
-variable set before the launch), VAMP_BINARY (skip the push and run this
+variable set before the launch; the suite on the Vampire wants
+VAMP_SETENV=AMILISP_SUITE_SKIP=ahi, its AHI driver freezes the box in
+OpenDevice), VAMP_BINARY (skip the push and run this
 binary instead, e.g. the release's own), VAMP_TIMEOUT (seconds, 1200)."""
 import os, sys, time
 sys.path.insert(0, os.path.expanduser("~/Development/MySources/amimcp/server"))

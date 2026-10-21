@@ -62,6 +62,33 @@
               (format t "SKIP: ~A (stress check, fresh-boot pass only)~%" ,name))
        (check ,name ,expected ,actual)))
 
+; AMILISP_SUITE_SKIP names whole sections to leave out, comma-separated
+; and case-insensitive (`setenv AMILISP_SUITE_SKIP ahi`).  For a machine
+; where a section cannot even start: the Vampire's AHI unit-0 driver
+; freezes the box inside OpenDevice, which no SKIP inside the section can
+; catch.  A skipped section prints one SKIP line where its checks would
+; have been and is listed in the summary, so a short total is never silent.
+(defvar *suite-skip*
+  (let ((spec (ext:getenv "AMILISP_SUITE_SKIP")) (names nil) (start 0))
+    (when spec
+      (loop
+        (let* ((comma (position #\, spec :start start))
+               (name (string-trim " " (subseq spec start comma))))
+          (when (plusp (length name)) (push (string-downcase name) names))
+          (unless comma (return))
+          (setq start (1+ comma)))))
+    names))
+(defvar *skipped-sections* nil)
+(defun suite-section-skipped-p (name)
+  "True when section NAME is named in AMILISP_SUITE_SKIP; records it for
+the summary and prints the SKIP line the first time."
+  (when (member (string-downcase name) *suite-skip* :test #'string=)
+    (unless (member name *skipped-sections* :test #'string=)
+      (push name *skipped-sections*)
+      (format t "SKIP: ~A section (AMILISP_SUITE_SKIP)~%" name)
+      (finish-output))
+    t))
+
 (format t "~%=== AmiLisp Test Suite ===~%~%")
 
 ; --- Arithmetic ---
@@ -10676,10 +10703,13 @@ y" 1))
 
   ; --- ahi.device tests (lib/amiga/ahi.lisp, opt-in AHI playback) ---
   ; Separate file for the same reader-needs-the-package reason.  Skips
-  ; its device checks where ahi.device is not installed.
-  (handler-case
-    (load "tests/amiga/test-ahi.lisp")
-    (error (e) (format t "ERROR loading ahi tests: ~A~%" e)))
+  ; its device checks where ahi.device is not installed; the whole file
+  ; is left out under AMILISP_SUITE_SKIP=ahi (a machine whose AHI driver
+  ; hangs in OpenDevice -- the Vampire, 2026-10).
+  (unless (suite-section-skipped-p "ahi")
+    (handler-case
+      (load "tests/amiga/test-ahi.lisp")
+      (error (e) (format t "ERROR loading ahi tests: ~A~%" e))))
 
   ; --- generated raw OS bindings (lib/amiga/raw/) ---
   ; Separate file for the same reader-needs-the-package reason.
@@ -13002,6 +13032,9 @@ y" 1))
     (format t "~8D  ~A~%" (car s) (cdr s))))
 (when (> *skip-count* 0)
   (format t "Skipped ~D stress check(s) (AMILISP_SUITE_QUICK)~%" *skip-count*))
+(when *skipped-sections*
+  (format t "Skipped section(s) (AMILISP_SUITE_SKIP): ~{~A~^, ~}~%"
+          (reverse *skipped-sections*)))
 (format t "Threads still alive: ~D~%" (length (mp:all-threads)))
 
 ; --- JIT benchmark (m68k Amiga only; no native codegen elsewhere) ---

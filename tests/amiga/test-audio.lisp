@@ -97,6 +97,31 @@
     (check "audio-stop-sample" nil (amiga.audio:stop-sample audio))
     (check "audio-not-playing-after-stop" nil (amiga.audio:playing-p audio))
 
+    ; A full-second one-shot completes on its own within 5 s of polling.
+    ; This check comes BEFORE the 50 ms one on purpose: on a fresh FS-UAE
+    ; boot audio.device writes under ~4000 bytes never complete (the
+    ; channel's DMA and interrupt are on, yet Paula's AUDx request never
+    ; rises) until one write of 4000 bytes or more has completed -- after
+    ; that every one-shot, even 2 bytes, completes within a few ticks for
+    ; the rest of the emulator session.  Measured 2026-10-21 on a fresh
+    ; boot: 400 bytes x 1/2/10 cycles and 2000 x 1 all timed out at 3 s,
+    ; 4000 x 1 completed at 1.3 s, and a 400-byte one-shot right after it
+    ; at 2 ticks.  Real Paula (Vampire/AOS 3.2) completes them all.  A
+    ; long one-shot is a device assertion in its own right; its position
+    ; also gives the emulator the first completion it needs, so the short
+    ; check below stays the strict 2 s spec on every m68k machine.
+    #+m68k
+    (check "audio-long-sample-completes" t
+      (progn
+        (amiga.audio:play-sample audio *audio-test-chip* 8000)
+        (let ((done nil))
+          (dotimes (i 250)
+            (unless (amiga.audio:playing-p audio)
+              (setq done t)
+              (return))
+            (audio-test-delay 1))
+          done)))
+
     ; A short one-shot (~50 ms) completes on its own within 2 s of polling.
     #+m68k
     (check "audio-short-sample-completes" t
