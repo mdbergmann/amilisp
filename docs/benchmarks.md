@@ -46,6 +46,32 @@ Geometric mean over all 32 rows: 1.026.  The C builtins (`set.*`,
 opcode loops are within a tick, the compiler-side rows gain.  Every row
 checked `ok` on both binaries.
 
+**`-O2` with GCC 16** (same tree, `DEBUG_FLAGS="-O2"` after the `-Os`, so
+it wins; `BUILDDIR=build/cross-o2`; A = the `-Os` GCC 16 binary, B =
+`-O2`, A B A B in one boot, best of two): geometric mean 0.805 over all
+34 rows, every row between 0.72 and 0.87, every result `ok`.  `.text`
+grows from 820,996 to 1,030,120 bytes (+25%).  The `-O2` ban in
+`Makefile.cross` records a gcc 6 miscompile of flexible-array pointer
+arguments; the `volatile` workarounds for it are still in the tree.  Not
+adopted by this entry: it needs the Amiga gates on the `-O2` binary and a
+decision on the code size for 8 MB machines.
+
+| row                    | A `-Os` | B `-O2` | B/A  |
+|------------------------|--------:|--------:|-----:|
+| vm.fixnum-loop         |   3040  |   2580  | 0.85 |
+| vm.local-shuffle       |   1900  |   1600  | 0.84 |
+| vm.call-return         |   3000  |   2560  | 0.85 |
+| alloc.cons-churn       |   1840  |   1600  | 0.87 |
+| alloc.mixed-churn      |   4980  |   3700  | 0.74 |
+| clos.slot-value        |    800  |    620  | 0.78 |
+| clos.make-instance     |   4100  |   3500  | 0.85 |
+| kw.call-8keys          |   5380  |   4080  | 0.76 |
+| compile.file-plain     |   3860  |   2840  | 0.74 |
+| mt.call-x8             |  24860  |  21500  | 0.86 |
+| set.intersection-equal |   2260  |   1780  | 0.79 |
+| opt.const-fold         |   1220  |    880  | 0.72 |
+| safety1.call-args      |   2900  |   2320  | 0.80 |
+
 **Reproduce**: build the reference with
 `make -f Makefile.cross amiga TOOLCHAIN=<old prefix> BUILDDIR=build/cross-gcc6`,
 then a boot-override (`verify/realamiga/call-on-ustartup`) that runs each
