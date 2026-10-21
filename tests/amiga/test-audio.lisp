@@ -97,30 +97,38 @@
     (check "audio-stop-sample" nil (amiga.audio:stop-sample audio))
     (check "audio-not-playing-after-stop" nil (amiga.audio:playing-p audio))
 
-    ; A full-second one-shot completes on its own within 5 s of polling.
-    ; This check comes BEFORE the 50 ms one on purpose: on a fresh FS-UAE
-    ; boot audio.device writes under ~4000 bytes never complete (the
-    ; channel's DMA and interrupt are on, yet Paula's AUDx request never
-    ; rises) until one write of 4000 bytes or more has completed -- after
-    ; that every one-shot, even 2 bytes, completes within a few ticks for
-    ; the rest of the emulator session.  Measured 2026-10-21 on a fresh
-    ; boot: 400 bytes x 1/2/10 cycles and 2000 x 1 all timed out at 3 s,
-    ; 4000 x 1 completed at 1.3 s, and a 400-byte one-shot right after it
-    ; at 2 ticks.  Real Paula (Vampire/AOS 3.2) completes them all.  A
-    ; long one-shot is a device assertion in its own right; its position
-    ; also gives the emulator the first completion it needs, so the short
-    ; check below stays the strict 2 s spec on every m68k machine.
+    ; A full-second one-shot completes on its own within 3 s of polling --
+    ; on the first attempt on real Paula (Vampire/AOS 3.2), within five
+    ; attempts anywhere.  The attempts are for FS-UAE and they come BEFORE
+    ; the 50 ms check on purpose: on a fresh FS-UAE boot audio.device's
+    ; CMD_WRITEs do not complete at all (DMA and the channel interrupt are
+    ; on, yet Paula's AUDx request never rises) until the emulator has
+    ; produced about 10.5 s of audio DMA in that session, whatever the
+    ; sample lengths; from then on every one-shot, down to 2 bytes,
+    ; completes within a few ticks until the emulator quits.  Measured
+    ; 2026-10-21 over three fresh boots (one of them after a 5 min wait):
+    ; the first completion came after three failed attempts plus 1.3-2.8 s
+    ; of a fourth, 10.3-10.9 s of DMA in all; a single 1 s one-shot with a
+    ; 5 s budget timed out as the first write.  The short check below
+    ; stays the strict 2 s spec on every m68k machine; this one is the
+    ; device assertion that precedes it and, in the emulator, the warm-up.
     #+m68k
     (check "audio-long-sample-completes" t
-      (progn
-        (amiga.audio:play-sample audio *audio-test-chip* 8000)
-        (let ((done nil))
-          (dotimes (i 250)
+      (let ((done nil))
+        (dotimes (attempt 5)
+          (amiga.audio:play-sample audio *audio-test-chip* 8000)
+          (dotimes (i 150)
             (unless (amiga.audio:playing-p audio)
               (setq done t)
               (return))
             (audio-test-delay 1))
-          done)))
+          (when done
+            (when (plusp attempt)
+              (format t "NOTE: audio.device's first one-shot completed on attempt ~D (the emulator's audio warm-up)~%"
+                      (1+ attempt)))
+            (return))
+          (amiga.audio:stop-sample audio))
+        done))
 
     ; A short one-shot (~50 ms) completes on its own within 2 s of polling.
     #+m68k
