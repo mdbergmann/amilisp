@@ -1290,6 +1290,23 @@ const char *platform_expand_home(const char *path, char *buf, int bufsize)
 #include <netdb.h>
 #else
 #include <proto/bsdsocket.h>
+/* GCC 15+ rejects the Roadshow-era inline stub for SetErrnoPtr that
+ * amiga-netinclude's inline/bsdsocket.h provides: it binds the two
+ * arguments to a0/d0 as register INPUTS and lists a0/d0 among the
+ * clobbers ("'asm' specifier for variable conflicts with 'asm' clobber
+ * list").  The library call does trash them, and a void function has no
+ * d0 result that would make the clobber legal, so bind them as in-out
+ * operands instead.  LVO -168: SetErrnoPtr(errno_ptr/a0, size/d0). */
+#undef SetErrnoPtr
+#define SetErrnoPtr(errno_ptr, size) do { \
+    register struct Library *__sep_base __asm("a6") = SocketBase; \
+    register APTR __sep_ptr __asm("a0") = (APTR)(errno_ptr); \
+    register LONG __sep_size __asm("d0") = (LONG)(size); \
+    __asm volatile ("jsr a6@(-168:W)" \
+        : "+r"(__sep_ptr), "+r"(__sep_size) \
+        : "r"(__sep_base) \
+        : "d1", "a1", "fp0", "fp1", "cc", "memory"); \
+} while (0)
 #endif
 #include <exec/ports.h>
 #include <exec/tasks.h>

@@ -7,6 +7,54 @@ command, and results, so later runs can be compared like-for-like.
 Related: [specs/performance.md](../specs/performance.md) is the optimization
 *plan*; this file is the *measured results* log.
 
+## 2026-10-21 — cross toolchain gcc 6.5.0b → GCC 16.2 (AmigaPorts v16.2-rc18): bytecode rows 2.6% slower at `-Os`
+
+**Context**: the m68k toolchain moved from the 2025-10 gcc 6.5.0b build to
+upstream's release set v16.2-rc18 (GCC 16.2.1b, binutils 2.46, libnix of
+2026-10-18); same `Makefile.cross` flags (`-Os -fomit-frame-pointer`).
+`.text` is 820,996 bytes against 821,748.
+
+**Environment**: FS-UAE, 68040 JIT config, `--no-image --heap 24M`,
+`trunk/bench-opt.lisp` with `*bo-scale*` 1/5 and `*bo-set-size*` 150
+(JIT off by the suite's design), A = gcc 6 binary of the same tree, B =
+GCC 16 binary, one boot running A B A B.  Best of the two rounds per
+binary, ms; the clock ticks in 20 ms steps, so rows under 500 ms carry
+one tick of noise.
+
+| row                    | A gcc 6 | B GCC 16 | B/A  |
+|------------------------|--------:|---------:|-----:|
+| vm.fixnum-loop         |   2960  |   3000   | 1.01 |
+| vm.local-shuffle       |   1860  |   1880   | 1.01 |
+| vm.call-return         |   2860  |   3020   | 1.06 |
+| alloc.cons-churn       |   1820  |   1840   | 1.01 |
+| alloc.mixed-churn      |   5100  |   5080   | 1.00 |
+| clos.make-instance     |   4000  |   4200   | 1.05 |
+| clos.accessor          |    440  |    440   | 1.00 |
+| kw.call-8keys          |   5360  |   5420   | 1.01 |
+| mt.call-x8             |  24080  |  25100   | 1.04 |
+| mt.dynbind-x8          |  26160  |  27180   | 1.04 |
+| set.intersection-equal |   2160  |   2280   | 1.06 |
+| set.intersection-small |   1680  |   1820   | 1.08 |
+| set.union-small        |   2520  |   2640   | 1.05 |
+| opt.const-fold         |   1280  |   1220   | 0.95 |
+| opt.dead-branch        |   2100  |   2040   | 0.97 |
+| safety0.call-args      |   2900  |   2880   | 0.99 |
+| struct.typep           |    360  |    400   | 1.11 |
+
+Geometric mean over all 32 rows: 1.026.  The C builtins (`set.*`,
+`struct.typep`, `clos.make-instance`) and the call path lose 4 to 8%, the
+opcode loops are within a tick, the compiler-side rows gain.  Every row
+checked `ok` on both binaries.
+
+**Reproduce**: build the reference with
+`make -f Makefile.cross amiga TOOLCHAIN=<old prefix> BUILDDIR=build/cross-gcc6`,
+then a boot-override (`verify/realamiga/call-on-ustartup`) that runs each
+binary with `--no-userinit --no-image --heap 24M --non-interactive --load
+<file>` where the file sets the two knobs and loads the suite (the knobs
+cannot go on an AmigaDOS command line: `*` is its escape character).
+
+---
+
 ## 2026-10-03 — m68k JIT direct calls into `&key` callees: an `&key` leaf call 8.6 → 3.1 µs
 
 **Context**: `specs/jit-direct-calls.md`, "&key callees": an `&key`
