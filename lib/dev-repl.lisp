@@ -15,6 +15,14 @@
 ;;;     REPL-ATTACH <port>   start the REPL thread; PORT is the editor's
 ;;;                          ARexx port, where the traffic below goes
 ;;;     REPL-EVAL <forms>    queue the forms; rc 10 while one is running
+;;;     REPL-LOAD <file>     queue a LOAD of the file (an editor's C-c C-k);
+;;;                          rc 10 as above.  What the file prints streams
+;;;                          as a form's output does, its errors and
+;;;                          warnings are the rows the LOAD command answers
+;;;                          (located, LOAD going on with the next form --
+;;;                          never the debugger: a file's errors are its
+;;;                          diagnostics), and RESULT carries the rows and
+;;;                          the summary, without the log
 ;;;     REPL-INPUT <line>    answer an outstanding READLINE
 ;;;     REPL-INTERRUPT       abort the running form
 ;;;     REPL-DETACH          stop the thread
@@ -96,7 +104,9 @@ characters are buffered without one.")
 (defvar *repl-cv* (mp:make-condition-variable "repl"))
 (defvar *repl-thread* nil)
 (defvar *repl-port* nil "The editor's port name while attached.")
-(defvar *repl-job* nil "Form text queued by REPL-EVAL, until the thread takes it.")
+(defvar *repl-job* nil
+  "What REPL-EVAL or REPL-LOAD queued, until the thread takes it: the
+forms' text, or (:LOAD path).")
 (defvar *repl-busy* nil "True from taking a job until RESULT has been sent.")
 (defvar *repl-reading* nil "True while a READLINE is outstanding.")
 (defvar *repl-input* nil "(LINE) once REPL-INPUT has answered, else NIL.")
@@ -317,8 +327,43 @@ parked there) come back through: the form ends with `; Aborted'."
     (%repl-send (format nil "RESULT ~d ~a~%~a" rc (%prompt-package-name *package*)
                         (%truncate (or result "; No values"))))))
 
+(defun %repl-run-load (path out in)
+  "LOAD PATH on this thread as the LOAD command does -- a row per error
+and warning, with its location, LOAD going on with the next form
+(CALL-WITH-DIAGNOSTICS) -- but with what the file prints streamed to the
+editor as it is printed, and the rows, the summary and the LOAD
+command's rc sent as RESULT.  The debugger is not entered: a file's
+errors are its diagnostics, which the editor lists.  REPL-INTERRUPT ends
+the load, which says so in RESULT: without the handler below the
+interrupt would be one more condition LOAD recovers from, and the next
+form would run."
+  (let ((interrupted nil))
+    (format out "~&; loading ~a~%" path)
+    (multiple-value-bind (log diags escaped)
+        (call-with-diagnostics
+         (lambda ()
+           (handler-bind ((repl-interrupt
+                            (lambda (c)
+                              (declare (ignore c))
+                              (setf interrupted t)
+                              ;; %CALL-GUARDED's catch, inside which this runs.
+                              (throw '%escape nil))))
+             (setf *repl-interruptible* t)
+             (let ((*package* *command-package*))
+               (load path))))
+         :locate t :capture nil)
+      (declare (ignore log))
+      (setf *repl-interruptible* nil)
+      (multiple-value-bind (rc text) (%reply diags "" escaped nil :interrupted interrupted)
+        (gray:stream-clear-input in)
+        (%repl-flush out)
+        (%repl-finish-job)
+        (%repl-send (format nil "RESULT ~d ~a~%~a" rc (%prompt-package-name *package*)
+                            (%truncate text)))))))
+
 (defun %repl-take-job ()
-  "Wait for REPL-EVAL's text, or NIL once the REPL is being stopped."
+  "Wait for REPL-EVAL's or REPL-LOAD's job, or NIL once the REPL is being
+stopped."
   (mp:with-lock-held (*repl-lock*)
     (loop until (or *repl-job* *repl-stop*)
           do (mp:condition-wait *repl-cv* *repl-lock*))
@@ -357,12 +402,14 @@ parked there) come back through: the form ends with `; Aborted'."
          (/ nil) (// nil) (/// nil))
     (unwind-protect
          (loop
-           (let ((text (%repl-take-job)))
-             (when (null text) (return))
+           (let ((job (%repl-take-job)))
+             (when (null job) (return))
              ;; IN-PACKAGE from the editor since the last form wins; a form's
              ;; own IN-PACKAGE is handed back through *COMMAND-PACKAGE*.
              (setf *package* *command-package*)
-             (unwind-protect (%repl-run text out in)
+             (unwind-protect (if (consp job)
+                                 (%repl-run-load (second job) out in)
+                                 (%repl-run job out in))
                (%repl-finish-job))))
       (mp:with-lock-held (*repl-lock*)
         (setf *repl-busy* nil
@@ -813,10 +860,10 @@ or (values NIL REASON)."
       (values +rc-ok+ "REPL detached")
       (values +rc-error+ "ERROR: the REPL thread did not stop")))
 
-(define-command "REPL-EVAL" (arg)
-  (cond ((zerop (length arg))
-         (values +rc-fatal+ "ERROR: REPL-EVAL requires a form"))
-        ((not (%repl-alive-p))
+(defun %repl-queue (job)
+  "Hand JOB -- REPL-EVAL's text, or REPL-LOAD's (:LOAD path) -- to the
+REPL thread, or say why not."
+  (cond ((not (%repl-alive-p))
          (values +rc-error+ "ERROR: no REPL attached (send REPL-ATTACH <port> first)"))
         (t
          (mp:with-lock-held (*repl-lock*)
@@ -825,9 +872,20 @@ or (values NIL REASON)."
                  ((or *repl-job* *repl-busy*)
                   (values +rc-error+ "ERROR: the REPL is busy (REPL-INTERRUPT aborts the running form)"))
                  (t
-                  (setf *repl-job* arg)
+                  (setf *repl-job* job)
                   (mp:condition-broadcast *repl-cv*)
                   (values +rc-ok+ "")))))))
+
+(define-command "REPL-EVAL" (arg)
+  (if (zerop (length arg))
+      (values +rc-fatal+ "ERROR: REPL-EVAL requires a form")
+      (%repl-queue arg)))
+
+(define-command "REPL-LOAD" (arg)
+  (let ((path (%unquote arg)))
+    (if (zerop (length path))
+        (values +rc-fatal+ "ERROR: REPL-LOAD requires a file name")
+        (%repl-queue (list :load path)))))
 
 (define-command "REPL-INPUT" (arg)
   (if (not (%repl-alive-p))

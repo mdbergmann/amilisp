@@ -161,10 +161,13 @@ here.  See tests/test_dev_commands.sh."
     (values errors warnings
             (format nil "~d error(s), ~d warning(s)" errors warnings))))
 
-(defun call-with-diagnostics (thunk &key locate)
+(defun call-with-diagnostics (thunk &key locate (capture t))
   "Call THUNK, returning (values LOG DIAGS ESCAPED-P): everything it
 printed, a DIAG struct for every ERROR and WARNING signalled inside it,
-and whether a condition unwound out of THUNK entirely.
+and whether a condition unwound out of THUNK entirely.  With CAPTURE
+false nothing is captured -- what THUNK prints goes where the streams
+point, which is how the REPL thread streams a LOAD to the editor as it
+runs (lib/dev-repl.lisp, REPL-LOAD) -- and LOG is the empty string.
 
 The ERROR handler DECLINES (returns normally) on purpose.  LOAD catches
 per top-level form and moves on to the next one, so declining is what
@@ -177,34 +180,39 @@ Note this relies on LOAD's per-form recovery surviving the UNWIND-PROTECT
 that WITH-OUTPUT-TO-STRING expands into; see tests/test_unwind_load.c for
 the regression that guards it."
   (let ((diags '()) (escaped nil))
-    (let ((log (with-output-to-string (stream)
-                 (let ((*standard-output* stream)
-                       (*error-output* stream)
-                       (*trace-output* stream))
-                   (setf escaped
-                         (nth-value
-                          1
-                          (%call-guarded
-                           (lambda ()
-                             (handler-bind
-                                 ((warning
-                                    (lambda (c)
-                                      (multiple-value-bind (f l) (%error-location locate)
-                                        (push (make-diag :warning f l (%condition-text c))
-                                              diags))
-                                      (muffle-warning c)))
-                                  (error
-                                    (lambda (c)
-                                      (multiple-value-bind (f l) (%error-location locate)
-                                        (push (make-diag :error f l (%condition-text c))
-                                              diags)))))
-                               (funcall thunk))))))))))
-      (values log (nreverse diags) escaped))))
+    (flet ((run ()
+             (setf escaped
+                   (nth-value
+                    1
+                    (%call-guarded
+                     (lambda ()
+                       (handler-bind
+                           ((warning
+                              (lambda (c)
+                                (multiple-value-bind (f l) (%error-location locate)
+                                  (push (make-diag :warning f l (%condition-text c))
+                                        diags))
+                                (muffle-warning c)))
+                            (error
+                              (lambda (c)
+                                (multiple-value-bind (f l) (%error-location locate)
+                                  (push (make-diag :error f l (%condition-text c))
+                                        diags)))))
+                         (funcall thunk))))))))
+      (let ((log (if capture
+                     (with-output-to-string (stream)
+                       (let ((*standard-output* stream)
+                             (*error-output* stream)
+                             (*trace-output* stream))
+                         (run)))
+                     (progn (run) ""))))
+        (values log (nreverse diags) escaped)))))
 
-(defun %reply (diags log escaped &optional prefix)
+(defun %reply (diags log escaped &optional prefix &key interrupted)
   "Assemble the reply text and its return code from recorded DIAGS and
 captured LOG.  Diagnostics come first so that the machine-readable part
-survives truncation; the raw log follows for a human to read."
+survives truncation; the raw log follows for a human to read.  An
+ESCAPED run says it was aborted -- interrupted, with INTERRUPTED."
   (multiple-value-bind (errors warnings summary) (%summary diags)
     (let ((text (with-output-to-string (s)
                   (when prefix
@@ -219,7 +227,8 @@ survives truncation; the raw log follows for a human to read."
                     ;; buffer, say) takes the rest of the file with it -- say
                     ;; so, rather than letting the count imply the file was
                     ;; fully processed.
-                    (format s "~%; aborted -- the remaining forms were not processed"))
+                    (format s "~%; ~:[aborted~;interrupted~] -- the remaining forms were not processed"
+                            interrupted))
                   (when (plusp (length log))
                     (format s "~%--- log ---~%~a" log)))))
       (values (cond ((or escaped (plusp errors)) +rc-error+)

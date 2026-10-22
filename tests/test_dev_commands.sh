@@ -548,6 +548,47 @@ cat > "$TMPD/repl.lisp" <<'EOF'
 (cmd "readline" "REPL-EVAL (read-line)")
 (wait-result) (show "readline")
 (cmd "stray" "REPL-INPUT stray")
+EOF
+# The fixture directory, expanded by the shell: the script above is quoted.
+cat >> "$TMPD/repl.lisp" <<EOF
+(defvar *load-dir* "$TMPD/")
+EOF
+cat >> "$TMPD/repl.lisp" <<'EOF'
+;; REPL-LOAD: a file loaded on the REPL thread (an editor's C-c C-k).  Its
+;; output streams as a form's does, its errors are the rows the LOAD
+;; command answers -- with their locations, LOAD going on with the next
+;; form -- and RESULT carries the rows and the summary, no log.
+(defun load-fixture (name text)
+  (let ((path (concatenate 'string *load-dir* name)))
+    (with-open-file (s path :direction :output :if-exists :supersede)
+      (write-string text s))
+    path))
+(cmd "load-nofile" "REPL-LOAD")
+(cmd "load" (concatenate 'string "REPL-LOAD "
+                         (load-fixture "replload.lisp"
+                                       "(princ \"loading-one\") (terpri)
+(error \"load boom\")
+(princ \"loading-two\") (terpri)
+(defun after-the-error () 1)
+")))
+(wait-result) (show "load")
+(format t "<<AFTER-THE-ERROR=~a>>~%" (fboundp 'cl-user::after-the-error))
+(cmd "load-missing" (concatenate 'string "REPL-LOAD " *load-dir* "no-such-file-here.lisp"))
+(wait-result) (show "load missing")
+;; A load that does not end on its own -- a file whose last form runs a
+;; window's event loop -- is interrupted like a form, and the forms after
+;; the interrupted one are not loaded.
+(cmd "load-loop" (concatenate 'string "REPL-LOAD "
+                              (load-fixture "replloop.lisp"
+                                            "(princ \"before-loop\") (terpri)
+(loop)
+(princ \"never\") (terpri)
+")))
+(sleep 0.3)
+(cmd "load-busy" (concatenate 'string "REPL-LOAD " *load-dir* "replload.lisp"))
+(cmd "eval-busy-load" "REPL-EVAL (+ 1 1)")
+(cmd "interrupt-load" "REPL-INTERRUPT")
+(wait-result) (show "load interrupt")
 (cmd "chunks" "REPL-EVAL (princ (make-string 2500 :initial-element #\\x))")
 (wait-result)
 (format t "<<CHUNKS=~d>>~%"
@@ -631,6 +672,24 @@ check "a warning does not fail the form"        'RESULT 0 CL-USER' "$(block warn
 check "READ-LINE asks the editor"               '^SENT EDITOR|READLINE$' "$(block readline)"
 check "REPL-INPUT is the line read"             '"typed line"'     "$(block readline)"
 check "REPL-INPUT with no READLINE outstanding is rc 10" '<<stray RC=10>>' "$repl_out"
+check "REPL-LOAD needs a file name"              '<<load-nofile RC=20>>' "$repl_out"
+check "REPL-LOAD replies at once"                '<<load RC=0>>'    "$repl_out"
+check "a load announces its file as output"      'OUTPUT ; loading .*replload.lisp' "$(block load)"
+check "a load's output is streamed"              'OUTPUT loading-one$' "$(block load)"
+check "a load's output precedes its RESULT"      'OUTPUT loading-two' "$(block load | sed -n '1,/RESULT/p')"
+check "LOAD went on past the error"              '<<AFTER-THE-ERROR=T>>' "$repl_out"
+check "a load with an error is rc 10 in RESULT"  'RESULT 10 CL-USER' "$(block load)"
+check "RESULT carries the row with its location" 'replload.lisp:2: ERROR: load boom' "$(block load)"
+check "RESULT carries the summary"               '^1 error(s), 0 warning(s)$' "$(block load)"
+check_not "RESULT carries no log: it was streamed" 'log ---' "$(block load)"
+check "a missing file is a row, rc 10"           'RESULT 10 CL-USER' "$(block 'load missing')"
+check "which names the file"                     'does not exist'   "$(block 'load missing')"
+check "REPL-LOAD while a load runs is rc 10"     '<<load-busy RC=10>>' "$repl_out"
+check "REPL-EVAL while a load runs is rc 10"     '<<eval-busy-load RC=10>>' "$repl_out"
+check "REPL-INTERRUPT ends a load"               'RESULT 10 CL-USER' "$(block 'load interrupt')"
+check "the interrupted load says so"             '; interrupted -- the remaining forms were not processed' "$(block 'load interrupt')"
+check "its output before the interrupt arrived"  'OUTPUT before-loop' "$(block 'load interrupt')"
+check_not "the forms after the interrupt did not run" 'never' "$(block 'load interrupt')"
 check "a big write goes out in chunks"          '<<CHUNKS=3>>'     "$repl_out"
 check "the chunks add up to the text"           '<<TOTAL=2500>>'   "$repl_out"
 check "REPL-INTERRUPT when idle is rc 0"        'the REPL is idle' "$repl_out"
@@ -756,6 +815,11 @@ cat > "$TMPD/debug.lisp" <<'EOF'
 (defun thread-alive ()
   (and ext.dev::*repl-thread* (mp:thread-alive-p ext.dev::*repl-thread*) t))
 (defun dbg-fn (a b) (let ((c (* a b))) (error "bad ~a" c)))
+EOF
+cat >> "$TMPD/debug.lisp" <<EOF
+(defvar *load-dir* "$TMPD/")
+EOF
+cat >> "$TMPD/debug.lisp" <<'EOF'
 
 (cmd "backtrace-idle" "BACKTRACE")
 (cmd "attach-bad-option" "REPL-ATTACH EDITOR VERBOSE")
@@ -828,6 +892,18 @@ cat > "$TMPD/debug.lisp" <<'EOF'
 (wait-debugger 1) (setf *sent* '())
 (cmd "continue-after" "CONTINUE")
 (wait-result) (show "continue-after")
+;; A load under DEBUG: the file's errors are rows in RESULT, as the port's
+;; LOAD answers them, and LOAD goes on with the next form -- the debugger
+;; is for a form, not for a file.
+(with-open-file (s (concatenate 'string *load-dir* "debugload.lisp")
+                   :direction :output :if-exists :supersede)
+  (write-string "(princ \"dl-one\") (terpri)
+(error \"bad ~a\" (* 5 6))
+(defvar *after-debug-load* :reached)
+" s))
+(cmd "debug-load" (concatenate 'string "REPL-LOAD " *load-dir* "debugload.lisp"))
+(wait-result) (show "debug-load")
+(format t "<<AFTER-DEBUG-LOAD=~a>>~%" (boundp 'cl-user::*after-debug-load*))
 (cmd "debug-error3" "REPL-EVAL (error \"z\")")
 (wait-debugger 1) (setf *sent* '())
 (cmd "detach-in-debugger" "REPL-DETACH")
@@ -877,6 +953,11 @@ check "CONTINUE goes on with the form"           ':WENT-ON'         "$(dblock co
 check "a restart without a report shows its name alone" '0: USE-VALUE $' "$(dblock use-value-entered)"
 check "an interactive restart reads through READLINE" 'READLINE'    "$(dblock use-value)"
 check "and its value is the form's"              '"typed line"'     "$(dblock use-value)"
+check "a load under DEBUG streams its output"    'OUTPUT dl-one'    "$(dblock debug-load)"
+check "a load under DEBUG ends with RESULT"      'RESULT 10 CL-USER' "$(dblock debug-load)"
+check_not "a load's error opens no debugger"     'DEBUGGER'         "$(dblock debug-load)"
+check "the load's error is a row"                'debugload.lisp:2: ERROR: bad 30' "$(dblock debug-load)"
+check "and the load went on past it"             '<<AFTER-DEBUG-LOAD=T>>' "$debug_out"
 check "REPL-INTERRUPT in the debugger ends the form" 'ERROR: Interrupted' "$(dblock interrupt-debugger)"
 check "INSPECT * sees the REPL's last value"     '^(:A :B)$'        "$(dreply inspect-star)"
 check "INSPECT starts with a header"             '^CONS 1 2$'       "$(dreply inspect-cons)"

@@ -1062,6 +1062,7 @@ Work:src/foo.lisp:40: ERROR: Too many arguments to DRAW: expected 2, got 3
 | `MACROEXPAND <form>`, `MACROEXPAND-1 <form>` | The expansion, laid out as code (body forms indented, arguments aligned) rather than filled to the margin; lines break at column `ext.dev:*pretty-margin*` (72) |
 | `REPL-ATTACH <port> [DEBUG]` | Start the REPL thread, which talks back to the editor's ARexx port `<port>` (see below); answers with the current package. With `DEBUG`, an unhandled error opens the debugger protocol instead of ending the form |
 | `REPL-EVAL <forms>` | Hand the forms to the REPL thread; answers at once (rc 10 while a form is still running), the values arrive with `RESULT` |
+| `REPL-LOAD <file>` | Hand a `LOAD` of the file to the REPL thread (an editor's C-c C-k); answers at once. The file's output streams as `OUTPUT` while it loads, its errors and warnings are rows LOAD goes on past -- what the port's `LOAD` reports, never the debugger -- and `RESULT` carries the rows and the summary |
 | `REPL-INPUT <line>` | Answer an outstanding `READLINE` |
 | `REPL-INTERRUPT` | Abort the running form (also from inside the debugger) |
 | `REPL-DETACH` | Stop the REPL thread |

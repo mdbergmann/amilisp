@@ -294,6 +294,37 @@
 (check "dev-repl: and its form runs" t
        (drt-sent-p (lambda (c) (and (drt-prefix-p "RESULT 0" c) (search "42" c) t))))
 
+;;; REPL-LOAD: a file loaded on the REPL thread (the editor's C-c C-k) --
+;;; its output streamed before RESULT, its errors rows in RESULT with
+;;; LOAD going on with the next form, and no debugger although this REPL
+;;; is attached with DEBUG: a file's errors are its diagnostics.
+;;; The error is signalled at top level: a row's location is the innermost
+;;; frame outside dev-commands (%ERROR-LOCATION), which for an error raised
+;;; inside a function is that function's, not the loaded file's line.
+(with-open-file (s "T:drt-load.lisp" :direction :output :if-exists :supersede)
+  (write-string "(princ \"drt-load-one\") (terpri)
+(error \"drt load ~a\" (* 2 3))
+(defvar *drt-load-reached* :yes)
+" s))
+(drt-clear)
+(multiple-value-bind (rc text) (drt-cmd "REPL-LOAD T:drt-load.lisp")
+  (declare (ignore text))
+  (check "dev-repl: REPL-LOAD replies at once" 0 rc))
+(check "dev-repl: a load ends with RESULT" t (drt-wait-result))
+(let ((sent (mp:with-lock-held (*drt-lock*) (reverse *drt-sent*))))
+  (check "dev-repl: a load's output is streamed before RESULT" t
+         (let ((out (position-if (lambda (c) (and (search "drt-load-one" c) t)) sent))
+               (res (position-if (lambda (c) (drt-prefix-p "RESULT" c)) sent)))
+           (and out res (< out res))))
+  (check "dev-repl: a load's error is a row in RESULT" t
+         (and (search "drt-load.lisp:2: ERROR: drt load 6" (drt-last-result)) t))
+  (check "dev-repl: a load's error opens no debugger" nil
+         (find-if (lambda (c) (drt-prefix-p "DEBUGGER 1" c)) sent))
+  (check "dev-repl: LOAD went on past the error" t
+         (let ((sym (find-symbol "*DRT-LOAD-REACHED*" "CL-USER")))
+           (and sym (boundp sym) t))))
+(ignore-errors (delete-file "T:drt-load.lisp"))
+
 ;;; Systems (EXT.DEV:LOAD-ASD-SYSTEM): what is refused is refused before
 ;;; ASDF is asked for, so a wrong pick in the editor costs no memory.  The
 ;;; load itself is host-tested (tests/test_dev_commands.sh); ASDF is more
