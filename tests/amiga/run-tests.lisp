@@ -13012,7 +13012,7 @@ y" 1))
   (let ((lost (ext:%cpu-store-selftest 20000))
         (flagged (and (member :cpu-lost-stores *features*) t)))
     (when (> lost 0)
-      (format t "~&  this CPU lost ~A of 20000 stores (see verify/realamiga/PROBES.md)~%" lost))
+      (format t "~&  this CPU lost ~A of 20000 stores (see docs/vampire-68080-lost-stores.md)~%" lost))
     (eq (> lost 0) flagged)))
 (check "cpu-store-selftest: ROUNDS must be a positive fixnum" t
   (handler-case (progn (ext:%cpu-store-selftest 0) nil)

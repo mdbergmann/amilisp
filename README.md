@@ -1669,13 +1669,13 @@ sections of `tests/amiga/run-tests.lisp` for usage examples.
 ### CPU store self-test
 
 Some FPGA CPU cores lose memory stores: the Apollo 68080 of the Vampire V4
-(core 10760) drops the last of a short run of stores after a memory-to-memory
-move from an absolute address — a sequence gcc emits for ordinary function
-prologues — so a C local can read back as whatever its stack slot held
-before, and any program fails at random ("not a function", "too few
-arguments", wrong values), differently on every launch.  Nothing in software
-avoids it: the data cache, superscalar mode and compiler flags make no
-difference.
+with core 10760 drops the last of a short run of stores after a
+memory-to-memory move from an absolute address — a sequence gcc emits for
+ordinary function prologues — so a C local can read back as whatever its
+stack slot held before, and any program fails at random ("not a function",
+"too few arguments", wrong values), differently on every launch.  Nothing in
+software avoids it: the data cache, superscalar mode and compiler flags make
+no difference.  Core 11350 no longer shows it; updating the core is the fix.
 
 So the m68k build checks at startup.  It replays that store sequence a few
 thousand times (milliseconds) and, if a store is lost, prints a warning
@@ -1691,8 +1691,9 @@ the startup check, and `AMILISP_CPU_CHECK=<n>` (a positive number) makes any
 CPU report `n` lost stores — a marked, simulated warning, for trying
 `#+cpu-lost-stores` code on a sound machine.  A session started from a heap
 image gets the verdict of the machine it runs on, not of the one that saved
-the image.  The standalone probes that pinned the defect down, and
-what to report to the Apollo team, are in `verify/realamiga/PROBES.md`.
+the image.  `docs/vampire-68080-lost-stores.md` has the defect's record:
+the instruction sequence, what decides it, the machines checked and what
+to report to the Apollo team.
 See `tests/test_cpu_selftest.sh` and the `cpu-store-selftest` block in
 `tests/amiga/run-tests.lisp`.
 
@@ -2554,7 +2555,7 @@ tools/
   docs/                md2guide, the Markdown -> AmigaGuide converter
   sly/                 SLY/SLYNK launcher script
 verify/
-  realamiga/      FS-UAE configurations, AmigaOS system image, run/verify scripts, CPU probes
+  realamiga/      FS-UAE configurations, AmigaOS system image, run/verify scripts
 ```
 
 ## How it compares

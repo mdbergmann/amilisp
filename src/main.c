@@ -774,8 +774,8 @@ static void cpu_store_check(void)
              "*** can fail at random (\"not a function\", \"too few arguments\", wrong\n"
              "*** values), and a launch this test does not flag is not safe either.\n"
              "*** :CPU-LOST-STORES is on *FEATURES*; (ext:%%cpu-store-selftest) repeats\n"
-             "*** the test.  See verify/realamiga/PROBES.md in the amilisp sources and\n"
-             "*** report your core (ApolloControl CORE) to the Apollo team.\n"
+             "*** the test.  See docs/vampire-68080-lost-stores.md in the amilisp\n"
+             "*** sources; a newer core (11350 and up) does not have the defect.\n"
              "*** AMILISP_CPU_CHECK=0 skips this test.\n",
              (unsigned long)lost, (unsigned long)CPU_STORE_CHECK_ROUNDS);
     /* platform_write_string: on AmigaOS this must land in the console or

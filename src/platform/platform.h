@@ -411,7 +411,7 @@ long platform_stack_headroom(void);
  * sound CPU answers 0.  The Apollo 68080
  * (Vampire V4, core 10760, 2026-09-19) drops or delays the last store of
  * that chain whenever the absolute source's address mod 64 is one of a
- * fixed set of alignments (verify/realamiga/storeprobe.c, PROBES.md); the
+ * fixed set of alignments (docs/vampire-68080-lost-stores.md); the
  * data hunk lands somewhere else on every launch, so on that core the
  * test flags about every second launch (a sweep over several source
  * addresses would flag every launch but froze the machine -- see

@@ -203,20 +203,9 @@ ALL_SRCS = $(MAIN_SRC) $(PLATFORM_SRC) $(CORE_SRC) $(JIT_SRC)
 ALL_OBJS = $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/%.o,$(ALL_SRCS)) \
            $(patsubst $(SRCDIR)/%.s,$(BUILDDIR)/%.o,$(PLATFORM_ASM) $(JIT_ASM))
 
-.PHONY: amiga test-amiga test-amiga-lowend examples-amiga image-amiga editor-image-amiga clean check-toolchain probes
+.PHONY: amiga test-amiga test-amiga-lowend examples-amiga image-amiga editor-image-amiga clean check-toolchain
 
 amiga: check-toolchain $(BUILDDIR)/amilisp $(BUILDDIR)/wbrun
-
-# probes: the standalone CPU/system probes of verify/realamiga (PROBES.md) --
-# storeprobe (the Vampire 68080 lost-store defect), fpuregtest, regtest,
-# stackprobe.  Plain -O1 68020 binaries, no runtime needed on the Amiga.
-PROBE_NAMES = storeprobe fpuregtest regtest stackprobe
-probes: check-toolchain $(patsubst %,$(BUILDDIR)/probes/%,$(PROBE_NAMES))
-	@echo "probes built: $(patsubst %,$(BUILDDIR)/probes/%,$(PROBE_NAMES))"
-
-$(BUILDDIR)/probes/%: verify/realamiga/%.c
-	@mkdir -p $(dir $@)
-	$(CC) -noixemul -mcpu=68020 -O1 -Wall -Wno-unused-variable -o $@ $<
 
 # wbrun: starts a program the way Workbench does (verify/realamiga/wbrun.c);
 # the suite's Workbench-start leg runs amilisp through it.

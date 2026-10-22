@@ -10,8 +10,8 @@
 | into a static buffer (see "The target" below), at every destination
 | alignment mod 16 longs, and counts the replays after which the five words
 | do not read back as written.  The Apollo 68080 (Vampire V4, core 10760, 2026-09-19) loses or
-| delays the last store of that chain -- verify/realamiga/storeprobe.c has
-| the shapes that pinned it down.
+| delays the last store of that chain -- docs/vampire-68080-lost-stores.md
+| is the record (core 11350 no longer has it).
 |
 | ONE absolute source, on purpose.  Whether the core loses the store
 | depends on the ADDRESS of that source (mod 64: 8 of 16 longword offsets
@@ -19,7 +19,7 @@
 | else on every launch -- so on that core this test flags about every
 | second launch, not every launch.  A sweep over sixteen sources at
 | consecutive addresses, which would catch every launch, was tried twice
-| (from C and as storeprobe v21) and both times FROZE THE MACHINE within
+| (from C and as a standalone probe) and both times FROZE THE MACHINE within
 | seconds, the display "out of range": switching the source address
 | between replays makes the mis-executed store land outside our buffer, in
 | hardware registers.  The single-source chain, which is what every gcc
@@ -34,7 +34,7 @@
 | (register source, which the defect leaves alone).
 |
 | The target is a STATIC buffer, not the stack: a lost store can also land
-| LATE (storeprobe v12), and a stack buffer is reused by the very next
+| LATE (one probe shape showed it), and a stack buffer is reused by the very next
 | call's frame -- a version of this routine with its buffer 1K below the
 | caller's frame crashed amilisp at startup with a CHK exception (guru
 | 80000006: a return address overwritten), where the calls that follow the
