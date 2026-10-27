@@ -256,8 +256,11 @@ CL_NORETURN void cl_error_frame_longjmp(int code)
     }
 
     /* No error frame — fatal */
-    cl_color_set(CL_COLOR_RED);
-    platform_write_string("FATAL ERROR: ");
+    cl_color_set(CL_COLOR_ERROR_TAG);
+    platform_write_string("FATAL ERROR:");
+    cl_color_reset();
+    cl_color_set(CL_COLOR_ERROR);
+    platform_write_string(" ");
     platform_write_string(cl_error_msg);
     cl_color_reset();
     platform_write_string("\n");
@@ -567,8 +570,13 @@ void cl_error_from_condition(CL_Obj condition)
 
 void cl_error_print(void)
 {
-    cl_color_set(CL_COLOR_RED);
-    cl_write_cstring_to_error("ERROR: ");
+    /* The tag and the text are coloured apart: on an Amiga console the tag
+     * is an inverse-video badge, the text bold (color.h). */
+    cl_color_set(CL_COLOR_ERROR_TAG);
+    cl_write_cstring_to_error("ERROR:");
+    cl_color_reset();
+    cl_color_set(CL_COLOR_ERROR);
+    cl_write_cstring_to_error(" ");
     cl_write_cstring_to_error(cl_error_msg);
     cl_color_reset();
     cl_write_cstring_to_error("\n");

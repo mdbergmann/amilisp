@@ -321,7 +321,7 @@ static void inspect_show(InspectState *state)
     char buf[32];
 
     /* Header */
-    cl_color_set(CL_COLOR_DIM_CYAN);
+    cl_color_set(CL_COLOR_HEADING);
     write_str("\nInspecting: ");
     cl_color_reset();
     write_obj_buf(obj);
@@ -331,7 +331,7 @@ static void inspect_show(InspectState *state)
 
     /* Navigation breadcrumb */
     if (state->depth > 0) {
-        cl_color_set(CL_COLOR_YELLOW);
+        cl_color_set(CL_COLOR_LABEL);
         write_str("  Path: ");
         for (i = 0; i <= state->depth; i++) {
             if (i > 0) write_str(" > ");
@@ -361,7 +361,7 @@ static void inspect_show(InspectState *state)
         comp = cl_inspect_get_component(obj, i, &label);
 
         snprintf(buf, sizeof(buf), "  %2d: ", i);
-        cl_color_set(CL_COLOR_DIM_GREEN);
+        cl_color_set(CL_COLOR_VALUE);
         write_str(buf);
         write_str(label);
         cl_color_reset();
@@ -401,14 +401,14 @@ static void inspect_loop(InspectState *state)
     inspect_show(state);
     inspect_help();
 
-    cl_color_set(CL_COLOR_DIM_CYAN);
+    cl_color_set(CL_COLOR_HEADING);
     write_str("Inspect> ");
     cl_color_reset();
 
     while (platform_read_line(line, sizeof(line))) {
         /* Skip empty lines */
         if (line[0] == '\0') {
-            cl_color_set(CL_COLOR_DIM_CYAN);
+            cl_color_set(CL_COLOR_HEADING);
             write_str("Inspect> ");
             cl_color_reset();
             continue;
@@ -483,7 +483,7 @@ static void inspect_loop(InspectState *state)
                 CL_UNCATCH();
             } else {
                 CL_UNCATCH();
-                cl_color_set(CL_COLOR_RED);
+                cl_color_set(CL_COLOR_ERROR);
                 write_str("Error: ");
                 write_str(cl_error_msg);
                 cl_color_reset();
@@ -529,7 +529,7 @@ static void inspect_loop(InspectState *state)
         write_str("Unknown command. Type 'h' for help.\n");
 
     prompt:
-        cl_color_set(CL_COLOR_DIM_CYAN);
+        cl_color_set(CL_COLOR_HEADING);
         write_str("Inspect> ");
         cl_color_reset();
     }

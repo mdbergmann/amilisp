@@ -90,7 +90,7 @@ static void display_condition(CL_Obj condition, void (*emit)(const char *),
         }
     }
 
-    if (use_color) cl_color_set(CL_COLOR_BOLD_RED);
+    if (use_color) cl_color_set(CL_COLOR_ERROR_STRONG);
     emit("\nDebugger entered: ");
     cond = (CL_Condition *)CL_OBJ_TO_PTR(condition);
     cl_prin1_to_string(cond->type_name, buf, sizeof(buf));
@@ -303,7 +303,7 @@ void cl_invoke_debugger(CL_Obj condition)
      * clear diagnostic.  cl_debugger_depth is restored on every error-frame
      * unwind (see error.c) so it cannot stay falsely elevated. */
     if (cl_debugger_depth >= CL_DEBUGGER_MAX_DEPTH) {
-        cl_color_set(CL_COLOR_RED);
+        cl_color_set(CL_COLOR_ERROR);
         cl_write_cstring_to_debug_io(
             "\nDebugger recursion limit reached "
             "(error while handling an error) - returning to top level.\n");
@@ -394,14 +394,14 @@ void cl_invoke_debugger(CL_Obj condition)
     display_help();
 
     /* Mini-REPL loop */
-    cl_color_set(CL_COLOR_DIM_MAGENTA);
+    cl_color_set(CL_COLOR_DEBUG_PROMPT);
     cl_write_cstring_to_debug_io("\nDebug> ");
     cl_color_reset();
 
     while (platform_read_line(line, sizeof(line))) {
         /* Skip empty lines */
         if (line[0] == '\0') {
-            cl_color_set(CL_COLOR_DIM_MAGENTA);
+            cl_color_set(CL_COLOR_DEBUG_PROMPT);
             cl_write_cstring_to_debug_io("Debug> ");
             cl_color_reset();
             continue;
@@ -411,7 +411,7 @@ void cl_invoke_debugger(CL_Obj condition)
         if (strncmp(line, ":bt", 3) == 0 &&
             (line[3] == '\0' || line[3] == ' ' || line[3] == '\t')) {
             handle_bt_command(line + 3, &bt_frames);
-            cl_color_set(CL_COLOR_DIM_MAGENTA);
+            cl_color_set(CL_COLOR_DEBUG_PROMPT);
             cl_write_cstring_to_debug_io("Debug> ");
             cl_color_reset();
             continue;
@@ -423,7 +423,7 @@ void cl_invoke_debugger(CL_Obj condition)
 
         if (strcmp(line, ":help") == 0) {
             display_help();
-            cl_color_set(CL_COLOR_DIM_MAGENTA);
+            cl_color_set(CL_COLOR_DEBUG_PROMPT);
             cl_write_cstring_to_debug_io("Debug> ");
             cl_color_reset();
             continue;
@@ -448,7 +448,7 @@ void cl_invoke_debugger(CL_Obj condition)
                 } else {
                     cl_write_cstring_to_debug_io("Invalid restart number\n");
                 }
-                cl_color_set(CL_COLOR_DIM_MAGENTA);
+                cl_color_set(CL_COLOR_DEBUG_PROMPT);
                 cl_write_cstring_to_debug_io("Debug> ");
                 cl_color_reset();
                 continue;
@@ -493,7 +493,7 @@ void cl_invoke_debugger(CL_Obj condition)
                 CL_UNCATCH();
             } else {
                 CL_UNCATCH();
-                cl_color_set(CL_COLOR_RED);
+                cl_color_set(CL_COLOR_ERROR);
                 cl_write_cstring_to_debug_io("Error during eval: ");
                 cl_write_cstring_to_debug_io(cl_error_msg);
                 cl_color_reset();
@@ -511,7 +511,7 @@ void cl_invoke_debugger(CL_Obj condition)
             cl_render_backtrace(bt_frames);
         }
 
-        cl_color_set(CL_COLOR_DIM_MAGENTA);
+        cl_color_set(CL_COLOR_DEBUG_PROMPT);
         cl_write_cstring_to_debug_io("Debug> ");
         cl_color_reset();
     }

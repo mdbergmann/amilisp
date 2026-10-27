@@ -33,7 +33,7 @@ static int pkg_name_len(void)
 /* Print REPL prompt showing current package name */
 static void repl_prompt(void)
 {
-    cl_color_set(CL_COLOR_DIM_CYAN);
+    cl_color_set(CL_COLOR_PROMPT);
     if (CL_HEAP_P(cl_current_package)) {
         CL_Package *pkg = (CL_Package *)CL_OBJ_TO_PTR(cl_current_package);
         CL_String *name = (CL_String *)CL_OBJ_TO_PTR(pkg->name);
@@ -49,7 +49,7 @@ static void repl_prompt(void)
 static void repl_continuation_prompt(void)
 {
     int i, len = pkg_name_len();
-    cl_color_set(CL_COLOR_DIM_CYAN);
+    cl_color_set(CL_COLOR_PROMPT);
     for (i = 0; i < len; i++)
         cl_write_cstring_to_stdout(" ");
     cl_write_cstring_to_stdout("> ");
@@ -597,7 +597,7 @@ void cl_repl_print_values(CL_Obj values, int colorize)
      * this FRESH-LINE and not TERPRI. */
     cl_stream_sym_fresh_line(SYM_STANDARD_OUTPUT);
     while (CL_CONS_P(values)) {
-        if (colorize) cl_color_set(CL_COLOR_DIM_GREEN);
+        if (colorize) cl_color_set(CL_COLOR_VALUE);
         cl_prin1(cl_car(values));
         if (colorize) cl_color_reset();
         cl_write_cstring_to_stdout("\n");

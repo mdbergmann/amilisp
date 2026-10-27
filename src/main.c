@@ -464,9 +464,9 @@ static void banner_art_line(int i, int text_follows)
 {
     int pad = BANNER_ART_WIDTH - (int)strlen(banner_parens[i])
                                - (int)strlen(banner_lambda[i]);
-    cl_color_set(CL_COLOR_LIGHT_BLUE);
+    cl_color_set(CL_COLOR_ART_PARENS);
     platform_write_string(banner_parens[i]);
-    cl_color_set(CL_COLOR_RED);
+    cl_color_set(CL_COLOR_ART_LAMBDA);
     platform_write_string(banner_lambda[i]);
     cl_color_reset();
     while (text_follows && pad-- > 0) platform_write_string(" ");
@@ -509,7 +509,7 @@ static void print_banner(void)
     for (i = 0; i < 6; i++) {
         banner_art_line(i, text[i] != NULL);
         if (text[i]) {
-            cl_color_set(CL_COLOR_DIM_CYAN);
+            cl_color_set(CL_COLOR_HEADING);
             platform_write_string(text[i]);
             cl_color_reset();
         }

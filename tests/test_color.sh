@@ -55,8 +55,8 @@ repl() {
 cout=$(repl --color)
 check_contains "prompt_in_cyan"       "${ESC}[36mCOMMON-LISP-USER> ${ESC}[0m" "$cout"
 check_contains "value_in_green"       "${ESC}[32m3${ESC}[0m" "$cout"
-check_contains "warning_in_yellow"    "${ESC}[33mWARNING: careful${ESC}[0m" "$cout"
-check_contains "error_in_red"         "${ESC}[31mERROR: SIMPLE-ERROR: boom${ESC}[0m" "$cout"
+check_contains "warning_tag_and_text_in_yellow" "${ESC}[33mWARNING:${ESC}[0m${ESC}[33m careful${ESC}[0m" "$cout"
+check_contains "error_tag_and_text_in_red"      "${ESC}[31mERROR:${ESC}[0m${ESC}[31m SIMPLE-ERROR: boom${ESC}[0m" "$cout"
 check_contains "banner_art_parens"    "${ESC}[94m" "$cout"
 check_contains "banner_art_lambda"    "${ESC}[31m" "$cout"
 check_contains "banner_text_in_cyan"  "${ESC}[36mAmiLisp v" "$cout"

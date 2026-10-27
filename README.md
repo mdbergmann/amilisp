@@ -409,9 +409,11 @@ regressions; see `tests/test_boot_log.sh` for the exact behavior.
 The interactive REPL colours its prompt, values, warnings and errors;
 `--no-color` turns that off and `--color` forces it on (for a batch or
 non-interactive run whose output goes to a terminal).  On AmigaOS and
-MorphOS the console has no ANSI colours but pens, so there amilisp uses
-only the Workbench's own text and highlight pens plus bold, which read on
-any palette; see `tests/test_color.sh` and `tests/test_color.c`.
+MorphOS the console has no ANSI colours but pens, so there amilisp draws
+with the Workbench's own text and highlight pens, bold and inverse video
+(the prompt in bold blue, `WARNING:` and `ERROR:` as badges), which read on
+a grey Shell and on a black one alike; see `tests/test_color.sh` and
+`tests/test_color.c`.
 
 ### Program arguments
 

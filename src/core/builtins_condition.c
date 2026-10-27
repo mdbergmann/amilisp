@@ -1778,8 +1778,13 @@ static CL_Obj bi_warn(CL_Obj *args, int n)
             /* format_condition_report allocates — re-derive c from the
              * rooted cond before touching it again. */
             c = (CL_Condition *)CL_OBJ_TO_PTR(cond);
-            cl_color_set(CL_COLOR_YELLOW);
-            cl_write_cstring_to_error("WARNING: ");
+            /* Tag and text coloured apart: on an Amiga console the tag is
+             * an inverse-video badge, the text plain (color.h). */
+            cl_color_set(CL_COLOR_WARNING_TAG);
+            cl_write_cstring_to_error("WARNING:");
+            cl_color_reset();
+            cl_color_set(CL_COLOR_WARNING);
+            cl_write_cstring_to_error(" ");
             if (!CL_NULL_P(report) && CL_ANY_STRING_P(report)) {
                 /* The report is wide whenever the formatted message holds
                  * any non-ASCII character — bounded UTF-8 conversion
