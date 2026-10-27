@@ -269,7 +269,7 @@ endif
 # symptom is `syntax error: unexpected end of file` from a truncated
 # script).  Add a new shell test by adding its name here.
 SHELL_TESTS = \
-test_batch test_repl_values test_repl_paste test_banner test_boot_log test_mx_error_context \
+test_batch test_repl_values test_repl_paste test_banner test_color test_boot_log test_mx_error_context \
                 test_lib_search_cwd test_shim_registry test_cl_plus_ssl_facade test_fasl_compat \
                 test_boot_fasl_recovery test_boot_source_compile test_load_exit \
                 test_exit_hooks \
