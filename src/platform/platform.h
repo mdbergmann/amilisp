@@ -228,10 +228,68 @@ int platform_udp_send(PlatformSocket sh, const uint8_t *buf, uint32_t len);
  * platform_socket_set_timeout).  Returns the received length (truncated to
  * maxlen by the OS), -1 on error/closed socket, -2 on timeout. */
 int platform_udp_recv(PlatformSocket sh, uint8_t *buf, uint32_t maxlen);
-/* Local endpoint of a connected socket (TCP or UDP): writes the dotted-quad
- * address into ip_out (must hold >= 16 bytes) and the port into *port_out.
- * 0=ok, -1=error. */
-int platform_socket_local_endpoint(PlatformSocket sh, char *ip_out, int *port_out);
+/* Local endpoint of a socket (TCP or UDP, connected or bound): writes the
+ * textual address ("192.168.1.5", "::1", "fe80::1%en0") into addr_out
+ * (addr_len bytes, PLATFORM_ADDR_STRLEN is always enough) and the port into
+ * *port_out.  0=ok, -1=error. */
+int platform_socket_local_endpoint(PlatformSocket sh, char *addr_out,
+                                   uint32_t addr_len, int *port_out);
+
+/* --- Unconnected datagram sockets, IPv6, multicast, interfaces ---
+ *
+ * Addresses are strings everywhere in this API: an IPv4 dotted quad or an
+ * IPv6 textual address, the latter optionally with a scope suffix
+ * ("fe80::1%en0" / "fe80::1%4").  Host-name arguments (connect, send_to)
+ * are resolved through the resolver; bind/multicast arguments must be
+ * literal addresses. */
+#define PLATFORM_ADDR_STRLEN 64
+#define PLATFORM_AF_INET  4
+#define PLATFORM_AF_INET6 6
+
+/* 1 when this machine's TCP/IP stack can open and bind IPv6 sockets right
+ * now (probed once: an AF_INET6 datagram socket bound to ::1), 0 when not —
+ * AmigaOS/MorphOS stacks are IPv4-only, and a container may have IPv6 off. */
+int platform_net_ipv6_supported(void);
+
+/* Bind an unconnected datagram socket to addr:port.  family is
+ * PLATFORM_AF_INET or PLATFORM_AF_INET6; addr NULL binds every address of
+ * that family, else the literal address to bind (its family must match).
+ * An IPv6 socket is bound v6-only (no v4-mapped traffic).  port 0 lets the
+ * OS pick; the bound port is written to *actual_port.  reuse != 0 sets
+ * SO_REUSEADDR (and SO_REUSEPORT where it exists) so several processes can
+ * share a multicast port such as mDNS 5353.  Returns a handle that works
+ * with platform_socket_close/_set_timeout/_data_available and the datagram
+ * functions below (platform_udp_recv as well), or PLATFORM_SOCKET_INVALID. */
+PlatformSocket platform_udp_bind(const char *addr, int port, int family,
+                                 int reuse, int *actual_port);
+/* Send LEN bytes as one datagram to host:port (host resolved per call; a
+ * literal address never touches DNS).  0=ok, -1=error (including an
+ * unresolvable host), -2=timeout. */
+int platform_udp_send_to(PlatformSocket sh, const uint8_t *buf, uint32_t len,
+                         const char *host, int port);
+/* Receive one datagram (blocks; honours the read timeout) and report its
+ * sender: textual address into from_addr (from_len bytes) and the port into
+ * *from_port.  Returns the datagram length, -1 on error, -2 on timeout. */
+int platform_udp_recv_from(PlatformSocket sh, uint8_t *buf, uint32_t maxlen,
+                           char *from_addr, uint32_t from_len, int *from_port);
+/* Join (join != 0) or leave a multicast group on a datagram socket.  group
+ * is a literal multicast address of the socket's family.  iface names the
+ * interface: an interface name ("en0"), a decimal interface index ("4"), an
+ * IPv4 address of the interface, or NULL for the OS default.  0=ok, -1=error. */
+int platform_udp_multicast_membership(PlatformSocket sh, const char *group,
+                                      const char *iface, int join);
+/* Outgoing multicast settings of a datagram socket: hops (TTL) and loop
+ * (whether this host receives its own transmissions), each -1 = unchanged;
+ * iface as above, NULL = unchanged.  0=ok, -1=error. */
+int platform_udp_multicast_options(PlatformSocket sh, int hops, int loop,
+                                   const char *iface);
+/* Enumerate the network interfaces into `out` (outlen bytes), one line per
+ * interface:  name TAB index TAB flags TAB addr[,addr...] NL
+ * where flags is a string of letters out of U (up), L (loopback),
+ * M (multicast-capable) and addr is each address of the interface in textual
+ * form (link-local IPv6 with its scope).  Returns the number of interfaces
+ * written (interfaces that do not fit are dropped), or -1 on error. */
+int platform_net_interfaces(char *out, uint32_t outlen);
 
 /* --- TLS (optional, provider loaded at runtime) ---
  *

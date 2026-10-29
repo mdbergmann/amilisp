@@ -2693,9 +2693,11 @@ TEST(eval_socket_listen_bad_address)
         "     (handler-case (progn (ext:socket-listen 0 \"localhost\") nil)"
         "       (error (c) (search \"localhost\" (princ-to-string c))))"
         "     (handler-case (progn (ext:socket-listen 0 \"\") nil)"
-        "       (error (c) (search \"dotted-quad\" (princ-to-string c))))"
+        "       (error (c) (search \"literal IPv4 or IPv6\" (princ-to-string c))))"
         "     (handler-case (progn (ext:socket-listen 0 \"1.2.3.4.5\") nil)"
-        "       (error (c) (declare (ignore c)) t)))"
+        "       (error (c) (declare (ignore c)) t))"
+        "     (handler-case (progn (ext:socket-listen 0 \"::zz\") nil)"
+        "       (error (c) (search \"::zz\" (princ-to-string c)))))"
         "    :all-refused"
         "    :one-listened)");
     ASSERT(result == cl_intern_keyword("ALL-REFUSED", 11));
@@ -4759,6 +4761,315 @@ TEST(eval_write_sequence_returns_sequence_and_checks_direction)
     }
 }
 
+
+/* --- Unconnected datagram sockets: ext:open-udp-socket / udp-send-to /
+ * udp-receive-from, IPv6, multicast, network-interfaces.  Both ends of
+ * every round trip are AmiLisp sockets in this process, so no C peer is
+ * needed; the bound port is learned through socket-stream-local-endpoint. */
+
+/* Evaluate EXPR; a :SKIPPED result (IPv6 off on this machine, see
+ * ext:ipv6-supported-p) is reported and tolerated, anything else must be T. */
+static void assert_t_or_skipped(const char *expr, const char *what)
+{
+    CL_Obj result = cl_eval_string(expr);
+    if (result == cl_eval_string(":skipped")) {
+        printf("    NOTE: %s skipped (IPv6 not available on this machine)\n", what);
+        return;
+    }
+    ASSERT(result == CL_T);
+}
+
+TEST(eval_udp_socket_roundtrip_ipv4)
+{
+    CL_Obj result = cl_eval_string(
+        "(let* ((a (ext:open-udp-socket :address \"127.0.0.1\"))"
+        "       (b (ext:open-udp-socket :address \"127.0.0.1\"))"
+        "       (buf (make-array 16 :element-type '(unsigned-byte 8) :initial-element 0)))"
+        "  (unwind-protect"
+        "    (multiple-value-bind (ip-a port-a) (ext:socket-stream-local-endpoint a)"
+        "      (multiple-value-bind (ip-b port-b) (ext:socket-stream-local-endpoint b)"
+        "        (setf (ext:socket-stream-timeout a :input) 5)"
+        "        (setf (ext:socket-stream-timeout b :input) 5)"
+        "        (ext:udp-send-to a (coerce #(1 2 3 4 5) '(vector (unsigned-byte 8)))"
+        "                        \"127.0.0.1\" port-b)"
+        "        (multiple-value-bind (len host port) (ext:udp-receive-from b buf)"
+        "          (and (equal ip-a \"127.0.0.1\") (equal ip-b \"127.0.0.1\")"
+        "               (> port-a 0) (> port-b 0) (/= port-a port-b)"
+        "               (= len 5) (equal host \"127.0.0.1\") (= port port-a)"
+        "               (equal (coerce (subseq buf 0 5) 'list) '(1 2 3 4 5))"
+        /* answer the reported sender, with an explicit partial length */
+        "               (ext:udp-send-to b buf host port 2)"
+        "               (multiple-value-bind (len2 host2 port2)"
+        "                   (ext:udp-receive-from a buf 16)"
+        "                 (and (= len2 2) (equal host2 \"127.0.0.1\")"
+        "                      (= port2 port-b)))))))"
+        "    (close a) (close b)))");
+    ASSERT(result == CL_T);
+}
+
+TEST(eval_udp_socket_general_vector_buffers)
+{
+    /* The simple-vector (non-packed) buffer path on both sides, the
+     * fill-pointer default length on send, and a receive into a buffer
+     * smaller than the datagram (truncated to max-length). */
+    CL_Obj result = cl_eval_string(
+        "(let* ((a (ext:open-udp-socket :address \"127.0.0.1\"))"
+        "       (b (ext:open-udp-socket :address \"127.0.0.1\"))"
+        "       (out (make-array 8 :fill-pointer 3 :initial-contents '(9 8 7 0 0 0 0 0)))"
+        "       (in (make-array 2 :initial-element nil)))"
+        "  (unwind-protect"
+        "    (let ((port-b (nth-value 1 (ext:socket-stream-local-endpoint b))))"
+        "      (setf (ext:socket-stream-timeout b :input) 5)"
+        "      (ext:udp-send-to a out \"127.0.0.1\" port-b)"
+        "      (multiple-value-bind (len host port) (ext:udp-receive-from b in)"
+        "        (declare (ignore host port))"
+        "        (and (= len 2) (equal (coerce in 'list) '(9 8)))))"
+        "    (close a) (close b)))");
+    ASSERT(result == CL_T);
+}
+
+TEST(eval_udp_socket_roundtrip_ipv6)
+{
+    assert_t_or_skipped(
+        "(if (not (ext:ipv6-supported-p)) :skipped"
+        "  (let* ((a (ext:open-udp-socket :address \"::1\"))"
+        "         (b (ext:open-udp-socket :family :ipv6))"   /* bound to :: */
+        "         (buf (make-array 8 :element-type '(unsigned-byte 8) :initial-element 0)))"
+        "    (unwind-protect"
+        "      (multiple-value-bind (ip-a port-a) (ext:socket-stream-local-endpoint a)"
+        "        (multiple-value-bind (ip-b port-b) (ext:socket-stream-local-endpoint b)"
+        "          (setf (ext:socket-stream-timeout b :input) 5)"
+        "          (ext:udp-send-to a (coerce #(6 7) '(vector (unsigned-byte 8))) \"::1\" port-b)"
+        "          (multiple-value-bind (len host port) (ext:udp-receive-from b buf)"
+        "            (and (equal ip-a \"::1\") (equal ip-b \"::\")"
+        "                 (= len 2) (equal host \"::1\") (= port port-a)"
+        "                 (equal (coerce (subseq buf 0 2) 'list) '(6 7))))))"
+        "      (close a) (close b))))",
+        "IPv6 datagram round trip");
+}
+
+TEST(eval_udp_socket_receive_timeout)
+{
+    CL_Obj result = cl_eval_string(
+        "(let ((s (ext:open-udp-socket :address \"127.0.0.1\"))"
+        "      (buf (make-array 8 :element-type '(unsigned-byte 8))))"
+        "  (setf (ext:socket-stream-timeout s :input) 0.15)"
+        "  (prog1 (handler-case (progn (ext:udp-receive-from s buf) :data)"
+        "           (ext:socket-timeout () :timed-out))"
+        "    (close s)))");
+    ASSERT(result == cl_eval_string(":timed-out"));
+}
+
+TEST(eval_udp_socket_fixed_port_and_reuse_address)
+{
+    /* A port in use is refused without :reuse-address, shared with it. */
+    CL_Obj result = cl_eval_string(
+        "(equal '(:refused t)"
+        "(let* ((a (ext:open-udp-socket :address \"127.0.0.1\"))"
+        "       (port (nth-value 1 (ext:socket-stream-local-endpoint a))))"
+        "  (unwind-protect"
+        "    (list (handler-case"
+        "              (progn (close (ext:open-udp-socket :address \"127.0.0.1\" :port port))"
+        "                     :bound)"
+        "            (error () :refused))"
+        "          (progn (close a)"
+        "                 (let ((b (ext:open-udp-socket :address \"127.0.0.1\" :port port"
+        "                                               :reuse-address t))"
+        "                       (c (ext:open-udp-socket :address \"127.0.0.1\" :port port"
+        "                                               :reuse-address t)))"
+        "                   (prog1 (= port (nth-value 1 (ext:socket-stream-local-endpoint b))"
+        "                             (nth-value 1 (ext:socket-stream-local-endpoint c)))"
+        "                     (close b) (close c)))))"
+        "    (close a))))");
+    ASSERT(result == CL_T);
+}
+
+TEST(eval_udp_socket_send_requires_send_to)
+{
+    /* udp-stream-send needs a connected socket; the error names the fix. */
+    CL_Obj result = cl_eval_string(
+        "(let ((s (ext:open-udp-socket :address \"127.0.0.1\")))"
+        "  (prog1 (handler-case"
+        "             (progn (ext:udp-stream-send s (make-array 1 :element-type '(unsigned-byte 8)"
+        "                                                      :initial-element 1))"
+        "                    :sent)"
+        "           (error (e) (and (search \"UDP-SEND-TO\" (format nil \"~a\" e)) :hinted)))"
+        "    (close s)))");
+    ASSERT(result == cl_eval_string(":hinted"));
+}
+
+TEST(eval_udp_socket_argument_errors)
+{
+    CL_Obj result = cl_eval_string(
+        "(equal '(:rejected :rejected :rejected :rejected :rejected"
+        "        (:rejected :rejected :rejected :rejected :rejected))"
+        "(flet ((try (thunk) (handler-case (progn (funcall thunk) :accepted)"
+        "                      (error () :rejected))))"
+        "  (list (try (lambda () (ext:open-udp-socket :family :inet)))"
+        "        (try (lambda () (ext:open-udp-socket :address \"nonsense\")))"
+        "        (try (lambda () (ext:open-udp-socket :port 70000)))"
+        "        (try (lambda () (ext:open-udp-socket :address \"::1\" :family :ipv4)))"
+        "        (try (lambda () (ext:open-udp-socket :address \"127.0.0.1\" :family :ipv6)))"
+        "        (let ((s (ext:open-udp-socket :address \"127.0.0.1\")))"
+        "          (prog1 (list (try (lambda () (ext:udp-send-to s #(1) \"127.0.0.1\" 0)))"
+        "                       (try (lambda () (ext:udp-send-to s #(256) \"127.0.0.1\" 9)))"
+        "                       (try (lambda () (ext:udp-send-to s #(1) 42 9)))"
+        "                       (try (lambda () (ext:udp-receive-from s \"not a buffer\")))"
+        "                       (try (lambda () (ext:udp-send-to *standard-output* #(1)"
+        "                                                        \"127.0.0.1\" 9))))"
+        "            (close s))))))");
+    ASSERT(result == CL_T);
+}
+
+TEST(eval_udp_multicast_ipv4_loopback)
+{
+    /* Join 224.0.0.251 (the mDNS group) on the loopback interface and send
+     * ourselves a datagram.  Delivery through loopback is asserted only
+     * where the OS declares the loopback interface multicast-capable
+     * (macOS does, Linux's lo does not); the join/configure/leave calls
+     * must succeed everywhere. */
+    CL_Obj result = cl_eval_string(
+        "(let* ((r (ext:open-udp-socket :reuse-address t))"
+        "       (port (nth-value 1 (ext:socket-stream-local-endpoint r)))"
+        "       (s (ext:open-udp-socket :address \"127.0.0.1\"))"
+        "       (buf (make-array 8 :element-type '(unsigned-byte 8)))"
+        "       (lo (find-if (lambda (e) (member :loopback (getf e :flags)))"
+        "                    (ext:network-interfaces)))"
+        "       (lo-mcast (and lo (member :multicast (getf lo :flags)) t)))"
+        "  (unwind-protect"
+        "    (progn"
+        "      (ext:udp-multicast-join r \"224.0.0.251\" \"127.0.0.1\")"
+        "      (ext:udp-multicast-configure s :hops 1 :loopback t :interface \"127.0.0.1\")"
+        "      (setf (ext:socket-stream-timeout r :input) 2)"
+        "      (ext:udp-send-to s (coerce #(7 7 7) '(vector (unsigned-byte 8)))"
+        "                      \"224.0.0.251\" port)"
+        "      (let ((got (handler-case (multiple-value-list (ext:udp-receive-from r buf))"
+        "                   (ext:socket-timeout () :timed-out))))"
+        "        (ext:udp-multicast-leave r \"224.0.0.251\" \"127.0.0.1\")"
+        "        (cond ((equal got '(3 \"127.0.0.1\" nil)) :impossible)"
+        "              ((and (listp got) (= (first got) 3) (equal (second got) \"127.0.0.1\"))"
+        "               :delivered)"
+        "              ((and (eq got :timed-out) (not lo-mcast)) :no-loopback-multicast)"
+        "              (t got))))"
+        "    (close r) (close s)))");
+    if (result == cl_eval_string(":no-loopback-multicast")) {
+        printf("    NOTE: multicast delivery skipped (loopback interface is not multicast-capable here)\n");
+        return;
+    }
+#if defined(_WIN32)
+    if (result == cl_eval_string(":timed-out")) {
+        printf("    NOTE: multicast delivery through loopback not observed on Windows\n");
+        return;
+    }
+#endif
+    ASSERT(result == cl_eval_string(":delivered"));
+}
+
+TEST(eval_udp_multicast_ipv6_membership)
+{
+    /* IPv6 membership on the loopback interface, named by index, by name,
+     * and by a scope suffix on the group; leaving a group twice fails. */
+    assert_t_or_skipped(
+        "(if (not (ext:ipv6-supported-p)) :skipped"
+        "  (let* ((s (ext:open-udp-socket :family :ipv6 :reuse-address t))"
+        "         (lo (find-if (lambda (e) (and (member :loopback (getf e :flags))"
+        "                                       (member :up (getf e :flags))))"
+        "                      (ext:network-interfaces)))"
+        "         (idx (getf lo :index))"
+        "         (name (getf lo :name)))"
+        "    (unwind-protect"
+        "      (and (integerp idx) (> idx 0) (stringp name)"
+        "           (ext:udp-multicast-join s \"ff02::fb\" idx)"
+        "           (ext:udp-multicast-configure s :hops 1 :loopback nil :interface idx)"
+        "           (ext:udp-multicast-configure s :interface name)"
+        "           (ext:udp-multicast-leave s \"ff02::fb\" idx)"
+        "           (ext:udp-multicast-join s (format nil \"ff02::fb%~a\" name))"
+        "           (ext:udp-multicast-leave s (format nil \"ff02::fb%~a\" name))"
+        "           (handler-case (progn (ext:udp-multicast-leave s \"ff02::fb\" idx) nil)"
+        "             (error () t)))"
+        "      (close s))))",
+        "IPv6 multicast membership");
+}
+
+TEST(eval_udp_multicast_argument_errors)
+{
+    CL_Obj result = cl_eval_string(
+        "(equal '(:rejected :rejected :rejected :rejected :rejected :rejected :accepted)"
+        "(flet ((try (thunk) (handler-case (progn (funcall thunk) :accepted)"
+        "                      (error () :rejected))))"
+        "  (let ((s (ext:open-udp-socket :address \"127.0.0.1\")))"
+        "    (prog1"
+        "      (list (try (lambda () (ext:udp-multicast-join *standard-output* \"224.0.0.251\")))"
+        "            (try (lambda () (ext:udp-multicast-join s \"127.0.0.1\")))"       /* not multicast */
+        "            (try (lambda () (ext:udp-multicast-join s \"224.0.0.251\" \"no-such-if0\")))"
+        "            (try (lambda () (ext:udp-multicast-join s \"224.0.0.251\" 0)))"
+        "            (try (lambda () (ext:udp-multicast-configure s :hops 300)))"
+        "            (try (lambda () (ext:udp-multicast-configure s :interface \"no-such-if0\")))"
+        "            (try (lambda () (ext:udp-multicast-configure s :hops 4 :loopback nil))))"
+        "      (close s)))))");
+    ASSERT(result == CL_T);
+}
+
+TEST(eval_network_interfaces)
+{
+    /* Every entry is a well-formed plist, and the loopback interface is
+     * listed with 127.0.0.1 among its addresses. */
+    CL_Obj result = cl_eval_string(
+        "(let ((ifs (ext:network-interfaces)))"
+        "  (and (consp ifs)"
+        "       (every (lambda (e)"
+        "                (and (stringp (getf e :name)) (integerp (getf e :index))"
+        "                     (listp (getf e :flags))"
+        "                     (subsetp (getf e :flags) '(:up :loopback :multicast))"
+        "                     (listp (getf e :addresses))"
+        "                     (every #'stringp (getf e :addresses))))"
+        "              ifs)"
+        "       (some (lambda (e) (and (member :loopback (getf e :flags))"
+        "                              (member \"127.0.0.1\" (getf e :addresses)"
+        "                                      :test #'equal)))"
+        "             ifs)"
+        "       t))");
+    ASSERT(result == CL_T);
+}
+
+TEST(eval_ipv6_tcp_loopback)
+{
+    /* socket-listen on an IPv6 literal, open-tcp-stream to it, and the
+     * local endpoints of both ends report IPv6 addresses. */
+    assert_t_or_skipped(
+        "(if (not (ext:ipv6-supported-p)) :skipped"
+        "  (let* ((l (ext:socket-listen 0 \"::1\"))"
+        "         (p (ext:socket-local-port l)))"
+        "    (unwind-protect"
+        "      (let* ((c (ext:open-tcp-stream \"::1\" p))"
+        "             (s (ext:socket-accept l)))"
+        "        (unwind-protect"
+        "          (progn (write-byte 65 c) (force-output c)"
+        "                 (and (= 65 (read-byte s))"
+        "                      (equal (ext:socket-stream-local-endpoint c) \"::1\")"
+        "                      (equal (ext:socket-stream-local-endpoint s) \"::1\")"
+        "                      (= p (nth-value 1 (ext:socket-stream-local-endpoint s)))))"
+        "          (close c) (close s)))"
+        "      (close l))))",
+        "IPv6 TCP loopback");
+}
+
+TEST(eval_open_udp_stream_ipv6)
+{
+    assert_t_or_skipped(
+        "(if (not (ext:ipv6-supported-p)) :skipped"
+        "  (let ((s (ext:open-udp-stream \"::1\" 9)))"
+        "    (prog1 (equal (ext:socket-stream-local-endpoint s) \"::1\")"
+        "      (close s))))",
+        "IPv6 connected datagram socket");
+}
+
+TEST(eval_ipv6_supported_p_is_boolean)
+{
+    CL_Obj result = cl_eval_string("(member (ext:ipv6-supported-p) '(t nil))");
+    ASSERT(result != CL_NIL);
+}
+
 int main(void)
 {
     test_init();
@@ -4950,6 +5261,20 @@ int main(void)
     RUN(eval_udp_stream_receive_timeout);
     RUN(eval_udp_stream_local_endpoint);
     RUN(eval_udp_stream_type_errors);
+    RUN(eval_udp_socket_roundtrip_ipv4);
+    RUN(eval_udp_socket_general_vector_buffers);
+    RUN(eval_udp_socket_roundtrip_ipv6);
+    RUN(eval_udp_socket_receive_timeout);
+    RUN(eval_udp_socket_fixed_port_and_reuse_address);
+    RUN(eval_udp_socket_send_requires_send_to);
+    RUN(eval_udp_socket_argument_errors);
+    RUN(eval_udp_multicast_ipv4_loopback);
+    RUN(eval_udp_multicast_ipv6_membership);
+    RUN(eval_udp_multicast_argument_errors);
+    RUN(eval_network_interfaces);
+    RUN(eval_ipv6_tcp_loopback);
+    RUN(eval_open_udp_stream_ipv6);
+    RUN(eval_ipv6_supported_p_is_boolean);
     RUN(platform_socket_listen_accept);
     RUN(platform_socket_listen_busy_port);
     RUN(platform_socket_table_grows_many_connections);

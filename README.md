@@ -1433,11 +1433,40 @@ the real cl+ssl on the host, where its CFFI stack works). See
 `(ext:udp-stream-send stream buffer &optional length)` sends one datagram,
 `(ext:udp-stream-receive stream buffer &optional max-length)` blocks for one
 (honoring the same `ext:socket-stream-timeout` places), and
-`(ext:socket-stream-local-endpoint stream)` returns the local dotted-quad
-address and port (getsockname — TCP streams too). The usocket fork maps
+`(ext:socket-stream-local-endpoint stream)` returns the local address and
+port (getsockname — TCP streams too). The usocket fork maps
 `:datagram` sockets onto these, which is what KNXnet/IP tunneling (knx-conn)
-uses. See `tests/test_stream.c` (`eval_udp_stream_*`) and
+uses.
+
+**Unconnected datagram sockets, multicast, interfaces** — the foundation for
+discovery-style protocols (mDNS/DNS-SD, SSDP, Matter):
+`(ext:open-udp-socket &key port address family reuse-address)` binds a socket
+that talks to any peer (`:port 0` = any free port; `:address` a literal
+address of this machine, or `:family :ipv4`/`:ipv6` for every address;
+`:reuse-address t` shares a multicast port such as mDNS 5353 with other
+processes). `(ext:udp-send-to stream buffer host port &optional length)`
+sends one datagram and `(ext:udp-receive-from stream buffer &optional
+max-length)` returns the datagram length *and the sender's address and
+port* — the pair to answer it with. `(ext:udp-multicast-join stream group
+&optional interface)` / `-leave` manage group membership and
+`(ext:udp-multicast-configure stream &key hops loopback interface)` sets
+the outgoing hop count, whether this host hears its own transmissions, and
+the sending interface; an interface is named by name (`"en0"`), by index,
+or by one of its IPv4 addresses. `(ext:network-interfaces)` lists every
+interface as a plist (`:name`, `:index`, `:flags` out of `:up` `:loopback`
+`:multicast`, and `:addresses`), which is what a responder advertises.
+See `tests/test_stream.c` (`eval_udp_socket_*`, `eval_udp_multicast_*`) and
 `tests/amiga/run-tests.lisp` for usage.
+
+**IPv6** — on the hosts every socket function accepts IPv6 as naturally as
+IPv4: `open-tcp-stream` and `open-udp-stream` try every address a name
+resolves to, `socket-listen` and `open-udp-socket` take IPv6 literals, and
+reported addresses keep their scope (`"fe80::1%en0"`). A socket bound to an
+IPv6 address is v6-only; bind a second socket for IPv4.
+`(ext:ipv6-supported-p)` says whether the machine can bind IPv6 at all —
+NIL on AmigaOS and MorphOS, whose TCP/IP stacks are IPv4-only (there the
+IPv4 half of everything above works, interfaces are named by address, and
+an IPv6 request fails with a clear error).
 
 ### Host FFI (dlopen + libffi + CFFI)
 

@@ -20,6 +20,9 @@
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <arpa/inet.h>
+#include <ifaddrs.h>
+#include <net/if.h>
 #include <time.h>
 #if defined(JIT_A64) && defined(__APPLE__)
 #include <pthread.h>              /* pthread_jit_write_protect_np */
@@ -1222,12 +1225,148 @@ static void socket_table_ensure_init(void)
 /* Defined below; used here to bound a non-blocking connect by its deadline. */
 static int socket_wait_ready(int fd, int timeout_ms, int want_write);
 
+/* --- Address helpers (IPv4 + IPv6) ---
+ *
+ * One resolver for every entry point: getaddrinfo handles dotted quads,
+ * IPv6 literals (scope suffix included), and host names alike.  The DNS
+ * path parks in a GC safe region, so `host` must be a C buffer — every
+ * caller stack-copies an arena string first. */
+static int resolve_sockaddr(const char *host, int port, int family, int socktype,
+                            int numeric_only, struct sockaddr_storage *out,
+                            socklen_t *outlen)
+{
+    struct addrinfo hints, *res = NULL;
+    char portbuf[8];
+    int rc;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = (family == PLATFORM_AF_INET)  ? AF_INET :
+                      (family == PLATFORM_AF_INET6) ? AF_INET6 : AF_UNSPEC;
+    hints.ai_socktype = socktype;
+    hints.ai_flags = numeric_only ? AI_NUMERICHOST : 0;
+    snprintf(portbuf, sizeof(portbuf), "%d", port);
+    if (!numeric_only) cl_gc_enter_safe_region();
+    rc = getaddrinfo(host, portbuf, &hints, &res);
+    if (!numeric_only) cl_gc_leave_safe_region();
+    if (rc != 0 || !res) {
+        if (res) freeaddrinfo(res);
+        return -1;
+    }
+    memcpy(out, res->ai_addr, (size_t)res->ai_addrlen);
+    *outlen = res->ai_addrlen;
+    freeaddrinfo(res);
+    return 0;
+}
+
+/* Textual address + port of a socket address ("fe80::1%en0" keeps its
+ * scope).  0=ok, -1=error. */
+static int format_sockaddr(const struct sockaddr *sa, socklen_t salen,
+                           char *out, uint32_t outlen, int *port)
+{
+    char serv[8];
+    if (getnameinfo(sa, salen, out, outlen, serv, sizeof(serv),
+                    NI_NUMERICHOST | NI_NUMERICSERV) != 0)
+        return -1;
+    if (port) *port = atoi(serv);
+    return 0;
+}
+
+/* Interface designator -> index: a name ("en0"), a decimal index ("4"), or
+ * an IPv4 address one of the interfaces carries.  0 when nothing matches. */
+static unsigned iface_to_index(const char *iface)
+{
+    unsigned idx;
+    struct in_addr want;
+    if (!iface || !*iface) return 0;
+    idx = if_nametoindex(iface);
+    if (idx) return idx;
+    {
+        const char *q = iface;
+        int all_digits = 1;
+        while (*q) { if (*q < '0' || *q > '9') { all_digits = 0; break; } q++; }
+        if (all_digits) return (unsigned)atoi(iface);
+    }
+    if (inet_pton(AF_INET, iface, &want) == 1) {
+        struct ifaddrs *ifa0, *ifa;
+        if (getifaddrs(&ifa0) != 0) return 0;
+        for (ifa = ifa0; ifa; ifa = ifa->ifa_next) {
+            if (ifa->ifa_addr && ifa->ifa_addr->sa_family == AF_INET &&
+                ((struct sockaddr_in *)ifa->ifa_addr)->sin_addr.s_addr == want.s_addr) {
+                idx = if_nametoindex(ifa->ifa_name);
+                break;
+            }
+        }
+        freeifaddrs(ifa0);
+    }
+    return idx;
+}
+
+/* Interface designator -> one IPv4 address of that interface (the form the
+ * IPv4 multicast socket options take).  0=ok, -1=no such interface / no
+ * IPv4 address on it. */
+static int iface_to_ipv4(const char *iface, struct in_addr *out)
+{
+    unsigned idx;
+    struct ifaddrs *ifa0, *ifa;
+    int found = -1;
+    if (inet_pton(AF_INET, iface, out) == 1) return 0;
+    idx = iface_to_index(iface);
+    if (!idx) return -1;
+    if (getifaddrs(&ifa0) != 0) return -1;
+    for (ifa = ifa0; ifa; ifa = ifa->ifa_next) {
+        if (ifa->ifa_addr && ifa->ifa_addr->sa_family == AF_INET &&
+            if_nametoindex(ifa->ifa_name) == idx) {
+            *out = ((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
+            found = 0;
+            break;
+        }
+    }
+    freeifaddrs(ifa0);
+    return found;
+}
+
+/* Connect fd to sa, bounded by connect_ms when > 0 (see
+ * platform_socket_connect's contract).  0=connected, -1=failed. */
+static int socket_connect_addr(int fd, const struct sockaddr *sa, socklen_t salen,
+                               int connect_ms)
+{
+    if (connect_ms > 0) {
+        /* Bounded connect: go non-blocking, fire the handshake, then poll for
+         * writability up to connect_ms.  Writable + SO_ERROR==0 means connected;
+         * a timeout or a connect error both fail fast.  Restore blocking mode so
+         * the rest of the stream code (which read()s blocking) is unaffected. */
+        int flags = fcntl(fd, F_GETFL, 0);
+        int rc, ok = 0;
+        if (flags < 0) return -1;
+        fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+        cl_gc_enter_safe_region();
+        rc = connect(fd, sa, salen);
+        if (rc == 0) {
+            ok = 1;                                  /* connected immediately */
+        } else if (errno == EINPROGRESS) {
+            if (socket_wait_ready(fd, connect_ms, 1) == 1) {
+                int err = 0;
+                socklen_t elen = (socklen_t)sizeof(err);
+                if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &elen) == 0 && err == 0)
+                    ok = 1;
+            }
+        }
+        cl_gc_leave_safe_region();
+        fcntl(fd, F_SETFL, flags);
+        return ok ? 0 : -1;
+    } else {
+        int rc;
+        cl_gc_enter_safe_region();
+        rc = connect(fd, sa, salen);
+        cl_gc_leave_safe_region();
+        return rc < 0 ? -1 : 0;
+    }
+}
+
 PlatformSocket platform_socket_connect(const char *host, int port, int connect_ms)
 {
-    struct hostent *he;
-    struct sockaddr_in addr;
-    int fd;
-    char host_buf[256];
+    struct addrinfo hints, *res = NULL, *ai;
+    int fd = -1, rc;
+    char host_buf[256], portbuf[8];
 
     socket_table_ensure_init();
 
@@ -1242,57 +1381,29 @@ PlatformSocket platform_socket_connect(const char *host, int port, int connect_m
         memcpy(host_buf, host, hl + 1);
     }
 
-    /* DNS resolution can block on the network — stay GC-cooperative. */
+    /* DNS resolution can block on the network — stay GC-cooperative.  Every
+     * address the name has is tried in resolver order (v6 and v4 alike). */
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    snprintf(portbuf, sizeof(portbuf), "%d", port);
     cl_gc_enter_safe_region();
-    he = gethostbyname(host_buf);
+    rc = getaddrinfo(host_buf, portbuf, &hints, &res);
     cl_gc_leave_safe_region();
-    if (!he) return PLATFORM_SOCKET_INVALID;
-
-    fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (fd < 0) return PLATFORM_SOCKET_INVALID;
-
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons((uint16_t)port);
-    memcpy(&addr.sin_addr, he->h_addr_list[0], (size_t)he->h_length);
-
-    if (connect_ms > 0) {
-        /* Bounded connect: go non-blocking, fire the handshake, then poll for
-         * writability up to connect_ms.  Writable + SO_ERROR==0 means connected;
-         * a timeout or a connect error both fail fast.  Restore blocking mode so
-         * the rest of the stream code (which read()s blocking) is unaffected. */
-        int flags = fcntl(fd, F_GETFL, 0);
-        int rc, ok = 0;
-        if (flags < 0) { close(fd); return PLATFORM_SOCKET_INVALID; }
-        fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-        cl_gc_enter_safe_region();
-        rc = connect(fd, (struct sockaddr *)&addr, sizeof(addr));
-        if (rc == 0) {
-            ok = 1;                                  /* connected immediately */
-        } else if (errno == EINPROGRESS) {
-            if (socket_wait_ready(fd, connect_ms, 1) == 1) {
-                int err = 0;
-                socklen_t elen = (socklen_t)sizeof(err);
-                if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &elen) == 0 && err == 0)
-                    ok = 1;
-            }
-        }
-        cl_gc_leave_safe_region();
-        fcntl(fd, F_SETFL, flags);
-        if (!ok) {
-            close(fd);
-            return PLATFORM_SOCKET_INVALID;
-        }
-    } else {
-        int rc;
-        cl_gc_enter_safe_region();
-        rc = connect(fd, (struct sockaddr *)&addr, sizeof(addr));
-        cl_gc_leave_safe_region();
-        if (rc < 0) {
-            close(fd);
-            return PLATFORM_SOCKET_INVALID;
-        }
+    if (rc != 0 || !res) {
+        if (res) freeaddrinfo(res);
+        return PLATFORM_SOCKET_INVALID;
     }
+    for (ai = res; ai; ai = ai->ai_next) {
+        fd = socket(ai->ai_family, SOCK_STREAM, 0);
+        if (fd < 0) continue;
+        if (socket_connect_addr(fd, ai->ai_addr, ai->ai_addrlen, connect_ms) == 0)
+            break;
+        close(fd);
+        fd = -1;
+    }
+    freeaddrinfo(res);
+    if (fd < 0) return PLATFORM_SOCKET_INVALID;
 
     /* Claim a slot (slot 0 reserved as INVALID); the table grows on demand. */
     {
@@ -1712,32 +1823,6 @@ int platform_socket_flush(PlatformSocket sh)
     return socket_flush_wbuf(sh);
 }
 
-/* "a.b.c.d" -> the address in host byte order; 0 for anything else.  A
- * parser of our own rather than inet_addr(): the same 15 lines on every
- * platform, and no dependence on which of inet_aton / inet_pton the C
- * library of the day provides. */
-static int parse_ipv4(const char *s, uint32_t *out)
-{
-    uint32_t value = 0;
-    int part;
-    for (part = 0; part < 4; part++) {
-        int digits = 0, octet = 0;
-        while (*s >= '0' && *s <= '9' && digits < 3) {
-            octet = octet * 10 + (*s - '0');
-            s++; digits++;
-        }
-        if (digits == 0 || octet > 255) return 0;
-        value = (value << 8) | (uint32_t)octet;
-        if (part < 3) {
-            if (*s != '.') return 0;
-            s++;
-        }
-    }
-    if (*s != '\0') return 0;
-    *out = value;
-    return 1;
-}
-
 PlatformSocket platform_socket_listen(int port, int loopback, int *actual_port)
 {
     return platform_socket_listen_addr(port, loopback ? "127.0.0.1" : NULL, actual_port);
@@ -1745,27 +1830,36 @@ PlatformSocket platform_socket_listen(int port, int loopback, int *actual_port)
 
 PlatformSocket platform_socket_listen_addr(int port, const char *bind_addr, int *actual_port)
 {
-    struct sockaddr_in addr;
+    struct sockaddr_storage ss;
+    socklen_t sl;
     int fd, on = 1;
-    uint32_t ip = INADDR_ANY;
 
-    if (bind_addr && !parse_ipv4(bind_addr, &ip))
-        return PLATFORM_SOCKET_INVALID;
+    if (bind_addr) {
+        /* A literal IPv4 or IPv6 address of this machine; never a name. */
+        if (resolve_sockaddr(bind_addr, port, 0, SOCK_STREAM, 1, &ss, &sl) != 0)
+            return PLATFORM_SOCKET_INVALID;
+    } else {
+        struct sockaddr_in *sin = (struct sockaddr_in *)&ss;
+        memset(&ss, 0, sizeof(ss));
+        sin->sin_family = AF_INET;
+        sin->sin_port = htons((uint16_t)port);
+        sin->sin_addr.s_addr = htonl(INADDR_ANY);
+        sl = (socklen_t)sizeof(*sin);
+    }
 
     socket_table_ensure_init();
 
-    fd = socket(AF_INET, SOCK_STREAM, 0);
+    fd = socket(ss.ss_family, SOCK_STREAM, 0);
     if (fd < 0) return PLATFORM_SOCKET_INVALID;
 
     /* Allow immediate rebind after the server restarts (TIME_WAIT). */
     setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+    /* An IPv6 listener is v6-only, like platform_udp_bind: "::" never
+     * shadows an IPv4 listener on the same port. */
+    if (ss.ss_family == AF_INET6)
+        setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
 
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons((uint16_t)port);
-    addr.sin_addr.s_addr = htonl(ip);
-
-    if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+    if (bind(fd, (struct sockaddr *)&ss, sl) < 0) {
         close(fd);
         return PLATFORM_SOCKET_INVALID;
     }
@@ -1774,9 +1868,11 @@ PlatformSocket platform_socket_listen_addr(int port, const char *bind_addr, int 
         return PLATFORM_SOCKET_INVALID;
     }
     if (actual_port) {
-        socklen_t alen = sizeof(addr);
-        if (getsockname(fd, (struct sockaddr *)&addr, &alen) == 0)
-            *actual_port = ntohs(addr.sin_port);
+        socklen_t alen = (socklen_t)sizeof(ss);
+        int bp = 0;
+        if (getsockname(fd, (struct sockaddr *)&ss, &alen) == 0 &&
+            format_sockaddr((struct sockaddr *)&ss, alen, NULL, 0, &bp) == 0)
+            *actual_port = bp;
         else
             *actual_port = port;
     }
@@ -1797,7 +1893,7 @@ PlatformSocket platform_socket_listen_addr(int port, const char *bind_addr, int 
 
 PlatformSocket platform_socket_accept(PlatformSocket listener)
 {
-    struct sockaddr_in caddr;
+    struct sockaddr_storage caddr;
     socklen_t clen = sizeof(caddr);
     int fd;
     SockSlot *ls = sock_slot(listener);
@@ -1838,8 +1934,8 @@ PlatformSocket platform_socket_accept(PlatformSocket listener)
 
 PlatformSocket platform_udp_connect(const char *host, int port)
 {
-    struct hostent *he;
-    struct sockaddr_in addr;
+    struct sockaddr_storage ss;
+    socklen_t sl;
     int fd;
     char host_buf[256];
 
@@ -1853,22 +1949,15 @@ PlatformSocket platform_udp_connect(const char *host, int port)
         memcpy(host_buf, host, hl + 1);
     }
 
-    cl_gc_enter_safe_region();
-    he = gethostbyname(host_buf);
-    cl_gc_leave_safe_region();
-    if (!he) return PLATFORM_SOCKET_INVALID;
+    if (resolve_sockaddr(host_buf, port, 0, SOCK_DGRAM, 0, &ss, &sl) != 0)
+        return PLATFORM_SOCKET_INVALID;
 
-    fd = socket(AF_INET, SOCK_DGRAM, 0);
+    fd = socket(ss.ss_family, SOCK_DGRAM, 0);
     if (fd < 0) return PLATFORM_SOCKET_INVALID;
-
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons((uint16_t)port);
-    memcpy(&addr.sin_addr, he->h_addr_list[0], (size_t)he->h_length);
 
     /* connect() on a datagram socket only records the peer — no handshake,
      * no blocking — so no timeout/safe-region dance is needed. */
-    if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+    if (connect(fd, (struct sockaddr *)&ss, sl) < 0) {
         close(fd);
         return PLATFORM_SOCKET_INVALID;
     }
@@ -1924,19 +2013,282 @@ int platform_udp_recv(PlatformSocket sh, uint8_t *buf, uint32_t maxlen)
     return (int)n;
 }
 
-int platform_socket_local_endpoint(PlatformSocket sh, char *ip_out, int *port_out)
+int platform_socket_local_endpoint(PlatformSocket sh, char *addr_out,
+                                   uint32_t addr_len, int *port_out)
 {
     SockSlot *s = sock_slot(sh);
-    struct sockaddr_in addr;
-    socklen_t alen = (socklen_t)sizeof(addr);
-    const unsigned char *b;
+    struct sockaddr_storage ss;
+    socklen_t alen = (socklen_t)sizeof(ss);
     if (sh == 0 || !s || s->fd < 0) return -1;
-    memset(&addr, 0, sizeof(addr));
-    if (getsockname(s->fd, (struct sockaddr *)&addr, &alen) < 0) return -1;
-    b = (const unsigned char *)&addr.sin_addr;
-    snprintf(ip_out, 16, "%u.%u.%u.%u", b[0], b[1], b[2], b[3]);
-    if (port_out) *port_out = (int)ntohs(addr.sin_port);
+    memset(&ss, 0, sizeof(ss));
+    if (getsockname(s->fd, (struct sockaddr *)&ss, &alen) < 0) return -1;
+    return format_sockaddr((struct sockaddr *)&ss, alen, addr_out, addr_len, port_out);
+}
+
+/* --- Unconnected datagram sockets, IPv6, multicast, interfaces
+ * (contract in platform.h) --- */
+
+int platform_net_ipv6_supported(void)
+{
+    static int cached = -1;   /* benign race: every thread computes the same value */
+    if (cached < 0) {
+        int fd = socket(AF_INET6, SOCK_DGRAM, 0);
+        int ok = 0;
+        if (fd >= 0) {
+            struct sockaddr_in6 a;
+            memset(&a, 0, sizeof(a));
+            a.sin6_family = AF_INET6;
+            a.sin6_addr = in6addr_loopback;
+            if (bind(fd, (struct sockaddr *)&a, sizeof(a)) == 0) ok = 1;
+            close(fd);
+        }
+        cached = ok;
+    }
+    return cached;
+}
+
+PlatformSocket platform_udp_bind(const char *addr, int port, int family,
+                                 int reuse, int *actual_port)
+{
+    struct sockaddr_storage ss;
+    socklen_t sl;
+    int fd, on = 1;
+
+    if (family != PLATFORM_AF_INET && family != PLATFORM_AF_INET6)
+        return PLATFORM_SOCKET_INVALID;
+    socket_table_ensure_init();
+
+    if (addr) {
+        if (resolve_sockaddr(addr, port, family, SOCK_DGRAM, 1, &ss, &sl) != 0)
+            return PLATFORM_SOCKET_INVALID;
+    } else if (family == PLATFORM_AF_INET6) {
+        struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)&ss;
+        memset(&ss, 0, sizeof(ss));
+        sin6->sin6_family = AF_INET6;
+        sin6->sin6_port = htons((uint16_t)port);
+        sin6->sin6_addr = in6addr_any;
+        sl = (socklen_t)sizeof(*sin6);
+    } else {
+        struct sockaddr_in *sin = (struct sockaddr_in *)&ss;
+        memset(&ss, 0, sizeof(ss));
+        sin->sin_family = AF_INET;
+        sin->sin_port = htons((uint16_t)port);
+        sin->sin_addr.s_addr = htonl(INADDR_ANY);
+        sl = (socklen_t)sizeof(*sin);
+    }
+
+    fd = socket(ss.ss_family, SOCK_DGRAM, 0);
+    if (fd < 0) return PLATFORM_SOCKET_INVALID;
+    if (reuse) {
+        setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+#ifdef SO_REUSEPORT
+        setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &on, sizeof(on));
+#endif
+    }
+    if (ss.ss_family == AF_INET6)
+        setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
+    if (bind(fd, (struct sockaddr *)&ss, sl) < 0) {
+        close(fd);
+        return PLATFORM_SOCKET_INVALID;
+    }
+    if (actual_port) {
+        socklen_t alen = (socklen_t)sizeof(ss);
+        int bp = port;
+        if (getsockname(fd, (struct sockaddr *)&ss, &alen) == 0)
+            format_sockaddr((struct sockaddr *)&ss, alen, NULL, 0, &bp);
+        *actual_port = bp;
+    }
+    {
+        PlatformSocket sh;
+        socket_table_lock();
+        sh = socket_claim_locked(fd, 0);   /* no IOBuf: message I/O only */
+        socket_table_unlock();
+        if (sh == PLATFORM_SOCKET_INVALID) {
+            close(fd);
+            return PLATFORM_SOCKET_INVALID;
+        }
+        return sh;
+    }
+}
+
+int platform_udp_send_to(PlatformSocket sh, const uint8_t *buf, uint32_t len,
+                         const char *host, int port)
+{
+    SockSlot *s = sock_slot(sh);
+    struct sockaddr_storage ss;
+    socklen_t sl;
+    int fd;
+    ssize_t n;
+    if (sh == 0 || !s || s->fd < 0) return -1;
+    fd = s->fd;
+    /* A literal address resolves without DNS (the common per-datagram case);
+     * only a name goes to the resolver. */
+    if (resolve_sockaddr(host, port, 0, SOCK_DGRAM, 1, &ss, &sl) != 0 &&
+        resolve_sockaddr(host, port, 0, SOCK_DGRAM, 0, &ss, &sl) != 0)
+        return -1;
+    if (s->wtimeout > 0) {
+        int r = socket_wait_ready(fd, s->wtimeout, 1);
+        if (r == 0) return PLATFORM_SOCKET_TIMEOUT;
+        if (r < 0) return -1;
+    }
+    cl_gc_enter_safe_region();
+    n = sendto(fd, buf, (size_t)len, 0, (struct sockaddr *)&ss, sl);
+    cl_gc_leave_safe_region();
+    return (n == (ssize_t)len) ? 0 : -1;
+}
+
+int platform_udp_recv_from(PlatformSocket sh, uint8_t *buf, uint32_t maxlen,
+                           char *from_addr, uint32_t from_len, int *from_port)
+{
+    SockSlot *s = sock_slot(sh);
+    struct sockaddr_storage ss;
+    socklen_t sl = (socklen_t)sizeof(ss);
+    int fd;
+    ssize_t n;
+    if (sh == 0 || !s || s->fd < 0) return -1;
+    fd = s->fd;
+    if (s->rtimeout > 0) {
+        int r = socket_wait_ready(fd, s->rtimeout, 0);
+        if (r == 0) return PLATFORM_SOCKET_TIMEOUT;
+        if (r < 0) return -1;
+    }
+    memset(&ss, 0, sizeof(ss));
+    cl_gc_enter_safe_region();
+    n = recvfrom(fd, buf, (size_t)maxlen, 0, (struct sockaddr *)&ss, &sl);
+    cl_gc_leave_safe_region();
+    if (n < 0) return -1;
+    if (format_sockaddr((struct sockaddr *)&ss, sl, from_addr, from_len, from_port) != 0) {
+        if (from_len > 0) from_addr[0] = '\0';
+        if (from_port) *from_port = 0;
+    }
+    return (int)n;
+}
+
+int platform_udp_multicast_membership(PlatformSocket sh, const char *group,
+                                      const char *iface, int join)
+{
+    SockSlot *s = sock_slot(sh);
+    struct sockaddr_storage ss;
+    socklen_t sl;
+    if (sh == 0 || !s || s->fd < 0) return -1;
+    if (resolve_sockaddr(group, 0, 0, SOCK_DGRAM, 1, &ss, &sl) != 0) return -1;
+    if (ss.ss_family == AF_INET6) {
+        struct ipv6_mreq m;
+        const struct sockaddr_in6 *g = (const struct sockaddr_in6 *)&ss;
+        memset(&m, 0, sizeof(m));
+        m.ipv6mr_multiaddr = g->sin6_addr;
+        m.ipv6mr_interface = iface ? iface_to_index(iface) : g->sin6_scope_id;
+        if (iface && !m.ipv6mr_interface) return -1;
+        return setsockopt(s->fd, IPPROTO_IPV6,
+                          join ? IPV6_JOIN_GROUP : IPV6_LEAVE_GROUP,
+                          &m, sizeof(m)) == 0 ? 0 : -1;
+    } else {
+        struct ip_mreq m;
+        memset(&m, 0, sizeof(m));
+        m.imr_multiaddr = ((const struct sockaddr_in *)&ss)->sin_addr;
+        if (iface) {
+            if (iface_to_ipv4(iface, &m.imr_interface) != 0) return -1;
+        } else {
+            m.imr_interface.s_addr = htonl(INADDR_ANY);
+        }
+        return setsockopt(s->fd, IPPROTO_IP,
+                          join ? IP_ADD_MEMBERSHIP : IP_DROP_MEMBERSHIP,
+                          &m, sizeof(m)) == 0 ? 0 : -1;
+    }
+}
+
+int platform_udp_multicast_options(PlatformSocket sh, int hops, int loop,
+                                   const char *iface)
+{
+    SockSlot *s = sock_slot(sh);
+    struct sockaddr_storage ss;
+    socklen_t alen = (socklen_t)sizeof(ss);
+    if (sh == 0 || !s || s->fd < 0) return -1;
+    memset(&ss, 0, sizeof(ss));
+    if (getsockname(s->fd, (struct sockaddr *)&ss, &alen) < 0) return -1;
+    if (ss.ss_family == AF_INET6) {
+        int v;
+        if (hops >= 0) {
+            v = hops;
+            if (setsockopt(s->fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &v, sizeof(v)) != 0)
+                return -1;
+        }
+        if (loop >= 0) {
+            v = loop ? 1 : 0;
+            if (setsockopt(s->fd, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &v, sizeof(v)) != 0)
+                return -1;
+        }
+        if (iface) {
+            unsigned idx = iface_to_index(iface);
+            if (!idx) return -1;
+            if (setsockopt(s->fd, IPPROTO_IPV6, IPV6_MULTICAST_IF, &idx, sizeof(idx)) != 0)
+                return -1;
+        }
+    } else {
+        unsigned char v;
+        if (hops >= 0) {
+            v = (unsigned char)(hops > 255 ? 255 : hops);
+            if (setsockopt(s->fd, IPPROTO_IP, IP_MULTICAST_TTL, &v, sizeof(v)) != 0)
+                return -1;
+        }
+        if (loop >= 0) {
+            v = loop ? 1 : 0;
+            if (setsockopt(s->fd, IPPROTO_IP, IP_MULTICAST_LOOP, &v, sizeof(v)) != 0)
+                return -1;
+        }
+        if (iface) {
+            struct in_addr a;
+            if (iface_to_ipv4(iface, &a) != 0) return -1;
+            if (setsockopt(s->fd, IPPROTO_IP, IP_MULTICAST_IF, &a, sizeof(a)) != 0)
+                return -1;
+        }
+    }
     return 0;
+}
+
+int platform_net_interfaces(char *out, uint32_t outlen)
+{
+    struct ifaddrs *ifa0, *ifa, *ifb;
+    uint32_t pos = 0;
+    int count = 0;
+    if (!out || outlen == 0) return -1;
+    out[0] = '\0';
+    if (getifaddrs(&ifa0) != 0) return -1;
+    for (ifa = ifa0; ifa; ifa = ifa->ifa_next) {
+        char line[1024];
+        int lp, seen = 0, first = 1;
+        /* One line per interface name: skip a name already emitted. */
+        for (ifb = ifa0; ifb != ifa; ifb = ifb->ifa_next)
+            if (strcmp(ifb->ifa_name, ifa->ifa_name) == 0) { seen = 1; break; }
+        if (seen) continue;
+        lp = snprintf(line, sizeof(line), "%s\t%u\t%s%s%s\t",
+                      ifa->ifa_name, if_nametoindex(ifa->ifa_name),
+                      (ifa->ifa_flags & IFF_UP) ? "U" : "",
+                      (ifa->ifa_flags & IFF_LOOPBACK) ? "L" : "",
+                      (ifa->ifa_flags & IFF_MULTICAST) ? "M" : "");
+        if (lp < 0 || (size_t)lp >= sizeof(line)) continue;
+        for (ifb = ifa; ifb; ifb = ifb->ifa_next) {
+            char a[PLATFORM_ADDR_STRLEN];
+            socklen_t sl;
+            if (strcmp(ifb->ifa_name, ifa->ifa_name) != 0 || !ifb->ifa_addr) continue;
+            if (ifb->ifa_addr->sa_family == AF_INET)       sl = (socklen_t)sizeof(struct sockaddr_in);
+            else if (ifb->ifa_addr->sa_family == AF_INET6) sl = (socklen_t)sizeof(struct sockaddr_in6);
+            else continue;
+            if (format_sockaddr(ifb->ifa_addr, sl, a, sizeof(a), NULL) != 0) continue;
+            if ((size_t)lp + strlen(a) + 2 >= sizeof(line)) break;
+            lp += snprintf(line + lp, sizeof(line) - (size_t)lp, "%s%s", first ? "" : ",", a);
+            first = 0;
+        }
+        if ((size_t)lp + 2 > sizeof(line)) continue;
+        line[lp++] = '\n';
+        line[lp] = '\0';
+        if (pos + (uint32_t)lp + 1 > outlen) continue;   /* does not fit: dropped */
+        memcpy(out + pos, line, (size_t)lp + 1);
+        pos += (uint32_t)lp;
+        count++;
+    }
+    freeifaddrs(ifa0);
+    return count;
 }
 
 /* --- TLS public entry points (contract in platform.h; OpenSSL backend in

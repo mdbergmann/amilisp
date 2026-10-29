@@ -27,7 +27,7 @@ PLATFORM_IMPL  = $(SRCDIR)/platform/platform_win32.c \
                  $(SRCDIR)/platform/win32_compat.c
 # shell32: CommandLineToArgvW, which main.c uses to recover the UTF-16
 # command line (argv arrives ANSI-mangled otherwise).
-PLATFORM_LIBS  = -lws2_32 -lshell32
+PLATFORM_LIBS  = -lws2_32 -liphlpapi -lshell32
 PTHREAD_FLAGS  = -pthread
 else
 PLATFORM_DEF   = -DPLATFORM_POSIX

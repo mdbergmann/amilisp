@@ -1382,7 +1382,16 @@ enum {
      * REQ_READFILL (one recv = one datagram into the caller's buffer) and
      * REQ_WRITE (UDP send never partial-sends, so pend_wpos stays 0). */
     REQ_UDP_CONNECT,
-    REQ_ENDPOINT,    /* getsockname: dotted-quad into req->buf, port into out_port */
+    REQ_ENDPOINT,    /* getsockname: dotted-quad into req->buf (len bytes), port into out_port */
+    /* Unconnected datagram sockets (platform.h "Unconnected datagram
+     * sockets"): bind, sendto/recvfrom (park like WRITE/READFILL), IPv4
+     * multicast membership and options, and the interface list. */
+    REQ_UDP_BIND,
+    REQ_SENDTO,
+    REQ_RECVFROM,
+    REQ_MCAST_MEMBER,
+    REQ_MCAST_OPTS,
+    REQ_IFACES,
     /* TLS (CL_REACTOR_TLS builds; otherwise answered with -1):
      * TLS_START runs the handshake on an established connection (params in
      * tls_params, diagnostic into buf/len); once it succeeds the slot's
@@ -1407,6 +1416,10 @@ typedef struct SockReq {
     volatile int            result;    /* readfill: bytes (0=EOF, -2=timeout); else 0=ok/-1=err/-2=timeout */
     volatile PlatformSocket out_slot;  /* connect/listen/accept: new slot */
     volatile int            out_port;  /* listen: bound port */
+    uint32_t       peer_addr;    /* sendto destination / multicast group (host order) */
+    int            peer_port;    /* sendto destination port */
+    int            flag;         /* bind: reuse; mcast: join(1)/leave(0), loop(-1 = unchanged) */
+    volatile uint32_t out_addr;  /* recvfrom: sender address (host order) */
     uint32_t       seq;          /* trace id (AMILISP_SOCK_DIAG); 0 when tracing is off */
     const PlatformTLSParams *tls_params; /* TLS_START: handshake parameters
                                           * (caller-stack struct; valid for the
@@ -1468,6 +1481,12 @@ static const char *sock_op_name(int op)
     case REQ_POLL:        return "POLL";
     case REQ_UDP_CONNECT: return "UDP-CONNECT";
     case REQ_ENDPOINT:    return "ENDPOINT";
+    case REQ_UDP_BIND:    return "UDP-BIND";
+    case REQ_SENDTO:      return "SENDTO";
+    case REQ_RECVFROM:    return "RECVFROM";
+    case REQ_MCAST_MEMBER: return "MCAST-MEMBER";
+    case REQ_MCAST_OPTS:  return "MCAST-OPTS";
+    case REQ_IFACES:      return "IFACES";
     case REQ_TLS_START:   return "TLS-START";
     case REQ_TLS_PEERCERT: return "TLS-PEERCERT";
     default:              return "?";
@@ -2245,7 +2264,7 @@ static void reactor_do_endpoint(SockReq *req)
     cl_socklen_t alen = sizeof(addr);
     if (fd < 0) { req->result = -1; reactor_reply(req); return; }
     memset(&addr, 0, sizeof(addr));
-    if (getsockname(fd, (struct sockaddr *)&addr, &alen) < 0) {
+    if (req->len < 16 || getsockname(fd, (struct sockaddr *)&addr, &alen) < 0) {
         req->result = -1; reactor_reply(req); return;
     }
     {
@@ -2255,6 +2274,182 @@ static void reactor_do_endpoint(SockReq *req)
         req->out_port = ntohs(addr.sin_port);
     }
     req->result = 0;
+    reactor_reply(req);
+}
+
+/* --- Unconnected datagram sockets (IPv4 only: bsdsocket.library stacks
+ * have no AF_INET6).  Parking follows the READFILL/WRITE pattern: a
+ * would-block recvfrom waits in pend_read, a would-block sendto in
+ * pend_write; deadlines and close-cancellation apply unchanged. --- */
+
+static void reactor_udp_bind(SockReq *req)
+{
+    struct sockaddr_in addr;
+    LONG fd, on = 1;
+    int slot;
+
+    fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (fd < 0) { req->result = -1; req->out_slot = PLATFORM_SOCKET_INVALID; reactor_reply(req); return; }
+    if (req->flag) {
+        setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof(on));
+#ifdef SO_REUSEPORT
+        setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, (char *)&on, sizeof(on));
+#endif
+    }
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons((unsigned short)req->port);
+    addr.sin_addr.s_addr = htonl(req->bind_addr ? req->bind_addr : INADDR_ANY);
+    if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+        CloseSocket(fd); req->result = -1; req->out_slot = PLATFORM_SOCKET_INVALID; reactor_reply(req); return;
+    }
+    {
+        cl_socklen_t alen = sizeof(addr);
+        if (getsockname(fd, (struct sockaddr *)&addr, &alen) == 0)
+            req->out_port = ntohs(addr.sin_port);
+        else
+            req->out_port = req->port;
+    }
+    reactor_set_nonblock(fd);
+    slot = reactor_alloc_slot(fd, 0);   /* no IOBuf: message I/O only */
+    if (slot < 0) { CloseSocket(fd); req->result = -1; req->out_slot = PLATFORM_SOCKET_INVALID; }
+    else          { req->result = 0;  req->out_slot = (PlatformSocket)slot; }
+    reactor_reply(req);
+}
+
+static void reactor_try_sendto(SockReq *req)
+{
+    int slot = (int)req->slot;
+    LONG fd = socket_table[slot];
+    struct sockaddr_in to;
+    LONG n;
+    if (fd < 0) { req->result = -1; reactor_reply(req); return; }
+    if (req->host) {
+        /* A host name: resolve once, then cache the address in the request
+         * so a parked retry never resolves again. */
+        struct hostent *he;
+        if (sock_diag_on()) {
+            char d[80];
+            sprintf(d, "\"%.64s\"", req->host);
+            sock_diag_line(req, "dns", d);
+        }
+        he = gethostbyname((STRPTR)req->host);
+        if (sock_diag_on()) sock_diag_line(req, he ? "dns ok" : "dns FAIL", NULL);
+        if (!he || !he->h_addr_list[0]) { req->result = -1; reactor_reply(req); return; }
+        memcpy(&to.sin_addr, he->h_addr_list[0], (size_t)he->h_length);
+        req->peer_addr = ntohl(to.sin_addr.s_addr);
+        req->host = NULL;
+    }
+    memset(&to, 0, sizeof(to));
+    to.sin_family = AF_INET;
+    to.sin_port = htons((unsigned short)req->peer_port);
+    to.sin_addr.s_addr = htonl(req->peer_addr);
+    n = sendto(fd, req->buf, (LONG)req->len, 0, (struct sockaddr *)&to, sizeof(to));
+    if (n >= 0) {
+        req->result = 0; reactor_reply(req);
+    } else if (Errno() == EWOULDBLOCK) {
+        pend_write[slot] = req;                            /* park */
+        reactor_arm_deadline(slot, req->timeout_ms, 1);
+        if (sock_diag_on()) {
+            char d[32];
+            sprintf(d, "slot=%d", slot);
+            sock_diag_line(req, "park-w", d);
+        }
+    } else {
+        req->result = -1; reactor_reply(req);
+    }
+}
+
+static void reactor_try_recvfrom(SockReq *req)
+{
+    int slot = (int)req->slot;
+    LONG fd = socket_table[slot];
+    struct sockaddr_in from;
+    cl_socklen_t flen = sizeof(from);
+    LONG n;
+    if (fd < 0) { req->result = -1; reactor_reply(req); return; }
+    memset(&from, 0, sizeof(from));
+    n = recvfrom(fd, req->buf, (LONG)req->len, 0, (struct sockaddr *)&from, &flen);
+    if (n >= 0) {
+        req->out_addr = ntohl(from.sin_addr.s_addr);
+        req->out_port = ntohs(from.sin_port);
+        req->result = (int)n;
+        reactor_reply(req);
+    } else if (Errno() == EWOULDBLOCK) {
+        pend_read[slot] = req;                             /* park */
+        reactor_arm_deadline(slot, req->timeout_ms, 0);
+        if (sock_diag_on()) {
+            char d[32];
+            sprintf(d, "slot=%d", slot);
+            sock_diag_line(req, "park-r", d);
+        }
+    } else {
+        req->result = -1; reactor_reply(req);
+    }
+}
+
+static void reactor_mcast_member(SockReq *req)
+{
+    int slot = (int)req->slot;
+    LONG fd = socket_table[slot];
+    struct ip_mreq m;
+    if (fd < 0) { req->result = -1; reactor_reply(req); return; }
+    memset(&m, 0, sizeof(m));
+    m.imr_multiaddr.s_addr = htonl(req->peer_addr);
+    m.imr_interface.s_addr = htonl(req->bind_addr ? req->bind_addr : INADDR_ANY);
+    req->result = setsockopt(fd, IPPROTO_IP,
+                             req->flag ? IP_ADD_MEMBERSHIP : IP_DROP_MEMBERSHIP,
+                             (char *)&m, sizeof(m)) == 0 ? 0 : -1;
+    reactor_reply(req);
+}
+
+static void reactor_mcast_opts(SockReq *req)
+{
+    int slot = (int)req->slot;
+    LONG fd = socket_table[slot];
+    unsigned char v;
+    req->result = 0;
+    if (fd < 0) { req->result = -1; reactor_reply(req); return; }
+    if (req->port >= 0) {              /* hops */
+        v = (unsigned char)(req->port > 255 ? 255 : req->port);
+        if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL, (char *)&v, sizeof(v)) != 0)
+            req->result = -1;
+    }
+    if (req->flag >= 0) {              /* loop */
+        v = req->flag ? 1 : 0;
+        if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_LOOP, (char *)&v, sizeof(v)) != 0)
+            req->result = -1;
+    }
+    if (req->loopback) {               /* interface given: its IPv4 address */
+        struct in_addr a;
+        a.s_addr = htonl(req->bind_addr);
+        if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_IF, (char *)&a, sizeof(a)) != 0)
+            req->result = -1;
+    }
+    reactor_reply(req);
+}
+
+/* bsdsocket.library has no interface enumeration every stack shares
+ * (ObtainInterfaceList is Roadshow-only), so the list is the one address
+ * the stack resolves this host's own name to, as interface "default" —
+ * enough for a responder to advertise itself. */
+static void reactor_ifaces(SockReq *req)
+{
+    char name[128];
+    struct hostent *he;
+    req->result = 0;
+    if (req->len > 0) req->buf[0] = '\0';
+    if (req->len < 48 || gethostname(name, sizeof(name)) != 0) {
+        reactor_reply(req); return;
+    }
+    name[sizeof(name) - 1] = '\0';
+    he = gethostbyname((STRPTR)name);
+    if (he && he->h_addr_list[0] && he->h_length == 4) {
+        const unsigned char *b = (const unsigned char *)he->h_addr_list[0];
+        sprintf(req->buf, "default\t0\tUM\t%u.%u.%u.%u\n",
+                (unsigned)b[0], (unsigned)b[1], (unsigned)b[2], (unsigned)b[3]);
+        req->result = 1;
+    }
     reactor_reply(req);
 }
 
@@ -2304,6 +2499,12 @@ static void reactor_handle(SockReq *req)
     case REQ_POLL:     reactor_try_poll(req);      break;
     case REQ_UDP_CONNECT: reactor_udp_connect(req); break;
     case REQ_ENDPOINT: reactor_do_endpoint(req);   break;
+    case REQ_UDP_BIND: reactor_udp_bind(req);      break;
+    case REQ_SENDTO:   reactor_try_sendto(req);    break;
+    case REQ_RECVFROM: reactor_try_recvfrom(req);  break;
+    case REQ_MCAST_MEMBER: reactor_mcast_member(req); break;
+    case REQ_MCAST_OPTS: reactor_mcast_opts(req);  break;
+    case REQ_IFACES:   reactor_ifaces(req);        break;
     case REQ_CLOSE:    reactor_do_close(req);      break;
 #ifdef CL_REACTOR_TLS
     case REQ_TLS_START:    reactor_try_tls_start(req); break;
@@ -2325,6 +2526,7 @@ static void reactor_resume_read(int slot)
         sock_diag_line(req, "resume-r", d);
     }
     if (req->op == REQ_ACCEPT) { reactor_try_accept(req); return; }
+    if (req->op == REQ_RECVFROM) { reactor_try_recvfrom(req); return; }
 #ifdef CL_REACTOR_TLS
     if (req->op == REQ_TLS_START) { reactor_try_tls_start(req); return; }
 #endif
@@ -2342,8 +2544,9 @@ static void reactor_resume_write(int slot)
         sprintf(d, "slot=%d", slot);
         sock_diag_line(req, "resume-w", d);
     }
-    if (req->op == REQ_CONNECT) reactor_finish_connect(req);
-    else                        reactor_try_write(req);
+    if (req->op == REQ_CONNECT)     reactor_finish_connect(req);
+    else if (req->op == REQ_SENDTO) reactor_try_sendto(req);
+    else                            reactor_try_write(req);
 }
 
 /* Time out any parked op whose deadline has elapsed: hand the waiting thread
@@ -2806,17 +3009,134 @@ int platform_udp_recv(PlatformSocket sh, uint8_t *buf, uint32_t maxlen)
     return req.result;
 }
 
-int platform_socket_local_endpoint(PlatformSocket sh, char *ip_out, int *port_out)
+int platform_socket_local_endpoint(PlatformSocket sh, char *addr_out,
+                                   uint32_t addr_len, int *port_out)
 {
     SockReq req;
     if (sh == 0 || sh >= PLATFORM_SOCKET_TABLE_SIZE) return -1;
     memset(&req, 0, sizeof(req));
     req.op = REQ_ENDPOINT; req.slot = sh;
-    req.buf = ip_out; req.len = 16;   /* C stack buffer — safe across the safe region */
+    req.buf = addr_out; req.len = addr_len;   /* C stack buffer — safe across the safe region */
     sock_call(&req);
     if (req.result != 0) return -1;
     if (port_out) *port_out = req.out_port;
     return 0;
+}
+
+/* --- Unconnected datagram sockets, multicast, interfaces (platform.h
+ * contract).  The AmigaOS stacks are IPv4-only: every IPv6 request fails
+ * here, before the reactor is involved, and interfaces are named by an
+ * IPv4 address of theirs (names and indices do not exist in the
+ * bsdsocket.library API). --- */
+
+static int parse_ipv4(const char *s, uint32_t *out);
+
+int platform_net_ipv6_supported(void)
+{
+    return 0;
+}
+
+PlatformSocket platform_udp_bind(const char *addr, int port, int family,
+                                 int reuse, int *actual_port)
+{
+    SockReq req;
+    uint32_t ip = 0;
+    if (family != PLATFORM_AF_INET) return PLATFORM_SOCKET_INVALID;
+    if (addr && !parse_ipv4(addr, &ip)) return PLATFORM_SOCKET_INVALID;
+    memset(&req, 0, sizeof(req));
+    req.op = REQ_UDP_BIND; req.port = port; req.bind_addr = ip; req.flag = reuse;
+    sock_call(&req);
+    if (req.out_slot != PLATFORM_SOCKET_INVALID && actual_port)
+        *actual_port = req.out_port;
+    return req.out_slot;
+}
+
+int platform_udp_send_to(PlatformSocket sh, const uint8_t *buf, uint32_t len,
+                         const char *host, int port)
+{
+    SockReq req;
+    uint32_t ip;
+    char host_buf[256];
+    if (sh == 0 || sh >= PLATFORM_SOCKET_TABLE_SIZE) return -1;
+    memset(&req, 0, sizeof(req));
+    req.op = REQ_SENDTO; req.slot = sh;
+    req.buf = (char *)buf; req.len = len;
+    req.timeout_ms = socket_wtimeout[sh];
+    req.peer_port = port;
+    if (parse_ipv4(host, &ip)) {
+        req.peer_addr = ip;
+    } else {
+        /* A name: stack-copied for the reactor's DNS (see platform_udp_connect). */
+        strncpy(host_buf, host, sizeof(host_buf) - 1);
+        host_buf[sizeof(host_buf) - 1] = '\0';
+        req.host = host_buf;
+    }
+    sock_call(&req);
+    return req.result;   /* 0 = ok, -1 = error, -2 = timeout */
+}
+
+int platform_udp_recv_from(PlatformSocket sh, uint8_t *buf, uint32_t maxlen,
+                           char *from_addr, uint32_t from_len, int *from_port)
+{
+    SockReq req;
+    if (sh == 0 || sh >= PLATFORM_SOCKET_TABLE_SIZE) return -1;
+    memset(&req, 0, sizeof(req));
+    req.op = REQ_RECVFROM; req.slot = sh;
+    req.buf = (char *)buf; req.len = maxlen;
+    req.timeout_ms = socket_rtimeout[sh];
+    sock_call(&req);
+    if (req.result == PLATFORM_SOCKET_TIMEOUT) return PLATFORM_SOCKET_TIMEOUT;
+    if (req.result < 0) return -1;
+    if (from_len >= 16) {
+        uint32_t a = req.out_addr;
+        sprintf(from_addr, "%u.%u.%u.%u", (unsigned)(a >> 24) & 255u,
+                (unsigned)(a >> 16) & 255u, (unsigned)(a >> 8) & 255u,
+                (unsigned)a & 255u);
+    } else if (from_len > 0) {
+        from_addr[0] = '\0';
+    }
+    if (from_port) *from_port = req.out_port;
+    return req.result;
+}
+
+int platform_udp_multicast_membership(PlatformSocket sh, const char *group,
+                                      const char *iface, int join)
+{
+    SockReq req;
+    uint32_t g, ifaddr = 0;
+    if (sh == 0 || sh >= PLATFORM_SOCKET_TABLE_SIZE) return -1;
+    if (!parse_ipv4(group, &g)) return -1;
+    if (iface && !parse_ipv4(iface, &ifaddr)) return -1;
+    memset(&req, 0, sizeof(req));
+    req.op = REQ_MCAST_MEMBER; req.slot = sh;
+    req.peer_addr = g; req.bind_addr = ifaddr; req.flag = join ? 1 : 0;
+    sock_call(&req);
+    return req.result;
+}
+
+int platform_udp_multicast_options(PlatformSocket sh, int hops, int loop,
+                                   const char *iface)
+{
+    SockReq req;
+    uint32_t ifaddr = 0;
+    if (sh == 0 || sh >= PLATFORM_SOCKET_TABLE_SIZE) return -1;
+    if (iface && !parse_ipv4(iface, &ifaddr)) return -1;
+    memset(&req, 0, sizeof(req));
+    req.op = REQ_MCAST_OPTS; req.slot = sh;
+    req.port = hops; req.flag = loop;
+    req.loopback = iface ? 1 : 0; req.bind_addr = ifaddr;
+    sock_call(&req);
+    return req.result;
+}
+
+int platform_net_interfaces(char *out, uint32_t outlen)
+{
+    SockReq req;
+    if (!out || outlen == 0) return -1;
+    memset(&req, 0, sizeof(req));
+    req.op = REQ_IFACES; req.buf = out; req.len = outlen;
+    sock_call(&req);
+    return req.result;
 }
 
 /* --- TLS (platform.h contract) ---

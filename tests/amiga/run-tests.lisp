@@ -4790,6 +4790,79 @@ y" 1))
                                      (make-array 1 :element-type '(unsigned-byte 8)))
     (error () :rejected)))
 
+; --- Unconnected datagram sockets (ext:open-udp-socket & co.) ---
+; Both ends are ours, so a real round trip needs no peer: A sends to B's
+; bound port, B learns A's address/port from udp-receive-from and answers.
+(check "udp socket bind + local endpoint" t
+  (let ((s (ext:open-udp-socket :address "127.0.0.1")))
+    (unwind-protect
+         (multiple-value-bind (ip port) (ext:socket-stream-local-endpoint s)
+           (and (equal ip "127.0.0.1") (integerp port) (> port 0)))
+      (close s))))
+(check "udp send-to / receive-from round trip" t
+  (let ((a (ext:open-udp-socket :address "127.0.0.1"))
+        (b (ext:open-udp-socket :address "127.0.0.1"))
+        (buf (make-array 16 :element-type '(unsigned-byte 8) :initial-element 0)))
+    (unwind-protect
+         (let ((port-a (nth-value 1 (ext:socket-stream-local-endpoint a)))
+               (port-b (nth-value 1 (ext:socket-stream-local-endpoint b))))
+           (setf (ext:socket-stream-timeout a :input) 5)
+           (setf (ext:socket-stream-timeout b :input) 5)
+           (ext:udp-send-to a (coerce #(1 2 3 4 5) '(vector (unsigned-byte 8)))
+                            "127.0.0.1" port-b)
+           (multiple-value-bind (len host port) (ext:udp-receive-from b buf)
+             (and (= len 5) (equal host "127.0.0.1") (= port port-a)
+                  (equal (coerce (subseq buf 0 5) 'list) '(1 2 3 4 5))
+                  (ext:udp-send-to b buf host port 2)
+                  (multiple-value-bind (len2 host2 port2) (ext:udp-receive-from a buf)
+                    (and (= len2 2) (equal host2 "127.0.0.1") (= port2 port-b))))))
+      (close a) (close b))))
+(check "udp receive-from timeout" :timed-out
+  (let ((s (ext:open-udp-socket :address "127.0.0.1"))
+        (buf (make-array 8 :element-type '(unsigned-byte 8))))
+    (unwind-protect
+         (progn
+           (setf (ext:socket-stream-timeout s :input) 0.2)
+           (handler-case (progn (ext:udp-receive-from s buf) :data)
+             (ext:socket-timeout () :timed-out)))
+      (close s))))
+(check "udp-stream-send on an unconnected socket names udp-send-to" :hinted
+  (let ((s (ext:open-udp-socket :address "127.0.0.1")))
+    (unwind-protect
+         (handler-case
+             (progn (ext:udp-stream-send s (make-array 1 :element-type '(unsigned-byte 8)
+                                                        :initial-element 1))
+                    :sent)
+           (error (e) (and (search "UDP-SEND-TO" (format nil "~a" e)) :hinted)))
+      (close s))))
+; bsdsocket.library stacks are IPv4-only: the predicate says so and an IPv6
+; request fails with a clear error instead of reaching the reactor.
+(check "ipv6 is reported unsupported" nil (ext:ipv6-supported-p))
+(check "ipv6 socket request is rejected cleanly" :rejected
+  (handler-case (ext:open-udp-socket :family :ipv6)
+    (error (e) (and (search "IPv6" (format nil "~a" e)) :rejected))))
+; Multicast on the emulated/real stack may or may not be supported; the
+; calls must be wired through either way (a T, or an error that names the
+; group — never a type error or a hang).
+(check "udp multicast join/leave are wired through" t
+  (let ((s (ext:open-udp-socket :reuse-address t)))
+    (unwind-protect
+         (and (member (handler-case (and (ext:udp-multicast-join s "224.0.0.251")
+                                         (ext:udp-multicast-leave s "224.0.0.251"))
+                        (error (e) (and (search "224.0.0.251" (format nil "~a" e)) :refused)))
+                      '(t :refused))
+              t)
+      (close s))))
+(check "udp multicast join rejects a non-udp stream" :rejected
+  (handler-case (ext:udp-multicast-join (make-string-output-stream) "224.0.0.251")
+    (error () :rejected)))
+(check "network-interfaces is a list of plists" t
+  (let ((ifs (ext:network-interfaces)))
+    (and (listp ifs)
+         (every (lambda (e) (and (stringp (getf e :name)) (integerp (getf e :index))
+                                 (listp (getf e :flags)) (listp (getf e :addresses))))
+                ifs))))
+
 ; --- Socket read/write timeouts (ext:socket-stream-timeout) ---
 ; (setf (ext:socket-stream-timeout stream :input/:output) seconds) arms a
 ; WaitSelect deadline in the platform socket layer; a read/write that misses it

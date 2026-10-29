@@ -3849,6 +3849,23 @@ TYPE itself and NIL."
 
 (export '(socket-start-tls))
 
+;; Unconnected datagram sockets (see README "Networking"): a socket bound to
+;; a local port that talks to any peer.  ADDRESS is a literal IPv4/IPv6
+;; address of this machine (NIL = every address of FAMILY, :IPV4 or :IPV6),
+;; PORT 0 = any free port, REUSE-ADDRESS lets several sockets share a
+;; multicast port such as mDNS 5353.  I/O: udp-send-to / udp-receive-from.
+(defun open-udp-socket (&key (port 0) address family reuse-address)
+  (%open-udp-socket port address family reuse-address))
+
+;; Outgoing multicast settings of a datagram socket: HOPS (TTL), LOOPBACK
+;; (receive our own transmissions), INTERFACE (name, index, or an IPv4
+;; address of the interface).  Omitted keywords leave the setting alone.
+(defun udp-multicast-configure (stream &key (hops :unset) (loopback :unset)
+                                            (interface :unset))
+  (%udp-multicast-configure stream hops loopback interface))
+
+(export '(open-udp-socket udp-multicast-configure))
+
 ;;; ============================================================
 ;;; MP package: threading macros and stubs
 ;;; ============================================================
