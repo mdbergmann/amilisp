@@ -169,6 +169,12 @@ CL_Obj cl_make_socket_stream(const char *host, int port, int connect_ms);
 /* Connected UDP datagram socket stream (CL_STREAM_FLAG_DGRAM set); I/O via
  * the EXT:UDP-STREAM-SEND/-RECEIVE builtins, closed with CL:CLOSE. */
 CL_Obj cl_make_udp_socket_stream(const char *host, int port);
+/* Unconnected UDP datagram socket stream bound to addr:port (addr NULL =
+ * every address of `family`, PLATFORM_AF_INET/INET6); I/O via
+ * EXT:UDP-SEND-TO / EXT:UDP-RECEIVE-FROM.  The bound port is written to
+ * *actual_port.  Returns CL_NIL on failure. */
+CL_Obj cl_make_udp_bound_socket_stream(const char *addr, int port, int family,
+                                       int reuse, int *actual_port);
 
 /* Create a listening (server) socket stream bound to `port`.
  * loopback != 0 binds 127.0.0.1 only; otherwise all interfaces.

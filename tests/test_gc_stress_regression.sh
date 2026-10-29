@@ -4556,6 +4556,38 @@ EOF
     fi
 fi
 
+# --- Case: unconnected datagram sockets (udp-send-to / udp-receive-from) ---
+# Same bug shape as above for bi_udp_receive_from, plus the sender's
+# address string and the three returned values are consed AFTER the safe
+# region; and bi_network_interfaces builds a nested list of plists under
+# protection (result/entry/addrs/flags roots) while every cons compacts.
+# Both ends are in-process, so no helper peer is needed.
+cat > "$WORK/udp_socket.lisp" <<'EOF'
+(let* ((a (ext:open-udp-socket :address "127.0.0.1"))
+       (b (ext:open-udp-socket :address "127.0.0.1"))
+       (port-a (nth-value 1 (ext:socket-stream-local-endpoint a)))
+       (port-b (nth-value 1 (ext:socket-stream-local-endpoint b)))
+       (buf (make-array 16 :element-type '(unsigned-byte 8) :initial-element 0)))
+  (setf (ext:socket-stream-timeout b :input) 10)
+  (setf (ext:socket-stream-timeout a :input) 10)
+  (ext:udp-send-to a (coerce #(1 2 3 4 5) '(vector (unsigned-byte 8))) "127.0.0.1" port-b)
+  (multiple-value-bind (len host port) (ext:udp-receive-from b buf)
+    (ext:udp-send-to b buf host port len)
+    (multiple-value-bind (len2 host2 port2) (ext:udp-receive-from a buf)
+      (format t "UDPSOCK:~a:~a:~a:~a:~a~%" len (= port port-a) len2 host2 (= port2 port-b))))
+  (let ((ifs (ext:network-interfaces)))
+    (format t "IFS:~a:~a~%" (and (consp ifs) t)
+            (and (every (lambda (e) (stringp (getf e :name))) ifs) t)))
+  (close a) (close b))
+EOF
+out=$(run_stress "$WORK/udp_socket.lisp")
+check_contains "udp-send-to/receive-from round trip correct under GC stress" \
+    "UDPSOCK:5:T:5:127.0.0.1:T" "$out"
+check_contains "network-interfaces list survives compaction at every cons" \
+    "IFS:T:T" "$out"
+check_absent   "no corruption in udp-receive-from / network-interfaces under stress" \
+    "Unbound variable\|Undefined\|type 0\|corrupted\|not of type" "$out"
+
 # --- Case: slow-lock-wait diagnostic (AMILISP_LOCK_DIAG) under GC stress ----
 # Bug-shaped path (src/core/builtins_thread.c, lock_wait_report): the waiter
 # parks inside a GC safe region while the HOLDER allocates — under stress

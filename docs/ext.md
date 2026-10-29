@@ -30,7 +30,7 @@ read/write deadlines via `socket-stream-timeout` — a timed-out operation signa
 | Signature | Kind | Description |
 |-----------|------|-------------|
 | `(open-tcp-stream host port &optional connect-timeout)` | function | Connect to `host` `port`, return a bidirectional character stream |
-| `(socket-listen port &optional address)` | function | Open a listening server socket on a port (port `0` picks a free one). `address` `t` binds 127.0.0.1 only, `nil` every interface, and a string names one dotted-quad IPv4 address of this machine (`"192.168.1.5"`) to bind alone |
+| `(socket-listen port &optional address)` | function | Open a listening server socket on a port (port `0` picks a free one). `address` `t` binds 127.0.0.1 only, `nil` every interface, and a string names one literal IPv4 or IPv6 address of this machine (`"192.168.1.5"`, `"::1"`) to bind alone |
 | `(socket-accept listener)` | function | Accept one incoming connection, returning its stream |
 | `(socket-local-port listener)` | function | The local port a listening/connected socket is bound to |
 | `(socket-stream-timeout stream direction)` | function | `setf`-able place: read/write deadline for a socket stream (`direction` is `:input` / `:output`, value in seconds): `(setf (socket-stream-timeout stream direction) seconds)` |
@@ -39,7 +39,15 @@ read/write deadlines via `socket-stream-timeout` — a timed-out operation signa
 | `(open-udp-stream host port)` | function | Create a UDP (datagram) socket aimed at `host` `port` |
 | `(udp-stream-send stream buffer &optional length)` | function | Send one datagram from byte vector `buffer` (`length` defaults to its full length) |
 | `(udp-stream-receive stream buffer &optional max-length)` | function | Receive one datagram into byte vector `buffer`; returns the received length |
-| `(socket-stream-local-endpoint stream)` | function | Local `(address . port)` a socket is bound to |
+| `(socket-stream-local-endpoint stream)` | function | Local address and port a socket is bound to, as two values (IPv6 addresses keep their scope) |
+| `(ipv6-supported-p)` | function | True when this machine's TCP/IP stack can bind IPv6 sockets (NIL on AmigaOS/MorphOS) |
+| `(open-udp-socket &key port address family reuse-address)` | function | Bind an **unconnected** datagram socket: `port` 0 = any free port, `address` a literal address of this machine (NIL = every address of `family`, `:ipv4` or `:ipv6`), `reuse-address` shares a multicast port |
+| `(udp-send-to stream buffer host port &optional length)` | function | Send one datagram to `host` `port` from an unconnected socket |
+| `(udp-receive-from stream buffer &optional max-length)` | function | Receive one datagram; returns its length, the sender's address and the sender's port |
+| `(udp-multicast-join stream group &optional interface)` | function | Join multicast `group` on `interface` (a name, an index, an IPv4 address of the interface, or NIL for the default) |
+| `(udp-multicast-leave stream group &optional interface)` | function | Leave a multicast group |
+| `(udp-multicast-configure stream &key hops loopback interface)` | function | Outgoing multicast settings: hop count, whether this host receives its own transmissions, sending interface (omitted keys stay unchanged) |
+| `(network-interfaces)` | function | List of interface plists: `:name`, `:index`, `:flags` (`:up` `:loopback` `:multicast`), `:addresses` |
 
 ## TLS
 

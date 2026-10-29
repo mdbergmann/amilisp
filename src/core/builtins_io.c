@@ -4638,8 +4638,8 @@ static CL_Obj bi_open_tcp_stream(CL_Obj *args, int n)
 /* (ext:socket-listen port &optional address) => listening socket stream
  * Binds a TCP server socket to `port` and starts listening.  ADDRESS says
  * where: T binds 127.0.0.1 only, NIL (or omitted) every interface, and a
- * string names ONE dotted-quad IPv4 address of this machine ("192.168.1.5";
- * "0.0.0.0" is every interface again) -- what a development port that must
+ * string names ONE literal IPv4 or IPv6 address of this machine
+ * ("192.168.1.5", "::1"; "0.0.0.0" is every interface again) -- what a development port that must
  * be reachable from another machine, and from nowhere else, binds.  A port
  * of 0 lets the OS pick an ephemeral port.  Use ext:socket-accept to wait
  * for and accept client connections.  Close it with CLOSE. */
@@ -4648,7 +4648,7 @@ static CL_Obj bi_socket_listen(CL_Obj *args, int n)
     CL_Obj port_obj = args[0];
     int port;
     CL_Obj stream;
-    char addr_buf[16];
+    char addr_buf[PLATFORM_ADDR_STRLEN];
     const char *addr = NULL;
     if (!CL_FIXNUM_P(port_obj))
         cl_error(CL_ERR_TYPE, "EXT:SOCKET-LISTEN: port must be an integer");
@@ -4660,8 +4660,9 @@ static CL_Obj bi_socket_listen(CL_Obj *args, int n)
         CL_String *s = (CL_String *)CL_OBJ_TO_PTR(args[1]);
         if (s->length == 0 || s->length >= sizeof(addr_buf))
             cl_error(CL_ERR_GENERAL,
-                     "EXT:SOCKET-LISTEN: the address must be a dotted-quad IPv4 "
-                     "address such as \"192.168.1.5\" (T for 127.0.0.1, NIL for every interface)");
+                     "EXT:SOCKET-LISTEN: the address must be a literal IPv4 or IPv6 "
+                     "address such as \"192.168.1.5\" or \"::1\" (T for 127.0.0.1, "
+                     "NIL for every interface)");
         memcpy(addr_buf, s->data, s->length);
         addr_buf[s->length] = '\0';
         addr = addr_buf;
@@ -4673,7 +4674,7 @@ static CL_Obj bi_socket_listen(CL_Obj *args, int n)
         if (addr && addr == addr_buf)
             cl_error(CL_ERR_GENERAL,
                      "EXT:SOCKET-LISTEN: failed to bind/listen on %s:%d (is it a "
-                     "dotted-quad address of an interface of this machine?)",
+                     "literal address of an interface of this machine?)",
                      addr_buf, port);
         cl_error(CL_ERR_GENERAL,
                  "EXT:SOCKET-LISTEN: failed to bind/listen on port %d", port);
@@ -4872,7 +4873,8 @@ static CL_Obj bi_udp_stream_send(CL_Obj *args, int n)
         cl_error(CL_ERR_TIMEOUT,
                  "EXT:UDP-STREAM-SEND: send timed out after %u ms", (unsigned)wtmo);
     if (rc != 0)
-        cl_error(CL_ERR_GENERAL, "EXT:UDP-STREAM-SEND: send failed");
+        cl_error(CL_ERR_GENERAL, "EXT:UDP-STREAM-SEND: send failed (an unconnected "
+                 "socket from EXT:OPEN-UDP-SOCKET needs EXT:UDP-SEND-TO)");
     return CL_T;
 }
 
@@ -4933,6 +4935,407 @@ static CL_Obj bi_udp_stream_receive(CL_Obj *args, int n)
     return CL_MAKE_FIXNUM(rc);
 }
 
+/* --- Unconnected datagram sockets, IPv6, multicast, interfaces ---
+ *
+ * The foundation for discovery-style protocols (mDNS/DNS-SD, SSDP, Matter):
+ * a socket bound to a local port that talks to any peer, with the peer's
+ * address reported per datagram, multicast group membership, and the
+ * interface list a responder needs to advertise its own addresses. */
+
+/* Copy a string argument (host, address, group) off the arena into a C
+ * buffer: the platform calls below allocate or park in GC safe regions. */
+static void copy_string_arg(CL_Obj obj, const char *who, const char *what,
+                            char *buf, uint32_t size)
+{
+    uint32_t i, len;
+    if (!CL_ANY_STRING_P(obj) && !CL_STRING_VECTOR_P(obj))
+        cl_error(CL_ERR_TYPE, "%s: %s must be a string", who, what);
+    len = cl_string_length(obj);
+    if (len == 0 || len >= size)
+        cl_error(CL_ERR_GENERAL, "%s: %s is empty or too long (max %u characters)",
+                 who, what, (unsigned)size - 1);
+    for (i = 0; i < len; i++) {
+        int c = cl_string_char_at(obj, i);
+        if (c <= 0 || c > 127)
+            cl_error(CL_ERR_GENERAL, "%s: %s must be plain ASCII", who, what);
+        buf[i] = (char)c;
+    }
+    buf[len] = '\0';
+}
+
+/* Interface designator argument: NIL => NULL (OS default), an integer
+ * index => its decimal spelling, a string => the name or address as given. */
+static const char *copy_iface_arg(CL_Obj obj, const char *who, char *buf, uint32_t size)
+{
+    if (CL_NULL_P(obj)) return NULL;
+    if (CL_FIXNUM_P(obj)) {
+        if (CL_FIXNUM_VAL(obj) <= 0)
+            cl_error(CL_ERR_TYPE, "%s: an interface index must be a positive integer", who);
+        snprintf(buf, size, "%ld", (long)CL_FIXNUM_VAL(obj));
+        return buf;
+    }
+    copy_string_arg(obj, who, "interface", buf, size);
+    return buf;
+}
+
+static int port_arg(CL_Obj obj, const char *who, int allow_zero)
+{
+    if (!CL_FIXNUM_P(obj))
+        cl_error(CL_ERR_TYPE, "%s: port must be an integer", who);
+    if (CL_FIXNUM_VAL(obj) < (allow_zero ? 0 : 1) || CL_FIXNUM_VAL(obj) > 65535)
+        cl_error(CL_ERR_GENERAL, "%s: port must be %s-65535", who, allow_zero ? "0" : "1");
+    return (int)CL_FIXNUM_VAL(obj);
+}
+
+/* (ext:ipv6-supported-p) => generalized boolean
+ * True when this machine's TCP/IP stack can bind IPv6 sockets (probed once).
+ * NIL on AmigaOS/MorphOS (IPv4-only stacks) and on hosts with IPv6 off. */
+static CL_Obj bi_ipv6_supported_p(CL_Obj *args, int n)
+{
+    CL_UNUSED(args); CL_UNUSED(n);
+    return platform_net_ipv6_supported() ? CL_T : CL_NIL;
+}
+
+/* (ext:%open-udp-socket port address family reuse) => stream
+ * Positional core of (ext:open-udp-socket &key port address family
+ * reuse-address) in boot.lisp: an UNCONNECTED datagram socket bound to
+ * ADDRESS:PORT (ADDRESS NIL = every address of FAMILY, :IPV4 or :IPV6; a
+ * given address decides the family; port 0 = any free port).  It receives
+ * from any peer via EXT:UDP-RECEIVE-FROM and sends via EXT:UDP-SEND-TO. */
+static CL_Obj bi_open_udp_socket(CL_Obj *args, int n)
+{
+    static const char *who = "EXT:OPEN-UDP-SOCKET";
+    char addr_buf[PLATFORM_ADDR_STRLEN];
+    const char *addr = NULL;
+    int port, family = PLATFORM_AF_INET, reuse, bound = 0;
+    CL_Obj stream;
+    CL_UNUSED(n);
+    port = port_arg(args[0], who, 1);
+    if (!CL_NULL_P(args[1])) {
+        copy_string_arg(args[1], who, "address", addr_buf, sizeof(addr_buf));
+        addr = addr_buf;
+        family = strchr(addr_buf, ':') ? PLATFORM_AF_INET6 : PLATFORM_AF_INET;
+    }
+    if (!CL_NULL_P(args[2])) {
+        int want;
+        if (args[2] == cl_intern_keyword("IPV4", 4))      want = PLATFORM_AF_INET;
+        else if (args[2] == cl_intern_keyword("IPV6", 4)) want = PLATFORM_AF_INET6;
+        else cl_error(CL_ERR_TYPE, "%s: family must be :IPV4 or :IPV6", who);
+        if (addr && want != family)
+            cl_error(CL_ERR_GENERAL, "%s: address %s is not an %s address", who,
+                     addr_buf, want == PLATFORM_AF_INET6 ? "IPv6" : "IPv4");
+        family = want;
+    }
+    reuse = CL_NULL_P(args[3]) ? 0 : 1;
+    if (family == PLATFORM_AF_INET6 && !platform_net_ipv6_supported())
+        cl_error(CL_ERR_GENERAL, "%s: IPv6 is not supported by this machine's "
+                 "TCP/IP stack (see EXT:IPV6-SUPPORTED-P)", who);
+    stream = cl_make_udp_bound_socket_stream(addr, port, family, reuse, &bound);
+    if (CL_NULL_P(stream))
+        cl_error(CL_ERR_GENERAL, "%s: failed to bind a UDP socket to %s:%d (not a "
+                 "literal IPv4/IPv6 address of this machine, or the port is in use "
+                 "without :REUSE-ADDRESS?)",
+                 who, addr ? addr_buf : (family == PLATFORM_AF_INET6 ? "::" : "0.0.0.0"),
+                 port);
+    return stream;
+}
+
+/* Marshal the BUFFER [LENGTH] arguments of a datagram send into C memory.
+ * Returns the payload pointer (sbuf, or malloc'ed when larger) and its
+ * length; the caller frees it when it is not sbuf. */
+static uint8_t *udp_marshal_payload(CL_Obj *args, int n, int len_index,
+                                    const char *who, uint8_t *sbuf, uint32_t *len_out)
+{
+    CL_Vector *v;
+    CL_ByteVector *bv;
+    uint32_t len, cap, i;
+    uint8_t *buf;
+    check_octet_vector(args[1], who, &len, &cap, &v, &bv);
+    if (n > len_index && !CL_NULL_P(args[len_index])) {
+        if (!CL_FIXNUM_P(args[len_index]) || CL_FIXNUM_VAL(args[len_index]) < 0)
+            cl_error(CL_ERR_TYPE, "%s: length must be a non-negative integer", who);
+        if ((uint32_t)CL_FIXNUM_VAL(args[len_index]) > cap)
+            cl_error(CL_ERR_GENERAL, "%s: length %ld exceeds buffer size %u", who,
+                     (long)CL_FIXNUM_VAL(args[len_index]), (unsigned)cap);
+        len = (uint32_t)CL_FIXNUM_VAL(args[len_index]);
+    }
+    if (len > 65507)
+        cl_error(CL_ERR_GENERAL, "%s: %u octets exceed the maximum UDP datagram "
+                 "size (65507)", who, (unsigned)len);
+    buf = (len <= UDP_STACK_BUF) ? sbuf : (uint8_t *)malloc(len);
+    if (!buf) cl_error(CL_ERR_GENERAL, "%s: out of memory", who);
+    if (bv) {
+        memcpy(buf, bv->data, len);
+    } else {
+        for (i = 0; i < len; i++) {
+            CL_Obj e = v->data[i];
+            if (!CL_FIXNUM_P(e) || CL_FIXNUM_VAL(e) < 0 || CL_FIXNUM_VAL(e) > 255) {
+                if (buf != sbuf) free(buf);
+                cl_error(CL_ERR_TYPE, "%s: buffer element %u is not an octet (0-255)",
+                         who, (unsigned)i);
+            }
+            buf[i] = (uint8_t)CL_FIXNUM_VAL(e);
+        }
+    }
+    *len_out = len;
+    return buf;
+}
+
+/* (ext:udp-send-to stream buffer host port &optional length) => t
+ * Sends the first LENGTH octets of BUFFER as one datagram to HOST:PORT from
+ * an unconnected datagram socket.  HOST is a literal address or a host
+ * name (a name is resolved on every call; literals never touch DNS). */
+static CL_Obj bi_udp_send_to(CL_Obj *args, int n)
+{
+    static const char *who = "EXT:UDP-SEND-TO";
+    CL_Stream *st;
+    char host_buf[256];
+    int port, rc;
+    uint32_t len, handle, wtmo;
+    uint8_t sbuf[UDP_STACK_BUF];
+    uint8_t *buf;
+    st = check_udp_stream(args[0], who);
+    copy_string_arg(args[2], who, "host", host_buf, sizeof(host_buf));
+    port = port_arg(args[3], who, 0);
+    buf = udp_marshal_payload(args, n, 4, who, sbuf, &len);
+    /* Capture the handle + timeout before the platform call: the send parks
+     * in a GC safe region, and compaction can move the stream object. */
+    handle = st->handle_id;
+    wtmo = st->write_timeout_ms;
+    rc = platform_udp_send_to((PlatformSocket)handle, buf, len, host_buf, port);
+    if (buf != sbuf) free(buf);
+    if (rc == PLATFORM_SOCKET_TIMEOUT)
+        cl_error(CL_ERR_TIMEOUT, "%s: send timed out after %u ms", who, (unsigned)wtmo);
+    if (rc != 0)
+        cl_error(CL_ERR_GENERAL, "%s: send to %s:%d failed (host unresolvable, no "
+                 "route, or an address family the socket is not bound to?)",
+                 who, host_buf, port);
+    return CL_T;
+}
+
+/* (ext:udp-receive-from stream buffer &optional max-length)
+ *   => length, host-string, port
+ * Like EXT:UDP-STREAM-RECEIVE, and additionally returns the sender's
+ * address (textual, a link-local IPv6 address keeps its scope) and port —
+ * the pair EXT:UDP-SEND-TO takes to answer it. */
+static CL_Obj bi_udp_receive_from(CL_Obj *args, int n)
+{
+    static const char *who = "EXT:UDP-RECEIVE-FROM";
+    CL_Stream *st;
+    CL_Vector *v;
+    CL_ByteVector *bv;
+    uint32_t maxlen, cap, i;
+    uint32_t handle, rtmo;
+    uint8_t sbuf[UDP_STACK_BUF];
+    uint8_t *buf;
+    char from[PLATFORM_ADDR_STRLEN];
+    int from_port = 0, rc;
+    CL_Obj host_obj;
+    st = check_udp_stream(args[0], who);
+    check_octet_vector(args[1], who, &maxlen, &cap, &v, &bv);
+    maxlen = cap;   /* capacity, not fill pointer, bounds a receive */
+    if (n >= 3 && !CL_NULL_P(args[2])) {
+        if (!CL_FIXNUM_P(args[2]) || CL_FIXNUM_VAL(args[2]) < 0)
+            cl_error(CL_ERR_TYPE, "%s: max-length must be a non-negative integer", who);
+        if ((uint32_t)CL_FIXNUM_VAL(args[2]) < maxlen)
+            maxlen = (uint32_t)CL_FIXNUM_VAL(args[2]);
+    }
+    buf = (maxlen <= UDP_STACK_BUF) ? sbuf : (uint8_t *)malloc(maxlen ? maxlen : 1);
+    if (!buf) cl_error(CL_ERR_GENERAL, "%s: out of memory", who);
+    /* Capture handle + timeout first: the blocking recv parks in a GC safe
+     * region and compaction can move the stream object meanwhile. */
+    handle = st->handle_id;
+    rtmo = st->read_timeout_ms;
+    from[0] = '\0';
+    rc = platform_udp_recv_from((PlatformSocket)handle, buf, maxlen,
+                                from, sizeof(from), &from_port);
+    if (rc == PLATFORM_SOCKET_TIMEOUT) {
+        if (buf != sbuf) free(buf);
+        cl_error(CL_ERR_TIMEOUT, "%s: no datagram within %u ms", who, (unsigned)rtmo);
+    }
+    if (rc < 0) {
+        if (buf != sbuf) free(buf);
+        cl_error(CL_ERR_GENERAL, "%s: receive failed (socket closed?)", who);
+    }
+    /* GC SAFETY: re-derive the vector pointer — the safe region above may
+     * have let a compaction move it (args[] itself is GC-rooted). */
+    if (bv) {
+        bv = (CL_ByteVector *)CL_OBJ_TO_PTR(args[1]);
+        memcpy(bv->data, buf, (size_t)rc);
+    } else {
+        v = (CL_Vector *)CL_OBJ_TO_PTR(args[1]);
+        for (i = 0; i < (uint32_t)rc; i++)
+            v->data[i] = CL_MAKE_FIXNUM(buf[i]);
+    }
+    if (buf != sbuf) free(buf);
+    host_obj = cl_make_string(from, (uint32_t)strlen(from));
+    cl_mv_count = 3;
+    cl_mv_values[0] = CL_MAKE_FIXNUM(rc);
+    cl_mv_values[1] = host_obj;
+    cl_mv_values[2] = CL_MAKE_FIXNUM(from_port);
+    return CL_MAKE_FIXNUM(rc);
+}
+
+/* (ext:udp-multicast-join stream group &optional interface) => t
+ * (ext:udp-multicast-leave stream group &optional interface) => t
+ * Join/leave multicast GROUP (a literal address of the socket's family) on
+ * INTERFACE: an interface name, index, an IPv4 address of the interface,
+ * or NIL for the OS default (an IPv6 group with a scope suffix,
+ * "ff02::fb%en0", names its interface itself). */
+static CL_Obj udp_multicast_membership(CL_Obj *args, int n, int join)
+{
+    const char *who = join ? "EXT:UDP-MULTICAST-JOIN" : "EXT:UDP-MULTICAST-LEAVE";
+    CL_Stream *st;
+    char group[PLATFORM_ADDR_STRLEN], ifbuf[PLATFORM_ADDR_STRLEN];
+    const char *iface;
+    uint32_t handle;
+    st = check_udp_stream(args[0], who);
+    copy_string_arg(args[1], who, "group", group, sizeof(group));
+    iface = copy_iface_arg(n >= 3 ? args[2] : CL_NIL, who, ifbuf, sizeof(ifbuf));
+    handle = st->handle_id;
+    if (platform_udp_multicast_membership((PlatformSocket)handle, group, iface, join) != 0)
+        cl_error(CL_ERR_GENERAL, "%s: could not %s group %s%s%s (not a multicast "
+                 "address of the socket's family, unknown interface, or the "
+                 "TCP/IP stack refused it)", who, join ? "join" : "leave", group,
+                 iface ? " on interface " : "", iface ? iface : "");
+    return CL_T;
+}
+
+static CL_Obj bi_udp_multicast_join(CL_Obj *args, int n)
+{
+    return udp_multicast_membership(args, n, 1);
+}
+
+static CL_Obj bi_udp_multicast_leave(CL_Obj *args, int n)
+{
+    return udp_multicast_membership(args, n, 0);
+}
+
+/* (ext:%udp-multicast-configure stream hops loopback interface) => t
+ * Positional core of (ext:udp-multicast-configure stream &key hops loopback
+ * interface) in boot.lisp: outgoing multicast settings.  HOPS (TTL) 0-255,
+ * LOOPBACK T/NIL (receive our own transmissions), INTERFACE as for
+ * -JOIN; each :UNSET argument leaves the setting alone. */
+static CL_Obj bi_udp_multicast_configure(CL_Obj *args, int n)
+{
+    static const char *who = "EXT:UDP-MULTICAST-CONFIGURE";
+    CL_Stream *st;
+    char ifbuf[PLATFORM_ADDR_STRLEN];
+    const char *iface;
+    int hops = -1, loop = -1;
+    uint32_t handle;
+    CL_Obj unset = cl_intern_keyword("UNSET", 5);
+    CL_UNUSED(n);
+    st = check_udp_stream(args[0], who);
+    if (args[1] != unset) {
+        if (!CL_FIXNUM_P(args[1]) || CL_FIXNUM_VAL(args[1]) < 0 || CL_FIXNUM_VAL(args[1]) > 255)
+            cl_error(CL_ERR_TYPE, "%s: hops must be an integer 0-255", who);
+        hops = (int)CL_FIXNUM_VAL(args[1]);
+    }
+    if (args[2] != unset)
+        loop = CL_NULL_P(args[2]) ? 0 : 1;
+    iface = (args[3] == unset) ? NULL : copy_iface_arg(args[3], who, ifbuf, sizeof(ifbuf));
+    handle = st->handle_id;
+    if (platform_udp_multicast_options((PlatformSocket)handle, hops, loop, iface) != 0)
+        cl_error(CL_ERR_GENERAL, "%s: the TCP/IP stack refused the settings%s%s "
+                 "(unknown interface, or no multicast support?)", who,
+                 iface ? " for interface " : "", iface ? iface : "");
+    return CL_T;
+}
+
+/* Reverse a freshly consed list in place (no allocation: GC-neutral). */
+static CL_Obj nreverse_fresh(CL_Obj list)
+{
+    CL_Obj prev = CL_NIL;
+    while (!CL_NULL_P(list)) {
+        CL_Cons *c = (CL_Cons *)CL_OBJ_TO_PTR(list);
+        CL_Obj next = c->cdr;
+        c->cdr = prev;
+        prev = list;
+        list = next;
+    }
+    return prev;
+}
+
+/* (ext:network-interfaces) => list
+ * One plist per interface: (:NAME "en0" :INDEX 4 :FLAGS (:UP :MULTICAST)
+ * :ADDRESSES ("192.168.1.5" "fe80::1%en0")) — the :FLAGS are :UP,
+ * :LOOPBACK and :MULTICAST; :ADDRESSES lists the IPv4 and IPv6 addresses.
+ * A responder advertising itself (mDNS) picks its addresses from here. */
+static CL_Obj bi_network_interfaces(CL_Obj *args, int n)
+{
+    CL_Obj result = CL_NIL, entry = CL_NIL, addrs = CL_NIL, flags = CL_NIL;
+    char *text;
+    char *line;
+    int count;
+    CL_UNUSED(args); CL_UNUSED(n);
+    text = (char *)malloc(16384);
+    if (!text) cl_error(CL_ERR_GENERAL, "EXT:NETWORK-INTERFACES: out of memory");
+    count = platform_net_interfaces(text, 16384);
+    if (count < 0) {
+        free(text);
+        cl_error(CL_ERR_GENERAL, "EXT:NETWORK-INTERFACES: the TCP/IP stack could "
+                 "not list its interfaces");
+    }
+    CL_GC_PROTECT(result);
+    CL_GC_PROTECT(entry);
+    CL_GC_PROTECT(addrs);
+    CL_GC_PROTECT(flags);
+    line = text;
+    while (*line) {
+        char *nl = strchr(line, '\n');
+        char *name, *index, *fl, *al, *p;
+        CL_Obj tmp;
+        if (!nl) break;
+        *nl = '\0';
+        name = line;
+        index = strchr(name, '\t');  if (!index) { line = nl + 1; continue; }
+        *index++ = '\0';
+        fl = strchr(index, '\t');    if (!fl) { line = nl + 1; continue; }
+        *fl++ = '\0';
+        al = strchr(fl, '\t');       if (!al) { line = nl + 1; continue; }
+        *al++ = '\0';
+        /* addresses, in order */
+        addrs = CL_NIL;
+        p = al;
+        while (*p) {
+            char *comma = strchr(p, ',');
+            if (comma) *comma = '\0';
+            tmp = cl_make_string(p, (uint32_t)strlen(p));
+            addrs = cl_cons(tmp, addrs);
+            if (!comma) break;
+            p = comma + 1;
+        }
+        addrs = nreverse_fresh(addrs);
+        /* One allocation per statement: interning a keyword may allocate,
+         * so it never sits inside the cl_cons call that consumes it. */
+        flags = CL_NIL;
+        if (strchr(fl, 'M')) { tmp = cl_intern_keyword("MULTICAST", 9); flags = cl_cons(tmp, flags); }
+        if (strchr(fl, 'L')) { tmp = cl_intern_keyword("LOOPBACK", 8);  flags = cl_cons(tmp, flags); }
+        if (strchr(fl, 'U')) { tmp = cl_intern_keyword("UP", 2);        flags = cl_cons(tmp, flags); }
+        /* (:NAME name :INDEX idx :FLAGS flags :ADDRESSES addrs), consed back to front */
+        entry = cl_cons(addrs, CL_NIL);
+        tmp = cl_intern_keyword("ADDRESSES", 9);
+        entry = cl_cons(tmp, entry);
+        entry = cl_cons(flags, entry);
+        tmp = cl_intern_keyword("FLAGS", 5);
+        entry = cl_cons(tmp, entry);
+        entry = cl_cons(CL_MAKE_FIXNUM(atoi(index)), entry);
+        tmp = cl_intern_keyword("INDEX", 5);
+        entry = cl_cons(tmp, entry);
+        tmp = cl_make_string(name, (uint32_t)strlen(name));
+        entry = cl_cons(tmp, entry);
+        tmp = cl_intern_keyword("NAME", 4);
+        entry = cl_cons(tmp, entry);
+        result = cl_cons(entry, result);
+        line = nl + 1;
+    }
+    free(text);
+    result = nreverse_fresh(result);
+    CL_GC_UNPROTECT(4);
+    return result;
+}
+
 /* (ext:socket-stream-local-endpoint stream) => ip-string, port
  * Local address/port of a connected TCP or UDP socket stream (getsockname).
  * usocket's get-local-name/get-local-port build on this — KNXnet/IP needs
@@ -4940,7 +5343,7 @@ static CL_Obj bi_udp_stream_receive(CL_Obj *args, int n)
 static CL_Obj bi_socket_stream_local_endpoint(CL_Obj *args, int n)
 {
     CL_Stream *st;
-    char ip[16];
+    char ip[PLATFORM_ADDR_STRLEN];
     int port = 0;
     uint32_t handle;
     CL_Obj ip_obj;
@@ -4953,7 +5356,7 @@ static CL_Obj bi_socket_stream_local_endpoint(CL_Obj *args, int n)
         cl_error(CL_ERR_TYPE,
                  "EXT:SOCKET-STREAM-LOCAL-ENDPOINT: argument must be an open socket stream");
     handle = st->handle_id;
-    if (platform_socket_local_endpoint((PlatformSocket)handle, ip, &port) != 0)
+    if (platform_socket_local_endpoint((PlatformSocket)handle, ip, sizeof(ip), &port) != 0)
         cl_error(CL_ERR_GENERAL,
                  "EXT:SOCKET-STREAM-LOCAL-ENDPOINT: getsockname failed");
     ip_obj = cl_make_string(ip, (uint32_t)strlen(ip));
@@ -5339,6 +5742,14 @@ void cl_builtins_io_init(void)
     extfun("UDP-STREAM-SEND", bi_udp_stream_send, 2, 3);
     extfun("UDP-STREAM-RECEIVE", bi_udp_stream_receive, 2, 3);
     extfun("SOCKET-STREAM-LOCAL-ENDPOINT", bi_socket_stream_local_endpoint, 1, 1);
+    extfun("IPV6-SUPPORTED-P", bi_ipv6_supported_p, 0, 0);
+    extfun("%OPEN-UDP-SOCKET", bi_open_udp_socket, 4, 4);
+    extfun("UDP-SEND-TO", bi_udp_send_to, 4, 5);
+    extfun("UDP-RECEIVE-FROM", bi_udp_receive_from, 2, 3);
+    extfun("UDP-MULTICAST-JOIN", bi_udp_multicast_join, 2, 3);
+    extfun("UDP-MULTICAST-LEAVE", bi_udp_multicast_leave, 2, 3);
+    extfun("%UDP-MULTICAST-CONFIGURE", bi_udp_multicast_configure, 4, 4);
+    extfun("NETWORK-INTERFACES", bi_network_interfaces, 0, 0);
     extfun("SOCKET-STREAM-TIMEOUT", bi_socket_stream_timeout, 2, 2);
     extfun("%SET-SOCKET-STREAM-TIMEOUT", bi_set_socket_stream_timeout, 3, 3);
     extfun("TLS-AVAILABLE-P", bi_tls_available_p, 0, 0);
