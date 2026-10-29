@@ -1015,9 +1015,9 @@ bin/aos3/amilisp --image bin/aos3/clamacs.img --non-interactive --eval "(clamacs
 (amiga.arexx:start)
 ```
 
-**On the host.** The same editor runs on macOS and Linux, in one native window with the buffers as tabs (its menus on the screen's menu bar on a Mac): `clamacs/host/run.sh file.lisp` starts it from a checkout (`make host-app` in the submodule builds `Clamacs.app` on a Mac), and the Lisp behind it is a separate amilisp reached over the [TCP development port](#tcp-development-port-all-platforms) below, started by the editor itself or found through `CLAMACS_AMILISP=host:port`. The submodule's README has the details under [On the host](https://github.com/mdbergmann/clamacs#on-the-host-macos-linux).
+**On the host.** The same editor runs on macOS and Linux, in one native window with the buffers as tabs (its menus on the screen's menu bar on a Mac): `clamacs/host/run.sh file.lisp` starts it from a checkout (`make host-app` in the submodule builds `Clamacs.app` on a Mac), and the Lisp behind it is a separate amilisp reached over the [TCP development port](#tcp-development-port-all-platforms) below, started by the editor itself or found through `CLAMACS_AMILISP=host:port`. The submodule's user guide has the details under [The host editor in detail](https://github.com/mdbergmann/clamacs#the-host-editor-in-detail).
 
-The editor's own suites and design notes are in the submodule (`clamacs/README.md`, `clamacs/CLAUDE.md`, `clamacs/specs/clamacs-lisp.md`); the Lisp-side commands it speaks are `EXT.DEV` (`lib/dev-commands.lisp`, `tests/test_dev_commands.sh`). `make -f Makefile.cross editor-image-amiga` saves and verifies a `clamacs.img` beside a cross build in FS-UAE, `make -f Makefile.mos editor-image` does the same natively on MorphOS.
+The editor's user guide is the submodule's `clamacs/README.md` (shipped as `clamacs.guide`); its build and test instructions are `clamacs/docs/developing.md`, its design notes `clamacs/CLAUDE.md` and `clamacs/specs/clamacs-lisp.md`; the Lisp-side commands it speaks are `EXT.DEV` (`lib/dev-commands.lisp`, `tests/test_dev_commands.sh`). `make -f Makefile.cross editor-image-amiga` saves and verifies a `clamacs.img` beside a cross build in FS-UAE, `make -f Makefile.mos editor-image` does the same natively on MorphOS.
 
 ### ARexx port (AmigaOS / MorphOS)
 
