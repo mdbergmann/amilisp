@@ -5763,6 +5763,230 @@ TEST(eval_sort_key_nil)
     ASSERT_STR_EQ(eval_print("(stable-sort (list 3 1 2) #'< :key nil)"), "(1 2 3)");
 }
 
+/* Vectors are merge-sorted (gc_vector_merge_sort, builtins_sequence2.c):
+ * O(n log n), stable, in place.  Until 0.13 they went through an O(n^2)
+ * insertion sort — 20,000 elements took a second.  The cases below pin
+ * the order on every run-boundary shape of a bottom-up merge (lengths
+ * 2, 3, 7, 16, 17, 1000), stability under :key and under an all-NIL
+ * predicate, identity of the returned vector, fill-pointer vectors, and
+ * the string / bit-vector / byte-vector paths that sort through the same
+ * routine. */
+TEST(eval_vector_sort_merge)
+{
+    ASSERT_STR_EQ(eval_print("(sort (vector 2 1) #'<)"), "#(1 2)");
+    ASSERT_STR_EQ(eval_print("(sort (vector 3 2 1) #'<)"), "#(1 2 3)");
+    ASSERT_STR_EQ(eval_print("(sort (vector 7 6 5 4 3 2 1) #'<)"), "#(1 2 3 4 5 6 7)");
+    ASSERT_STR_EQ(eval_print("(sort (vector 1 2 3 4 5 6 7) #'<)"), "#(1 2 3 4 5 6 7)");
+    ASSERT_STR_EQ(eval_print("(sort (vector 5 1 4 1 5 9 2 6 5 3 5 8 9 7 9 3) #'<)"),
+                  "#(1 1 2 3 3 4 5 5 5 5 6 7 8 9 9 9)");
+    ASSERT_STR_EQ(eval_print("(sort (vector 5 1 4 1 5 9 2 6 5 3 5 8 9 7 9 3 0) #'>)"),
+                  "#(9 9 9 8 7 6 5 5 5 5 4 3 3 2 1 1 0)");
+    ASSERT_STR_EQ(eval_print("(sort (vector) #'<)"), "#()");
+    ASSERT_STR_EQ(eval_print("(sort (vector 1) #'<)"), "#(1)");
+    /* SORT returns the very vector it was given, sorted in place. */
+    ASSERT_STR_EQ(eval_print("(let ((v (vector 3 2 1))) (eq v (sort v #'<)))"), "T");
+    /* Stability (CLHS STABLE-SORT): equal keys keep their input order, and
+       an all-NIL predicate leaves the vector untouched. */
+    ASSERT_STR_EQ(eval_print(
+        "(stable-sort (vector '(1 . a) '(0 . b) '(1 . c) '(0 . d) '(1 . e)) #'< :key #'car)"),
+        "#((0 . B) (0 . D) (1 . A) (1 . C) (1 . E))");
+    ASSERT_STR_EQ(eval_print(
+        "(stable-sort (vector 'a 'b 'c 'd 'e 'f 'g 'h 'i) (lambda (x y) (declare (ignore x y)) nil))"),
+        "#(A B C D E F G H I)");
+    /* 1000 elements with 13 distinct keys: sorted by key, and within a key
+       by the original index (the cdr) — the full stability check. */
+    ASSERT_STR_EQ(eval_print(
+        "(let ((v (make-array 1000)))"
+        "  (dotimes (i 1000) (setf (svref v i) (cons (mod (* i 7919) 13) i)))"
+        "  (stable-sort v #'< :key #'car)"
+        "  (loop for i from 1 below 1000"
+        "        always (let ((p (svref v (1- i))) (q (svref v i)))"
+        "                 (or (< (car p) (car q))"
+        "                     (and (= (car p) (car q)) (< (cdr p) (cdr q)))))))"),
+        "T");
+    /* The vector sort agrees with the list sort on 5000 pseudo-random
+       elements (the list path is the older merge sort). */
+    ASSERT_STR_EQ(eval_print(
+        "(let ((v (make-array 5000)) (seed 42))"
+        "  (dotimes (i 5000)"
+        "    (setq seed (mod (+ (* seed 1237) 7919) 65521))"
+        "    (setf (svref v i) seed))"
+        "  (let ((l (sort (coerce v 'list) #'<)))"
+        "    (equalp (coerce l 'vector) (sort v #'<))))"),
+        "T");
+    /* Only the active part of a fill-pointer vector is sorted. */
+    ASSERT_STR_EQ(eval_print(
+        "(let ((v (make-array 6 :fill-pointer 3 :initial-contents '(3 1 2 0 0 0))))"
+        "  (sort v #'<) (list (aref v 0) (aref v 1) (aref v 2) (length v)))"),
+        "(1 2 3 3)");
+    /* Strings, bit-vectors and byte-vectors sort through the same merge. */
+    ASSERT_STR_EQ(eval_print("(sort (copy-seq \"hello world\") #'char<)"), "\" dehllloorw\"");
+    ASSERT_STR_EQ(eval_print("(stable-sort (copy-seq \"banana\") #'char>)"), "\"nnbaaa\"");
+    ASSERT_STR_EQ(eval_print("(sort (copy-seq #*10110100) #'<)"), "#*00001111");
+    ASSERT_STR_EQ(eval_print(
+        "(sort (make-array 5 :element-type '(unsigned-byte 8) :initial-contents '(200 3 77 3 0)) #'<)"),
+        "#(0 3 3 77 200)");
+    /* A predicate that signals unwinds cleanly out of the sort. */
+    ASSERT_STR_EQ(eval_print(
+        "(handler-case (sort (vector 3 1 2) (lambda (a b) (error \"cmp ~A ~A\" a b)))"
+        "  (error (e) (and (search \"cmp\" (princ-to-string e)) 'unwound)))"),
+        "UNWOUND");
+}
+
+/* ASSOC / RASSOC are C builtins with the full CLHS 14.2 keyword set (they
+ * were Lisp overrides in boot.lisp until 0.13): :test, :test-not, :key,
+ * leftmost duplicate keyword wins, NIL alist elements skipped, non-cons
+ * elements and dotted alists are type-errors, :test and :test-not together
+ * is an error, unknown keywords are rejected unless :allow-other-keys. */
+TEST(eval_assoc_keywords)
+{
+    ASSERT_STR_EQ(eval_print("(assoc 'b '((a . 1) (b . 2) (c . 3)))"), "(B . 2)");
+    ASSERT_STR_EQ(eval_print("(assoc 'z '((a . 1) (b . 2)))"), "NIL");
+    ASSERT_STR_EQ(eval_print("(assoc 'b '(nil (a . 1) nil (b . 2)))"), "(B . 2)");
+    ASSERT_STR_EQ(eval_print("(assoc 'b nil)"), "NIL");
+    /* The default test is EQL: numbers of one type compare by value. */
+    ASSERT_STR_EQ(eval_print("(assoc 2.5 '((1 . a) (2.5 . x)))"), "(2.5 . X)");
+    ASSERT_STR_EQ(eval_print("(assoc 2 '((1 . a) (2.0 . x)))"), "NIL");
+    ASSERT_STR_EQ(eval_print(
+        "(assoc (expt 10 11) (list (cons 1 'a) (cons (expt 10 11) 'x)))"),
+        "(100000000000 . X)");
+    ASSERT_STR_EQ(eval_print("(assoc #\\b '((#\\a . 1) (#\\b . 2)))"), "(#\\b . 2)");
+    /* :test — a function, a symbol, #'eq, and #'equal on strings */
+    ASSERT_STR_EQ(eval_print("(assoc \"b\" (list (cons \"a\" 1) (cons \"b\" 2)) :test #'equal)"),
+                  "(\"b\" . 2)");
+    ASSERT_STR_EQ(eval_print("(assoc \"b\" (list (cons \"a\" 1) (cons \"b\" 2)) :test 'string=)"),
+                  "(\"b\" . 2)");
+    ASSERT_STR_EQ(eval_print("(assoc \"b\" (list (cons \"a\" 1) (cons \"b\" 2)) :test #'eq)"), "NIL");
+    ASSERT_STR_EQ(eval_print("(assoc 'b '((a . 1) (b . 2)) :test #'eq)"), "(B . 2)");
+    ASSERT_STR_EQ(eval_print("(assoc 3 '((1 . a) (5 . b) (9 . c)) :test #'<)"), "(5 . B)");
+    /* :test-not */
+    ASSERT_STR_EQ(eval_print("(assoc 'a '((a . 1) (b . 2)) :test-not #'eq)"), "(B . 2)");
+    ASSERT_STR_EQ(eval_print("(rassoc 1 '((a . 1) (b . 2)) :test-not #'eql)"), "(B . 2)");
+    /* :key applies to the pair's car (cdr for RASSOC), never to the item */
+    ASSERT_STR_EQ(eval_print("(assoc 2 '(((1) . a) ((2) . b)) :key #'car)"), "((2) . B)");
+    ASSERT_STR_EQ(eval_print("(assoc 2 '((1 . a) (2 . b)) :key nil)"), "(2 . B)");
+    ASSERT_STR_EQ(eval_print("(assoc 'x '((\"X\" . 1) (\"Y\" . 2)) :key #'intern)"), "(\"X\" . 1)");
+    ASSERT_STR_EQ(eval_print("(rassoc 2 '((a 1) (b 2)) :key #'car)"), "(B 2)");
+    ASSERT_STR_EQ(eval_print("(rassoc 2 '((a . 1) (b . 2) (c . 3)))"), "(B . 2)");
+    ASSERT_STR_EQ(eval_print("(rassoc \"2\" (list (cons 'a \"1\") (cons 'b \"2\")) :test #'string=)"),
+                  "(B . \"2\")");
+    /* Leftmost duplicate keyword wins (CLHS 3.4.1.4). */
+    ASSERT_STR_EQ(eval_print("(assoc 'b '((a . 1) (b . 2)) :test #'eq :test #'equal)"), "(B . 2)");
+    ASSERT_STR_EQ(eval_print("(assoc 2 '((1 . a) (5 . b)) :test #'< :test #'eql)"), "(5 . B)");
+    /* Errors */
+    ASSERT_STR_EQ(eval_print(
+        "(handler-case (assoc 'a '((a . 1)) :test #'eq :test-not #'eq) (error () 'both))"), "BOTH");
+    ASSERT_STR_EQ(eval_print(
+        "(handler-case (assoc 'a '((b . 1) 7)) (type-error (e) (type-error-datum e)))"), "7");
+    ASSERT_STR_EQ(eval_print(
+        "(handler-case (rassoc 'a '((b . 1) . 7)) (type-error (e) (type-error-datum e)))"), "7");
+    ASSERT_STR_EQ(eval_print("(handler-case (assoc 'a '((a . 1)) :foo 1) (error () 'bad-kw))"), "BAD-KW");
+    ASSERT_STR_EQ(eval_print("(handler-case (assoc 'a '((a . 1)) :test) (error () 'odd))"), "ODD");
+    ASSERT_STR_EQ(eval_print("(assoc 'a '((a . 1)) :foo 1 :allow-other-keys t)"), "(A . 1)");
+    ASSERT_STR_EQ(eval_print(
+        "(handler-case (assoc 'a '((a . 1)) :test 'no-such-function-xyz) (error () 'undef))"), "UNDEF");
+    /* A :key that allocates on every call, over a long alist. */
+    ASSERT_STR_EQ(eval_print(
+        "(let ((al (loop for i below 500 collect (cons i (* i i)))))"
+        "  (cdr (assoc \"item-499\" al :key (lambda (k) (format nil \"item-~D\" k)) :test #'string=)))"),
+        "249001");
+}
+
+/* `+`, `-` and `*` with three or more arguments compile to a left-nested
+ * chain of the binary opcode (inline_builtin_opcode, compiler.c) instead
+ * of a CALL_GLOBAL to the n-ary builtin: the result must be exactly the
+ * pairwise left-to-right fold the builtin performs, including contagion,
+ * bignum overflow in the middle of the chain and type errors on a later
+ * argument. */
+TEST(eval_nary_arith_inline)
+{
+    ASSERT_STR_EQ(eval_print("(+ 1 2 3)"), "6");
+    ASSERT_STR_EQ(eval_print("(+ 1 2 3 4 5 6 7 8 9 10)"), "55");
+    ASSERT_STR_EQ(eval_print("(- 10 1 2 3)"), "4");
+    ASSERT_STR_EQ(eval_print("(* 1 2 3 4)"), "24");
+    ASSERT_STR_EQ(eval_print("(+ 1 2 0.5)"), "3.5");
+    ASSERT_STR_EQ(eval_print("(+ 1/3 1/3 1/3)"), "1");
+    ASSERT_STR_EQ(eval_print("(* 2 1/2 7)"), "7");
+    ASSERT_STR_EQ(eval_print("(+ 1 2 3.0d0)"), "6.0d0");
+    ASSERT_STR_EQ(eval_print("(- 1 2.5 1)"), "-2.5");
+    ASSERT_STR_EQ(eval_print("(= (+ most-positive-fixnum 1 -1) most-positive-fixnum)"), "T");
+    ASSERT_STR_EQ(eval_print("(typep (+ most-positive-fixnum 1 2) 'bignum)"), "T");
+    ASSERT_STR_EQ(eval_print("(= (+ (expt 2 40) (expt 2 40) 0) (expt 2 41))"), "T");
+    ASSERT_STR_EQ(eval_print("(* 65536 65536 65536)"), "281474976710656");
+    ASSERT_STR_EQ(eval_print("(handler-case (+ 1 2 'a) (type-error (e) (type-error-datum e)))"), "A");
+    ASSERT_STR_EQ(eval_print("(handler-case (* 1 \"x\" 3) (type-error (e) (type-error-datum e)))"), "\"x\"");
+    /* Argument order of evaluation is left to right, each exactly once. */
+    ASSERT_STR_EQ(eval_print(
+        "(let ((trace nil))"
+        "  (list (+ (progn (push 1 trace) 1) (progn (push 2 trace) 10) (progn (push 3 trace) 100))"
+        "        (reverse trace)))"),
+        "(111 (1 2 3))");
+    /* Inside a function the chain is two ADDs and no call. */
+    ASSERT_STR_EQ(eval_print(
+        "(progn (defun nary-add-3 (a b c) (+ a b c))"
+        "  (let ((d (with-output-to-string (*standard-output*) (disassemble 'nary-add-3))))"
+        "    (list (and (search \"ADD\" d) t) (and (search \"CALL_GLOBAL\" d) t))))"),
+        "(T NIL)");
+    ASSERT_STR_EQ(eval_print("(nary-add-3 1 2 3)"), "6");
+    /* (declare (notinline +)) still compiles a real call. */
+    ASSERT_STR_EQ(eval_print(
+        "(progn (defun nary-add-notinline (a b c) (declare (notinline +)) (+ a b c))"
+        "  (let ((d (with-output-to-string (*standard-output*) (disassemble 'nary-add-notinline))))"
+        "    (list (nary-add-notinline 1 2 3) (and (search \"CALL_GLOBAL\" d) t))))"),
+        "(6 T)");
+    /* A local function named + shadows the inline. */
+    ASSERT_STR_EQ(eval_print("(flet ((+ (&rest xs) (length xs))) (+ 1 2 3))"), "3");
+}
+
+/* EQUAL / EQUALP hash tables run string keys through hash_mix (hash_obj,
+ * builtins_hashtable.c).  Unmixed, the rotate-xor hash clustered keys of
+ * one shape into a few buckets: 10,000 "key-<i>-<j>" strings landed in 220
+ * of 16,384 buckets (longest chain 129).  AMILISP::%HASH-TABLE-BUCKET-STATS
+ * exposes the occupancy; the bounds below hold with a large margin (the
+ * mixed hash spreads them over ~7,500 buckets, longest chain 5). */
+TEST(eval_hash_table_string_key_spread)
+{
+    ASSERT_STR_EQ(eval_print(
+        "(let ((h (make-hash-table :test 'equal)))"
+        "  (dotimes (i 10000) (setf (gethash (format nil \"key-~D-~A\" i (mod i 7)) h) i))"
+        "  (multiple-value-bind (nb used longest) (amilisp::%hash-table-bucket-stats h)"
+        "    (list (> used (floor nb 4)) (< longest 12)"
+        "          (let ((s 0)) (dotimes (i 10000) (incf s (gethash (format nil \"key-~D-~A\" i (mod i 7)) h))) s)"
+        "          (gethash \"missing\" h))))"),
+        "(T T 49995000 NIL)");
+    ASSERT_STR_EQ(eval_print(
+        "(let ((h (make-hash-table :test 'equal)))"
+        "  (dotimes (i 5000) (setf (gethash (format nil \"/usr/lib/foo/bar~D.lisp\" i) h) i))"
+        "  (multiple-value-bind (nb used longest) (amilisp::%hash-table-bucket-stats h)"
+        "    (list (> used (floor nb 4)) (< longest 12) (gethash \"/usr/lib/foo/bar4999.lisp\" h))))"),
+        "(T T 4999)");
+    /* EQUALP: case-insensitive keys still spread and still match. */
+    ASSERT_STR_EQ(eval_print(
+        "(let ((h (make-hash-table :test 'equalp)))"
+        "  (dotimes (i 5000) (setf (gethash (format nil \"Key-~D\" i) h) i))"
+        "  (multiple-value-bind (nb used longest) (amilisp::%hash-table-bucket-stats h)"
+        "    (list (> used (floor nb 4)) (< longest 12) (gethash \"KEY-77\" h) (gethash \"key-4999\" h))))"),
+        "(T T 77 4999)");
+    /* A fill-pointer string key and a literal are EQUAL and share a bucket. */
+    ASSERT_STR_EQ(eval_print(
+        "(let ((h (make-hash-table :test 'equal))"
+        "      (buf (make-array 8 :element-type 'character :fill-pointer 0 :adjustable t)))"
+        "  (dotimes (i 1000) (setf (gethash (format nil \"k~D\" i) h) i))"
+        "  (vector-push-extend #\\k buf) (vector-push-extend #\\9 buf) (vector-push-extend #\\9 buf)"
+        "  (list (gethash buf h) (gethash \"k99\" h) (hash-table-count h)))"),
+        "(99 99 1000)");
+    /* An empty table and an EQ table report sensible stats too. */
+    ASSERT_STR_EQ(eval_print(
+        "(multiple-value-list (amilisp::%hash-table-bucket-stats (make-hash-table)))"),
+        "(16 0 0)");
+    ASSERT_STR_EQ(eval_print(
+        "(let ((h (make-hash-table :test 'eq)))"
+        "  (dotimes (i 100) (setf (gethash i h) i))"
+        "  (multiple-value-bind (nb used longest) (amilisp::%hash-table-bucket-stats h)"
+        "    (declare (ignore nb)) (list (> used 20) (< longest 12))))"),
+        "(T T)");
+}
+
 TEST(eval_stale_boxed_flag)
 {
     /* Regression: labels in one cond branch boxing a variable must not
@@ -12171,6 +12395,10 @@ int main(void)
     RUN(eval_stable_sort);
     RUN(eval_sort_with_key);
     RUN(eval_sort_key_nil);
+    RUN(eval_vector_sort_merge);
+    RUN(eval_assoc_keywords);
+    RUN(eval_nary_arith_inline);
+    RUN(eval_hash_table_string_key_spread);
     RUN(eval_stale_boxed_flag);
 
     /* Phase 5 — Type system */

@@ -191,63 +191,118 @@ static CL_Obj bi_pairlis(CL_Obj *args, int n)
 
 /* --- Functions with :test keyword --- */
 
-static CL_Obj bi_assoc(CL_Obj *args, int n)
+/* Keyword symbols and the two builtin test functions ASSOC/RASSOC compare
+ * with in C; interned at init and registered as GC roots. */
+static CL_Obj KW_TEST = CL_NIL;
+static CL_Obj KW_TEST_NOT = CL_NIL;
+static CL_Obj KW_KEY = CL_NIL;
+static CL_Obj SYM_EQL_FN = CL_NIL;
+static CL_Obj SYM_EQ_FN = CL_NIL;
+
+/* ASSOC / RASSOC (CLHS 14.2) with the full :test / :test-not / :key set in
+ * C.  Until 0.13 lib/boot.lisp overrode the C builtins with a Lisp function
+ * that parsed the keywords and FUNCALLed #'EQL per pair — every ASSOC in
+ * user code paid ~35 ns per alist element (27x ECL, 11x CCL on the
+ * bench-general `assoc` row).  Now the default test, or an explicit #'EQL /
+ * #'EQ, compares inline in C without a VM call; any other test, :test-not,
+ * or :key goes through cl_vm_apply per element.
+ *
+ * BY_CDR selects RASSOC (match against the cdr of each pair).  NIL
+ * elements of the alist are skipped (CLHS); any other non-cons element
+ * is a type-error, as is a dotted alist.
+ *
+ * GC SAFETY: cl_coerce_funcdesig and the user calls can compact — the
+ * keyword values are read from args[] (a rooted VM-stack slice) and every
+ * C local that lives across a call is protected. */
+static CL_Obj assoc_impl(CL_Obj *args, int n, int by_cdr, const char *name)
 {
-    CL_Obj key, alist, test_fn;
+    CL_Obj item, alist, test_fn = CL_NIL, test_not_fn = CL_NIL, key_fn = CL_NIL;
     CL_Obj pair = CL_NIL;
+    int i, test_p = 0, test_not_p = 0;
+    int mode;   /* 0 = apply the test function, 1 = C eql, 2 = C eq */
 
-    /* GC SAFETY: extract_test_arg interns and a Lisp :test can allocate —
-     * either can compact.  Read the args AFTER the intern (args[] is a
-     * rooted VM-stack slice) and keep the C-local key/cursor/test/pair
-     * forwarded across every call_test. */
-    test_fn = extract_test_arg(args, n, 2);
-    key = args[0];
-    alist = args[1];
+    cl_check_seq_keywords(args, n, 2, SK_TEST | SK_TEST_NOT | SK_KEY);
 
-    CL_GC_PROTECT(key);
-    CL_GC_PROTECT(alist);
     CL_GC_PROTECT(test_fn);
+    CL_GC_PROTECT(test_not_fn);
+    CL_GC_PROTECT(key_fn);
+    /* Walk the keyword pairs from the last down to the first so that the
+     * leftmost occurrence of a repeated keyword wins (CLHS 3.4.1.4). */
+    for (i = n - 2; i >= 2; i -= 2) {
+        if (args[i] == KW_TEST) {
+            test_fn = cl_coerce_funcdesig(args[i + 1], ":TEST");
+            test_p = 1;
+        } else if (args[i] == KW_TEST_NOT) {
+            test_not_fn = cl_coerce_funcdesig(args[i + 1], ":TEST-NOT");
+            test_not_p = 1;
+        } else if (args[i] == KW_KEY) {
+            key_fn = CL_NULL_P(args[i + 1]) ? CL_NIL
+                   : cl_coerce_funcdesig(args[i + 1], ":KEY");
+        }
+    }
+    if (test_p && test_not_p) {
+        CL_GC_UNPROTECT(3);
+        cl_error(CL_ERR_ARGS, "%s: cannot supply both :TEST and :TEST-NOT", name);
+    }
+    if (test_not_p) {
+        test_fn = CL_NIL;
+        mode = 0;
+    } else {
+        if (!test_p) test_fn = SYM_EQL_FN;
+        mode = (test_fn == SYM_EQL_FN) ? 1 : (test_fn == SYM_EQ_FN) ? 2 : 0;
+    }
+
+    item = args[0];
+    alist = args[1];
+    CL_GC_PROTECT(item);
+    CL_GC_PROTECT(alist);
     CL_GC_PROTECT(pair);
     while (!CL_NULL_P(alist)) {
+        if (!CL_CONS_P(alist)) {
+            CL_GC_UNPROTECT(6);
+            cl_signal_type_error(alist, "LIST", name);
+        }
         pair = cl_car(alist);
-        if (CL_CONS_P(pair)) {
-            if (!CL_NULL_P(call_test(test_fn, key, cl_car(pair)))) {
-                CL_GC_UNPROTECT(4);
+        if (!CL_NULL_P(pair)) {
+            CL_Obj k;
+            int match;
+            if (!CL_CONS_P(pair)) {
+                CL_GC_UNPROTECT(6);
+                cl_signal_type_error(pair, "LIST", name);
+            }
+            k = by_cdr ? cl_cdr(pair) : cl_car(pair);
+            if (!CL_NULL_P(key_fn)) {
+                CL_Obj kargs[1];
+                kargs[0] = k;
+                k = cl_vm_apply(key_fn, kargs, 1);   /* roots kargs */
+            }
+            if (mode == 1)
+                match = cl_eql_p(item, k);
+            else if (mode == 2)
+                match = (item == k);
+            else if (!CL_NULL_P(test_not_fn))
+                match = CL_NULL_P(call_test(test_not_fn, item, k));
+            else
+                match = !CL_NULL_P(call_test(test_fn, item, k));
+            if (match) {
+                CL_GC_UNPROTECT(6);
                 return pair;
             }
         }
         alist = cl_cdr(alist);
     }
-    CL_GC_UNPROTECT(4);
+    CL_GC_UNPROTECT(6);
     return CL_NIL;
+}
+
+static CL_Obj bi_assoc(CL_Obj *args, int n)
+{
+    return assoc_impl(args, n, 0, "ASSOC");
 }
 
 static CL_Obj bi_rassoc(CL_Obj *args, int n)
 {
-    CL_Obj item, alist, test_fn;
-    CL_Obj pair = CL_NIL;
-
-    /* GC SAFETY: same shape as bi_assoc — see the comment there. */
-    test_fn = extract_test_arg(args, n, 2);
-    item = args[0];
-    alist = args[1];
-
-    CL_GC_PROTECT(item);
-    CL_GC_PROTECT(alist);
-    CL_GC_PROTECT(test_fn);
-    CL_GC_PROTECT(pair);
-    while (!CL_NULL_P(alist)) {
-        pair = cl_car(alist);
-        if (CL_CONS_P(pair)) {
-            if (!CL_NULL_P(call_test(test_fn, item, cl_cdr(pair)))) {
-                CL_GC_UNPROTECT(4);
-                return pair;
-            }
-        }
-        alist = cl_cdr(alist);
-    }
-    CL_GC_UNPROTECT(4);
-    return CL_NIL;
+    return assoc_impl(args, n, 1, "RASSOC");
 }
 
 static CL_Obj bi_getf(CL_Obj *args, int n)
@@ -1144,6 +1199,19 @@ static CL_Obj bi_remf(CL_Obj *args, int n)
 
 void cl_builtins_lists_init(void)
 {
+    KW_TEST     = cl_intern_keyword("TEST", 4);
+    KW_TEST_NOT = cl_intern_keyword("TEST-NOT", 8);
+    KW_KEY      = cl_intern_keyword("KEY", 3);
+    /* The builtin EQL / EQ function objects: ASSOC compares in C when its
+     * :test is one of these (identity — a redefined EQL no longer matches). */
+    SYM_EQL_FN = ((CL_Symbol *)CL_OBJ_TO_PTR(cl_intern_in("EQL", 3, cl_package_cl)))->function;
+    SYM_EQ_FN  = ((CL_Symbol *)CL_OBJ_TO_PTR(cl_intern_in("EQ", 2, cl_package_cl)))->function;
+    cl_gc_register_root(&KW_TEST);
+    cl_gc_register_root(&KW_TEST_NOT);
+    cl_gc_register_root(&KW_KEY);
+    cl_gc_register_root(&SYM_EQL_FN);
+    cl_gc_register_root(&SYM_EQ_FN);
+
     /* List utilities */
     defun("NTHCDR", bi_nthcdr, 2, 2);
     defun("LAST", bi_last, 1, 2);

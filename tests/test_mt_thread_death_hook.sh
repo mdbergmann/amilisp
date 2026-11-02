@@ -13,7 +13,14 @@
 #   - for a thread that exhausted the heap, with room to run in,
 #   - for a thread an ordinary unhandled error ended,
 #   - NOT for a thread that returned, took ABORT, or was destroyed,
-#   - a hook that fails does not keep the next one from running.
+#   - a hook that fails does not keep the next one from running -- a hook
+#     that exhausts the heap itself included (cl_storage_error used to land
+#     at the catch site with the GC root count zeroed, and the site's
+#     UNPROTECT took the whole process down; 2026-11-02).
+#
+# The eater keeps its strings in a local, so what it held is garbage once
+# its stack is dropped: the room the hooks run in is real, not whatever
+# slack the boot heap left below the last 10000-byte string.
 #
 # Run: sh tests/test_mt_thread_death_hook.sh build/host/amilisp
 
@@ -29,7 +36,6 @@ tmp=$(mktemp "${TMPDIR:-/tmp}/amilisp_mtdeath_XXXXXX") || exit 1
 trap 'rm -f "$tmp"' EXIT
 
 cat > "$tmp" <<'EOF'
-(defvar *keep* nil)
 (defvar *seen* nil)
 (defvar *unwound* nil)
 (defun note-death (thread message)
@@ -46,6 +52,13 @@ cat > "$tmp" <<'EOF'
         (error "a hook that fails"))
       mp:*thread-death-hooks*)
 (push 'no-such-function-anywhere mp:*thread-death-hooks*)
+;; Runs first: a hook that exhausts the heap itself.  Its junk is a local,
+;; garbage again once the storage error dropped the hook's frames.
+(push (lambda (thread message)
+        (declare (ignore thread message))
+        (let ((junk nil))
+          (loop (push (make-string 10000) junk))))
+      mp:*thread-death-hooks*)
 
 (defun run (name function)
   (let ((thread (mp:make-thread function :name name)))
@@ -53,9 +66,9 @@ cat > "$tmp" <<'EOF'
     (format t "ALIVE-~a=~a~%" name (mp:thread-alive-p thread))))
 
 (run "eater" (lambda ()
-               (unwind-protect (loop (push (make-string 10000) *keep*))
-                 (setf *unwound* t))))
-(setf *keep* nil)
+               (let ((keep nil))
+                 (unwind-protect (loop (push (make-string 10000) keep))
+                   (setf *unwound* t)))))
 (run "erring" (lambda () (error "plain boom")))
 (run "fine" (lambda () 42))
 (run "aborting" (lambda () (abort)))

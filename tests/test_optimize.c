@@ -160,9 +160,16 @@ TEST(fold_disabled_at_speed_0)
 {
     const char *out = disasm(
         "(locally (declare (optimize (speed 0))) (+ 1 2 3))");
-    /* Not folded: three-arg + compiles as a real call (a global call is
-     * one fused CALL_GLOBAL since Tier-4 phase 2, not FLOAD + CALL) */
-    ASSERT(strstr(out, "CALL_GLOBAL") != NULL);
+    /* Not folded: no literal 6 in the constants.  The three-arg + still
+     * compiles to its runtime shape — since 0.13 that is a left-nested
+     * chain of two ADD opcodes (inline_builtin_opcode folds n-ary + - *
+     * regardless of the speed setting, as it always did for two args),
+     * not a CALL_GLOBAL. */
+    ASSERT(strstr(out, "; 6") == NULL);
+    ASSERT(strstr(out, "ADD") != NULL);
+    ASSERT(strstr(out, "CALL_GLOBAL") == NULL);
+    ASSERT_STR_EQ("6",
+        eval_str("(locally (declare (optimize (speed 0))) (+ 1 2 3))"));
     /* value still correct */
     ASSERT_STR_EQ("3",
         eval_str("(locally (declare (optimize (speed 0))) (+ 1 2))"));

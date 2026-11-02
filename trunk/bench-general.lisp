@@ -35,6 +35,8 @@
 ;;;            (--load of the source would run ECL's bytecode interpreter;
 ;;;             the reference point is its native compile-file output)
 ;;;   SBCL:    sbcl --non-interactive --no-userinit --load trunk/bench-general.lisp
+;;;   CCL:     ccl64 --no-init --batch --load trunk/bench-general.lisp --eval '(ccl:quit)'
+;;;            (CCL compiles every definition natively at load time)
 ;;;   Amiga:   (defparameter cl-user::*bg-scale* 1/20) before loading.
 
 (defvar cl-user::*bg-scale* 1

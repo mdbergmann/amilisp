@@ -1246,42 +1246,73 @@ static CL_Obj bi_merge(CL_Obj *args, int n)
     }
 }
 
-/* Insertion sort for general vectors — in-place, stable.
+/* Stable bottom-up merge sort of the first LEN elements of the general
+ * vector VEC, in place — O(n log n) predicate calls, one scratch vector of
+ * LEN elements.  (Until 0.13 vectors went through an O(n^2) insertion
+ * sort: 20,000 elements took 1 s as a vector and 0.1 s as a list.)
  *
  * Takes the vector CL_Obj, NOT a raw data pointer: the :key/predicate
  * calls run arbitrary Lisp whose allocations can compact the heap and
- * relocate the vector, so the data pointer must be re-derived from the
- * rooted SEQ after every such call (reading or writing through a
- * pre-compaction pointer would corrupt whatever now lives at the old
- * location).  The element and key locals held across those calls are
- * rooted for the same reason. */
-#define VIS_DATA(seq) cl_vector_data((CL_Vector *)CL_OBJ_TO_PTR(seq))
-static void vector_insertion_sort(CL_Obj seq, int32_t len, CL_Obj pred, CL_Obj key_fn)
+ * relocate both vectors, so every element access re-derives the data
+ * pointer from a rooted handle (MERGE_ELT).  The two buffers alternate
+ * roles between passes; `in_tmp` says which one currently holds the data,
+ * because a plain `src`/`dst` copy of a handle would go stale across a
+ * compaction.  The scratch is a GC vector rather than platform_alloc so a
+ * user :key/predicate longjmp (handler-case) cannot leak it. */
+static void gc_vector_merge_sort(CL_Obj vec, int32_t len, CL_Obj pred, CL_Obj key_fn)
 {
-    int32_t i, j;
-    CL_Obj val = CL_NIL, kval = CL_NIL;
+    CL_Obj tmp = CL_NIL;
+    int32_t width, lo, i;
+    int in_tmp = 0;
+
     if (len <= 1) return;
-    CL_GC_PROTECT(seq);
+    CL_GC_PROTECT(vec);
     CL_GC_PROTECT(pred);
     CL_GC_PROTECT(key_fn);
-    CL_GC_PROTECT(val);
-    CL_GC_PROTECT(kval);
-    for (i = 1; i < len; i++) {
-        val = VIS_DATA(seq)[i];
-        kval = apply_key(key_fn, val);
-        j = i - 1;
-        while (j >= 0) {
-            CL_Obj kj = apply_key(key_fn, VIS_DATA(seq)[j]);
-            if (CL_NULL_P(call_test(pred, kval, kj)))
-                break;
-            VIS_DATA(seq)[j + 1] = VIS_DATA(seq)[j];
-            j--;
+    CL_GC_PROTECT(tmp);
+    tmp = cl_make_vector((uint32_t)len);
+
+#define MS_SRC (in_tmp ? tmp : vec)
+#define MS_DST (in_tmp ? vec : tmp)
+    for (width = 1; width < len; width *= 2) {
+        for (lo = 0; lo < len; lo += 2 * width) {
+            int32_t mid = lo + width;
+            int32_t hi = (len - lo < 2 * width) ? len : lo + 2 * width;
+            int32_t ia = lo, ib = mid, io = lo;
+            if (mid > len) mid = len;
+            /* Stable merge: take from the right run only when its head is
+             * strictly less than the left head (pred(kb, ka)); on equal or
+             * incomparable keys the left element goes first, which keeps the
+             * input order of elements the predicate does not distinguish.
+             * ka is rooted across kb's apply_key; kb goes straight into the
+             * rooted call_test args. */
+            while (ia < mid && ib < hi) {
+                CL_Obj ka = CL_NIL, kb;
+                CL_GC_PROTECT(ka);
+                ka = apply_key(key_fn, MERGE_ELT(MS_SRC, ia));
+                kb = apply_key(key_fn, MERGE_ELT(MS_SRC, ib));
+                if (!CL_NULL_P(call_test(pred, kb, ka))) {
+                    MERGE_ELT(MS_DST, io) = MERGE_ELT(MS_SRC, ib);
+                    io++; ib++;
+                } else {
+                    MERGE_ELT(MS_DST, io) = MERGE_ELT(MS_SRC, ia);
+                    io++; ia++;
+                }
+                CL_GC_UNPROTECT(1); /* ka */
+            }
+            while (ia < mid) { MERGE_ELT(MS_DST, io) = MERGE_ELT(MS_SRC, ia); io++; ia++; }
+            while (ib < hi)  { MERGE_ELT(MS_DST, io) = MERGE_ELT(MS_SRC, ib); io++; ib++; }
         }
-        VIS_DATA(seq)[j + 1] = val;
+        in_tmp = !in_tmp;
     }
-    CL_GC_UNPROTECT(5);
+    /* The sorted data must end up in VEC: copy back if the last pass left it
+     * in the scratch (an odd number of passes). */
+    if (in_tmp)
+        for (i = 0; i < len; i++) MERGE_ELT(vec, i) = MERGE_ELT(tmp, i);
+#undef MS_SRC
+#undef MS_DST
+    CL_GC_UNPROTECT(4);
 }
-#undef VIS_DATA
 
 /* Set element I of a string / bit-vector / vector sequence. */
 static void array_seq_set(CL_Obj seq, int32_t i, CL_Obj v)
@@ -1303,46 +1334,26 @@ static void array_seq_set(CL_Obj seq, int32_t i, CL_Obj v)
     }
 }
 
-/* In-place stable insertion sort for string / bit-vector sequences.  Elements
- * are snapshotted into a GC vector first; for these element types the values
- * are immediate (characters / bits), so only the vector itself can move under
- * a compacting GC triggered inside the :key / predicate calls — SORT_TMP
- * re-derives the data pointer on every access.  A GC vector rather than
+/* Stable sort for string / bit-vector / byte-vector sequences: the elements
+ * (immediates — characters / bits / bytes) are snapshotted into a GC vector,
+ * merge-sorted there, and written back.  A GC vector rather than
  * platform_alloc so a user :key/predicate longjmp (handler-case) cannot leak
- * the snapshot permanently. */
-#define SORT_TMP(vec) cl_vector_data((CL_Vector *)CL_OBJ_TO_PTR(vec))
-static void array_seq_insertion_sort(CL_Obj seq, int32_t len, CL_Obj pred, CL_Obj key_fn)
+ * the snapshot permanently; MERGE_ELT re-derives its data pointer after the
+ * sort's own allocations and user calls. */
+static void array_seq_sort(CL_Obj seq, int32_t len, CL_Obj pred, CL_Obj key_fn)
 {
-    int32_t i, j;
-    CL_Obj tmpv;
-    CL_Obj val = CL_NIL, kval = CL_NIL;
+    int32_t i;
+    CL_Obj tmpv = CL_NIL;
     if (len <= 1) return;
     CL_GC_PROTECT(seq);    /* the snapshot alloc + user calls may compact */
     CL_GC_PROTECT(pred);
     CL_GC_PROTECT(key_fn);
-    /* kval (and val, if a :key ever returns it) is held across the inner
-     * apply_key/call_test loop, which can compact — root both so a heap
-     * object returned by :key isn't a stale offset by the second compare
-     * (mirrors vector_insertion_sort). */
-    CL_GC_PROTECT(val);
-    CL_GC_PROTECT(kval);
-    tmpv = cl_make_vector((uint32_t)len);
     CL_GC_PROTECT(tmpv);
-    for (i = 0; i < len; i++) SORT_TMP(tmpv)[i] = seq_elt(seq, i);
-    for (i = 1; i < len; i++) {
-        val = SORT_TMP(tmpv)[i];
-        kval = apply_key(key_fn, val);
-        j = i - 1;
-        while (j >= 0) {
-            CL_Obj kj = apply_key(key_fn, SORT_TMP(tmpv)[j]);
-            if (CL_NULL_P(call_test(pred, kval, kj))) break;
-            SORT_TMP(tmpv)[j + 1] = SORT_TMP(tmpv)[j];
-            j--;
-        }
-        SORT_TMP(tmpv)[j + 1] = val;
-    }
-    for (i = 0; i < len; i++) array_seq_set(seq, i, SORT_TMP(tmpv)[i]);
-    CL_GC_UNPROTECT(6);
+    tmpv = cl_make_vector((uint32_t)len);
+    for (i = 0; i < len; i++) MERGE_ELT(tmpv, i) = seq_elt(seq, i);
+    gc_vector_merge_sort(tmpv, len, pred, key_fn);
+    for (i = 0; i < len; i++) array_seq_set(seq, i, MERGE_ELT(tmpv, i));
+    CL_GC_UNPROTECT(4);
 }
 
 static CL_Obj bi_sort(CL_Obj *args, int n)
@@ -1366,12 +1377,12 @@ static CL_Obj bi_sort(CL_Obj *args, int n)
 
     if (CL_VECTOR_P(seq)) {
         CL_Vector *v = (CL_Vector *)CL_OBJ_TO_PTR(seq);
-        vector_insertion_sort(seq, (int32_t)cl_vector_active_length(v), pred, key_fn);
+        gc_vector_merge_sort(seq, (int32_t)cl_vector_active_length(v), pred, key_fn);
         return args[0];
     }
 
     if (CL_ANY_STRING_P(seq) || CL_BIT_VECTOR_P(seq) || CL_BYTE_VECTOR_P(seq)) {
-        array_seq_insertion_sort(seq, seq_length(seq), pred, key_fn);
+        array_seq_sort(seq, seq_length(seq), pred, key_fn);
         return args[0];
     }
 
@@ -1381,7 +1392,7 @@ static CL_Obj bi_sort(CL_Obj *args, int n)
 
 static CL_Obj bi_stable_sort(CL_Obj *args, int n)
 {
-    /* Both list merge sort and vector insertion sort are stable */
+    /* Both the list and the vector merge sort are stable */
     return bi_sort(args, n);
 }
 

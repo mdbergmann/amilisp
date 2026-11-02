@@ -927,36 +927,8 @@ Spec is var | (var ...) | ((keyword var) ...)."
       (unless (%set-member (if key (funcall key x) x) list2 actual-test key nil)
         (push x result)))))
 
-;; ASSOC / RASSOC — override the C builtins to add :test-not and :key.
-(defun assoc (item alist &key (test nil test-p) (test-not nil test-not-p)
-                              (key nil))
-  (when (and test-p test-not-p)
-    (error "ASSOC: cannot supply both :TEST and :TEST-NOT"))
-  (let ((pred (cond (test-not-p (complement test-not))
-                    (test-p test)
-                    (t #'eql))))
-    (dolist (pair alist nil)
-      (cond ((null pair))
-            ((consp pair)
-             (let ((k (car pair)))
-               (when (funcall pred item (if key (funcall key k) k))
-                 (return-from assoc pair))))
-            (t (error 'type-error :datum pair :expected-type 'list))))))
-
-(defun rassoc (item alist &key (test nil test-p) (test-not nil test-not-p)
-                              (key nil))
-  (when (and test-p test-not-p)
-    (error "RASSOC: cannot supply both :TEST and :TEST-NOT"))
-  (let ((pred (cond (test-not-p (complement test-not))
-                    (test-p test)
-                    (t #'eql))))
-    (dolist (pair alist nil)
-      (cond ((null pair))
-            ((consp pair)
-             (let ((v (cdr pair)))
-               (when (funcall pred item (if key (funcall key v) v))
-                 (return-from rassoc pair))))
-            (t (error 'type-error :datum pair :expected-type 'list))))))
+;; ASSOC / RASSOC: the C builtins (builtins_lists.c) implement the full
+;; :test / :test-not / :key set, with the default EQL compared in C.
 
 ;; SUBLIS / SUBST / NSUBST — override C builtins for full :test/:test-not/:key.
 (defun sublis (alist tree &key (test nil test-p) (test-not nil test-not-p)

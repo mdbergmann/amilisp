@@ -614,7 +614,16 @@ void cl_storage_error(const char *fmt, ...)
      * reset error.c's frame unwind now performs (Tier-4 phase 2). */
     CT->mv_save_top = 0;
     if (cl_error_frame_top > 0) {
-        /* Don't decrement here — CL_UNCATCH at the catch site pops */
+        /* Don't decrement here — CL_UNCATCH at the catch site pops.
+         * Land with the catch site's root snapshot, as cl_error_frame_longjmp
+         * and the CL_ERR_EXIT path do: the reset above dropped the roots the
+         * unwound C frames pushed, but the catch site's own CL_GC_PROTECTs
+         * (pushed before its CL_CATCH) are still live, and its UNPROTECT
+         * after the catch underflowed the count -- a thread death hook that
+         * exhausted the heap took the whole process down with
+         * "pop_roots(3): gc_root_count went negative" (2026-11-02,
+         * tests/test_mt_thread_death_hook.sh). */
+        gc_root_count = cl_error_frames[cl_error_frame_top - 1].saved_gc_roots;
         longjmp(cl_error_frames[cl_error_frame_top - 1].buf, CL_ERR_STORAGE);
     }
     /* No error frame — fatal */

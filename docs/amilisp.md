@@ -80,6 +80,7 @@ isolating JIT bugs around a single `defun`.
 | `(%jit-direct-call-stats)` | function | Call-site counters as a plist: `:fills`, `:misses`, the refusal reasons, `:gen`, `:enabled` |
 | `(%trace-function name)` / `(%untrace-function name)` / `(%untrace-all)` | function | Low-level tracing primitives behind `trace`/`untrace` (`name` is a symbol) |
 | `(%get-gc-count)` | function | Number of GCs performed (diagnostics) |
+| `(%hash-table-bucket-stats table)` | function | `(values bucket-count used-buckets longest-chain)` — how evenly a table's keys hash (diagnostics) |
 
 ```lisp
 (amilisp::%jit-set-active nil)   ; define the next function bytecode-only

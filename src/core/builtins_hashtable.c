@@ -217,18 +217,28 @@ static uint32_t hash_obj(CL_Obj obj, uint32_t test)
 
     if (CL_HEAP_P(obj)) {
         uint8_t type = CL_HDR_TYPE(CL_OBJ_TO_PTR(obj));
+        /* String keys: the rotate-xor content hash (cl_hash_string, kept
+         * multiply-free for the symbol tables) is run through hash_mix
+         * before the bucket mask takes its low bits.  Unmixed, strings of
+         * one shape collide massively: 10,000 keys "key-<i>-<j>" fell into
+         * 220 of 16,384 buckets (average probe 117) and "/usr/lib/foo/bar<i>"
+         * into 301 — the bench-general hash-string row was 6x behind CCL on
+         * chain walks alone.  Mixed, both spread to ~7,500 buckets (probe
+         * 1.6).  All three string representations go through the same
+         * mixer so an EQUAL wide / fill-pointer / base string still lands in
+         * one bucket (the invariant hash_string_content documents). */
         if (type == TYPE_STRING) {
             CL_String *s = (CL_String *)CL_OBJ_TO_PTR(obj);
             if (test == CL_HT_TEST_EQUALP)
-                return hash_string_ci(s->data, s->length);
-            return cl_hash_string(s->data, s->length);
+                return hash_mix(hash_string_ci(s->data, s->length));
+            return hash_mix(cl_hash_string(s->data, s->length));
         }
 #ifdef CL_WIDE_STRINGS
         if (type == TYPE_WIDE_STRING)
             /* keys_equal content-compares wide strings under EQUAL/EQUALP —
              * an identity hash made equal keys un-findable after the first
              * rehash/collision (AH5). */
-            return hash_string_content(obj, test == CL_HT_TEST_EQUALP);
+            return hash_mix(hash_string_content(obj, test == CL_HT_TEST_EQUALP));
 #endif
         if (CL_STRING_VECTOR_P(obj))
             /* Adjustable / fill-pointer character vector: a STRING per CLHS,
@@ -238,7 +248,7 @@ static uint32_t hash_obj(CL_Obj obj, uint32_t test)
              * and like base strings it hashes as a string under EQUALP too,
              * not via the type-blind vector path below, which would fold in
              * length and first element only and never match a literal key. */
-            return hash_string_content(obj, test == CL_HT_TEST_EQUALP);
+            return hash_mix(hash_string_content(obj, test == CL_HT_TEST_EQUALP));
         if ((type == TYPE_VECTOR || type == TYPE_BIT_VECTOR ||
              type == TYPE_BYTE_VECTOR) && test == CL_HT_TEST_EQUALP) {
             /* EQUALP descends general/bit/byte vectors alike (keys_equal) —
@@ -1142,6 +1152,37 @@ static CL_Obj bi_sxhash(CL_Obj *args, int n)
     return CL_MAKE_FIXNUM((int32_t)(h & 0x3FFFFFFFu));
 }
 
+/* AMILISP::%HASH-TABLE-BUCKET-STATS table => (values bucket-count
+ * used-buckets longest-chain): the bucket occupancy, for diagnosing a hash
+ * function that clusters a key population (the string-key case above) and
+ * for the tests that pin the fix.  Non-allocating walk; the synchronized
+ * lock is held like GETHASH's. */
+static CL_Obj bi_hash_table_bucket_stats(CL_Obj *args, int n)
+{
+    CL_Hashtable *ht = require_hash_table(args[0], "%HASH-TABLE-BUCKET-STATS");
+    uint32_t i, used = 0, longest = 0, nb;
+    int locked;
+    CL_UNUSED(n);
+    locked = ht_sync_enter(ht);
+    nb = ht->bucket_count;
+    {
+        CL_Obj *bkts = ht_get_buckets(ht);
+        for (i = 0; i < nb; i++) {
+            uint32_t len = 0;
+            CL_Obj chain = bkts[i];
+            while (!CL_NULL_P(chain)) { len++; chain = cl_cdr(chain); }
+            if (len > 0) used++;
+            if (len > longest) longest = len;
+        }
+    }
+    ht_sync_leave(locked);
+    cl_mv_count = 3;
+    cl_mv_values[0] = CL_MAKE_FIXNUM((int32_t)nb);
+    cl_mv_values[1] = CL_MAKE_FIXNUM((int32_t)used);
+    cl_mv_values[2] = CL_MAKE_FIXNUM((int32_t)longest);
+    return cl_mv_values[0];
+}
+
 /* --- Registration --- */
 
 void cl_builtins_hashtable_init(void)
@@ -1168,6 +1209,7 @@ void cl_builtins_hashtable_init(void)
     cl_register_builtin("%SETF-GETHASH", bi_setf_gethash, 3, 3, cl_package_amilisp);
     cl_register_builtin("%HASH-TABLE-PAIRS", bi_hash_table_pairs, 1, 1, cl_package_amilisp);
     cl_register_builtin("%MAKE-SYNC-HASH-TABLE", bi_make_sync_hash_table, 1, 1, cl_package_amilisp);
+    cl_register_builtin("%HASH-TABLE-BUCKET-STATS", bi_hash_table_bucket_stats, 1, 1, cl_package_amilisp);
     defun("SXHASH", bi_sxhash, 1, 1);
 
     /* Global mutex serializing access to CL_HT_FLAG_SYNC (CLOS dispatch cache)

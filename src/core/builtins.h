@@ -283,6 +283,11 @@ void cl_inspect_show_obj(CL_Obj obj);
  * SK_* flags naming the keywords this function accepts. */
 void cl_check_seq_keywords(CL_Obj *args, int n, int kw_start, unsigned allowed);
 
+/* CLHS EQL as a C predicate (builtins.c): identity, except numbers of the
+ * same type compare by value.  Non-allocating.  The default :test of the
+ * C list/sequence builtins compares through this instead of applying #'EQL. */
+int cl_eql_p(CL_Obj a, CL_Obj b);
+
 /* One-index array read shared by OP_AREF (vm.c) and the JIT's helper: the
  * exact semantics of the two-argument AREF / SVREF / CHAR / SCHAR builtin
  * named by `kind` (CL_AREF_KIND_* in opcodes.h) — same type gates, same

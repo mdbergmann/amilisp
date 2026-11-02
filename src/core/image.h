@@ -27,7 +27,11 @@
 #include "types.h"
 
 #define CL_IMAGE_MAGIC   0x434C494Du   /* "CLIM" */
-#define CL_IMAGE_VERSION 5             /* bump on ANY format change.
+#define CL_IMAGE_VERSION 6             /* bump on ANY format change.
+                                        * v6: EQUAL/EQUALP string keys hash
+                                        * through hash_mix (hash_obj) -- the
+                                        * bucket chains of a saved table no
+                                        * longer match the old function.
                                         * v5: SOURCES section -- each
                                         * source-file name stored once, a
                                         * blob names it by a u16 index

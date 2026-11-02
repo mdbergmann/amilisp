@@ -4578,13 +4578,19 @@ static void compile_function(CL_Compiler *c, CL_Obj form)
  * COMMON-LISP symbols, so the inliner can ignore the function cell at
  * runtime — the opcode handler in vm.c is the authoritative meaning.
  *
- * Only the binary 2-arg case is inlined for arithmetic / comparison
- * (`+ - * = < > <= >=`).  CL allows variadic forms, but `(+ a b c)` =
- * `(+ (+ a b) c)` only for associative ops on exact reals — for floats
- * and bignums there are subtle ordering differences with bi_add's
- * single-pass loop, so the safe choice is to defer to bi_add for n != 2.
- * Likewise `(- a)` and `(- a b c)` need different bytecode shapes; only
- * the 2-arg case maps to OP_SUB cleanly.
+ * The binary 2-arg case is inlined for arithmetic / comparison
+ * (`+ - * = < > <= >=`).  `+`, `-` and `*` are inlined for any arity
+ * >= 2 as a left-nested chain of the binary opcode — `(+ a b c)` compiles
+ * as `a b ADD c ADD`, i.e. (+ (+ a b) c), which is exactly the pairwise
+ * left-to-right reduction bi_add / bi_sub / bi_mul perform (CLHS 12.1.1.1.1
+ * permits that order), so floats, bignums and type errors behave the same
+ * as the n-ary call — one difference: bi_add starts its fold from 0, so
+ * (+ -0.0 -0.0) is 0.0 out of line and -0.0 inline, both correct sums.
+ * The chain keeps the fixnum fast path and the JIT's inline arithmetic
+ * for the whole expression instead of a CALL_GLOBAL with a C-side loop
+ * (the bench-general fixnum-loop row was 10x behind CCL on that call).
+ * The comparison ops stay 2-arg only: `(< a b c)` needs short-circuit
+ * evaluation and a different bytecode shape.  `(- a)` stays a call.
  *
  * NULL and NOT both map to OP_NOT — semantically `cl:null` ≡ `cl:not`
  * (both return T iff arg is NIL, NIL otherwise). */
@@ -4600,11 +4606,15 @@ static uint8_t inline_builtin_opcode(CL_Obj func, int nargs)
 
     switch (name->length) {
     case 1:
-        if (nargs == 2) {
+        if (nargs >= 2) {
             switch (name->data[0]) {
             case '+': return OP_ADD;
             case '-': return OP_SUB;
             case '*': return OP_MUL;
+            }
+        }
+        if (nargs == 2) {
+            switch (name->data[0]) {
             case '=': return OP_NUMEQ;
             case '<': return OP_LT;
             case '>': return OP_GT;
@@ -5018,6 +5028,7 @@ static void compile_call(CL_Compiler *c, CL_Obj form)
         int aref_kind = opcode ? 0 : inline_aref_kind(func, candidate_nargs);
         if (opcode != 0 || aref_kind != 0) {
             CL_Obj rest = args;
+            int argi = 0;
             /* Protect the cursor: compile_expr can compact, relocating the
              * arg list cells; without &rest registered, rest = cl_cdr(rest)
              * would follow a stale offset (same class as the compile_let
@@ -5026,11 +5037,16 @@ static void compile_call(CL_Compiler *c, CL_Obj form)
             while (!CL_NULL_P(rest)) {
                 compile_expr(c, cl_car(rest));
                 rest = cl_cdr(rest);
+                /* An n-ary `+ - *` (nargs > 2) folds left: emit the binary
+                 * opcode after every argument but the first, so the running
+                 * result is the left operand of the next one. */
+                if (opcode != 0 && candidate_nargs > 2 && ++argi >= 2)
+                    cl_emit(c, opcode);
             }
             if (aref_kind != 0) {
                 cl_emit(c, OP_AREF);
                 cl_emit(c, (uint8_t)(aref_kind - 1));
-            } else {
+            } else if (candidate_nargs <= 2) {
                 cl_emit(c, opcode);
             }
             CL_GC_UNPROTECT(2);  /* rest, args */

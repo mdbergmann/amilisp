@@ -674,34 +674,39 @@ static CL_Obj bi_eq(CL_Obj *args, int n)
     return (args[0] == args[1]) ? SYM_T : CL_NIL;
 }
 
+/* CLHS EQL as a C predicate: identity, except that numbers of the same
+ * type compare by value.  Non-allocating.  The C builtins that default
+ * their :test to EQL (ASSOC, RASSOC) compare through this instead of
+ * applying #'EQL per element. */
+int cl_eql_p(CL_Obj a, CL_Obj b)
+{
+    if (a == b) return 1;
+    /* Immediates (fixnums, characters, NIL) are eql iff identical. */
+    if (!CL_HEAP_P(a) || !CL_HEAP_P(b)) return 0;
+    if (CL_BIGNUM_P(a) && CL_BIGNUM_P(b))
+        return cl_bignum_equal(a, b);
+    /* Floats: same type and same value */
+    if (CL_SINGLE_FLOAT_P(a) && CL_SINGLE_FLOAT_P(b))
+        return ((CL_SingleFloat *)CL_OBJ_TO_PTR(a))->value ==
+               ((CL_SingleFloat *)CL_OBJ_TO_PTR(b))->value;
+    if (CL_DOUBLE_FLOAT_P(a) && CL_DOUBLE_FLOAT_P(b))
+        return ((CL_DoubleFloat *)CL_OBJ_TO_PTR(a))->value ==
+               ((CL_DoubleFloat *)CL_OBJ_TO_PTR(b))->value;
+    if (CL_RATIO_P(a) && CL_RATIO_P(b))
+        return cl_ratio_equal(a, b);
+    if (CL_COMPLEX_P(a) && CL_COMPLEX_P(b)) {
+        CL_Complex *ca = (CL_Complex *)CL_OBJ_TO_PTR(a);
+        CL_Complex *cb = (CL_Complex *)CL_OBJ_TO_PTR(b);
+        return cl_eql_p(ca->realpart, cb->realpart) &&
+               cl_eql_p(ca->imagpart, cb->imagpart);
+    }
+    return 0;
+}
+
 static CL_Obj bi_eql(CL_Obj *args, int n)
 {
     CL_UNUSED(n);
-    /* For fixnums and characters, value equality; otherwise identity */
-    if (CL_FIXNUM_P(args[0]) && CL_FIXNUM_P(args[1]))
-        return (args[0] == args[1]) ? SYM_T : CL_NIL;
-    if (CL_CHAR_P(args[0]) && CL_CHAR_P(args[1]))
-        return (args[0] == args[1]) ? SYM_T : CL_NIL;
-    if (CL_BIGNUM_P(args[0]) && CL_BIGNUM_P(args[1]))
-        return cl_bignum_equal(args[0], args[1]) ? SYM_T : CL_NIL;
-    /* Floats: same type and same value */
-    if (CL_SINGLE_FLOAT_P(args[0]) && CL_SINGLE_FLOAT_P(args[1]))
-        return ((CL_SingleFloat *)CL_OBJ_TO_PTR(args[0]))->value ==
-               ((CL_SingleFloat *)CL_OBJ_TO_PTR(args[1]))->value ? SYM_T : CL_NIL;
-    if (CL_DOUBLE_FLOAT_P(args[0]) && CL_DOUBLE_FLOAT_P(args[1]))
-        return ((CL_DoubleFloat *)CL_OBJ_TO_PTR(args[0]))->value ==
-               ((CL_DoubleFloat *)CL_OBJ_TO_PTR(args[1]))->value ? SYM_T : CL_NIL;
-    if (CL_RATIO_P(args[0]) && CL_RATIO_P(args[1]))
-        return cl_ratio_equal(args[0], args[1]) ? SYM_T : CL_NIL;
-    if (CL_COMPLEX_P(args[0]) && CL_COMPLEX_P(args[1])) {
-        CL_Complex *ca = (CL_Complex *)CL_OBJ_TO_PTR(args[0]);
-        CL_Complex *cb = (CL_Complex *)CL_OBJ_TO_PTR(args[1]);
-        CL_Obj ra[2], ia[2];
-        ra[0] = ca->realpart; ra[1] = cb->realpart;
-        ia[0] = ca->imagpart; ia[1] = cb->imagpart;
-        return (!CL_NULL_P(bi_eql(ra, 2)) && !CL_NULL_P(bi_eql(ia, 2))) ? SYM_T : CL_NIL;
-    }
-    return (args[0] == args[1]) ? SYM_T : CL_NIL;
+    return cl_eql_p(args[0], args[1]) ? SYM_T : CL_NIL;
 }
 
 /* String-ish accessors: treat both TYPE_STRING (and wide strings) and

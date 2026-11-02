@@ -7,6 +7,120 @@ command, and results, so later runs can be compared like-for-like.
 Related: [specs/performance.md](../specs/performance.md) is the optimization
 *plan*; this file is the *measured results* log.
 
+## 2026-11-02 — General workloads: amilisp vs Clozure CL 1.14, and four library-level gaps closed
+
+**Context**: the first comparison against CCL, on the same
+`trunk/bench-general.lisp` the 2026-09-09 ECL/SBCL entry used (32 rows
+now, `string-scan` added since).  The "before" column is master
+`af2bebbb` (0.12, lazy arm64 JIT on by default); "after" is the same tree
+with the four fixes below.  CCL 1.14 darwinarm64 (Homebrew `ccl64`,
+`--no-init --batch --load`: CCL compiles every definition natively at
+load).  Both at `(optimize (speed 1) (safety 1) (debug 1))`.  Every row's
+`val=` agrees between amilisp and CCL on every run.
+
+**Environment**: Apple M3 Ultra, macOS 27.2, `--heap 64M`, scratch FASL
+cache; each row the minimum of 5 in-process repetitions, each binary run
+twice in separate processes one after the other, the lower run taken.
+
+| row | amilisp before | amilisp after | CCL 1.14 | CCL/after |
+| --- | ---: | ---: | ---: | ---: |
+| tak | 38.0 | 36.0 | 6.3 | 5.71× |
+| fib | 14.0 | 14.0 | 6.6 | 2.12× |
+| nqueens | 20.0 | 20.0 | 6.9 | 2.90× |
+| deriv | 63.0 | 43.0 | 11.6 | 3.71× |
+| list-sort | 107.0 | 109.0 | 128.8 | 0.85× |
+| list-ops | 63.0 | 62.0 | 24.7 | 2.51× |
+| hof | 60.0 | 57.0 | 31.5 | 1.81× |
+| assoc | 50.0 | 14.0 | 4.6 | 3.04× |
+| getf | 9.0 | 8.0 | 7.1 | 1.13× |
+| vector-sort | 1067.0 | 4.0 | 5.1 | 0.78× |
+| insertion-sort | 23.0 | 22.0 | 8.3 | 2.65× |
+| matmul | 21.0 | 20.0 | 7.6 | 2.63× |
+| mandel | 33.0 | 26.0 | 21.0 | 1.24× |
+| float-vector | 26.0 | 24.0 | 15.1 | 1.59× |
+| bignum-fact | 22.0 | 21.0 | 32.0 | 0.66× |
+| bignum-arith | 179.0 | 175.0 | 489.4 | 0.36× |
+| hash-fixnum | 27.0 | 25.0 | 47.4 | 0.53× |
+| hash-string | 72.0 | 3.0 | 12.6 | 0.24× |
+| string-ops | 63.0 | 62.0 | 49.4 | 1.26× |
+| string-stream | 57.0 | 56.0 | 146.7 | 0.38× |
+| char-loop | 9.0 | 9.0 | 5.1 | 1.76× |
+| string-scan | 2.0 | 1.0 | 0.8 | 1.25× |
+| format | 51.0 | 48.0 | 160.0 | 0.30× |
+| reader | 71.0 | 61.0 | 201.3 | 0.30× |
+| printer | 60.0 | 57.0 | 369.2 | 0.15× |
+| clos-dispatch | 48.0 | 44.0 | 13.8 | 3.19× |
+| make-instance | 52.0 | 50.0 | 18.7 | 2.67× |
+| struct-bst | 11.0 | 10.0 | 6.2 | 1.61× |
+| fixnum-loop | 82.0 | 32.0 | 8.3 | 3.86× |
+| loop-collect | 27.0 | 26.0 | 8.8 | 2.95× |
+| conditions | 134.0 | 130.0 | 176.3 | 0.74× |
+| alloc-churn | 51.0 | 48.0 | 48.7 | 0.99× |
+| **total** | **2612** | **1317** | **2080** | **0.63×** |
+| **geomean** | | | | **1.24×** |
+
+Milliseconds; a ratio above 1 means amilisp is slower than CCL.
+
+**Headline**: before the fixes CCL was 1.26× faster in total and 1.89× by
+geometric mean, almost all of it one row (vector-sort).  After them
+amilisp finishes the suite in 63% of CCL's time and wins 12 of 32 rows;
+the geometric mean is 1.24× in CCL's favour.  The remaining gap is the
+one that was there against ECL: pure compiled Lisp — call-heavy code
+(tak 5.7×, deriv 3.7×, CLOS dispatch 3.2×), the fixnum loop (3.9×, the
+`logand` call that is left) and the loop shapes (2.5–3×).  amilisp's
+C-side library is ahead of CCL's by a wide margin on the printer (6.6×),
+reader and FORMAT (3.3×), string streams (2.6×), bignum division (2.8×),
+EQL hash tables (1.9×) and now EQUAL string-key tables (4.2×).
+
+A `--no-jit` run of the "before" binary totals 3604 ms, matching the
+2026-09-09 pre-JIT numbers: the lazy arm64 JIT alone is tak 122 → 38 ms,
+fib 85 → 14, fixnum-loop 163 → 82.
+
+**The four fixes** (all in this entry's commit):
+
+1. **vector-sort 1067 → 4 ms (209× → 0.78×)**: `SORT`/`STABLE-SORT` on
+   vectors ran `vector_insertion_sort`, O(n²) with a predicate call per
+   comparison (finding 1 of 2026-09-09, open since).  Now
+   `gc_vector_merge_sort` (`builtins_sequence2.c`): a stable bottom-up
+   merge sort through one scratch GC vector, every element access
+   re-deriving its data pointer so compaction inside a :key/predicate
+   call is safe.  Strings, bit-vectors and byte-vectors sort through the
+   same routine via a snapshot.
+2. **hash-string 72 → 3 ms (5.7× → 0.24×)**: the rotate-xor string hash
+   clustered keys of one shape — the 10,000 `key-<i>-<j>` keys occupied
+   220 of 16,384 buckets, average probe 117 (a Python replay of
+   `cl_hash_string`); symbol-like names probe 10, path strings 36.
+   `hash_obj` now runs every string hash through `hash_mix` before the
+   bucket mask (average probe 1.6 for all three shapes).  Saved heap
+   images carry bucket chains, so `CL_IMAGE_VERSION` is 6.
+   `AMILISP::%HASH-TABLE-BUCKET-STATS` reports (bucket-count, used,
+   longest chain) for diagnosing a key population.
+3. **assoc 50 → 14 ms (10.9× → 3.0×)**: `lib/boot.lisp` overrode the C
+   `ASSOC`/`RASSOC` with a Lisp function (finding 2 of 2026-09-09) to get
+   :test-not and :key.  The C builtins now take the full keyword set and
+   compare the default EQL (or an explicit #'EQL / #'EQ) inline in C
+   (`cl_eql_p`); the override is gone.  The rest of the row is the 64 cons
+   cells walked per lookup plus the call.
+4. **fixnum-loop 82 → 32 ms (9.9× → 3.9×), deriv 63 → 43**: `(+ a b c)`
+   compiled as a `CALL_GLOBAL +` with a C-side loop; the compiler now
+   folds `+`, `-` and `*` of any arity ≥ 2 into a left-nested chain of the
+   binary opcode (`inline_builtin_opcode`), which the JIT inlines.  The
+   loop's remaining call is the 2-arg `logand` — a `LOGAND`/`LOGIOR`/
+   `LOGXOR` opcode (VM, both JITs, FASL bump) would take the row to about
+   15 ms and is the next step for this shape.
+
+**Still open from the ranked list**: `char`/`char=` as calls (char-loop
+1.8×), the 16-bit-limb bignum division (irrelevant against CCL, whose
+bignums are slower still), and the interpretive/JIT call tax itself
+(tak, deriv, clos-dispatch).
+
+**Reproduce**:
+
+```
+./build/host/amilisp --no-userinit --heap 64M --non-interactive --load trunk/bench-general.lisp
+ccl64 --no-init --batch --load trunk/bench-general.lisp --eval '(ccl:quit)'
+```
+
 ## 2026-10-21 — cross toolchain gcc 6.5.0b → GCC 16.2 (AmigaPorts v16.2-rc18): bytecode rows 2.6% slower at `-Os`
 
 **Context**: the m68k toolchain moved from the 2025-10 gcc 6.5.0b build to

@@ -6386,6 +6386,44 @@ out=$(run_stress "$WORK/dispfilter.lisp")
 check_contains "method-filtered dispatcher routes under GC stress" \
   "DISP:60:200:21518370370:(40 20 2)" "$out"
 
+# --- vector merge sort / C ASSOC / mixed string hash under GC stress ---------
+# gc_vector_merge_sort (builtins_sequence2.c) alternates between the vector
+# and a scratch GC vector and re-derives both data pointers after every
+# :key / predicate call -- both of which allocate here, so every comparison
+# compacts and moves both buffers.  assoc_impl (builtins_lists.c) applies an
+# allocating :key per pair while holding item / alist / pair across the call.
+# The EQUAL table's string keys are hashed through hash_mix and the table is
+# rehashed by every compaction (content hash: positions must be stable).
+cat > "$WORK/vsort.lisp" <<'EOF'
+(let ((v (make-array 300)))
+  (dotimes (i 300) (setf (svref v i) (cons (mod (* i 7919) 17) i)))
+  (stable-sort v (lambda (a b) (make-list 2) (< a b))
+               :key (lambda (p) (make-list 3) (car p)))
+  (format t "VSORT:~A:~A~%"
+          (loop for i from 1 below 300
+                always (let ((p (svref v (1- i))) (q (svref v i)))
+                         (or (< (car p) (car q))
+                             (and (= (car p) (car q)) (< (cdr p) (cdr q))))))
+          (length v)))
+(let ((s (sort (copy-seq "the quick brown fox") (lambda (a b) (make-list 2) (char< a b)))))
+  (format t "SSORT:~A~%" s))
+(let ((al (loop for i below 200 collect (cons i (format nil "v~D" i)))))
+  (format t "ASSOC:~A:~A~%"
+          (cdr (assoc "k199" al :key (lambda (k) (format nil "k~D" k)) :test #'string=))
+          (cdr (assoc 150 al))))
+(let ((h (make-hash-table :test 'equal)))
+  (dotimes (i 400) (setf (gethash (format nil "key-~D-~A" i (mod i 7)) h) i))
+  (let ((s 0)) (dotimes (i 400) (incf s (gethash (format nil "key-~D-~A" i (mod i 7)) h)))
+    (multiple-value-bind (nb used longest) (amilisp::%hash-table-bucket-stats h)
+      (declare (ignore nb))
+      (format t "EQHASH:~A:~A:~A~%" s (> used 100) (< longest 8)))))
+EOF
+out=$(run_stress "$WORK/vsort.lisp")
+check_contains "vector stable-sort with allocating key+pred under stress" "VSORT:T:300" "$out"
+check_contains "string sort with allocating pred under stress"            "SSORT:   bcefhiknooqrtuwx" "$out"
+check_contains "C ASSOC with allocating :key under stress"               "ASSOC:v199:v150" "$out"
+check_contains "EQUAL string-key table under stress"                     "EQHASH:79800:T:T" "$out"
+
 echo ""
 echo "$passed passed, $failed failed, $total total"
 [ "$failed" -eq 0 ]
