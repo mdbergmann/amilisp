@@ -4971,6 +4971,53 @@ y" 1))
                                  (listp (getf e :flags)) (listp (getf e :addresses))))
                 ifs))))
 
+; --- Native digests (ext:sha256, ext:hmac-sha256, ext:pbkdf2-sha256) ---
+; FIPS 180-4, RFC 4231 and RFC 7914 vectors; the 68k build must agree with
+; the host byte for byte (the core loads words bytewise, so endianness
+; cannot leak in).
+(defun digest-hex (v) (format nil "~(~{~2,'0x~}~)" (coerce v 'list)))
+(defun digest-oct (s) (map '(vector (unsigned-byte 8)) #'char-code s))
+(check "sha256 abc" "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+  (digest-hex (ext:sha256 (digest-oct "abc"))))
+(check "sha256 empty" "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  (digest-hex (ext:sha256 (digest-oct ""))))
+(check "sha256 two blocks" "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1"
+  (digest-hex (ext:sha256 (digest-oct "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"))))
+(check "sha256 64-byte block boundary" "fdeab9acf3710362bd2658cdc9a29e8f9c757fcf9811603a8c447cd1d9151108"
+  (digest-hex (ext:sha256 (coerce (loop for i below 64 collect i) '(vector (unsigned-byte 8))))))
+(check "sha256 :start/:end on a general vector" "df3153762678d531e5a044492e169302be007fa367f33f9b38febcba6ffca465"
+  (digest-hex (ext:sha256 (coerce (loop for i below 16 collect i) 'vector) :start 3 :end 9)))
+(check "sha256 honours a fill pointer" "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+  (let ((v (make-array 8 :element-type '(unsigned-byte 8) :fill-pointer 0)))
+    (vector-push 97 v) (vector-push 98 v) (vector-push 99 v)
+    (digest-hex (ext:sha256 v))))
+(check "sha256 result is a fresh octet vector" t
+  (let ((d (ext:sha256 (digest-oct "abc"))))
+    (and (typep d '(simple-array (unsigned-byte 8) (32)))
+         (not (eq d (ext:sha256 (digest-oct "abc")))))))
+(check "sha256 rejects a string with a hint" :hinted
+  (handler-case (ext:sha256 "abc")
+    (error (e) (and (search "char-code" (format nil "~a" e)) :hinted))))
+(check "sha256 rejects start past end" :rejected
+  (handler-case (ext:sha256 (digest-oct "abc") :start 2 :end 1)
+    (error (e) (and (search "START 2 exceeds END 1" (format nil "~a" e)) :rejected))))
+(check "sha256 rejects a non-octet element" :rejected
+  (handler-case (ext:sha256 #(1 256))
+    (error (e) (and (search "element 1" (format nil "~a" e)) :rejected))))
+(check "hmac-sha256 RFC 4231 #2" "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"
+  (digest-hex (ext:hmac-sha256 (digest-oct "Jefe") (digest-oct "what do ya want for nothing?"))))
+(check "hmac-sha256 RFC 4231 #6 (key longer than a block)" "60e431591ee0b67f0d8a26aacbf5b77f8e0bc6213728c5140546040f0ee37f54"
+  (digest-hex (ext:hmac-sha256 (make-array 131 :element-type '(unsigned-byte 8) :initial-element #xaa)
+                               (digest-oct "Test Using Larger Than Block-Size Key - Hash Key First"))))
+(check "pbkdf2-sha256 RFC 7914, 1 iteration, 64 octets"
+  "55ac046e56e3089fec1691c22544b605f94185216dde0465e68b9d57c20dacbc49ca9cccf179b645991664b39d77ef317c71b845b1e30bd509112041d3a19783"
+  (digest-hex (ext:pbkdf2-sha256 (digest-oct "passwd") (digest-oct "salt") 1 64)))
+(check "pbkdf2-sha256 1000 iterations, truncated block" "fa9c158e678bfe94189b0b1a707a0921672fdc9f"
+  (digest-hex (ext:pbkdf2-sha256 (digest-oct "passwd") (digest-oct "salt") 1000 20)))
+(check "pbkdf2-sha256 rejects zero iterations" :rejected
+  (handler-case (ext:pbkdf2-sha256 (digest-oct "p") (digest-oct "s") 0 32)
+    (error (e) (and (search "ITERATIONS" (format nil "~a" e)) :rejected))))
+
 ; --- Socket read/write timeouts (ext:socket-stream-timeout) ---
 ; (setf (ext:socket-stream-timeout stream :input/:output) seconds) arms a
 ; WaitSelect deadline in the platform socket layer; a read/write that misses it

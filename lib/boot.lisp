@@ -3837,6 +3837,12 @@ TYPE itself and NIL."
   (%udp-multicast-configure stream hops loopback interface))
 
 (export '(open-udp-socket udp-multicast-configure))
+;; SHA-256 of OCTETS[start..end) as a fresh (unsigned-byte 8) vector; the
+;; keyed and iterated forms (hmac-sha256, pbkdf2-sha256) are C builtins.
+(defun sha256 (octets &key (start 0) end)
+  (%sha256 octets start end))
+
+(export '(sha256))
 
 ;;; ============================================================
 ;;; MP package: threading macros and stubs

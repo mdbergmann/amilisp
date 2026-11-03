@@ -166,6 +166,7 @@ CORE_SRC     = $(SRCDIR)/core/types.c \
                $(SRCDIR)/core/builtins_array.c \
                $(SRCDIR)/core/builtins_stream.c \
                $(SRCDIR)/core/builtins_random.c \
+               $(SRCDIR)/core/builtins_digest.c \
                $(SRCDIR)/core/builtins_bitvector.c \
                $(SRCDIR)/core/builtins_pathname.c \
                $(SRCDIR)/core/builtins_describe.c \

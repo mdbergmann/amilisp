@@ -1483,6 +1483,17 @@ NIL on AmigaOS and MorphOS, whose TCP/IP stacks are IPv4-only (there the
 IPv4 half of everything above works, interfaces are named by address, and
 an IPv6 request fails with a clear error).
 
+### Cryptographic digests (SHA-256)
+
+`(ext:sha256 octets &key start end)`, `(ext:hmac-sha256 key data)` and
+`(ext:pbkdf2-sha256 password salt iterations length)` compute SHA-256, HMAC
+and PBKDF2 natively — pure-Lisp digests run through bignum arithmetic on
+AmiLisp's 32-bit words and are hundreds of times slower, which puts a key
+derivation of a few thousand iterations out of reach on a 68020.  Inputs
+are `(unsigned-byte 8)` vectors (or general vectors of octets), results are
+fresh octet vectors.  See `docs/ext.md` and `tests/test_digest.c` for the
+reference vectors and usage.
+
 ### Host FFI (dlopen + libffi + CFFI)
 
 The `FFI` package provides foreign pointers and typed peek/poke on **all**

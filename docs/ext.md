@@ -318,6 +318,37 @@ that have no standard equivalent:
 | `(unpack-byterun1 src pos end dst dst-len &optional dst-start)` | function | Decode ByteRun1/PackBits RLE data between byte vectors; returns the new source position |
 | `(copy-rows dst src count chunk dst-start dst-stride src-start src-stride)` | function | Copy `count` rows of `chunk` bytes with independent source/destination strides; returns `dst` |
 
+## Cryptographic digests (SHA-256)
+
+SHA-256 and the two constructions protocol code builds on it, in C.  Pure-Lisp
+implementations (Ironclad's, for one) are written in 32-bit modular
+arithmetic, which leaves fixnum range on AmiLisp and runs through bignums:
+about 0.3 MB/s on the host and a PBKDF2 of 1000 iterations in 2.5 s, where a
+68020 would need minutes.  These run at C speed, so a session handshake that
+derives keys (Matter's PASE, TLS-style schedules, password hashing) finishes
+within its timeout.
+
+Inputs are octet vectors: a `(simple-array (unsigned-byte 8))` — the fill
+pointer bounds what is hashed — or a simple general vector of integers 0–255.
+A string is refused with a hint to encode it first.  Every result is a fresh
+`(unsigned-byte 8)` vector.
+
+```lisp
+(ext:sha256 octets &key (start 0) end)        ; => 32-octet digest
+(ext:hmac-sha256 key data)                    ; RFC 2104, key of any length
+(ext:pbkdf2-sha256 password salt iterations length)   ; RFC 8018 §5.2
+```
+
+`pbkdf2-sha256` runs its iteration loop inside a GC safe region (other threads
+collect meanwhile) and polls Ctrl-C between stints, so a 100000-iteration
+derivation neither stalls the collector nor ignores a break.
+
+| Signature | Kind | Description |
+|-----------|------|-------------|
+| `(sha256 octets &key start end)` | function | SHA-256 of `octets[start, end)` as a fresh 32-octet vector |
+| `(hmac-sha256 key data)` | function | HMAC-SHA256 of `data` under `key` (keys longer than 64 octets are hashed first) |
+| `(pbkdf2-sha256 password salt iterations length)` | function | PBKDF2 with HMAC-SHA256 as the PRF; `length` octets of derived key |
+
 ## Terminal control (TUI raw mode)
 
 Primitives for full-screen terminal applications (e.g. the
@@ -360,6 +391,9 @@ See `tests/test_tty.c` for a complete usage example.
   `unpack_byterun1_*` and `copy_rows_*` tests) and the matching blocks in
   `tests/amiga/run-tests.lisp`; the ILBM loader in the Lambda's Tale
   engine repo (`src/ilbm.lisp`) is the worked example.
+- Cryptographic digests: `tests/test_digest.c` (FIPS 180-4, RFC 4231 and
+  RFC 7914 vectors, the error paths, PBKDF2 next to a collecting thread) and
+  the "Native digests" block in `tests/amiga/run-tests.lisp`.
 - TCP sockets & timeouts: `tests/test_stream.c`
   (`platform_socket_table_grows_many_connections`, `socket_read_timeout_*`,
   `eval_socket_stream_timeout_*`) and `tests/amiga/run-tests.lisp` (the

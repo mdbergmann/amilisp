@@ -1776,6 +1776,7 @@ void cl_builtins_stream_init(void);
 void cl_builtins_array_init(void);
 void cl_float_math_init(void);
 void cl_builtins_random_init(void);
+void cl_builtins_digest_init(void);
 void cl_builtins_bitvector_init(void);
 void cl_builtins_pathname_init(void);
 void cl_builtins_describe_init(void);
@@ -2428,6 +2429,7 @@ void cl_builtins_init(void)
     cl_builtins_array_init();
     cl_float_math_init();
     cl_builtins_random_init();
+    cl_builtins_digest_init();
     cl_builtins_bitvector_init();
     cl_builtins_pathname_init();
     cl_builtins_describe_init();

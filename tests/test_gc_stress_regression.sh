@@ -6456,6 +6456,42 @@ check_contains "string sort with allocating pred under stress"            "SSORT
 check_contains "C ASSOC with allocating :key under stress"               "ASSOC:v199:v150" "$out"
 check_contains "EQUAL string-key table under stress"                     "EQHASH:79800:T:T" "$out"
 
+# --- Case: native digests (ext:sha256 / hmac-sha256 / pbkdf2-sha256) ---
+# bi_sha256 & co. read raw arena pointers while hashing and allocate the
+# result only afterwards; PBKDF2 allocates its result FIRST, then loops in
+# a GC safe region and re-derives the protected vector per block.  Under
+# stress every allocation compacts, so a stale pointer in either order
+# shows up as a wrong digest.  Inputs cover both vector representations and
+# a fill-pointered buffer; the loop makes garbage between the calls.
+cat > "$WORK/digest.lisp" <<'EOF'
+(defun hx (v) (format nil "~(~{~2,'0x~}~)" (coerce v 'list)))
+(let ((bytes (map '(vector (unsigned-byte 8)) #'char-code "abc"))
+      (gen #(97 98 99))
+      (fp (make-array 8 :element-type '(unsigned-byte 8) :fill-pointer 0))
+      (ok t))
+  (vector-push 97 fp) (vector-push 98 fp) (vector-push 99 fp)
+  (dotimes (i 20)
+    (make-list 50)
+    (unless (and (string= (hx (ext:sha256 bytes)) "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
+                 (string= (hx (ext:sha256 gen)) "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
+                 (string= (hx (ext:sha256 fp)) "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
+                 (string= (hx (ext:hmac-sha256 (map '(vector (unsigned-byte 8)) #'char-code "Jefe")
+                                               (map 'vector #'char-code "what do ya want for nothing?")))
+                          "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843")
+                 (string= (hx (ext:pbkdf2-sha256 (map '(vector (unsigned-byte 8)) #'char-code "passwd")
+                                                 #(115 97 108 116) 1 33))
+                          "55ac046e56e3089fec1691c22544b605f94185216dde0465e68b9d57c20dacbc49"))
+      (setf ok nil)))
+  (format t "DIGEST:~a:~a~%" ok
+          (hx (ext:pbkdf2-sha256 (map '(vector (unsigned-byte 8)) #'char-code "passwd")
+                                 (map '(vector (unsigned-byte 8)) #'char-code "salt") 1000 20))))
+EOF
+out=$(run_stress "$WORK/digest.lisp")
+check_contains "sha256/hmac/pbkdf2 digests correct under GC stress" \
+    "DIGEST:T:fa9c158e678bfe94189b0b1a707a0921672fdc9f" "$out"
+check_absent   "no corruption in the digest builtins under stress" \
+    "Unbound variable\|Undefined\|type 0\|corrupted\|not of type" "$out"
+
 echo ""
 echo "$passed passed, $failed failed, $total total"
 [ "$failed" -eq 0 ]
