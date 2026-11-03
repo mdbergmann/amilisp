@@ -12,6 +12,11 @@
 (ensure-ql-lib :trivia)
 (asdf:load-system :trivia)
 
+;; The test-op loads trivia.test, whose own dist dependencies (optima,
+;; trivia.quasiquote -> fare-quasiquote-readtable, ...) are not reachable
+;; from trivia's dependency list: fetch them before ASDF needs them.
+(ensure-ql-lib :trivia.test)
+
 (format t "~%--- Running Trivia tests ---~%")
 (handler-case
     (asdf:test-system :trivia)

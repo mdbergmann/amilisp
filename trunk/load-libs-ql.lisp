@@ -69,15 +69,26 @@
 (unless (member :quicklisp-compat *features*)
   (load "lib/quicklisp-compat.lisp"))
 
-(defun ensure-ql-lib (name)
-  "Make system NAME loadable from the local quicklisp repo, fetching it
-from the dist only when it is not there yet.
+(defvar *ensure-ql-seen* nil
+  "System names ENSURE-QL-LIB has already walked in this image, so a
+dependency graph with shared nodes (alexandria under everything) is
+probed once and a cycle cannot recurse forever.")
 
-If ASDF can already locate NAME (an already-downloaded dist release, or a
-AmiLisp library fork / swank stub on quicklisp's local-projects path) we do nothing —
-no network, no re-download. Otherwise we pull the matching dist release to
-disk via QL-DIST:ENSURE-INSTALLED. Either way the system is NOT loaded
-here; the caller does that with (asdf:load-system name).
+(defun ensure-ql-lib (name)
+  "Make system NAME and the dist systems it depends on loadable from the
+local quicklisp repo, fetching only what is not there yet.
+
+If ASDF can already locate NAME (an already-downloaded dist release, or an
+AmiLisp library fork / swank stub on quicklisp's local-projects path) it is
+not fetched — no network, no re-download. Otherwise we pull the matching
+dist release to disk via QL-DIST:ENSURE-INSTALLED.  Then the dist's
+dependency list for NAME (QL-DIST:REQUIRED-SYSTEMS, what systems.txt
+records) is walked the same way, so a fresh machine ends up with every
+release the load needs, and a machine that has them all touches nothing.
+Dependencies a fork on local-projects already provides (bordeaux-threads,
+usocket, ...) are located by ASDF and therefore never fetched from the
+dist.  The system is NOT loaded here; the caller does that with
+(asdf:load-system name).
 
 Probing via ASDF loads the system's .asd, and some .asd files signal an
 error themselves (static-vectors.asd rejects unsupported implementations
@@ -85,15 +96,26 @@ at load time).  Such a system counts as located — the .asd is on disk, a
 dist fetch could not improve on it — and the error must not escape:
 aborting here would kill a caller's whole dependency-fetch loop."
   (let ((sname (string-downcase (string name))))
-    (unless (handler-case (asdf:find-system sname nil)
-              (error (e)
-                (format t "~&;; load-libs-ql: probing ~A signalled: ~A~%" sname e)
-                ;; treat as locatable: the .asd exists (fetching from the
-                ;; dist can't improve on it), it just refuses to load here
-                t))
+    (unless (member sname *ensure-ql-seen* :test #'string=)
+      (push sname *ensure-ql-seen*)
       (let ((sys (ignore-errors
                    (funcall (find-symbol "FIND-SYSTEM" "QL-DIST") sname))))
+        (unless (handler-case (asdf:find-system sname nil)
+                  (error (e)
+                    (format t "~&;; load-libs-ql: probing ~A signalled: ~A~%" sname e)
+                    ;; treat as locatable: the .asd exists (fetching from the
+                    ;; dist can't improve on it), it just refuses to load here
+                    t))
+          (when sys
+            (format t "~&;; load-libs-ql: fetching ~A from quicklisp dist~%" sname)
+            (funcall (find-symbol "ENSURE-INSTALLED" "QL-DIST") sys)))
+        ;; The dist knows this system: make sure what it depends on is
+        ;; on disk too (ASDF resolves dependencies at load time, when it
+        ;; is too late to fetch).  Forks and shims are found by ASDF and
+        ;; skipped; "asdf" itself is not a dist system.
         (when sys
-          (format t "~&;; load-libs-ql: fetching ~A from quicklisp dist~%" sname)
-          (funcall (find-symbol "ENSURE-INSTALLED" "QL-DIST") sys))))
+          (dolist (dep (ignore-errors
+                         (funcall (find-symbol "REQUIRED-SYSTEMS" "QL-DIST") sys)))
+            (unless (string-equal dep "asdf")
+              (ensure-ql-lib dep))))))
     sname))
