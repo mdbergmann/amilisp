@@ -3178,6 +3178,7 @@ group reduces to the ordinary sequential init-then-step."
             ((or (%loop-keyword-p kw "FOR") (%loop-keyword-p kw "AS"))
              (let ((grp-steps nil)       ; this AND-group's step forms (reversed)
                    (grp-then-specs nil)   ; (var init step) for = THEN clauses
+                   (grp-destructures nil) ; destructuring setqs of = THEN clauses (reversed)
                    (grp-count 0))
                (block parse-for-and
                  (tagbody
@@ -3204,9 +3205,17 @@ group reduces to the ordinary sequential init-then-step."
                          (push (list v nil) bindings)))
                      (dolist (e (caddr r)) (push e preamble))
                      (dolist (p (car (cdddr r))) (push p preamble))
+                     ;; A destructured = THEN variable is assigned by the
+                     ;; group's stepper, which is emitted into the preamble
+                     ;; only after the whole AND group is parsed: its
+                     ;; destructuring setqs must follow it, or every
+                     ;; iteration would see the previous iteration's value
+                     ;; (NIL on the first) -- (loop for (a . b) = x then y ...).
                      (when destructuring
                        (dolist (a (%loop-destructure-assigns raw-var var))
-                         (push a preamble)))
+                         (if then-spec
+                             (push a grp-destructures)
+                             (push a preamble))))
                      (dolist (s (cadr (cdddr r))) (push s grp-steps))
                      (when then-spec (push then-spec grp-then-specs)))
                    (when (and rest (%loop-keyword-p (car rest) "AND"))
@@ -3258,7 +3267,9 @@ group reduces to the ordinary sequential init-then-step."
                                                   grp-then-specs))))
                     (if (%loop-all-simple-setq-p all-steps)
                         (dolist (s (%loop-parallelize-setqs all-steps)) (push s steps))
-                        (dolist (s all-steps) (push s steps))))))))
+                        (dolist (s all-steps) (push s steps))))))
+               ;; now that the = THEN variables are stepped, take them apart
+               (dolist (a (nreverse grp-destructures)) (push a preamble))))
             ;; RETURN
             ((%loop-keyword-p kw "RETURN")
              (push `(return-from ,block-name ,(car rest)) body)

@@ -127,6 +127,30 @@ TEST(for_then_repeat_zero)
                   "0");
 }
 
+TEST(for_destructuring_then)
+{
+    /* A destructured = THEN variable: the parts must follow the stepper,
+     * not lag an iteration behind it (the first one used to see NIL). */
+    ASSERT_STR_EQ(eval_print(
+        "(loop for (side . other) = (cons :b :a) then (cons other side)"
+        "      repeat 4 collect (list side other))"),
+                  "((:B :A) (:A :B) (:B :A) (:A :B))");
+    ASSERT_STR_EQ(eval_print(
+        "(loop for (a b) = (list 1 2) then (list b (+ b 1))"
+        "      while (< a 4) collect (list a b))"),
+                  "((1 2) (2 3) (3 4))");
+}
+
+TEST(for_destructuring_then_and_from)
+{
+    /* Mixed AND group: the FROM stepper runs at the end of the iteration,
+     * the destructuring in the next preamble sees the stepped pair. */
+    ASSERT_STR_EQ(eval_print(
+        "(loop for i from 0 and (p . q) = (cons :x :y) then (cons q p)"
+        "      repeat 3 collect (list i p q))"),
+                  "((0 :X :Y) (1 :Y :X) (2 :X :Y))");
+}
+
 TEST(sequential_then_chain)
 {
     /* Separate (non-AND) FOR ... = ... THEN clauses must step in SOURCE
@@ -339,6 +363,8 @@ int main(void)
     RUN(for_then_first_iteration_uses_init);
     RUN(sequential_for_still_sequential);
     RUN(for_then_repeat_zero);
+    RUN(for_destructuring_then);
+    RUN(for_destructuring_then_and_from);
     RUN(sequential_then_chain);
     RUN(then_step_uses_stepped_sibling);
     RUN(for_and_mixed_then_from_parallel);
