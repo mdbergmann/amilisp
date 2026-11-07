@@ -2,8 +2,10 @@
 ;;
 ;; chipi-ui depends on chipi-api (REST/SSE web API) and clog (websocket GUI),
 ;; so this script is the union of the chipi-api and clog loaders:
-;;   * push :hunchentoot-no-ssl + :websocket-driver-no-ssl BEFORE any cl+ssl
-;;     .asd is read (clog is server-only)
+;;   * hunchentoot and websocket-driver are loaded WITH their cl+ssl
+;;     dependency, served by the AmiLisp facade (lib/shims/cl+ssl): chipi-ui's
+;;     `ui:start' serves https when given a certificate and key, which needs
+;;     hunchentoot's ssl-acceptor, so :hunchentoot-no-ssl must NOT be set
 ;;   * load-libs-ql.lisp sets up the dist + local-projects searchers and the
 ;;     :drakma-no-ssl feature; ENSURE-QL-LIB fetches releases on a cold cache
 ;;
@@ -12,16 +14,17 @@
 ;; commands, so no websocket/Hunchentoot acceptor is started here — and the
 ;; AmiLisp hunchentoot acceptor portability is therefore not exercised.
 ;;
+;; NOTE: like the hunchentoot scripts, run it with its own FASL cache
+;; (AMILISP_FASL_CACHE_DIR) when alternating with a script that sets
+;; :hunchentoot-no-ssl — the feature changes what hunchentoot.asd compiles
+;; (the "No class named SSL-ACCEPTOR" stale-cache trap).
+;;
 ;; Usage (host):
 ;;   ./build/host/amilisp --heap 256M --load trunk/load-and-test-chipi-ui.lisp
 ;;
 ;; On Amiga: --heap >= 96M and a large stack (e.g. `stack 800000`).
 
 (setq *load-verbose* nil)
-
-;; Skip the optional cl+ssl deps BEFORE any .asd that mentions them is read.
-(pushnew :hunchentoot-no-ssl *features*)
-(pushnew :websocket-driver-no-ssl *features*)
 
 (require "asdf")
 (load "trunk/load-libs-ql.lisp")
