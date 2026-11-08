@@ -534,25 +534,62 @@ static CL_Obj bi_ffi_peek_bytes(CL_Obj *args, int nargs)
  * ================================================================ */
 
 /* (ffi:foreign-string str) → foreign-pointer
- * Copies a CL string to null-terminated foreign memory. */
+ * Copies a CL string to null-terminated foreign memory.  A base string
+ * goes out byte for byte (what every Amiga and Latin-1 caller relies on);
+ * a general CHARACTER string -- what (make-string n :element-type
+ * 'character) and a file read as UTF-8 give on the host, where strings
+ * are wide -- is written as UTF-8, the C convention on the host.  Both
+ * are STRINGs to Lisp, and refusing the second one was the Clamacs bug of
+ * 2026-11-08: a path read from its projects file could not become a
+ * window title.  FOREIGN-TO-STRING reads bytes back as a base string. */
 static CL_Obj bi_ffi_foreign_string(CL_Obj *args, int nargs)
 {
-    CL_String *s;
-    uint32_t handle;
+    uint32_t handle, nbytes;
     void *dest;
     (void)nargs;
-    if (!CL_STRING_P(args[0]))
+    if (!CL_ANY_STRING_P(args[0]))
         cl_error(CL_ERR_TYPE, "FFI:FOREIGN-STRING: argument must be a string");
-    s = (CL_String *)CL_OBJ_TO_PTR(args[0]);
-    handle = platform_ffi_alloc(s->length + 1);
-    if (handle == 0)
-        cl_error(CL_ERR_GENERAL, "FFI:FOREIGN-STRING: allocation failed");
-    dest = platform_ffi_resolve(handle);
-    if (dest) {
-        memcpy(dest, s->data, s->length);
-        ((char *)dest)[s->length] = '\0';
+#ifdef CL_WIDE_STRINGS
+    if (CL_WIDE_STRING_P(args[0])) {
+        CL_WideString *ws = (CL_WideString *)CL_OBJ_TO_PTR(args[0]);
+        uint32_t i;
+        char tmp[4];
+        nbytes = 0;
+        for (i = 0; i < ws->length; i++) {
+            int nb = cl_utf8_encode((int)ws->data[i], tmp);
+            nbytes += (nb == 0) ? 1 : (uint32_t)nb;
+        }
+        handle = platform_ffi_alloc(nbytes + 1);
+        if (handle == 0)
+            cl_error(CL_ERR_GENERAL, "FFI:FOREIGN-STRING: allocation failed");
+        dest = platform_ffi_resolve(handle);
+        if (dest) {
+            /* The allocation moved nothing on the arena: ws still holds. */
+            uint32_t pos = 0;
+            for (i = 0; i < ws->length; i++) {
+                int nb = cl_utf8_encode((int)ws->data[i], tmp);
+                if (nb == 0) { nb = 1; tmp[0] = '?'; }
+                memcpy((char *)dest + pos, tmp, (size_t)nb);
+                pos += (uint32_t)nb;
+            }
+            ((char *)dest)[pos] = '\0';
+        }
+        return cl_make_foreign_pointer(handle, nbytes + 1, CL_FPTR_FLAG_OWNED);
     }
-    return cl_make_foreign_pointer(handle, s->length + 1, CL_FPTR_FLAG_OWNED);
+#endif
+    {
+        CL_String *s = (CL_String *)CL_OBJ_TO_PTR(args[0]);
+        nbytes = s->length;
+        handle = platform_ffi_alloc(nbytes + 1);
+        if (handle == 0)
+            cl_error(CL_ERR_GENERAL, "FFI:FOREIGN-STRING: allocation failed");
+        dest = platform_ffi_resolve(handle);
+        if (dest) {
+            memcpy(dest, s->data, nbytes);
+            ((char *)dest)[nbytes] = '\0';
+        }
+        return cl_make_foreign_pointer(handle, nbytes + 1, CL_FPTR_FLAG_OWNED);
+    }
 }
 
 /* (ffi:foreign-to-string fp &optional max-len) → string

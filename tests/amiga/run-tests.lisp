@@ -10687,6 +10687,20 @@ y" 1))
   (let ((p (ffi:foreign-string "hello")))
     (prog1 (ffi:foreign-to-string p)
       (ffi:free-foreign p))))
+;; A general CHARACTER string is a string too (wide on a WIDE=1 build, a
+;; base string on the release build): Clamacs could not title a window with
+;; a path read from a UTF-8 file until 2026-11-08.  Latin-1 content is
+;; byte-identical to the base string's.
+(check "ffi-foreign-string-character-string" '("hello" :fits :rejected)
+  (let ((s (make-string 5 :element-type 'character))
+        (nul (make-array 1 :element-type '(unsigned-byte 8) :initial-element 0)))
+    (replace s "hello")
+    (let ((p (ffi:foreign-string s)))
+      (prog1 (list (ffi:foreign-to-string p)
+                   (progn (ffi:poke-bytes p nul 5) :fits)
+                   (handler-case (progn (ffi:poke-bytes p nul 6) :no-error)
+                     (error () :rejected)))
+        (ffi:free-foreign p)))))
 ;; No hidden cap: an old 4096-byte default cut Clamacs's TextEditor exports
 ;; (and the files it saved) at 4 KB.  MAX-LEN still bounds the read.
 (check "ffi-foreign-to-string-past-4k" '(t 10000 t "ab" :rejected)

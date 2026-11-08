@@ -412,6 +412,50 @@ TEST(lisp_ffi_foreign_string_bad_max_len)
         "(:REJECTED :REJECTED \"ab\")");
 }
 
+/* A general CHARACTER string -- wide on the host, what a file read as
+ * UTF-8 or (make-string n :element-type 'character) gives -- is a STRING
+ * and goes out as UTF-8; it was refused as "not a string" until
+ * 2026-11-08, when Clamacs could not title a window with a path read from
+ * its projects file.  ASCII content is byte-identical to the base string's
+ * (the common case: a path); a code point above 127 becomes its UTF-8
+ * bytes, which FOREIGN-TO-STRING reads back as the bytes. */
+TEST(lisp_ffi_foreign_string_character_string)
+{
+    /* The allocation is the encoded length plus the NUL: the overrun guard
+     * allows a poke at the NUL and rejects one past it. */
+    ASSERT_STR_EQ(eval_print(
+        "(let ((s (make-string 5 :element-type 'character))"
+        "      (nul (make-array 1 :element-type '(unsigned-byte 8) :initial-element 0)))"
+        "  (replace s \"hello\")"
+        "  (let ((p (ffi:foreign-string s)))"
+        "    (prog1 (list (ffi:foreign-to-string p)"
+        "                 (progn (ffi:poke-bytes p nul 5) :fits)"
+        "                 (handler-case (progn (ffi:poke-bytes p nul 6) :no-error)"
+        "                   (error () :rejected)))"
+        "      (ffi:free-foreign p))))"),
+        "(\"hello\" :FITS :REJECTED)");
+    ASSERT_STR_EQ(eval_print(
+        "(let ((s (make-string 3 :element-type 'character))"
+        "      (nul (make-array 1 :element-type '(unsigned-byte 8) :initial-element 0)))"
+        "  (setf (char s 0) #\\a (char s 1) (code-char 223) (char s 2) (code-char 8364))"
+        "  (let ((p (ffi:foreign-string s)))"
+        "    (prog1 (list (map 'list #'char-code (ffi:foreign-to-string p))"
+        "                 (progn (ffi:poke-bytes p nul 6) :fits)"
+        "                 (handler-case (progn (ffi:poke-bytes p nul 7) :no-error)"
+        "                   (error () :rejected)))"
+        "      (ffi:free-foreign p))))"),
+        "((97 195 159 226 130 172) :FITS :REJECTED)");
+    ASSERT_STR_EQ(eval_print(
+        "(let ((p (ffi:foreign-string (make-string 0 :element-type 'character))))"
+        "  (prog1 (ffi:foreign-to-string p)"
+        "    (ffi:free-foreign p)))"),
+        "\"\"");
+    ASSERT_STR_EQ(eval_print(
+        "(handler-case (ffi:foreign-string 42)"
+        "  (type-error () :rejected))"),
+        ":REJECTED");
+}
+
 TEST(lisp_ffi_pointer_plus)
 {
     /* pointer+ should create a new pointer with offset address */
@@ -856,6 +900,7 @@ int main(void)
     RUN(lisp_ffi_foreign_string_empty);
     RUN(lisp_ffi_foreign_string_long);
     RUN(lisp_ffi_foreign_string_bad_max_len);
+    RUN(lisp_ffi_foreign_string_character_string);
     RUN(lisp_ffi_pointer_plus);
     RUN(lisp_ffi_printer);
 
