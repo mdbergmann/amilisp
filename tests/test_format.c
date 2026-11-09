@@ -556,6 +556,73 @@ TEST(iteration_sublist_over_64_elements)
         "100");
 }
 
+TEST(iteration_long_list_uncapped)
+{
+    /* ~{ staged its list in a CL_Obj[256] snapshot (elements past the 256th
+     * vanished) and every variant stopped at FMT_MAX_ITERATIONS = 1000.
+     * CLHS 22.3.7.4 ends an iteration only when the list is exhausted, on
+     * ~^, or at the prefix count. */
+    ASSERT_STR_EQ(eval_print(
+        "(count #\\, (format nil \"~{~a~^,~}\" (loop for i below 5000 collect i)))"),
+        "4999");
+    /* ~^ fires after the 5000th step: no trailing separator. */
+    ASSERT_STR_EQ(eval_print(
+        "(let ((s (format nil \"~{~a~^,~}\" (loop for i below 5000 collect i))))"
+        "  (list (subseq s 0 5) (subseq s (- (length s) 4))))"),
+        "(\"0,1,2\" \"4999\")");
+    /* ~:{ over more than 1000 sublists, ~@{ over more than 1000 args. */
+    ASSERT_STR_EQ(eval_print(
+        "(length (format nil \"~:{~a~}\" (make-list 1500 :initial-element '(1))))"),
+        "1500");
+    ASSERT_STR_EQ(eval_print(
+        "(length (apply #'format nil \"~@{~a~}\" (make-list 1500 :initial-element 1)))"),
+        "1500");
+    /* ~:@{ over more than 1000 sublist args. */
+    ASSERT_STR_EQ(eval_print(
+        "(length (apply #'format nil \"~:@{~a~}\" (make-list 1500 :initial-element '(2))))"),
+        "1500");
+    /* Past CALL-ARGUMENTS-LIMIT too: the list is not a function call. */
+    ASSERT_STR_EQ(eval_print(
+        "(length (format nil \"~{~a~}\" (make-list 15000 :initial-element 1)))"),
+        "15000");
+    /* The only bound is the VM stack, and that is a clean error. */
+    ASSERT_STR_EQ(eval_print(
+        "(handler-case (length (format nil \"~{~a~}\" (make-list 20000 :initial-element 1)))"
+        "  (error () :error))"),
+        ":ERROR");
+}
+
+TEST(iteration_prefix_count_and_stuck_guard)
+{
+    /* Prefix parameter: at most n steps, even with a long list; ~^ never
+     * fires because elements remain, so the separator follows each. */
+    ASSERT_STR_EQ(eval_print(
+        "(format nil \"~3{~a~^,~}\" (loop for i below 5000 collect i))"),
+        "\"0,1,2,\"");
+    ASSERT_STR_EQ(eval_print("(format nil \"~V{~a~^,~}\" 2 '(1 2 3))"),
+                  "\"1,2,\"");
+    ASSERT_STR_EQ(eval_print("(format nil \"~0{~a~}\" '(1 2 3))"), "\"\"");
+    ASSERT_STR_EQ(eval_print("(format nil \"~2{~a ~}\" '(1 2 3 4 5))"),
+                  "\"1 2 \"");
+    /* Exhaustion is tested before each step: a body that consumes two
+     * elements over an odd list sees NIL for the missing one and stops. */
+    ASSERT_STR_EQ(eval_print("(format nil \"~{~a=~a ~}\" '(a 1 b))"),
+                  "\"A=1 B=NIL \"");
+    /* A body that consumes nothing would never end by the CLHS rules: the
+     * guard stops it (list, non-list non-NIL argument, ~@{ alike) instead of
+     * hanging.  It must not fire for a consuming body. */
+    ASSERT_STR_EQ(eval_print("(length (format nil \"~{x~}\" '(1)))"), "1000");
+    ASSERT_STR_EQ(eval_print("(length (format nil \"~{x~}\" 5))"), "1000");
+    ASSERT_STR_EQ(eval_print("(length (format nil \"~@{x~}\" 1))"), "1000");
+    /* ~^ does not help such a body: the element it never consumes remains,
+     * so ~^ never fires and the guard is what ends it. */
+    ASSERT_STR_EQ(eval_print("(length (format nil \"~{x~^~}\" '(1)))"), "1000");
+    /* A consuming body is never cut off by the guard. */
+    ASSERT_STR_EQ(eval_print(
+        "(length (format nil \"~{~a~}\" (make-list 1001 :initial-element 1)))"),
+        "1001");
+}
+
 #ifdef CL_WIDE_STRINGS
 TEST(case_convert_wide_string)
 {
@@ -659,6 +726,8 @@ int main(void)
     RUN(recursive_format_over_64_args);
     RUN(formatter_inner_over_64_args);
     RUN(iteration_sublist_over_64_elements);
+    RUN(iteration_long_list_uncapped);
+    RUN(iteration_prefix_count_and_stuck_guard);
 #ifdef CL_WIDE_STRINGS
     RUN(case_convert_wide_string);
     RUN(case_convert_wide_capitalize_each_word);

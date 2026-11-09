@@ -6742,6 +6742,25 @@ y" 1))
 (check "format ~2{~}" "1 2 " (format nil "~2{~A ~}" '(1 2 3 4 5)))
 (check "format ~^ single" "X" (format nil "~{~A~^-~}" '(x)))
 (check "format ~^ multi" "X-Y-Z" (format nil "~{~A~^-~}" '(x y z)))
+; ~{ snapshotted its list into 256 C slots and every variant stopped after
+; 1000 steps; CLHS 22.3.7.4 ends an iteration only when the list is
+; exhausted, on ~^, or at the prefix count.
+(check "format ~{~} 5000-element list" 4999
+  (count #\, (format nil "~{~A~^,~}" (loop for i below 5000 collect i))))
+(check "format ~{~^~} fires after the last of 5000" '("0,1,2" "4999")
+  (let ((s (format nil "~{~A~^,~}" (loop for i below 5000 collect i))))
+    (list (subseq s 0 5) (subseq s (- (length s) 4)))))
+(check "format ~:{~} past 1000 sublists" 1500
+  (length (format nil "~:{~A~}" (make-list 1500 :initial-element '(1)))))
+(check "format ~@{~} past 1000 args" 1500
+  (length (apply #'format nil "~@{~A~}" (make-list 1500 :initial-element 1))))
+(check "format ~:@{~} past 1000 sublist args" 1500
+  (length (apply #'format nil "~:@{~A~}" (make-list 1500 :initial-element '(2)))))
+(check "format ~3{~} prefix count over a long list" "0,1,2,"
+  (format nil "~3{~A~^,~}" (loop for i below 5000 collect i)))
+(check "format ~0{~} no steps" "" (format nil "~0{~A~}" '(1 2 3)))
+(check "format ~{~} non-consuming body terminates" 1000
+  (length (format nil "~{x~}" '(1))))
 
 ; --- Advanced format: ~? recursive, ~R radix (Step 6) ---
 (check "format ~? recursive" "1 2 and 3" (format nil "~? and ~A" "~A ~A" '(1 2) 3))

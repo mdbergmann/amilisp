@@ -6492,6 +6492,27 @@ check_contains "sha256/hmac/pbkdf2 digests correct under GC stress" \
 check_absent   "no corruption in the digest builtins under stress" \
     "Unbound variable\|Undefined\|type 0\|corrupted\|not of type" "$out"
 
+# --- Case: FORMAT ~{ over a long list, staged on the VM stack ---------------
+# The ~{ list (and each ~:{ sublist) is pushed onto the VM stack and the body
+# runs over that slice; every ~A in the body allocates, so under stress each
+# step compacts with the staged elements live.  Elements past the old 256-slot
+# snapshot and past the old 1000-step cap must all come out in order.
+cat > "$WORK/fmt-iter.lisp" <<'EOF'
+(let* ((items (loop for i below 1200 collect (format nil "s~D" i)))
+       (s (format nil "~{~A~^,~}" items))
+       (sub (format nil "~:{~A:~A ~}" (loop for i below 1100 collect (list i (* i 2))))))
+  (format t "FMTITER:~A:~A:~A:~A:~A~%"
+          (count #\, s)
+          (string= (subseq s 0 5) "s0,s1")
+          (string= (subseq s (- (length s) 5)) "s1199")
+          (string= (subseq sub 0 8) "0:0 1:2 ")
+          (string= (subseq sub (- (length sub) 10)) "1099:2198 ")))
+EOF
+out=$(run_stress "$WORK/fmt-iter.lisp")
+check_contains "FORMAT ~{ long list intact under GC stress" "FMTITER:1199:T:T:T:T" "$out"
+check_absent   "no corruption in FORMAT iteration under stress" \
+    "Unbound variable\|Undefined\|type 0\|corrupted\|not of type" "$out"
+
 echo ""
 echo "$passed passed, $failed failed, $total total"
 [ "$failed" -eq 0 ]

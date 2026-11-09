@@ -133,11 +133,16 @@ static int fmt_args_remaining(FmtCtx *ctx)
 
 /* Stage the elements of `list` onto the VM stack so a sub-context can use
  * them as its args: GC-rooted across the following fmt_run (which allocates
- * and can compact) and uncapped beyond CALL-ARGUMENTS-LIMIT — a fixed 64-slot
- * C snapshot silently dropped elements past 64.  Returns the count pushed and
- * stores the pre-staging sp in *base (the caller reads args from
- * &cl_vm.stack[*base] and restores cl_vm.sp = *base after the sub-run).  On
- * overflow, restores sp and signals with `who` naming the directive. */
+ * and can compact) and with no cap of its own -- a fixed C snapshot (64
+ * slots for ~:{ sublists, 256 for the ~{ list itself) silently dropped the
+ * elements past it, and a CALL-ARGUMENTS-LIMIT check later refused lists
+ * that are not a function call at all (CLHS 22.3.7.4 bounds an iteration
+ * only by the list, ~^ and the prefix parameter).  The only bound is the
+ * VM stack: on overflow, restores sp and signals with `who` naming the
+ * directive.  Returns the count pushed and stores the pre-staging sp in
+ * *base (the caller reads args from &cl_vm.stack[*base] and restores
+ * cl_vm.sp = *base after the sub-run).  A dotted tail is a type error from
+ * cl_car, as it is for any list operation. */
 static int fmt_stage_list(CL_Obj list, int *base, const char *who)
 {
     int n = 0;
@@ -145,11 +150,12 @@ static int fmt_stage_list(CL_Obj list, int *base, const char *who)
     CL_Obj tmp = list;
     *base = start;
     while (!CL_NULL_P(tmp)) {
-        if (n >= CL_CALL_ARGS_LIMIT) {
+        if (cl_vm.sp >= (int)cl_vm.stack_size) {
             cl_vm.sp = start;
-            cl_error(CL_ERR_ARGS,
-                     "FORMAT %s: too many arguments "
-                     "(call-arguments-limit is %d)", who, CL_CALL_ARGS_LIMIT);
+            cl_error(CL_ERR_OVERFLOW,
+                     "FORMAT %s: list too long for the VM stack "
+                     "(%d elements staged, stack holds %d values)",
+                     who, n, (int)cl_vm.stack_size);
         }
         cl_vm_push(cl_car(tmp));
         n++;
@@ -1153,7 +1159,18 @@ static void fmt_conditional(FmtCtx *ctx, FmtDirective *d)
  * ~{~} — Iteration and ~^
  * ================================================================ */
 
-#define FMT_MAX_ITERATIONS 1000
+/* CLHS 22.3.7.4 ends an iteration in exactly three ways: the argument
+ * list is exhausted (tested before each step), ~^ fires, or the prefix
+ * parameter's count is reached (~3{ ... ~}).  There is no other bound --
+ * a 5000-element list is 5000 steps.  FMT_MAX_STUCK_ITERATIONS is not a
+ * fourth rule: it only ends a body that would never end on its own, one
+ * that consumes no argument at all ("~{x~}" over a non-empty list, or a
+ * non-list non-NIL argument, which SBCL also treats as a non-empty source
+ * with nothing to extract).  A step that consumes an argument resets it. */
+#define FMT_MAX_STUCK_ITERATIONS 1000
+
+/* The prefix parameter when none is given: no limit. */
+#define FMT_ITER_UNLIMITED 0x7fffffff
 
 static void fmt_iteration(FmtCtx *ctx, FmtDirective *d)
 {
@@ -1163,8 +1180,9 @@ static void fmt_iteration(FmtCtx *ctx, FmtDirective *d)
     const char *body_end;
     int body_len;
     char *body_copy;
-    int32_t max_iter = fmt_param(d, 0, FMT_MAX_ITERATIONS);
-    int iter_count = 0;
+    int32_t max_iter = fmt_param(d, 0, FMT_ITER_UNLIMITED);
+    int32_t iter_count = 0;
+    int32_t stuck = 0;
 
     body_end = fmt_find_close(body_start, '{', '}', seps_unused, &n_seps, 0);
     if (!body_end) {
@@ -1203,6 +1221,7 @@ static void fmt_iteration(FmtCtx *ctx, FmtDirective *d)
         /* ~@{body~} — remaining parent args used directly */
         while (ctx->ai < ctx->nargs && iter_count < max_iter) {
             FmtCtx sub;
+            int prev_ai = ctx->ai;
             sub.stream = ctx->stream;
             sub.fmt = body_copy;
             sub.pos = body_copy;
@@ -1214,6 +1233,8 @@ static void fmt_iteration(FmtCtx *ctx, FmtDirective *d)
             ctx->ai = sub.ai;
             if (sub.escape) break;
             iter_count++;
+            stuck = (sub.ai == prev_ai) ? stuck + 1 : 0;
+            if (stuck >= FMT_MAX_STUCK_ITERATIONS) break;
         }
     } else if (d->colon) {
         /* ~:{body~} — consume list of sublists */
@@ -1244,14 +1265,19 @@ static void fmt_iteration(FmtCtx *ctx, FmtDirective *d)
         CL_GC_UNPROTECT(1);  /* list */
     } else {
         /* ~{body~} — consume list, elements become args.
-         * CLHS 22.3.7.4: NIL → no iterations.  Non-list non-NIL is allowed
-         * (SBCL behavior): treated as a non-empty source with no extractable
-         * args, so iteration runs until V cap (or ~^ / FMT_MAX_ITERATIONS).
-         * Termination otherwise: iteration consumed args AND exhausted them. */
+         * CLHS 22.3.7.4: NIL → no iterations.  The list is staged on the VM
+         * stack (GC-rooted, no cap: a 256-slot C snapshot used to drop the
+         * elements past the 256th without a word) and the steps run over
+         * that slice: stop before a step when every staged element is
+         * consumed, on ~^, or at the prefix count.  Non-list non-NIL is
+         * allowed (SBCL behavior): a non-empty source with no extractable
+         * args, so nothing is staged and only ~^, the prefix count or the
+         * stuck guard end it. */
         CL_Obj list = fmt_next_arg(ctx);
         int list_n = 0;
-        CL_Obj list_args[256];
         int list_ai = 0;
+        int lbase = cl_vm.sp;
+        int non_list = !CL_CONS_P(list);   /* NIL returned above */
 
         if (CL_NULL_P(list)) {
             platform_free(body_copy);
@@ -1259,39 +1285,28 @@ static void fmt_iteration(FmtCtx *ctx, FmtDirective *d)
             return;
         }
 
-        if (CL_CONS_P(list)) {
-            CL_Obj tmp = list;
-            while (CL_CONS_P(tmp) && list_n < 256) {
-                list_args[list_n++] = cl_car(tmp);
-                tmp = cl_cdr(tmp);
-            }
-        }
+        if (!non_list)
+            list_n = fmt_stage_list(list, &lbase, "~~{");
 
-        /* GC SAFETY: root the snapshot for the whole loop — fmt_run can
-         * compact and the array is re-read across iterations. */
-        {
-            int k;
-            for (k = 0; k < list_n; k++)
-                CL_GC_PROTECT(list_args[k]);
-        }
         while (iter_count < max_iter) {
             FmtCtx sub;
-            int prev_ai;
+            int prev_ai = list_ai;
+            if (!non_list && list_ai >= list_n) break;   /* exhausted */
             sub.stream = ctx->stream;
             sub.fmt = body_copy;
             sub.pos = body_copy;
-            sub.args = list_args;
+            sub.args = &cl_vm.stack[lbase];
             sub.nargs = list_n;
             sub.ai = list_ai;
             sub.escape = 0;
-            prev_ai = sub.ai;
             fmt_run(&sub);
             list_ai = sub.ai;
             if (sub.escape) break;
             iter_count++;
-            if (sub.ai > prev_ai && sub.ai >= list_n) break;
+            stuck = (list_ai == prev_ai) ? stuck + 1 : 0;
+            if (stuck >= FMT_MAX_STUCK_ITERATIONS) break;
         }
-        cl_gc_pop_roots(list_n);
+        cl_vm.sp = lbase;
     }
 
     platform_free(body_copy);
