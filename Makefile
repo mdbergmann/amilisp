@@ -292,7 +292,7 @@ test_batch test_repl_values test_repl_paste test_banner test_color test_boot_log
                 test_compile_file_stderr test_fasl_cache_dir test_fasl_struct_deps test_fasl_literal_identity test_make_load_form \
                 test_struct_slot_access test_defconstant_fasl test_peephole_diff \
                 test_tier4_phase1 test_tier4_phase2 test_tier4_phase3 test_local_inline \
-                test_scan_opcodes test_runtime_forms test_compiler_buffers \
+                test_scan_opcodes test_runtime_forms test_compiler_buffers test_room_percent \
                 test_defvar_special_fasl test_defvar_init_once_fasl test_stack_depth test_argv_utf8 \
                 test_command_line_args \
                 test_utf8_filenames test_image test_executable test_boot_image_scripts test_install_layout \

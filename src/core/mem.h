@@ -205,6 +205,12 @@ extern int cl_mem_diag;
  * happens before there is a heap (main.c's early_exit). */
 void cl_mem_diag_from_env(void);
 
+/* PART as a whole percentage of WHOLE (0 when WHOLE is 0), for ROOM and
+ * the GC diagnostics.  Not `part * 100 / whole`: that product leaves
+ * 32 bits once PART passes 42 MB, and ROOM printed "(0%)" for every heap
+ * larger than that. */
+uint32_t cl_percent_of(uint32_t part, uint32_t whole);
+
 /* Off-heap bytecode payload returned to the allocator since heap init: total
  * bytes and number of bytecode objects finalized.  A CL_Bytecode's body,
  * constants pool, &key arrays, line map and JIT artifacts all live OUTSIDE

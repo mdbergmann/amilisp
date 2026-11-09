@@ -225,6 +225,40 @@ TEST(room_reports_the_gc_backend)
 #endif
 }
 
+/* ROOM's "(N%)" is used*100/total.  The product overflowed uint32 once
+ * `used` passed 42 MB, so a 256 MB heap with 215 MB in use printed "(0%)".
+ * cl_percent_of forms it in 64 bits; these are the exact values from the
+ * field report plus the boundaries. */
+TEST(room_percent_survives_large_heaps)
+{
+    ASSERT_EQ(80, (int)cl_percent_of(215136400u, 268435456u));  /* the report */
+    ASSERT_EQ(0,  (int)cl_percent_of(0u, 268435456u));
+    ASSERT_EQ(100, (int)cl_percent_of(268435456u, 268435456u));
+    ASSERT_EQ(50, (int)cl_percent_of(2147483648u, 4294967295u)); /* 2 GB of ~4 GB */
+    ASSERT_EQ(99, (int)cl_percent_of(4294967294u, 4294967295u));
+    ASSERT_EQ(16, (int)cl_percent_of(43000000u, 268435456u));   /* just past the old overflow point */
+    ASSERT_EQ(1,  (int)cl_percent_of(50000u, 4194304u));        /* small heap, unchanged */
+    ASSERT_EQ(0,  (int)cl_percent_of(5u, 0u));                   /* no arena: no division */
+}
+
+/* The percentage ROOM prints must agree with the two byte counts on the
+ * same line, whatever the heap size. */
+TEST(room_percent_matches_its_byte_counts)
+{
+    const char *out = eval_str(
+        "(with-output-to-string (*standard-output*) (room))");
+    unsigned long used = 0, total = 0, pct = 999;
+    const char *line = strstr(out, "Heap:");
+    ASSERT(line != NULL);
+    line = strchr(line, '\n');
+    ASSERT(line != NULL);
+    ASSERT_EQ(3, sscanf(line + 1, "  %lu / %lu bytes used (%lu%%)",
+                        &used, &total, &pct));
+    ASSERT(total > 0);
+    ASSERT(used <= total);
+    ASSERT_EQ((int)(used * 100 / total), (int)pct);
+}
+
 int main(void)
 {
     test_init();
@@ -249,6 +283,8 @@ int main(void)
     RUN(room_no_error);
     RUN(room_writes_to_standard_output);
     RUN(room_reports_the_gc_backend);
+    RUN(room_percent_survives_large_heaps);
+    RUN(room_percent_matches_its_byte_counts);
 
     teardown();
     REPORT();

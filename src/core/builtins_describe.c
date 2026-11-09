@@ -930,7 +930,7 @@ static CL_Obj bi_room(CL_Obj *args, int n)
     uint32_t used = cl_heap.total_allocated;
     uint32_t total = cl_heap.arena_size;
     uint32_t free_bytes = total - used;
-    uint32_t pct = (used * 100) / total;
+    uint32_t pct = cl_percent_of(used, total);
 
     (void)args; (void)n;
 

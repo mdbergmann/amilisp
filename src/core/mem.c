@@ -588,6 +588,14 @@ int cl_bump_fits(uint32_t bump, uint32_t size, uint32_t arena_size)
     return size <= arena_size && bump <= arena_size - size;
 }
 
+/* See mem.h.  The product is formed in 64 bits, so any PART up to
+ * UINT32_MAX divides exactly. */
+uint32_t cl_percent_of(uint32_t part, uint32_t whole)
+{
+    if (whole == 0) return 0;
+    return (uint32_t)(((uint64_t)part * 100u) / whole);
+}
+
 /* Signal a storage error without allocating (safe when heap is exhausted
  * or corrupted).  Uses direct longjmp, bypassing cl_error() which would
  * try to allocate condition objects. */

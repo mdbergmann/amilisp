@@ -11204,7 +11204,21 @@ y" 1))
     ;; The collector's own lines are part of ROOM and go through the Lisp
     ;; stream too (classic: the free list; immix: the line map).
     (check "room reports the gc backend" t
-           (and (or (search "Classic: free list" s) (search "Immix: " s)) t)))
+           (and (or (search "Classic: free list" s) (search "Immix: " s)) t))
+    ;; The "(N%)" must agree with the two byte counts on its line.  It was
+    ;; computed as used*100/total in 32 bits and read "(0%)" on any heap
+    ;; with more than 42 MB in use.
+    (let* ((p (search " bytes used (" s))
+           (bol (1+ (or (position #\Newline s :end p :from-end t) -1)))
+           (eol (position #\Newline s :start p))
+           (line (subseq s bol eol))
+           (slash (position #\/ line))
+           (used (parse-integer line :end slash :junk-allowed t))
+           (total (parse-integer line :start (1+ slash) :junk-allowed t))
+           (open (position #\( line))
+           (pct (parse-integer line :start (1+ open) :junk-allowed t)))
+      (check "room percentage agrees with its byte counts"
+             (floor (* used 100) total) pct)))
   (error (e)
     (setq *fail-count* (+ *fail-count* 1))
     (format t "FAIL: room test - ~A~%" e)))
