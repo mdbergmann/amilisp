@@ -1434,7 +1434,7 @@ static int fasl_ser_step(CL_FaslWriter *w, FaslSerStack *s)
             cl_fasl_write_u8(w, FASL_TAG_BIT_VECTOR);
             cl_fasl_write_u32(w, bv->length);
             for (i = 0; i < n_words; i++)
-                cl_fasl_write_u32(w, bv->data[i]);
+                cl_fasl_write_u32(w, cl_bv_data(bv)[i]);
             return 1;
         }
 
@@ -2987,7 +2987,7 @@ CL_Obj cl_fasl_deserialize_obj(CL_FaslReader *r)
         result = cl_make_bit_vector(nbits);
         bv = (CL_BitVector *)CL_OBJ_TO_PTR(result);
         for (i = 0; i < n_words; i++)
-            bv->data[i] = cl_fasl_read_u32(r);
+            cl_bv_data(bv)[i] = cl_fasl_read_u32(r);
         return result;
     }
 

@@ -1686,6 +1686,25 @@ not visible through the displaced array.
 See `tests/test_byte_vector.c` and the byte-vector section of
 `tests/amiga/run-tests.lisp` for the full behavioral contract.
 
+### Bit vectors
+
+`(make-array n :element-type 'bit)` builds a **packed bit vector**: one bit
+per element, 32 to a word.  Fill pointers work as on any vector
+(`vector-push`, `vector-pop`), and a bit vector made with `:adjustable t`
+grows in place — `vector-push-extend` and `adjust-array` keep its identity
+and it stays packed — so a bit stream can be collected without knowing its
+length up front:
+
+```lisp
+(let ((bits (make-array 0 :element-type 'bit :adjustable t :fill-pointer 0)))
+  (dolist (b '(1 0 1 1)) (vector-push-extend b bits))
+  bits)                                   ; => #*1011
+```
+
+`adjust-array` on a non-adjustable bit vector returns a fresh one, and
+`vector-push-extend` on a full non-adjustable one signals an error.  See the
+bit-vector tests in `tests/test_array.c` and `tests/test_bitvector.c`.
+
 ### Bulk sequence I/O and RLE decoding
 
 `read-sequence` and `write-sequence` are C builtins: an `(unsigned-byte 8)`

@@ -734,13 +734,21 @@ typedef struct {
 
 /* --- Bit Vector (packed bit array) --- */
 
+/* The bits live inline in store[] -- unless CL_VEC_FLAG_DISPLACED is set:
+ * then store[0] is a CL_Obj naming a plain (never itself displaced) backing
+ * bit vector that holds them.  That is how an adjustable bit vector grows in
+ * place and keeps its identity (VECTOR-PUSH-EXTEND, ADJUST-ARRAY); `length`
+ * and `fill_pointer` are always the outer object's.  The collector visits
+ * store[0] of a displaced bit vector (gc_internal.h), so the type is not a
+ * GC leaf.  Never touch store[] directly: read and write through
+ * cl_bv_data(). */
 typedef struct {
     CL_Header hdr;
     uint32_t length;          /* Number of bits */
     uint32_t fill_pointer;    /* CL_NO_FILL_POINTER = none */
-    uint8_t  flags;           /* CL_VEC_FLAG_FILL_POINTER | CL_VEC_FLAG_ADJUSTABLE */
+    uint8_t  flags;           /* CL_VEC_FLAG_FILL_POINTER | _ADJUSTABLE | _DISPLACED */
     uint8_t  _pad[3];
-    uint32_t data[];          /* ceil(length/32) packed words, LSB-first */
+    uint32_t store[];         /* ceil(length/32) packed words, LSB-first */
 } CL_BitVector;
 
 #define CL_BIT_VECTOR_P(obj) (CL_HEAP_P(obj) && CL_HDR_TYPE(CL_OBJ_TO_PTR(obj)) == TYPE_BIT_VECTOR)
@@ -748,15 +756,22 @@ typedef struct {
 /* Number of uint32_t words needed for n bits */
 #define CL_BV_WORDS(n)  (((n) + 31) / 32)
 
+/* The packed words of a bit vector, through its displacement if any.  The
+ * pointer is into the arena: stale after any allocating call. */
+#define cl_bv_data(bv) \
+    (((bv)->flags & CL_VEC_FLAG_DISPLACED) \
+     ? ((CL_BitVector *)CL_OBJ_TO_PTR((CL_Obj)(bv)->store[0]))->store \
+     : (bv)->store)
+
 /* Get bit i: LSB-first within each word */
 #define cl_bv_get_bit(bv, i) \
-    (((bv)->data[(i) / 32] >> ((i) % 32)) & 1u)
+    ((cl_bv_data(bv)[(i) / 32] >> ((i) % 32)) & 1u)
 
 /* Set bit i to val (0 or 1) */
 #define cl_bv_set_bit(bv, i, val) \
     do { \
-        if (val) (bv)->data[(i) / 32] |= (1u << ((i) % 32)); \
-        else     (bv)->data[(i) / 32] &= ~(1u << ((i) % 32)); \
+        if (val) cl_bv_data(bv)[(i) / 32] |= (1u << ((i) % 32)); \
+        else     cl_bv_data(bv)[(i) / 32] &= ~(1u << ((i) % 32)); \
     } while (0)
 
 /* Active length: fill pointer if present, else total length */

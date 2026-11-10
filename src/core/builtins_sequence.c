@@ -510,7 +510,7 @@ static CL_Obj copy_array_seq(CL_Obj seq)
         result = cl_make_bit_vector(blen);
         rv = (CL_BitVector *)CL_OBJ_TO_PTR(result);
         bv = (CL_BitVector *)CL_OBJ_TO_PTR(seq); /* refresh after alloc */
-        memcpy(rv->data, bv->data, CL_BV_WORDS(blen) * sizeof(uint32_t));
+        memcpy(cl_bv_data(rv), cl_bv_data(bv), CL_BV_WORDS(blen) * sizeof(uint32_t));
     }
     CL_GC_UNPROTECT(1);
     return result;

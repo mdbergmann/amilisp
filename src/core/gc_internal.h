@@ -452,12 +452,19 @@ void gc_verify_after_sweep(void);
         GC_VISIT(cv->name);                                                   \
         break;                                                               \
     }                                                                        \
+    case TYPE_BIT_VECTOR: {                                                   \
+        /* Packed bits, except store[0] of one that grew in place: the ref  \
+         * to its backing bit vector (types.h). */                           \
+        CL_BitVector *bv = (CL_BitVector *)(ptr);                             \
+        if (bv->flags & CL_VEC_FLAG_DISPLACED)                                \
+            GC_VISIT(bv->store[0]);                                           \
+        break;                                                               \
+    }                                                                        \
     case TYPE_STRING:                                                         \
     case TYPE_BIGNUM:                                                         \
     case TYPE_SINGLE_FLOAT:                                                    \
     case TYPE_DOUBLE_FLOAT:                                                    \
     case TYPE_RANDOM_STATE:                                                    \
-    case TYPE_BIT_VECTOR:                                                      \
     case TYPE_BYTE_VECTOR:                                                     \
     case TYPE_FOREIGN_POINTER:                                                 \
     CL_GC_WIDE_STRING_CASE                                                     \
@@ -485,7 +492,7 @@ void gc_verify_after_sweep(void);
 #define GC_LEAF_TYPE_MASK \
     ((1u << TYPE_STRING) | (1u << TYPE_BIGNUM) | (1u << TYPE_SINGLE_FLOAT) | \
      (1u << TYPE_DOUBLE_FLOAT) | (1u << TYPE_RANDOM_STATE) | \
-     (1u << TYPE_BIT_VECTOR) | (1u << TYPE_BYTE_VECTOR) | \
+     (1u << TYPE_BYTE_VECTOR) | \
      (1u << TYPE_FOREIGN_POINTER) | CL_GC_WIDE_STRING_BIT)
 #define GC_TYPE_HAS_CHILDREN(type) \
     (((GC_LEAF_TYPE_MASK >> ((type) & 31u)) & 1u) == 0)

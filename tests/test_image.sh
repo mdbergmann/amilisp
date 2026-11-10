@@ -118,6 +118,10 @@ cat > state.lisp <<'EOF'
   (:const "+BEFORE+" 11) (:const "+AFTER+" 22) (:fn "IM-BT-CALL" -36 (:a0) :bool)
   (:struct "IM-NODE" 4 ("X" :i16 0)))
 (defvar *im-bt-before* 'im-bt:+before+)
+;; An adjustable bit vector that has grown: it refers to its backing from
+;; inside the object, a heap ref the image must carry like any other.
+(defvar *im-bits* (make-array 0 :element-type 'bit :adjustable t :fill-pointer 0))
+(dotimes (i 100) (vector-push-extend (if (zerop (mod i 3)) 1 0) *im-bits*))
 (format t "STATE-LOADED~%")
 EOF
 
@@ -145,6 +149,9 @@ cat > verify.lisp <<'EOF'
 (dotimes (i 20000) (cons i i))
 (ext:gc)
 (format t "GC-OK=~a~%" (im-fib 10))
+(dotimes (i 100) (vector-push-extend 1 *im-bits*))
+(format t "BITS=~a~%" (list (length *im-bits*) (count 1 *im-bits*)
+                            (subseq *im-bits* 0 4) (bit *im-bits* 99)))
 EOF
 
 out=$("$TIMEOUT" 60 "$AMILISP" $CLI --heap 8M --non-interactive \
@@ -160,7 +167,7 @@ ec=$?
 check "restore_verifies_state" 0 "$ec" "$out" \
     "FIB=144" "MACRO=42" "CLOS=Rex speaks" "HT=IM-HIT" "CLOSURE=42" \
     "READER=4242" "RESTOREDP=T" "STUB=(U16 -30 (-7 9) NOT-OPEN)" \
-    "BT=(5 T (EXTERNAL 22) -36 4)" "GC-OK=55"
+    "BT=(5 T (EXTERNAL 22) -36 4)" "GC-OK=55" "BITS=(200 134 #\*1001 1)"
 
 # --- Restore into a larger heap ------------------------------------------
 

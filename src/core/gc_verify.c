@@ -238,6 +238,13 @@ void gc_verify_marked(void)
                     gc_verify_check_ref(parent_off, "const", bc->constants[i]);
                 break;
             }
+            case TYPE_BIT_VECTOR: {
+                CL_BitVector *bv = (CL_BitVector *)ptr;
+                if (bv->flags & CL_VEC_FLAG_DISPLACED)
+                    gc_verify_check_ref(parent_off, "bit-backing",
+                                        bv->store[0]);
+                break;
+            }
             case TYPE_VECTOR: {
                 CL_Vector *v = (CL_Vector *)ptr;
                 uint32_t i;
@@ -444,6 +451,12 @@ void gc_verify_after_sweep(void)
                 CL_Bytecode *bc = (CL_Bytecode *)ptr;
                 CHECK_FIELD(bc->name, "name");
                 CHECK_FIELD(bc->source_lambda_list, "lambda-list");
+                break;
+            }
+            case TYPE_BIT_VECTOR: {
+                CL_BitVector *bv = (CL_BitVector *)ptr;
+                if (bv->flags & CL_VEC_FLAG_DISPLACED)
+                    CHECK_FIELD(bv->store[0], "bit-backing");
                 break;
             }
             case TYPE_VECTOR: {

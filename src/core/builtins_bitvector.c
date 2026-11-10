@@ -122,7 +122,7 @@ static void bv_mask_trailing(CL_BitVector *bv)
     uint32_t tail = bv->length % 32;
     if (tail != 0 && bv->length > 0) {
         uint32_t nwords = CL_BV_WORDS(bv->length);
-        bv->data[nwords - 1] &= (1u << tail) - 1;
+        cl_bv_data(bv)[nwords - 1] &= (1u << tail) - 1;
     }
 }
 
@@ -176,8 +176,12 @@ static CL_Obj bitvec_binop(CL_Obj *args, int n, BvBinOp op)
     bv1 = (CL_BitVector *)CL_OBJ_TO_PTR(args[0]);
     bv2 = (CL_BitVector *)CL_OBJ_TO_PTR(args[1]);
 
-    for (i = 0; i < nwords; i++)
-        result->data[i] = op(bv1->data[i], bv2->data[i]);
+    {
+        uint32_t *rd = cl_bv_data(result);
+        const uint32_t *d1 = cl_bv_data(bv1), *d2 = cl_bv_data(bv2);
+        for (i = 0; i < nwords; i++)
+            rd[i] = op(d1[i], d2[i]);
+    }
     bv_mask_trailing(result);
     return CL_PTR_TO_OBJ(result);
 }
@@ -221,8 +225,12 @@ static CL_Obj bi_bit_not(CL_Obj *args, int n)
     /* Re-derive the source after resolve_result's possible allocation. */
     bv = (CL_BitVector *)CL_OBJ_TO_PTR(args[0]);
 
-    for (i = 0; i < nwords; i++)
-        result->data[i] = ~bv->data[i];
+    {
+        uint32_t *rd = cl_bv_data(result);
+        const uint32_t *sd = cl_bv_data(bv);
+        for (i = 0; i < nwords; i++)
+            rd[i] = ~sd[i];
+    }
     bv_mask_trailing(result);
     return CL_PTR_TO_OBJ(result);
 }

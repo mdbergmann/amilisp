@@ -1502,7 +1502,7 @@ static CL_Obj bi_coerce(CL_Obj *args, int n)
             for (ii = 0; ii < len; ii++) {
                 CL_Obj elem = cl_car(p);
                 if (CL_FIXNUM_P(elem) && CL_FIXNUM_VAL(elem) == 1)
-                    bv->data[ii / 32] |= (1u << (ii % 32));
+                    cl_bv_data(bv)[ii / 32] |= (1u << (ii % 32));
                 p = cl_cdr(p);
             }
             return bvobj;

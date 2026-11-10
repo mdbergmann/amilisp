@@ -736,6 +736,242 @@ TEST(vector_push)
         "  (+ (aref v 0) (aref v 1)))"), 30);
 }
 
+/* Bit vectors are a heap type of their own: the three fill-pointer operators
+ * must take one exactly like any other vector (CLHS VECTOR-PUSH, VECTOR-POP;
+ * they answered "not a vector" before). */
+TEST(vector_push_pop_bit_vector)
+{
+    /* index returned, fill pointer advances, bits land where pushed */
+    ASSERT_STR_EQ(eval_print(
+        "(let ((v (make-array 5 :element-type 'bit :fill-pointer 0)))"
+        "  (list (vector-push 1 v) (vector-push 0 v) (vector-push 1 v)"
+        "        (fill-pointer v) (length v) (bit-vector-p v) v))"),
+        "(0 1 2 3 3 T #*101)");
+    /* a push clears a stale 1 above the fill pointer as well as setting one */
+    ASSERT_STR_EQ(eval_print(
+        "(let ((v (make-array 3 :element-type 'bit :initial-element 1"
+        "                       :fill-pointer 0)))"
+        "  (vector-push 0 v) (vector-push 1 v) (vector-push 0 v) v)"),
+        "#*010");
+    /* across the 32-bit word boundary of the packed storage */
+    ASSERT_STR_EQ(eval_print(
+        "(let ((v (make-array 70 :element-type 'bit :fill-pointer 0)))"
+        "  (dotimes (i 70) (vector-push (if (zerop (mod i 3)) 1 0) v))"
+        "  (list (fill-pointer v) (count 1 v) (bit v 30) (bit v 33) (bit v 63)"
+        "        (bit v 64) (bit v 69)))"),
+        "(70 24 1 1 1 0 1)");
+    /* full: VECTOR-PUSH returns NIL and leaves the vector alone */
+    ASSERT_STR_EQ(eval_print(
+        "(let ((v (make-array 2 :element-type 'bit :fill-pointer 0)))"
+        "  (list (vector-push 1 v) (vector-push 1 v) (vector-push 0 v)"
+        "        (fill-pointer v) v))"),
+        "(0 1 NIL 2 #*11)");
+    /* VECTOR-POP hands the bits back in reverse */
+    ASSERT_STR_EQ(eval_print(
+        "(let ((v (make-array 4 :element-type 'bit :fill-pointer 0)))"
+        "  (vector-push 1 v) (vector-push 0 v) (vector-push 1 v)"
+        "  (list (vector-pop v) (vector-pop v) (fill-pointer v) (length v)"
+        "        (vector-pop v) (fill-pointer v)))"),
+        "(1 0 1 1 1 0)");
+    /* VECTOR-POP at fill pointer zero is an error */
+    ASSERT_STR_EQ(eval_print(
+        "(handler-case (vector-pop (make-array 2 :element-type 'bit"
+        "                                      :fill-pointer 0))"
+        "  (error () :caught))"), ":CAUGHT");
+    /* no fill pointer: an error for all three, not a silent store */
+    ASSERT_STR_EQ(eval_print(
+        "(let ((v (make-array 2 :element-type 'bit :initial-element 0)))"
+        "  (list (handler-case (vector-push 1 v) (error () :caught))"
+        "        (handler-case (vector-push-extend 1 v) (error () :caught))"
+        "        (handler-case (vector-pop v) (error () :caught)) v))"),
+        "(:CAUGHT :CAUGHT :CAUGHT #*00)");
+    /* only 0 and 1 are bits: a type-error, fill pointer untouched */
+    ASSERT_STR_EQ(eval_print(
+        "(let ((v (make-array 4 :element-type 'bit :fill-pointer 0)))"
+        "  (list (handler-case (vector-push 2 v) (type-error () :caught))"
+        "        (handler-case (vector-push 'a v) (type-error () :caught))"
+        "        (handler-case (vector-push-extend -1 v) (type-error () :caught))"
+        "        (fill-pointer v)))"),
+        "(:CAUGHT :CAUGHT :CAUGHT 0)");
+}
+
+TEST(vector_push_extend_bit_vector)
+{
+    /* with room it is VECTOR-PUSH */
+    ASSERT_STR_EQ(eval_print(
+        "(let ((v (make-array 3 :element-type 'bit :fill-pointer 0)))"
+        "  (list (vector-push-extend 1 v) (vector-push-extend 0 v)"
+        "        (vector-push-extend 1 v) (fill-pointer v) v))"),
+        "(0 1 2 3 #*101)");
+    /* full and NOT adjustable: a clean error (CLHS: VECTOR-PUSH-EXTEND
+     * needs an actually adjustable vector to extend), never a silent store */
+    ASSERT_STR_EQ(eval_print(
+        "(let ((v (make-array 2 :element-type 'bit :fill-pointer 2"
+        "                       :initial-element 1)))"
+        "  (list (handler-case (vector-push-extend 0 v) (error () :caught))"
+        "        (fill-pointer v) v))"),
+        "(:CAUGHT 2 #*11)");
+}
+
+/* An adjustable bit vector grows in place and keeps its identity: the bits
+ * move to a backing bit vector the object then refers to (types.h). */
+TEST(vector_push_extend_bit_vector_grows)
+{
+    /* from capacity zero, across several growths and word boundaries */
+    ASSERT_STR_EQ(eval_print(
+        "(let* ((v (make-array 0 :element-type 'bit :adjustable t"
+        "                        :fill-pointer 0))"
+        "       (w v) (idx nil))"
+        "  (dotimes (i 200)"
+        "    (push (vector-push-extend (if (zerop (mod i 3)) 1 0) v) idx))"
+        "  (list (eq v w) (equal (reverse idx) (loop for i below 200 collect i))"
+        "        (fill-pointer v) (length v) (count 1 v)"
+        "        (bit v 0) (bit v 1) (bit v 63) (bit v 64) (bit v 66) (bit v 198)"
+        "        (>= (array-total-size v) 200)))"),
+        "(T T 200 200 67 1 0 1 0 1 1 T)");
+    /* still a bit vector in every respect */
+    ASSERT_STR_EQ(eval_print(
+        "(let ((v (make-array 2 :element-type 'bit :adjustable t"
+        "                       :fill-pointer 0)))"
+        "  (dotimes (i 70) (vector-push-extend (mod i 2) v))"
+        "  (list (bit-vector-p v) (simple-bit-vector-p v) (adjustable-array-p v)"
+        "        (array-element-type v) (typep v 'bit-vector) (subseq v 0 6)"
+        "        (length (copy-seq v)) (reduce #'+ v) (position 1 v)"
+        "        (vector-pop v) (fill-pointer v)))"),
+        "(T NIL T BIT T #*010101 70 35 1 1 69)");
+    /* the optional extension is a minimum for the growth */
+    ASSERT_STR_EQ(eval_print(
+        "(let ((v (make-array 2 :element-type 'bit :adjustable t"
+        "                       :fill-pointer 2 :initial-element 1)))"
+        "  (list (vector-push-extend 0 v 1000) (>= (array-total-size v) 1002)"
+        "        (fill-pointer v) v))"),
+        "(2 T 3 #*110)");
+    ASSERT_STR_EQ(eval_print(
+        "(handler-case (vector-push-extend 1 (make-array 0 :element-type 'bit"
+        "                 :adjustable t :fill-pointer 0) -1)"
+        "  (type-error () :caught))"), ":CAUGHT");
+    /* growth keeps the bits ABOVE the fill pointer too (they are elements
+     * of the array, CLHS 15.1.1.2), and a write after growth lands in the
+     * new backing */
+    ASSERT_STR_EQ(eval_print(
+        "(let ((v (make-array 4 :element-type 'bit :adjustable t"
+        "                       :fill-pointer 4 :initial-contents '(1 0 1 1))))"
+        "  (vector-push-extend 1 v)"
+        "  (setf (bit v 1) 1 (fill-pointer v) 2)"
+        "  (list v (aref v 3) (aref v 4)))"),
+        "(#*11 1 1)");
+    /* printer, EQUAL/EQUALP and EQUAL hashing see the active elements */
+    ASSERT_STR_EQ(eval_print(
+        "(let ((v (make-array 1 :element-type 'bit :adjustable t"
+        "                       :fill-pointer 0))"
+        "      (h (make-hash-table :test 'equal)))"
+        "  (dolist (b '(1 0 1 1 0)) (vector-push-extend b v))"
+        "  (setf (gethash #*10110 h) :hit)"
+        "  (list (format nil \"~A\" v) (equal v #*10110) (equalp v #*10110)"
+        "        (equal v #*10111) (gethash v h)))"),
+        "(\"#*10110\" T T NIL :HIT)");
+}
+
+/* EQUAL on bit vectors compares the active elements: bits above a fill
+ * pointer are not part of the sequence (it compared total lengths and whole
+ * words before, so a fill-pointered bit vector never equalled its contents). */
+TEST(equal_bit_vector_fill_pointer)
+{
+    ASSERT_STR_EQ(eval_print(
+        "(let ((v (make-array 8 :element-type 'bit :fill-pointer 3"
+        "                       :initial-contents '(1 0 1 1 1 1 1 1))))"
+        "  (list (equal v #*101) (equal #*101 v) (equal v #*10111111)"
+        "        (equal v #*100) (equal v (copy-seq v))))"),
+        "(T T NIL NIL T)");
+}
+
+TEST(adjust_array_bit_vector)
+{
+    /* adjustable: adjusted in place, bits kept, growth filled */
+    ASSERT_STR_EQ(eval_print(
+        "(let* ((v (make-array 3 :element-type 'bit :adjustable t"
+        "                        :initial-contents '(1 0 1)))"
+        "       (w (adjust-array v 10 :initial-element 1)))"
+        "  (list (eq v w) v (length v) (adjustable-array-p v)))"),
+        "(T #*1011111111 10 T)");
+    /* growth without :initial-element: zeros here */
+    ASSERT_STR_EQ(eval_print(
+        "(let ((v (make-array 3 :element-type 'bit :adjustable t"
+        "                       :initial-element 1)))"
+        "  (adjust-array v 40) (list (count 1 v) (length v) (bit v 39)))"),
+        "(3 40 0)");
+    /* shrink then grow: the cut-off bits do not come back, and the
+     * whole-word operators see clean storage */
+    ASSERT_STR_EQ(eval_print(
+        "(let ((v (make-array 40 :element-type 'bit :adjustable t"
+        "                       :initial-element 1)))"
+        "  (adjust-array v 3) (adjust-array v 6)"
+        "  (list (copy-seq v) (equal v #*111000) (bit-ior v #*000000) (bit-not v)"
+        "        (progn (adjust-array v 0) (length v))"
+        "        (progn (adjust-array v 2 :initial-element 1) v)))"),
+        "(#*111000 T #*111000 #*000111 0 #*11)");
+    /* not adjustable: a fresh bit vector, the original untouched */
+    ASSERT_STR_EQ(eval_print(
+        "(let* ((v (make-array 3 :element-type 'bit"
+        "                        :initial-contents '(1 0 1)))"
+        "       (w (adjust-array v 5 :initial-element 1)))"
+        "  (list (eq v w) v w (bit-vector-p w) (adjustable-array-p w)"
+        "        (adjust-array v 2)))"),
+        "(NIL #*101 #*10111 T NIL #*10)");
+    /* fill pointer: carried, replaced by :fill-pointer, T = the new size */
+    ASSERT_STR_EQ(eval_print(
+        "(let ((v (make-array 4 :element-type 'bit :adjustable t :fill-pointer 2"
+        "                       :initial-contents '(1 1 0 1))))"
+        "  (list (fill-pointer (adjust-array v 8)) (copy-seq v)"
+        "        (fill-pointer (adjust-array v 8 :fill-pointer 4)) (copy-seq v)"
+        "        (fill-pointer (adjust-array v 6 :fill-pointer t))"
+        "        (fill-pointer (adjust-array (make-array 4 :element-type 'bit"
+        "                                      :fill-pointer 1) 9))))"),
+        "(2 #*11 4 #*1101 6 1)");
+    /* errors: fill pointer past the new size, a non-bit :initial-element,
+     * a negative dimension */
+    ASSERT_STR_EQ(eval_print(
+        "(flet ((bv () (make-array 4 :element-type 'bit :adjustable t"
+        "                            :fill-pointer 4)))"
+        "  (list (handler-case (adjust-array (bv) 2) (error () :caught))"
+        "        (handler-case (adjust-array (bv) 8 :fill-pointer 9)"
+        "          (error () :caught))"
+        "        (handler-case (adjust-array (bv) 8 :initial-element 2)"
+        "          (type-error () :caught))"
+        "        (handler-case (adjust-array (bv) -1) (type-error () :caught))))"),
+        "(:CAUGHT :CAUGHT :CAUGHT :CAUGHT)");
+}
+
+/* A grown bit vector refers to its backing from inside the object, so the
+ * collector must trace and forward that ref: across full collections, and
+ * (generational host collector) from a tenured bit vector to a backing
+ * allocated after it. */
+TEST(grown_bit_vector_survives_gc)
+{
+    ASSERT_STR_EQ(eval_print(
+        "(let ((v (make-array 0 :element-type 'bit :adjustable t"
+        "                       :fill-pointer 0))"
+        "      (ok t))"
+        "  (ext:gc) (ext:gc)"
+        "  (dotimes (round 6)"
+        "    (dotimes (i 300) (vector-push-extend (mod (+ i round) 2) v))"
+        "    (dotimes (i 4000) (make-list 8))"
+        "    (when (evenp round) (ext:gc))"
+        "    (unless (and (= (length v) (* 300 (1+ round)))"
+        "                 (= (count 1 v) (* 150 (1+ round)))"
+        "                 (= (bit v (1- (length v))) (mod (+ 299 round) 2)))"
+        "      (setf ok nil)))"
+        /* ADJUST-ARRAY keeps every element of the old array -- the zeros  */
+        /* between fill pointer and capacity included -- and fills beyond. */
+        "  (let ((cap (array-total-size v)))"
+        "    (adjust-array v 4000 :initial-element 1 :fill-pointer t)"
+        "    (dotimes (i 4000) (make-list 8))"
+        "    (ext:gc)"
+        "    (list ok (length v) (count 1 v :end 1800)"
+        "          (= (count 1 v) (+ 900 (- 4000 cap))))))"),
+        "(T 4000 900 T)");
+}
+
 TEST(vector_push_extend_basic)
 {
     /* Extends when full, returns old fill-pointer index */
@@ -1562,6 +1798,12 @@ int main(void)
     RUN(setf_fill_pointer);
     RUN(fill_pointer_bounds);
     RUN(vector_push);
+    RUN(vector_push_pop_bit_vector);
+    RUN(vector_push_extend_bit_vector);
+    RUN(vector_push_extend_bit_vector_grows);
+    RUN(equal_bit_vector_fill_pointer);
+    RUN(adjust_array_bit_vector);
+    RUN(grown_bit_vector_survives_gc);
     RUN(vector_push_extend_basic);
     RUN(vector_push_extend_multiple);
     RUN(vector_push_extend_identity);

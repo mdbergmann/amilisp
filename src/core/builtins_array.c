@@ -556,7 +556,7 @@ static CL_Obj bi_make_array(CL_Obj *args, int n)
                 dst->fill_pointer = fill_ptr;
                 for (j = 0; j < length; j++) {
                     if (cl_bv_get_bit(src, displaced_offset + j))
-                        dst->data[j / 32] |= (1u << (j % 32));
+                        cl_bv_data(dst)[j / 32] |= (1u << (j % 32));
                 }
                 return bv_obj;
             }
@@ -611,10 +611,10 @@ static CL_Obj bi_make_array(CL_Obj *args, int n)
                 if (CL_FIXNUM_VAL(initial_element) == 1) {
                     uint32_t nw = CL_BV_WORDS(length), wi;
                     for (wi = 0; wi < nw; wi++)
-                        bv->data[wi] = 0xFFFFFFFFu;
+                        cl_bv_data(bv)[wi] = 0xFFFFFFFFu;
                     /* Mask trailing */
                     if (length % 32 != 0)
-                        bv->data[nw - 1] &= (1u << (length % 32)) - 1;
+                        cl_bv_data(bv)[nw - 1] &= (1u << (length % 32)) - 1;
                 }
             } else if (has_initial_contents) {
                 /* Any sequence (list, vector, string or bit-vector) works as
@@ -624,7 +624,7 @@ static CL_Obj bi_make_array(CL_Obj *args, int n)
                 for (j = 0; j < ilen; j++) {
                     CL_Obj elem = seq_elt(initial_contents, j);
                     if (CL_FIXNUM_P(elem) && CL_FIXNUM_VAL(elem) == 1)
-                        bv->data[j / 32] |= (1u << (j % 32));
+                        cl_bv_data(bv)[j / 32] |= (1u << (j % 32));
                 }
             }
             return result;
@@ -1967,12 +1967,132 @@ static CL_Obj bi_array_has_fill_pointer_p(CL_Obj *args, int n)
 /* VECTOR-PUSH / VECTOR-PUSH-EXTEND                        */
 /* ======================================================= */
 
+/* Give the bit vector in *slot (a GC-rooted slot: an args[] entry) NEW_LEN
+ * bits.  The first min(old, new) bits are kept, bits gained are FILL_BIT, and
+ * NEW_FP becomes the fill pointer.  An adjustable bit vector is changed in
+ * place and keeps its identity: the bits move into a fresh plain backing bit
+ * vector that store[0] then names (CL_VEC_FLAG_DISPLACED, see types.h; a
+ * previous backing becomes garbage).  A non-adjustable one is left alone and
+ * a fresh bit vector is returned, as CLHS ADJUST-ARRAY permits.  Allocates. */
+static CL_Obj bv_resize(CL_Obj *slot, uint32_t new_len, int fill_bit,
+                        uint32_t new_fp, const char *who)
+{
+    CL_BitVector *obv, *nb;
+    uint32_t old_len, copy_len, nwords, i;
+    uint32_t *src, *dst;
+    CL_Obj nbv = cl_make_bit_vector(new_len);
+
+    /* Re-fetch after the (compacting) allocation. */
+    obv = (CL_BitVector *)CL_OBJ_TO_PTR(*slot);
+    nb = (CL_BitVector *)CL_OBJ_TO_PTR(nbv);
+    old_len = obv->length;
+    copy_len = old_len < new_len ? old_len : new_len;
+    src = cl_bv_data(obv);
+    dst = nb->store;
+    nwords = CL_BV_WORDS(copy_len);
+    for (i = 0; i < nwords; i++)
+        dst[i] = src[i];
+    /* The last copied word may carry bits past copy_len (a shrink cuts a
+     * word in half): clear them, the whole-word operators (EQUAL's memcmp,
+     * BIT-AND & co.) rely on zeros above the length. */
+    if (copy_len % 32 != 0)
+        dst[nwords - 1] &= (1u << (copy_len % 32)) - 1;
+    if (fill_bit) {
+        for (i = copy_len; i < new_len; i++)
+            dst[i / 32] |= (1u << (i % 32));
+    }
+
+    if (!(obv->flags & CL_VEC_FLAG_ADJUSTABLE)) {
+        if (new_fp != CL_NO_FILL_POINTER)
+            nb->flags |= CL_VEC_FLAG_FILL_POINTER;
+        nb->fill_pointer = new_fp;
+        return nbv;
+    }
+    /* cl_make_bit_vector never allocates less than one word, so there is a
+     * store[0] to hold the backing ref; fail loudly should that ever change
+     * rather than write past the object. */
+    if (CL_HDR_SIZE(obv) < sizeof(CL_BitVector) + sizeof(uint32_t))
+        cl_error(CL_ERR_GENERAL,
+                 "%s: internal error - bit vector has no room for a "
+                 "displacement", who);
+    obv->store[0] = nbv;
+    obv->flags |= CL_VEC_FLAG_DISPLACED;
+    if (new_fp != CL_NO_FILL_POINTER)
+        obv->flags |= CL_VEC_FLAG_FILL_POINTER;
+    obv->length = new_len;
+    obv->fill_pointer = new_fp;
+    return *slot;
+}
+
+/* The capacity VECTOR-PUSH-EXTEND grows a full vector of OLD_LEN elements
+ * to: double it (at least MIN_CAP), and at least OLD_LEN plus the optional
+ * extension argument.  All arithmetic is capped against
+ * CL_ARRAY_DIMENSION_LIMIT -- a huge or negative extension argument would
+ * otherwise wrap `old_len + ext` (uint32) and allocate a tiny backing store
+ * whose write at the fill pointer lands out of bounds. */
+static uint32_t vpe_new_capacity(CL_Obj *args, int n, uint32_t old_len,
+                                 uint32_t min_cap)
+{
+    uint32_t new_cap;
+    if (old_len >= CL_ARRAY_DIMENSION_LIMIT)
+        cl_error(CL_ERR_GENERAL,
+                 "VECTOR-PUSH-EXTEND: cannot extend beyond ARRAY-DIMENSION-LIMIT (%u)",
+                 (unsigned)CL_ARRAY_DIMENSION_LIMIT);
+    new_cap = old_len * 2;
+    if (new_cap < min_cap) new_cap = min_cap;
+    /* Honor optional extension argument */
+    if (n >= 3 && CL_FIXNUM_P(args[2])) {
+        int32_t ext_val = CL_FIXNUM_VAL(args[2]);
+        if (ext_val < 0)
+            cl_error(CL_ERR_TYPE,
+                     "VECTOR-PUSH-EXTEND: extension must be a non-negative integer (got %d)",
+                     (int)ext_val);
+        /* CLHS: the extension is the MINIMUM number of elements to add — if
+         * honoring it would exceed ARRAY-DIMENSION-LIMIT, signal instead of
+         * silently clamping below the requested minimum. */
+        if ((uint32_t)ext_val > CL_ARRAY_DIMENSION_LIMIT - old_len)
+            cl_error(CL_ERR_TYPE,
+                     "VECTOR-PUSH-EXTEND: extension %d would exceed ARRAY-DIMENSION-LIMIT (%u)",
+                     (int)ext_val, (unsigned)CL_ARRAY_DIMENSION_LIMIT);
+        if (new_cap < old_len + (uint32_t)ext_val)
+            new_cap = old_len + (uint32_t)ext_val;
+    }
+    /* The doubling path may overshoot the limit — clamping is fine there
+     * (growth of at least one element is all that's required). */
+    if (new_cap > CL_ARRAY_DIMENSION_LIMIT)
+        new_cap = CL_ARRAY_DIMENSION_LIMIT;
+    return new_cap;
+}
+
+/* The element a VECTOR-PUSH / VECTOR-PUSH-EXTEND stores into a bit vector:
+ * 0 or 1, anything else is a type error naming the operator. */
+static int bv_push_bit(CL_Obj value, const char *who)
+{
+    if (!CL_FIXNUM_P(value) ||
+        (CL_FIXNUM_VAL(value) != 0 && CL_FIXNUM_VAL(value) != 1))
+        cl_error(CL_ERR_TYPE, "%s: a bit vector holds only 0 or 1", who);
+    return (int)CL_FIXNUM_VAL(value);
+}
+
 /* (vector-push new-element vector) → index or NIL */
 static CL_Obj bi_vector_push(CL_Obj *args, int n)
 {
     CL_Vector *vec;
     uint32_t fp;
     CL_UNUSED(n);
+    if (CL_BIT_VECTOR_P(args[1])) {
+        CL_BitVector *bv = (CL_BitVector *)CL_OBJ_TO_PTR(args[1]);
+        int bit;
+        if (bv->fill_pointer == CL_NO_FILL_POINTER)
+            cl_error(CL_ERR_TYPE, "VECTOR-PUSH: bit vector has no fill pointer");
+        bit = bv_push_bit(args[0], "VECTOR-PUSH");
+        fp = bv->fill_pointer;
+        if (fp >= bv->length)
+            return CL_NIL;  /* full — return NIL */
+        cl_bv_set_bit(bv, fp, bit);
+        bv->fill_pointer = fp + 1;
+        return CL_MAKE_FIXNUM((int32_t)fp);
+    }
     if (CL_BYTE_VECTOR_P(args[1])) {
         CL_ByteVector *bv = (CL_ByteVector *)CL_OBJ_TO_PTR(args[1]);
         if (bv->fill_pointer == CL_NO_FILL_POINTER)
@@ -2017,6 +2137,39 @@ CL_Obj bi_vector_push_extend(CL_Obj *args, int n)
     CL_Vector *new_vec;
     CL_Obj *old_data, *new_data;
 
+    if (CL_BIT_VECTOR_P(args[1])) {
+        /* Push while there is room.  Full: an adjustable bit vector grows
+         * in place (bv_resize); a non-adjustable one is packed storage that
+         * cannot, and fails loudly like a packed byte vector. */
+        CL_BitVector *bv = (CL_BitVector *)CL_OBJ_TO_PTR(args[1]);
+        int bit;
+        if (bv->fill_pointer == CL_NO_FILL_POINTER)
+            cl_error(CL_ERR_TYPE, "VECTOR-PUSH-EXTEND: bit vector has no fill pointer");
+        bit = bv_push_bit(args[0], "VECTOR-PUSH-EXTEND");
+        fp = bv->fill_pointer;
+        if (fp < bv->length) {
+            cl_bv_set_bit(bv, fp, bit);
+            bv->fill_pointer = fp + 1;
+            return CL_MAKE_FIXNUM((int32_t)fp);
+        }
+        if (!(bv->flags & CL_VEC_FLAG_ADJUSTABLE))
+            cl_error(CL_ERR_GENERAL,
+                     "VECTOR-PUSH-EXTEND: cannot extend a non-adjustable bit "
+                     "vector (full at %u bits) - create it with :ADJUSTABLE T "
+                     "or pre-allocate enough capacity with MAKE-ARRAY",
+                     (unsigned)bv->length);
+        new_cap = vpe_new_capacity(args, n, bv->length, 64);
+        if (new_cap > CL_MAX_BV_BITS)
+            new_cap = CL_MAX_BV_BITS;
+        if (new_cap <= fp)
+            cl_error(CL_ERR_GENERAL,
+                     "VECTOR-PUSH-EXTEND: bit vector is at its maximum size "
+                     "(%u bits)", (unsigned)fp);
+        bv_resize(&args[1], new_cap, 0, fp + 1, "VECTOR-PUSH-EXTEND");
+        bv = (CL_BitVector *)CL_OBJ_TO_PTR(args[1]);
+        cl_bv_set_bit(bv, fp, bit);
+        return CL_MAKE_FIXNUM((int32_t)fp);
+    }
     if (CL_BYTE_VECTOR_P(args[1])) {
         /* Byte vectors have no displacement mechanism, so the identity-
          * preserving in-place extension used for general vectors below is
@@ -2052,38 +2205,9 @@ CL_Obj bi_vector_push_extend(CL_Obj *args, int n)
         return CL_MAKE_FIXNUM((int32_t)fp);
     }
 
-    /* Need to extend: compute new capacity.  All arithmetic is capped
-     * against CL_ARRAY_DIMENSION_LIMIT — a huge or negative extension
-     * argument would otherwise wrap `old_len + ext` (uint32) and allocate
-     * a tiny backing store whose new_data[fp] write lands out of bounds. */
+    /* Need to extend */
     old_len = vec->length;
-    if (old_len >= CL_ARRAY_DIMENSION_LIMIT)
-        cl_error(CL_ERR_GENERAL,
-                 "VECTOR-PUSH-EXTEND: cannot extend beyond ARRAY-DIMENSION-LIMIT (%u)",
-                 (unsigned)CL_ARRAY_DIMENSION_LIMIT);
-    new_cap = old_len * 2;
-    if (new_cap < 4) new_cap = 4;
-    /* Honor optional extension argument */
-    if (n >= 3 && CL_FIXNUM_P(args[2])) {
-        int32_t ext_val = CL_FIXNUM_VAL(args[2]);
-        if (ext_val < 0)
-            cl_error(CL_ERR_TYPE,
-                     "VECTOR-PUSH-EXTEND: extension must be a non-negative integer (got %d)",
-                     (int)ext_val);
-        /* CLHS: the extension is the MINIMUM number of elements to add — if
-         * honoring it would exceed ARRAY-DIMENSION-LIMIT, signal instead of
-         * silently clamping below the requested minimum. */
-        if ((uint32_t)ext_val > CL_ARRAY_DIMENSION_LIMIT - old_len)
-            cl_error(CL_ERR_TYPE,
-                     "VECTOR-PUSH-EXTEND: extension %d would exceed ARRAY-DIMENSION-LIMIT (%u)",
-                     (int)ext_val, (unsigned)CL_ARRAY_DIMENSION_LIMIT);
-        if (new_cap < old_len + (uint32_t)ext_val)
-            new_cap = old_len + (uint32_t)ext_val;
-    }
-    /* The doubling path may overshoot the limit — clamping is fine there
-     * (growth of at least one element is all that's required). */
-    if (new_cap > CL_ARRAY_DIMENSION_LIMIT)
-        new_cap = CL_ARRAY_DIMENSION_LIMIT;
+    new_cap = vpe_new_capacity(args, n, old_len, 4);
 
     /* Allocate new backing vector (GC may fire).  args[] slots are already
      * GC-rooted VM-stack slots — protecting them again would double-forward
@@ -2131,6 +2255,16 @@ static CL_Obj bi_vector_pop(CL_Obj *args, int n)
     CL_Vector *vec;
     uint32_t fp;
     CL_UNUSED(n);
+    if (CL_BIT_VECTOR_P(args[0])) {
+        CL_BitVector *bv = (CL_BitVector *)CL_OBJ_TO_PTR(args[0]);
+        if (bv->fill_pointer == CL_NO_FILL_POINTER)
+            cl_error(CL_ERR_TYPE, "VECTOR-POP: bit vector has no fill pointer");
+        fp = bv->fill_pointer;
+        if (fp == 0)
+            cl_error(CL_ERR_GENERAL, "VECTOR-POP: fill pointer is zero");
+        bv->fill_pointer = fp - 1;
+        return CL_MAKE_FIXNUM((int32_t)cl_bv_get_bit(bv, fp - 1));
+    }
     if (CL_BYTE_VECTOR_P(args[0])) {
         CL_ByteVector *bv = (CL_ByteVector *)CL_OBJ_TO_PTR(args[0]);
         if (bv->fill_pointer == CL_NO_FILL_POINTER)
@@ -2171,11 +2305,12 @@ CL_Obj bi_adjust_array(CL_Obj *args, int n)
     int has_fp = 0;
 
     int is_bytevec = CL_BYTE_VECTOR_P(args[0]);
+    int is_bitvec = CL_BIT_VECTOR_P(args[0]);
 
-    if (!is_bytevec && !CL_VECTOR_P(args[0]))
+    if (!is_bytevec && !is_bitvec && !CL_VECTOR_P(args[0]))
         cl_error(CL_ERR_TYPE, "ADJUST-ARRAY: not an array");
     old_vec = NULL;
-    if (!is_bytevec) {
+    if (!is_bytevec && !is_bitvec) {
         old_vec = (CL_Vector *)CL_OBJ_TO_PTR(args[0]);
         if (old_vec->rank > 1)
             cl_error(CL_ERR_GENERAL, "ADJUST-ARRAY: multi-dimensional arrays not yet supported");
@@ -2224,6 +2359,41 @@ CL_Obj bi_adjust_array(CL_Obj *args, int n)
                 has_fp = 1;
             }
         }
+    }
+
+    /* Bit vector: an adjustable one is adjusted in place, a non-adjustable
+     * one yields a fresh bit vector (bv_resize).  Bits kept, growth filled
+     * from :initial-element (0 without one), fill pointer carried. */
+    if (is_bitvec) {
+        CL_BitVector *obv = (CL_BitVector *)CL_OBJ_TO_PTR(args[0]);
+        int fill_bit = 0;
+        if (new_len > CL_MAX_BV_BITS)
+            cl_error(CL_ERR_TYPE,
+                     "ADJUST-ARRAY: %u bits exceed the maximum bit vector "
+                     "size (%u)", (unsigned)new_len, (unsigned)CL_MAX_BV_BITS);
+        if (has_fp) {
+            if (new_fp > new_len)
+                cl_error(CL_ERR_ARGS,
+                         "ADJUST-ARRAY: :fill-pointer %u exceeds the new "
+                         "length %u", (unsigned)new_fp, (unsigned)new_len);
+        } else if (obv->fill_pointer != CL_NO_FILL_POINTER) {
+            /* CLHS: without :fill-pointer the old one must fit the new size */
+            new_fp = obv->fill_pointer;
+            if (new_fp > new_len)
+                cl_error(CL_ERR_ARGS,
+                         "ADJUST-ARRAY: fill pointer %u exceeds the new "
+                         "length %u", (unsigned)new_fp, (unsigned)new_len);
+        }
+        if (has_ie) {
+            if (!CL_FIXNUM_P(initial_element) ||
+                (CL_FIXNUM_VAL(initial_element) != 0 &&
+                 CL_FIXNUM_VAL(initial_element) != 1))
+                cl_error(CL_ERR_TYPE,
+                         "ADJUST-ARRAY: :initial-element for a bit vector "
+                         "must be 0 or 1");
+            fill_bit = (int)CL_FIXNUM_VAL(initial_element);
+        }
+        return bv_resize(&args[0], new_len, fill_bit, new_fp, "ADJUST-ARRAY");
     }
 
     /* Packed byte vector: never adjustable (make-array builds adjustable

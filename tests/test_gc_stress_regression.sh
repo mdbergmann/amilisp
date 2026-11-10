@@ -6513,6 +6513,64 @@ check_contains "FORMAT ~{ long list intact under GC stress" "FMTITER:1199:T:T:T:
 check_absent   "no corruption in FORMAT iteration under stress" \
     "Unbound variable\|Undefined\|type 0\|corrupted\|not of type" "$out"
 
+# --- Case: VECTOR-PUSH / VECTOR-POP on a bit vector with a fill pointer ------
+# The bit-vector branches write through a raw arena pointer; the pushes are
+# interleaved with allocation so every one of them follows a compaction that
+# moved the vector.
+cat > "$WORK/bitvec-push.lisp" <<'EOF'
+(let ((v (make-array 100 :element-type 'bit :fill-pointer 0))
+      (ok t))
+  (dotimes (i 100)
+    (make-list 20)
+    (unless (eql i (if (evenp i)
+                       (vector-push (if (zerop (mod i 3)) 1 0) v)
+                       (vector-push-extend (if (zerop (mod i 3)) 1 0) v)))
+      (setf ok nil)))
+  (let ((ones (count 1 v))
+        (popped (loop repeat 4 do (make-list 20) collect (vector-pop v))))
+    (format t "BITPUSH:~A:~A:~A:~A:~A~%" ok ones popped (fill-pointer v)
+            (handler-case (progn (setf (fill-pointer v) 100)
+                                 (vector-push-extend 1 v))
+              (error () :full)))))
+EOF
+out=$(run_stress "$WORK/bitvec-push.lisp")
+check_contains "bit-vector push/pop intact under GC stress" \
+    "BITPUSH:T:34:(1 0 0 1):96:FULL" "$out"
+check_absent   "no corruption in bit-vector push/pop under stress" \
+    "Unbound variable\|Undefined\|type 0\|corrupted\|not of type" "$out"
+
+# --- Case: an adjustable bit vector growing in place -------------------------
+# VECTOR-PUSH-EXTEND / ADJUST-ARRAY allocate the new backing while the bit
+# vector is live, then hang it off the object (store[0], traced since bit
+# vectors stopped being a GC leaf).  Under stress every push follows a
+# compaction that moved both; a missed forward shows as wrong bits.
+cat > "$WORK/bitvec-grow.lisp" <<'EOF'
+(let* ((v (make-array 0 :element-type 'bit :adjustable t :fill-pointer 0))
+       (w v)
+       (ok t))
+  (dotimes (i 300)
+    (make-list 10)
+    (unless (eql i (vector-push-extend (if (zerop (mod i 3)) 1 0) v))
+      (setf ok nil)))
+  (let ((ones (count 1 v)))
+    (adjust-array v 20 :fill-pointer 20)
+    (make-list 10)
+    (adjust-array v 70 :initial-element 1 :fill-pointer t)
+    (make-list 10)
+    (format t "BITGROW:~A:~A:~A:~A:~A:~A~%" ok (eq v w) ones (count 1 v)
+            (equal (subseq v 0 8) #*10010010)
+            (let ((f (adjust-array (make-array 3 :element-type 'bit
+                                               :initial-contents '(1 0 1))
+                                   6 :initial-element 1)))
+              (make-list 10)
+              f))))
+EOF
+out=$(run_stress "$WORK/bitvec-grow.lisp")
+check_contains "adjustable bit vector grows intact under GC stress" \
+    "BITGROW:T:T:100:57:T:#\\*101111" "$out"
+check_absent   "no corruption in bit-vector growth under stress" \
+    "Unbound variable\|Undefined\|type 0\|corrupted\|not of type" "$out"
+
 echo ""
 echo "$passed passed, $failed failed, $total total"
 [ "$failed" -eq 0 ]

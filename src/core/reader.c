@@ -1154,7 +1154,7 @@ static CL_NOINLINE CL_Obj read_bit_vector(void)
     bv = (CL_BitVector *)CL_OBJ_TO_PTR(bvobj);
     for (bi = 0; bi < (uint32_t)blen; bi++) {
         if (bits[bi] == '1')
-            bv->data[bi / 32] |= (1u << (bi % 32));
+            cl_bv_data(bv)[bi / 32] |= (1u << (bi % 32));
     }
     return bvobj;
 }

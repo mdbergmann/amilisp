@@ -791,11 +791,21 @@ static CL_Obj bi_equal(CL_Obj *args, int n)
     if (CL_BIT_VECTOR_P(a) && CL_BIT_VECTOR_P(b)) {
         CL_BitVector *ba = (CL_BitVector *)CL_OBJ_TO_PTR(a);
         CL_BitVector *bb = (CL_BitVector *)CL_OBJ_TO_PTR(b);
-        uint32_t nwords;
-        if (ba->length != bb->length) return CL_NIL;
-        nwords = CL_BV_WORDS(ba->length);
+        uint32_t na = cl_bv_active_length(ba), nb = cl_bv_active_length(bb);
+        uint32_t nwords, i;
+        /* The elements are the ACTIVE ones (below the fill pointer if there
+         * is one).  The whole-word memcmp is only valid without fill
+         * pointers: bits above one are stale data, not zeros. */
+        if (na != nb) return CL_NIL;
+        if (ba->fill_pointer != CL_NO_FILL_POINTER ||
+            bb->fill_pointer != CL_NO_FILL_POINTER) {
+            for (i = 0; i < na; i++)
+                if (cl_bv_get_bit(ba, i) != cl_bv_get_bit(bb, i)) return CL_NIL;
+            return SYM_T;
+        }
+        nwords = CL_BV_WORDS(na);
         if (nwords == 0) return SYM_T;
-        return memcmp(ba->data, bb->data, nwords * sizeof(uint32_t)) == 0 ? SYM_T : CL_NIL;
+        return memcmp(cl_bv_data(ba), cl_bv_data(bb), nwords * sizeof(uint32_t)) == 0 ? SYM_T : CL_NIL;
     }
     if (CL_PATHNAME_P(a) && CL_PATHNAME_P(b)) {
         extern int cl_pathname_equal(CL_Obj a, CL_Obj b);
@@ -953,7 +963,7 @@ static CL_Obj bi_equalp(CL_Obj *args, int n)
             bb_bv->fill_pointer == CL_NO_FILL_POINTER) {
             uint32_t nwords = CL_BV_WORDS(na);
             if (nwords == 0) return SYM_T;
-            return memcmp(ba->data, bb_bv->data, nwords * sizeof(uint32_t)) == 0 ? SYM_T : CL_NIL;
+            return memcmp(cl_bv_data(ba), cl_bv_data(bb_bv), nwords * sizeof(uint32_t)) == 0 ? SYM_T : CL_NIL;
         }
         for (i = 0; i < na; i++)
             if (cl_bv_get_bit(ba, i) != cl_bv_get_bit(bb_bv, i)) return CL_NIL;

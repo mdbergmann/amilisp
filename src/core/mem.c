@@ -1331,6 +1331,10 @@ CL_Obj cl_make_bit_vector(uint32_t nbits)
                          "heap object size (max %u bits)",
                          (unsigned)nbits, (unsigned)CL_MAX_BV_BITS);
     nwords = CL_BV_WORDS(nbits);
+    /* Never less than one word: store[0] is where an adjustable bit vector
+     * keeps the ref to its backing once it has grown (types.h), and an empty
+     * adjustable one must have that slot too. */
+    if (nwords == 0) nwords = 1;
     alloc_size = sizeof(CL_BitVector) + nwords * sizeof(uint32_t);
     bv = (CL_BitVector *)cl_alloc(TYPE_BIT_VECTOR, alloc_size);
     if (!bv) return CL_NIL;
