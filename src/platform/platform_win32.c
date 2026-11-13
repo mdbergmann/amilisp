@@ -2219,6 +2219,11 @@ PlatformSocket platform_socket_listen_addr(int port, const char *bind_addr, int 
     SOCKET fd;
     int on = 1;
 
+    /* Before the address is resolved: getaddrinfo is a Winsock call too,
+     * and fails with WSANOTINITIALISED when a listen is the process's first
+     * socket operation (test_tls's loopback listener is). */
+    socket_table_ensure_init();
+
     if (bind_addr) {
         /* A literal IPv4 or IPv6 address of this machine; never a name. */
         if (resolve_sockaddr(bind_addr, port, 0, SOCK_STREAM, 1, &ss, &sl) != 0)
@@ -2231,8 +2236,6 @@ PlatformSocket platform_socket_listen_addr(int port, const char *bind_addr, int 
         sin->sin_addr.s_addr = htonl(INADDR_ANY);
         sl = (socklen_t)sizeof(*sin);
     }
-
-    socket_table_ensure_init();
 
     fd = socket(ss.ss_family, SOCK_STREAM, 0);
     if (fd == INVALID_SOCKET) return PLATFORM_SOCKET_INVALID;
@@ -2395,6 +2398,8 @@ int platform_udp_recv(PlatformSocket sh, uint8_t *buf, uint32_t maxlen)
     /* recv blocks until a datagram arrives — stay GC-cooperative. */
     cl_gc_enter_safe_region();
     n = recv(fd, (char *)buf, (int)maxlen, 0);
+    if (n < 0 && WSAGetLastError() == WSAEMSGSIZE)
+        n = (ssize_t)maxlen;    /* truncated datagram, see udp_recv_from */
     cl_gc_leave_safe_region();
     if (n < 0) return -1;
     return (int)n;
@@ -2539,6 +2544,13 @@ int platform_udp_recv_from(PlatformSocket sh, uint8_t *buf, uint32_t maxlen,
     memset(&ss, 0, sizeof(ss));
     cl_gc_enter_safe_region();
     n = recvfrom(fd, (char *)buf, (int)maxlen, 0, (struct sockaddr *)&ss, &sl);
+    /* A datagram longer than the buffer: POSIX hands back the first maxlen
+     * bytes and drops the rest; Winsock does the same but reports it as
+     * SOCKET_ERROR / WSAEMSGSIZE.  The buffer and the sender address are
+     * filled in either way, so it is a receive of maxlen bytes.  Read the
+     * error before anything else can overwrite it. */
+    if (n < 0 && WSAGetLastError() == WSAEMSGSIZE)
+        n = (int)maxlen;
     cl_gc_leave_safe_region();
     if (n < 0) return -1;
     if (format_sockaddr((struct sockaddr *)&ss, sl, from_addr, from_len, from_port) != 0) {
