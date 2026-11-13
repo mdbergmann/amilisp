@@ -1545,13 +1545,27 @@ static int socket_wait_ready(SOCKET fd, int timeout_ms, int want_write);
  * helpers in platform_posix.c.  getaddrinfo handles dotted quads, IPv6
  * literals (scope suffix included) and host names alike; the DNS path
  * parks in a GC safe region, so `host` must be a C buffer. --- */
+static unsigned iface_to_index(const char *iface);
+
 static int resolve_sockaddr(const char *host, int port, int family, int socktype,
                             int numeric_only, struct sockaddr_storage *out,
                             socklen_t *outlen)
 {
     struct addrinfo hints, *res = NULL;
     char portbuf[8];
+    char scoped[96];
+    const char *pct = strchr(host, '%');
     int rc;
+    /* A scope suffix that names the interface ("ff02::fb%Ethernet 2"):
+     * Winsock's getaddrinfo takes a zone only as a decimal index, where
+     * POSIX takes the name as well -- and the name is what
+     * EXT:NETWORK-INTERFACES reports.  Rewrite it to the index. */
+    if (pct && pct[1] != '\0' && strspn(pct + 1, "0123456789") != strlen(pct + 1)) {
+        unsigned idx = iface_to_index(pct + 1);
+        if (!idx || (size_t)(pct - host) > sizeof(scoped) - 16) return -1;
+        snprintf(scoped, sizeof(scoped), "%.*s%%%u", (int)(pct - host), host, idx);
+        host = scoped;
+    }
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = (family == PLATFORM_AF_INET)  ? AF_INET :
                       (family == PLATFORM_AF_INET6) ? AF_INET6 : AF_UNSPEC;
