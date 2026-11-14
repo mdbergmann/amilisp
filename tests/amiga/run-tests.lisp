@@ -8692,6 +8692,20 @@ y" 1))
     (progv '(*progv-x*) '(2) *progv-x*)))
 (check "progv nested restored" 10 *progv-x*)
 
+;; The reader follows *PACKAGE* however it got its value (PROGV, SET)
+(defpackage :progv-pkg-test (:use :cl))
+(check "progv *package* moves the reader" "PROGV-PKG-TEST"
+  (progv '(*package*) (list (find-package :progv-pkg-test))
+    (package-name (symbol-package (read-from-string "PROGV-READ-A")))))
+(check "progv *package* restored" "COMMON-LISP-USER"
+  (package-name (symbol-package (read-from-string "PROGV-READ-B"))))
+(check "set *package* moves the reader" "PROGV-PKG-TEST"
+  (let ((*package* *package*))
+    (set '*package* (find-package :progv-pkg-test))
+    (package-name (symbol-package (read-from-string "PROGV-SET-A")))))
+(check "set *package* restored" "COMMON-LISP-USER"
+  (package-name (symbol-package (read-from-string "PROGV-SET-B"))))
+
 ; --- Macrolet/symbol-macrolet across lambda ---
 (check "macrolet across lambda" 42
   (macrolet ((foo () '42))

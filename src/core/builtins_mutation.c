@@ -126,6 +126,10 @@ static CL_Obj bi_set_symbol_value(CL_Obj *args, int n)
         cl_error(CL_ERR_GENERAL, "Cannot assign to constant variable: %s",
                  cl_symbol_name(args[0]));
     cl_set_symbol_value(args[0], args[1]);
+    /* SET / (SETF SYMBOL-VALUE) on *PACKAGE* moves the reader's package
+     * like SETQ does (OP_GSTORE). */
+    if (args[0] == SYM_STAR_PACKAGE)
+        cl_sync_current_package_from_dynamic();
     return args[1];
 }
 

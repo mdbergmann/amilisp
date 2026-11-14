@@ -4461,6 +4461,7 @@ static CL_Obj cl_vm_run(int base_fp, int base_nlx)
             CL_Obj symbols_list = cl_vm_pop();
             int mark = cl_dyn_top;
             CL_Thread *thr = CT;
+            int touched_package = 0;
 
             /* Push saved dyn_mark as fixnum */
             cl_vm_push(CL_MAKE_FIXNUM(mark));
@@ -4484,11 +4485,17 @@ static CL_Obj cl_vm_run(int base_fp, int base_nlx)
                 cl_dyn_stack[cl_dyn_top].old_value = old_tlv;
                 cl_dyn_top++;
                 cl_tlv_set(thr, sym_obj, val);
+                if (sym_obj == SYM_STAR_PACKAGE)
+                    touched_package = 1;
 
                 symbols_list = cl_cdr(symbols_list);
                 if (!CL_NULL_P(values_list))
                     values_list = cl_cdr(values_list);
             }
+            /* The reader interns through cl_current_package, like
+             * OP_DYNBIND does for LET. */
+            if (touched_package)
+                cl_sync_current_package_from_dynamic();
             VM_BREAK;
         }
 

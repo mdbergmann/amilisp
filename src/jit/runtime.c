@@ -266,6 +266,7 @@ CL_Obj cl_jit_runtime_progv_bind(CL_Obj symbols_list, CL_Obj values_list)
 {
     int saved_mark = cl_dyn_top;
     CL_Thread *thr = CT;
+    int touched_package = 0;
 
     while (!CL_NULL_P(symbols_list)) {
         CL_Obj sym_obj = cl_car(symbols_list);
@@ -286,11 +287,16 @@ CL_Obj cl_jit_runtime_progv_bind(CL_Obj symbols_list, CL_Obj values_list)
         cl_dyn_stack[cl_dyn_top].old_value = old_tlv;
         cl_dyn_top++;
         cl_tlv_set(thr, sym_obj, val);
+        if (sym_obj == SYM_STAR_PACKAGE)
+            touched_package = 1;
 
         symbols_list = cl_cdr(symbols_list);
         if (!CL_NULL_P(values_list))
             values_list = cl_cdr(values_list);
     }
+    /* Mirrors OP_PROGV_BIND's *PACKAGE* sync. */
+    if (touched_package)
+        cl_sync_current_package_from_dynamic();
     return CL_MAKE_FIXNUM(saved_mark);
 }
 

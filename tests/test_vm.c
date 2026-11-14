@@ -10942,6 +10942,51 @@ TEST(eval_progv_nested)
     ASSERT_EQ_INT(eval_int("*pv-f*"), 0);
 }
 
+/* The reader interns relative to *PACKAGE* (CLHS 2.3.4), whichever way the
+ * variable got its value: PROGV and SET move the reader's package just as
+ * LET and SETQ do.  Slynk's REPL binds *PACKAGE* with PROGV. */
+TEST(eval_progv_package_moves_reader)
+{
+    eval_print("(defpackage :pv-pkg-test (:use :cl))");
+    ASSERT_STR_EQ(eval_print(
+        "(progv '(*package*) (list (find-package :pv-pkg-test))"
+        "  (package-name (symbol-package (read-from-string \"PV-READ-A\"))))"),
+        "\"PV-PKG-TEST\"");
+    /* INTERN defaults to the same package */
+    ASSERT_STR_EQ(eval_print(
+        "(progv '(*package*) (list (find-package :pv-pkg-test))"
+        "  (package-name (symbol-package (intern \"PV-INTERN-A\"))))"),
+        "\"PV-PKG-TEST\"");
+    /* *PACKAGE* not first in the list */
+    eval_print("(defvar *pv-pkg-other* 0)");
+    ASSERT_STR_EQ(eval_print(
+        "(progv '(*pv-pkg-other* *package*) (list 1 (find-package :pv-pkg-test))"
+        "  (package-name (symbol-package (read-from-string \"PV-READ-B\"))))"),
+        "\"PV-PKG-TEST\"");
+    /* Restored afterwards */
+    ASSERT_STR_EQ(eval_print(
+        "(package-name (symbol-package (read-from-string \"PV-READ-C\")))"),
+        "\"COMMON-LISP-USER\"");
+}
+
+TEST(eval_set_package_moves_reader)
+{
+    eval_print("(defpackage :pv-pkg-test (:use :cl))");
+    ASSERT_STR_EQ(eval_print(
+        "(let ((*package* *package*))"
+        "  (set '*package* (find-package :pv-pkg-test))"
+        "  (package-name (symbol-package (read-from-string \"PV-SET-A\"))))"),
+        "\"PV-PKG-TEST\"");
+    ASSERT_STR_EQ(eval_print(
+        "(let ((*package* *package*))"
+        "  (setf (symbol-value '*package*) (find-package :pv-pkg-test))"
+        "  (package-name (symbol-package (read-from-string \"PV-SET-B\"))))"),
+        "\"PV-PKG-TEST\"");
+    ASSERT_STR_EQ(eval_print(
+        "(package-name (symbol-package (read-from-string \"PV-SET-C\")))"),
+        "\"COMMON-LISP-USER\"");
+}
+
 /* --- set-syntax-from-char tests --- */
 
 TEST(eval_set_syntax_from_char_basic)
@@ -12914,6 +12959,8 @@ int main(void)
     RUN(eval_progv_empty_symbols);
     RUN(eval_progv_restore_on_throw);
     RUN(eval_progv_nested);
+    RUN(eval_progv_package_moves_reader);
+    RUN(eval_set_package_moves_reader);
 
     /* set-syntax-from-char */
     RUN(eval_set_syntax_from_char_basic);

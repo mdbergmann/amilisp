@@ -136,8 +136,8 @@ void cl_intern_clos_internals_in_amilisp(void);
 /* Refresh the CALLING thread's cl_current_package slot from its dynamic
    *PACKAGE* binding (TLV if set, else the symbol's global value).  Must be
    called whenever the dynamic binding of *PACKAGE* changes at runtime —
-   currently from OP_DYNBIND / OP_DYNUNBIND / OP_GSTORE on *PACKAGE* —
-   so `let`-bindings propagate to this thread's consumers of
+   currently from OP_DYNBIND / OP_DYNUNBIND / OP_GSTORE / OP_PROGV_BIND
+   and SET on *PACKAGE* — so `let`/`progv` bindings propagate to this thread's consumers of
    cl_current_package (reader, printer, INTERN, etc.).  Strictly
    thread-local on both the read and the write side: it never touches
    another thread's slot. */
