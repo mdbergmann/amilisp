@@ -912,7 +912,18 @@ int platform_file_is_directory(const char *path)
 
 int platform_file_delete(const char *path)
 {
-    return (unlink(path) == 0) ? 0 : -1;
+    /* An empty directory goes too, as on POSIX and AmigaOS (see
+     * platform_posix.c).  _rmdir gets the name without the directory
+     * form's trailing slash. */
+    char buf[1024];
+    size_t len;
+    if (unlink(path) == 0) return 0;
+    len = strlen(path);
+    if (len == 0 || len >= sizeof(buf)) return -1;
+    memcpy(buf, path, len + 1);
+    while (len > 1 && (buf[len - 1] == '/' || buf[len - 1] == '\\'))
+        buf[--len] = '\0';
+    return (_rmdir(buf) == 0) ? 0 : -1;
 }
 
 int platform_file_make_executable(const char *path)

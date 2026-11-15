@@ -837,7 +837,12 @@ int platform_file_is_directory(const char *path)
 
 int platform_file_delete(const char *path)
 {
-    return (unlink(path) == 0) ? 0 : -1;
+    /* An empty directory goes too, as AmigaOS DeleteFile() takes it:
+     * DELETE-FILE is what portable code falls back to where it knows no
+     * rmdir of ours (Quicklisp's DELETE-DIRECTORY).  unlink first, so a
+     * symlink to a directory loses the link and not the target. */
+    if (unlink(path) == 0) return 0;
+    return (rmdir(path) == 0) ? 0 : -1;
 }
 
 int platform_file_rename(const char *oldpath, const char *newpath)

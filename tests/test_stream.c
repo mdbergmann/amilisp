@@ -1648,6 +1648,48 @@ TEST(eval_delete_file)
     ASSERT(!platform_file_exists(path));
 }
 
+/* DELETE-FILE takes an empty directory on every platform, as AmigaOS
+ * DeleteFile() does: Quicklisp's DELETE-DIRECTORY is (delete-file dir) for an
+ * implementation it has no rmdir for, and (ql:update-all-dists) died on the
+ * host in its tmp/distinfo-update/ cleanup. */
+TEST(eval_delete_file_empty_directory)
+{
+    const char *dir = "/tmp/cl_test_delete_dir";
+    const char *inner = "/tmp/cl_test_delete_dir/f.tmp";
+    PlatformFile f;
+    CL_Obj r;
+
+    remove(inner); remove(dir);
+    ASSERT(platform_mkdir(dir) == 0);
+    f = platform_file_open(inner, PLATFORM_FILE_WRITE);
+    platform_file_write_string(f, "x");
+    platform_file_close(f);
+
+    /* not empty: a FILE-ERROR naming the path, and nothing is removed */
+    r = cl_eval_string(
+        "(handler-case (delete-file \"/tmp/cl_test_delete_dir/\")"
+        "  (file-error (c)"
+        "    (and (search \"cl_test_delete_dir\" (princ-to-string c)) :file-error)))");
+    ASSERT(r == cl_eval_string(":file-error"));
+    ASSERT(platform_file_exists(inner));
+
+    cl_eval_string("(delete-file \"/tmp/cl_test_delete_dir/f.tmp\")");
+    /* directory form (trailing slash), as DIRECTORY and Quicklisp hand it over */
+    ASSERT(cl_eval_string("(delete-file \"/tmp/cl_test_delete_dir/\")") == CL_T);
+    ASSERT(!platform_file_exists(dir));
+
+    /* and the file form */
+    ASSERT(platform_mkdir(dir) == 0);
+    ASSERT(cl_eval_string("(delete-file \"/tmp/cl_test_delete_dir\")") == CL_T);
+    ASSERT(!platform_file_exists(dir));
+
+    /* a missing file is still an error */
+    r = cl_eval_string(
+        "(handler-case (delete-file \"/tmp/cl_test_delete_dir\")"
+        "  (file-error () :file-error))");
+    ASSERT(r == cl_eval_string(":file-error"));
+}
+
 TEST(eval_file_write_date)
 {
     const char *path = "/tmp/cl_test_fwd_eval.tmp";
@@ -5226,6 +5268,7 @@ int main(void)
     RUN(eval_truename_dir_no_slash_is_dir_form);
     RUN(eval_truename_file_stays_file_form);
     RUN(eval_delete_file);
+    RUN(eval_delete_file_empty_directory);
     RUN(eval_file_write_date);
     RUN(eval_file_namestring);
     RUN(eval_directory_namestring);
