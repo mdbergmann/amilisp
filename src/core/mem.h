@@ -100,7 +100,10 @@ typedef struct {
     uint32_t bump;              /* Bump pointer offset from arena */
     uint32_t free_list;         /* Arena offset of first free block (0 = empty) */
     uint32_t total_allocated;   /* Bytes currently allocated */
-    uint32_t total_consed;      /* Bytes ever allocated (monotonic, never reset) */
+    uint64_t total_consed;      /* Bytes ever allocated (monotonic, never reset).
+                                 * 64 bits: a session conses past 4 GB within
+                                 * minutes on a fast host, and ROOM's count
+                                 * started over from zero when it did. */
     uint32_t gc_count;          /* Number of GC cycles */
     uint32_t compact_count;     /* Number of compaction cycles */
     uint32_t freelist_steps;    /* Total free-list blocks walked (monotonic
@@ -210,6 +213,18 @@ void cl_mem_diag_from_env(void);
  * 32 bits once PART passes 42 MB, and ROOM printed "(0%)" for every heap
  * larger than that. */
 uint32_t cl_percent_of(uint32_t part, uint32_t whole);
+
+/* V in decimal.  OUT holds at least CL_U64_DEC_SIZE bytes.  (Not "%llu":
+ * the m68k C library's printf is not known to take it.) */
+#define CL_U64_DEC_SIZE 24
+void cl_format_u64(uint64_t v, char *out);
+
+/* BYTES as a size a person reads at a glance: "512 bytes", "16.7 KB",
+ * "64.0 MB", "4.6 GB", "1.2 TB" (binary units, one decimal, rounded down
+ * so the figure never claims more than there is).  OUT holds at least
+ * CL_SIZE_STR_SIZE bytes. */
+#define CL_SIZE_STR_SIZE 40
+void cl_format_size(uint64_t bytes, char *out);
 
 /* Off-heap bytecode payload returned to the allocator since heap init: total
  * bytes and number of bytecode objects finalized.  A CL_Bytecode's body,

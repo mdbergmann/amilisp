@@ -3130,7 +3130,7 @@ static CL_Obj bi_get_bytes_consed(CL_Obj *args, int n)
     /* The chunk cursor defers its consed bytes until the next refill or
      * collection (thread.h alloc_consed): add this thread's pending count
      * so TIME sees the cons it just did. */
-    uint32_t consed = cl_heap.total_consed + CT->alloc_consed;
+    uint32_t consed = (uint32_t)cl_heap.total_consed + CT->alloc_consed;
     CL_UNUSED(args); CL_UNUSED(n);
     return CL_MAKE_FIXNUM((int32_t)(consed & CL_FIXNUM_MAX));
 }
@@ -3309,7 +3309,7 @@ static CL_Obj bi_ext_heap_stats(CL_Obj *args, int n)
     result = cl_cons(CL_MAKE_FIXNUM((int32_t)(blocks & CL_FIXNUM_MAX)), result);
     result = cl_cons(CL_MAKE_FIXNUM((int32_t)(cl_heap.tlab_refills & CL_FIXNUM_MAX)), result);
     result = cl_cons(CL_MAKE_FIXNUM((int32_t)(cl_heap.freelist_steps & CL_FIXNUM_MAX)), result);
-    result = cl_cons(CL_MAKE_FIXNUM((int32_t)(cl_heap.total_consed & CL_FIXNUM_MAX)), result);
+    result = cl_cons(CL_MAKE_FIXNUM((int32_t)((uint32_t)cl_heap.total_consed & CL_FIXNUM_MAX)), result);
     result = cl_cons(CL_MAKE_FIXNUM((int32_t)(cl_heap.total_allocated & CL_FIXNUM_MAX)), result);
     result = cl_cons(CL_MAKE_FIXNUM((int32_t)(cl_heap.bump & CL_FIXNUM_MAX)), result);
     result = cl_cons(CL_MAKE_FIXNUM((int32_t)(cl_heap.arena_size & CL_FIXNUM_MAX)), result);
@@ -3466,7 +3466,7 @@ static CL_Obj bi_time_report(CL_Obj *args, int n)
     start_gc = (uint32_t)CL_FIXNUM_VAL(args[2]);
 
     end_time = platform_time_ms() & CL_FIXNUM_MAX;
-    end_consed = cl_heap.total_consed & CL_FIXNUM_MAX;
+    end_consed = (uint32_t)cl_heap.total_consed & CL_FIXNUM_MAX;
     end_gc = cl_heap.gc_count & CL_FIXNUM_MAX;
 
     elapsed = (end_time >= start_time)

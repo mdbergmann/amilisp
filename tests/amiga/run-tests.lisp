@@ -11281,7 +11281,19 @@ y" 1))
            (open (position #\( line))
            (pct (parse-integer line :start (1+ open) :junk-allowed t)))
       (check "room percentage agrees with its byte counts"
-             (floor (* used 100) total) pct)))
+             (floor (* used 100) total) pct)
+      ;; Next to the exact counts, the same amounts in KB/MB/GB.
+      (check "room heap line gives readable sizes" t
+             (and (search "%): " line)
+                  (search " of " line)
+                  (or (search " KB" line) (search " MB" line)
+                      (search " GB" line))
+                  t)))
+    (check "room free and consed lines give readable sizes" t
+           (and (search " bytes free (" s)
+                (search " bytes consed (" s)
+                (search ", total ever allocated)" s)
+                t)))
   (error (e)
     (setq *fail-count* (+ *fail-count* 1))
     (format t "FAIL: room test - ~A~%" e)))

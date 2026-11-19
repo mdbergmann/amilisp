@@ -596,6 +596,50 @@ uint32_t cl_percent_of(uint32_t part, uint32_t whole)
     return (uint32_t)(((uint64_t)part * 100u) / whole);
 }
 
+/* Three divisions, no loop over the 64-bit value: m68k-gcc 6.5 miscompiles
+ * a uint64 `while (v)` shift loop, and a digit loop is the same shape. */
+void cl_format_u64(uint64_t v, char *out)
+{
+    const uint64_t e9 = 1000000000u;
+    uint32_t lo  = (uint32_t)(v % e9);
+    uint64_t top = v / e9;
+    uint32_t mid = (uint32_t)(top % e9);
+    uint32_t hi  = (uint32_t)(top / e9);
+
+    if (hi)
+        sprintf(out, "%lu%09lu%09lu", (unsigned long)hi,
+                (unsigned long)mid, (unsigned long)lo);
+    else if (mid)
+        sprintf(out, "%lu%09lu", (unsigned long)mid, (unsigned long)lo);
+    else
+        sprintf(out, "%lu", (unsigned long)lo);
+}
+
+void cl_format_size(uint64_t bytes, char *out)
+{
+    const uint64_t kb = 1024u;
+    const uint64_t mb = kb * 1024u;
+    const uint64_t gb = mb * 1024u;
+    const uint64_t tb = gb * 1024u;
+    uint64_t unit;
+    const char *name;
+    char whole[CL_U64_DEC_SIZE];
+
+    if (bytes < kb) {
+        sprintf(out, "%lu byte%s", (unsigned long)bytes, bytes == 1 ? "" : "s");
+        return;
+    }
+    if (bytes < mb)      { unit = kb; name = "KB"; }
+    else if (bytes < gb) { unit = mb; name = "MB"; }
+    else if (bytes < tb) { unit = gb; name = "GB"; }
+    else                 { unit = tb; name = "TB"; }
+
+    cl_format_u64(bytes / unit, whole);
+    /* The remainder is below 2^40, so ten times it stays in range. */
+    sprintf(out, "%s.%lu %s", whole,
+            (unsigned long)(((bytes % unit) * 10u) / unit), name);
+}
+
 /* Signal a storage error without allocating (safe when heap is exhausted
  * or corrupted).  Uses direct longjmp, bypassing cl_error() which would
  * try to allocate condition objects. */

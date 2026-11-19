@@ -927,25 +927,51 @@ static CL_Obj bi_describe(CL_Obj *args, int n)
 static CL_Obj bi_room(CL_Obj *args, int n)
 {
     char buf[256];
+    char dec[CL_U64_DEC_SIZE];
+    char sz[CL_SIZE_STR_SIZE], sz2[CL_SIZE_STR_SIZE];
     uint32_t used = cl_heap.total_allocated;
     uint32_t total = cl_heap.arena_size;
     uint32_t free_bytes = total - used;
     uint32_t pct = cl_percent_of(used, total);
+    /* The chunk cursor defers this thread's consed bytes until its next
+     * refill or collection (thread.h alloc_consed): count them here, as
+     * TIME does. */
+    uint64_t consed = cl_heap.total_consed + CT->alloc_consed;
 
     (void)args; (void)n;
 
+    /* Every count is exact and in bytes, as tools read it (the heap line's
+     * "USED / TOTAL bytes used (N%)" is parsed by tests and scripts), and
+     * carries the same amount in KB/MB/GB for the person reading. */
     cl_write_cstring_to_stdout("Heap:\n");
-    sprintf(buf, "  %lu / %lu bytes used (%lu%%)\n",
-            (unsigned long)used, (unsigned long)total, (unsigned long)pct);
+    cl_format_size(used, sz);
+    cl_format_size(total, sz2);
+    snprintf(buf, sizeof(buf), "  %lu / %lu bytes used (%lu%%): %s of %s\n",
+             (unsigned long)used, (unsigned long)total, (unsigned long)pct,
+             sz, sz2);
     cl_write_cstring_to_stdout(buf);
-    sprintf(buf, "  %lu bytes free\n", (unsigned long)free_bytes);
+    cl_format_size(free_bytes, sz);
+    if (free_bytes < 1024)
+        snprintf(buf, sizeof(buf), "  %lu bytes free\n",
+                 (unsigned long)free_bytes);
+    else
+        snprintf(buf, sizeof(buf), "  %lu bytes free (%s)\n",
+                 (unsigned long)free_bytes, sz);
     cl_write_cstring_to_stdout(buf);
-    sprintf(buf, "  %lu bytes consed (total ever allocated)\n",
-            (unsigned long)cl_heap.total_consed);
+    cl_format_u64(consed, dec);
+    cl_format_size(consed, sz);
+    if (consed < 1024)
+        snprintf(buf, sizeof(buf),
+                 "  %s bytes consed (total ever allocated)\n", dec);
+    else
+        snprintf(buf, sizeof(buf),
+                 "  %s bytes consed (%s, total ever allocated)\n", dec, sz);
     cl_write_cstring_to_stdout(buf);
-    sprintf(buf, "GC:\n  %lu collections\n  %lu compactions\n",
-            (unsigned long)cl_heap.gc_count,
-            (unsigned long)cl_heap.compact_count);
+    snprintf(buf, sizeof(buf), "GC:\n  %lu collection%s\n  %lu compaction%s\n",
+             (unsigned long)cl_heap.gc_count,
+             cl_heap.gc_count == 1 ? "" : "s",
+             (unsigned long)cl_heap.compact_count,
+             cl_heap.compact_count == 1 ? "" : "s");
     cl_write_cstring_to_stdout(buf);
     {
         uint32_t ms_cap, ms_grows, ms_rescans;

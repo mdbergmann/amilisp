@@ -259,6 +259,78 @@ TEST(room_percent_matches_its_byte_counts)
     ASSERT_EQ((int)(used * 100 / total), (int)pct);
 }
 
+/* cl_format_u64 splits at 10^9 twice; each of the three shapes, with the
+ * zero padding of the lower groups, and the top of the range. */
+TEST(format_u64_prints_every_width)
+{
+    char b[CL_U64_DEC_SIZE];
+    cl_format_u64(0u, b);                      ASSERT_STR_EQ("0", b);
+    cl_format_u64(999999999u, b);              ASSERT_STR_EQ("999999999", b);
+    cl_format_u64(1000000000u, b);             ASSERT_STR_EQ("1000000000", b);
+    cl_format_u64(4294967296ull, b);           ASSERT_STR_EQ("4294967296", b);
+    cl_format_u64(5000000007ull, b);           ASSERT_STR_EQ("5000000007", b);
+    cl_format_u64(1000000000000000000ull, b);  ASSERT_STR_EQ("1000000000000000000", b);
+    cl_format_u64(18446744073709551615ull, b); ASSERT_STR_EQ("18446744073709551615", b);
+}
+
+/* Binary units, one decimal, rounded down. */
+TEST(format_size_picks_the_unit)
+{
+    char b[CL_SIZE_STR_SIZE];
+    cl_format_size(0u, b);                ASSERT_STR_EQ("0 bytes", b);
+    cl_format_size(1u, b);                ASSERT_STR_EQ("1 byte", b);
+    cl_format_size(1023u, b);             ASSERT_STR_EQ("1023 bytes", b);
+    cl_format_size(1024u, b);             ASSERT_STR_EQ("1.0 KB", b);
+    cl_format_size(1048575u, b);          ASSERT_STR_EQ("1023.9 KB", b);
+    cl_format_size(4194304u, b);          ASSERT_STR_EQ("4.0 MB", b);
+    cl_format_size(17575304u, b);         ASSERT_STR_EQ("16.7 MB", b);
+    cl_format_size(4294967295u, b);       ASSERT_STR_EQ("3.9 GB", b);
+    cl_format_size(5000000000ull, b);     ASSERT_STR_EQ("4.6 GB", b);
+    cl_format_size(1099511627776ull, b);  ASSERT_STR_EQ("1.0 TB", b);
+    cl_format_size(18446744073709551615ull, b);
+    ASSERT_STR_EQ("16777215.9 TB", b);
+}
+
+/* Next to each exact byte count ROOM gives the amount in KB/MB/GB. */
+TEST(room_gives_readable_sizes)
+{
+    const char *out = eval_str(
+        "(with-output-to-string (*standard-output*) (room))");
+    char want[CL_SIZE_STR_SIZE + 8];
+    char sz[CL_SIZE_STR_SIZE];
+    cl_format_size(cl_heap.arena_size, sz);
+    sprintf(want, "%%): ");
+    ASSERT(strstr(out, want) != NULL);
+    sprintf(want, " of %s", sz);
+    ASSERT(strstr(out, want) != NULL);
+    ASSERT(strstr(out, " bytes free (") != NULL);
+    ASSERT(strstr(out, " bytes consed (") != NULL);
+    ASSERT(strstr(out, ", total ever allocated)") != NULL);
+}
+
+/* "bytes consed" was a 32-bit counter: a session that had allocated 5 GB
+ * reported 705 MB.  Park the counter past 4 GB and read it back. */
+TEST(room_consed_survives_4_gb)
+{
+    uint64_t saved = cl_heap.total_consed;
+    const char *out, *line;
+    uint64_t shown = 0;
+
+    cl_heap.total_consed = 5000000000ull;
+    out = eval_str("(with-output-to-string (*standard-output*) (room))");
+    cl_heap.total_consed = saved;
+
+    line = strstr(out, " bytes consed (");
+    ASSERT(line != NULL);
+    while (line > out && line[-1] >= '0' && line[-1] <= '9') line--;
+    /* By hand: mingw's "%llu" depends on the C runtime in use. */
+    for (; *line >= '0' && *line <= '9'; line++)
+        shown = shown * 10u + (uint64_t)(*line - '0');
+    ASSERT(shown >= 5000000000ull);
+    ASSERT(shown < 5100000000ull);
+    ASSERT(strstr(line, " bytes consed (4.6 GB, total ever allocated)") != NULL);
+}
+
 int main(void)
 {
     test_init();
@@ -285,6 +357,10 @@ int main(void)
     RUN(room_reports_the_gc_backend);
     RUN(room_percent_survives_large_heaps);
     RUN(room_percent_matches_its_byte_counts);
+    RUN(format_u64_prints_every_width);
+    RUN(format_size_picks_the_unit);
+    RUN(room_gives_readable_sizes);
+    RUN(room_consed_survives_4_gb);
 
     teardown();
     REPORT();
