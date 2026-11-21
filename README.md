@@ -1567,6 +1567,13 @@ described below.
 - `(room)` ends with the collector's own lines: the free list's shape and
   probe count for the classic collector, the line map, holes claimed,
   cycles and policy compactions for Immix.
+- `(ext:%heap-census &optional (top 25))` says what the live heap consists
+  of.  It compacts, then answers a report string: objects and bytes by
+  heap type, structures and CLOS instances by type name, closures by
+  function and source position, the largest general vectors and the
+  fullest hash tables.  For an image whose `(room)` only ever rises, take
+  one `(princ (ext:%heap-census))`, another some hours later, and compare:
+  the kind that accumulates is named in the difference.
 
 See `tests/test_gengc.c` and `tests/test_gengc_watch.c` for the behavioral
 contract, and `specs/generational-gc.md` for the design.

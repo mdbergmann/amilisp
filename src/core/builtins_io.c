@@ -3433,6 +3433,33 @@ static CL_Obj bi_ext_heap_verify(CL_Obj *args, int n)
     return cl_mv_values[0];
 }
 
+/* (ext:%heap-census &optional (top 25)) => report-string.  Collects, then
+ * says what the live heap consists of: objects and bytes by heap type,
+ * structures and CLOS instances by type name, closures by function, the
+ * largest general vectors and the fullest hash tables (gc_verify.c
+ * cl_gc_heap_census).  For an image whose ROOM only ever rises: take one
+ * census, another some hours later, and compare. */
+static CL_Obj bi_ext_heap_census(CL_Obj *args, int n)
+{
+    int top = 25;
+    char *rep;
+    CL_Obj str;
+    if (n > 0) {
+        if (!CL_FIXNUM_P(args[0]) || CL_FIXNUM_VAL(args[0]) < 1) {
+            char ob[64];
+            cl_error(CL_ERR_TYPE, "%%HEAP-CENSUS: TOP must be a positive fixnum, got %s",
+                     cl_obj_brief(args[0], ob, (int)sizeof(ob)));
+        }
+        top = (int)CL_FIXNUM_VAL(args[0]);
+    }
+    rep = cl_gc_heap_census(top);
+    if (!rep)
+        cl_error(CL_ERR_GENERAL, "%%HEAP-CENSUS: no memory for the tallies");
+    str = cl_make_string(rep, (uint32_t)strlen(rep));
+    platform_free(rep);
+    return str;
+}
+
 /* (ext:%cpu-store-selftest &optional (rounds 4096)) => lost-stores.
  * Repeats the startup CPU store self-test (platform_cpu_store_selftest,
  * main.c cpu_store_check) for ROUNDS replays and answers how many left a
@@ -5724,6 +5751,7 @@ void cl_builtins_io_init(void)
     extfun("%GC-AUDIT-ROOTS", bi_ext_gc_audit_roots, 0, 0);
     extfun("%GC-AUDIT-HDR-INDEX", bi_ext_gc_audit_hdr_index, 0, 0);
     extfun("%HEAP-VERIFY", bi_ext_heap_verify, 0, 0);
+    extfun("%HEAP-CENSUS", bi_ext_heap_census, 0, 1);
     extfun("%CPU-STORE-SELFTEST", bi_ext_cpu_store_selftest, 0, 1);
     extfun("GETENV", bi_getenv, 1, 1);
     extfun("EXECUTABLE-PATH", bi_executable_path, 0, 0);

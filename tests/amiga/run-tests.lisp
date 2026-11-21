@@ -13328,6 +13328,25 @@ y" 1))
     (unless (eql n 0) (format t "~&~A" r))
     (list n (and (search "fault(s)" r) t))))
 
+; --- (ext:%heap-census): what the live heap consists of ---
+; Compacts, then reports objects by heap type, structures by type name,
+; closures by function, the largest vectors and fullest hash tables.
+; Here: the sections are there, a kept set of structures is counted under
+; its own name, TOP bounds a listing, and a bad TOP is a type error
+; (tests/test_heap_census.sh is the host leg).
+(defstruct hcensus-pt x)
+(defvar *hcensus-keep* (let (l) (dotimes (i 37) (push (make-hcensus-pt :x i) l)) l))
+(check "heap-census: sections, a kept set by name and count, TOP, bad TOP" '(t t t t t :type-error)
+  (let ((r (ext:%heap-census)))
+    (list (and (search "heap-census: " r) t)
+          (and (search "by type:" r) t)
+          (and (search (format nil "~9D  HCENSUS-PT" 37) r) t)
+          (and (search "largest general vectors" r) t)
+          (and (search "(top 1)" (ext:%heap-census 1)) t)
+          (handler-case (progn (ext:%heap-census 0) :no-error)
+            (type-error () :type-error)))))
+(setq *hcensus-keep* nil)
+
 ; --- (ext:%cpu-store-selftest): does this CPU keep what is stored? ---
 ; The m68k build replays the five-store prologue chain the Apollo 68080
 ; (Vampire V4, core 10760) drops.  A sound CPU (FS-UAE, a Motorola 68k)

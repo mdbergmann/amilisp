@@ -797,3 +797,294 @@ const char *cl_gc_verify_heap_report(void)
 {
     return hv_report;
 }
+
+/* ======================================================================
+ * Live-heap census on demand -- (ext:%heap-census &optional (top 25))
+ *
+ * ROOM says how much of the arena is in use; this says of WHAT.  For a
+ * long-running image whose use only ever rises, that is the question:
+ * the answer names the object kind that accumulates, and two censuses
+ * taken hours apart name it beyond doubt.
+ *
+ * It collects with the compactor (so every block that is not dead is a
+ * live object), stops the world for the walk, and counts every object by
+ * heap type.  Three kinds are broken down further, because their type
+ * alone says nothing: structures and CLOS instances by their type name,
+ * closures by the function they close over (its name and source
+ * position), symbols by whether they have a home package.  The largest
+ * general vectors and the fullest hash tables are listed singly -- a
+ * container that grows without bound shows up there by itself.
+ *
+ * The walk allocates nothing in the arena: the tallies live in one
+ * platform_alloc block and the report in another, which the builtin
+ * turns into a Lisp string after the world is running again.
+ * ====================================================================== */
+
+#define HC_KEYS      8192           /* open-addressed; a power of two */
+#define HC_TOP_MAX   100
+#define HC_SINGLES   10
+#define HC_REPORT_CAP 32768
+
+typedef struct {
+    CL_Obj   key;                   /* struct type name / bytecode; 0 = empty */
+    uint8_t  kind;                  /* TYPE_STRUCT or TYPE_CLOSURE */
+    uint32_t count;
+    uint32_t bytes;
+} HC_Entry;
+
+typedef struct {
+    CL_Obj   obj;
+    uint32_t n;                     /* vector length / hash-table count */
+    uint32_t bytes;
+} HC_Single;
+
+/* The report lives in a per-call buffer (no shared static: two threads may
+ * census at once, and nothing is parked off-heap past the call). */
+typedef struct {
+    char *buf;
+    int   len;
+} HC_Report;
+
+static void hc_say_to(HC_Report *r, const char *fmt, ...)
+{
+    va_list ap;
+    int room = HC_REPORT_CAP - r->len, n;
+    if (!r->buf || room <= 1) return;
+    va_start(ap, fmt);
+    n = vsnprintf(r->buf + r->len, room, fmt, ap);
+    va_end(ap);
+    if (n < 0) return;
+    r->len += (n >= room) ? room - 1 : n;
+}
+#define hc_say(...) hc_say_to(&rep, __VA_ARGS__)
+
+static void hc_tally(HC_Entry *tab, uint32_t *overflow, CL_Obj key, uint8_t kind,
+                     uint32_t size)
+{
+    uint32_t i = ((key >> 3) * 2654435761u) & (HC_KEYS - 1), probes;
+    for (probes = 0; probes < HC_KEYS; probes++, i = (i + 1) & (HC_KEYS - 1)) {
+        /* kind == 0 (TYPE_CONS) marks an empty slot; key 0 is CL_NIL and
+         * is a legitimate key (struct with NIL type_desc). */
+        if (tab[i].kind == 0) {
+            tab[i].key = key;
+            tab[i].kind = kind;
+        }
+        if (tab[i].key == key && tab[i].kind == kind) {
+            tab[i].count++;
+            tab[i].bytes += size;
+            return;
+        }
+    }
+    (*overflow)++;
+}
+
+static void hc_single(HC_Single *top, CL_Obj obj, uint32_t n, uint32_t bytes)
+{
+    int i, j;
+    for (i = 0; i < HC_SINGLES; i++) {
+        if (top[i].obj == 0 || n > top[i].n) {
+            for (j = HC_SINGLES - 1; j > i; j--) top[j] = top[j - 1];
+            top[i].obj = obj; top[i].n = n; top[i].bytes = bytes;
+            return;
+        }
+    }
+}
+
+static int hc_by_bytes(const void *a, const void *b)
+{
+    const HC_Entry *x = (const HC_Entry *)a, *y = (const HC_Entry *)b;
+    if (x->bytes != y->bytes) return x->bytes < y->bytes ? 1 : -1;
+    return 0;
+}
+
+static const char *hc_type_label(int type)
+{
+    switch (type) {
+    case TYPE_CONS: return "CONS";
+    case TYPE_SYMBOL: return "SYMBOL";
+    case TYPE_STRING: return "STRING";
+    case TYPE_FUNCTION: return "FUNCTION (builtin)";
+    case TYPE_CLOSURE: return "CLOSURE";
+    case TYPE_BYTECODE: return "BYTECODE";
+    case TYPE_VECTOR: return "VECTOR";
+    case TYPE_PACKAGE: return "PACKAGE";
+    case TYPE_HASHTABLE: return "HASH-TABLE";
+    case TYPE_CONDITION: return "CONDITION";
+    case TYPE_STRUCT: return "STRUCTURE/INSTANCE";
+    case TYPE_BIGNUM: return "BIGNUM";
+    case TYPE_SINGLE_FLOAT: return "SINGLE-FLOAT";
+    case TYPE_DOUBLE_FLOAT: return "DOUBLE-FLOAT";
+    case TYPE_RATIO: return "RATIO";
+    case TYPE_COMPLEX: return "COMPLEX";
+    case TYPE_STREAM: return "STREAM";
+    case TYPE_RANDOM_STATE: return "RANDOM-STATE";
+    case TYPE_BIT_VECTOR: return "BIT-VECTOR";
+    case TYPE_PATHNAME: return "PATHNAME";
+    case TYPE_CELL: return "CELL";
+    case TYPE_THREAD: return "THREAD";
+    case TYPE_LOCK: return "LOCK";
+    case TYPE_CONDVAR: return "CONDITION-VARIABLE";
+    case TYPE_FOREIGN_POINTER: return "FOREIGN-POINTER";
+    case TYPE_RESTART: return "RESTART";
+    case TYPE_BYTE_VECTOR: return "BYTE-VECTOR";
+    case TYPE_FFI_STUB: return "FFI-STUB";
+#ifdef CL_WIDE_STRINGS
+    case TYPE_WIDE_STRING: return "WIDE-STRING";
+#endif
+    default: return "?";
+    }
+}
+
+/* Answers the report in a platform_alloc block the caller releases with
+ * platform_free, or NULL when there was no memory for the tallies. */
+char *cl_gc_heap_census(int top_n)
+{
+    HC_Report rep;
+    uint32_t counts[CL_TYPE_MAX + 1], bytes[CL_TYPE_MAX + 1];
+    uint32_t off, n_dead = 0, dead_bytes = 0, overflow = 0;
+    uint32_t sym_uninterned = 0, live_objs = 0, live_bytes = 0;
+    HC_Entry *tab;
+    HC_Single vecs[HC_SINGLES], hts[HC_SINGLES];
+    int order[CL_TYPE_MAX + 1];
+    int i, j, multithread, shown;
+
+    if (top_n < 1) top_n = 1;
+    if (top_n > HC_TOP_MAX) top_n = HC_TOP_MAX;
+
+    rep.buf = (char *)platform_alloc(HC_REPORT_CAP);
+    rep.len = 0;
+    tab = (HC_Entry *)platform_alloc(HC_KEYS * sizeof(HC_Entry));
+    if (!rep.buf || !tab) {
+        if (tab) platform_free(tab);
+        if (rep.buf) platform_free(rep.buf);
+        return NULL;
+    }
+    rep.buf[0] = '\0';
+    memset(tab, 0, HC_KEYS * sizeof(HC_Entry));
+    memset(counts, 0, sizeof(counts));
+    memset(bytes, 0, sizeof(bytes));
+    memset(vecs, 0, sizeof(vecs));
+    memset(hts, 0, sizeof(hts));
+
+    gcb_verify_collect();
+
+    multithread = (cl_thread_count > 1);
+    if (multithread) cl_gc_stop_the_world();
+
+    for (off = CL_ALIGN; off < cl_heap.bump; ) {
+        uint8_t *hp = cl_heap.arena + off;
+        uint32_t size = CL_HDR_SIZE(hp);
+        uint8_t type = CL_HDR_TYPE(hp);
+        if (size == 0 || (size & (CL_ALIGN - 1)) != 0 || off + size > cl_heap.bump) {
+            hc_say("block @0x%08lx: header size %lu breaks the arena walk; "
+                   "census stopped there\n", (unsigned long)off, (unsigned long)size);
+            break;
+        }
+        if (type > CL_TYPE_MAX || size < sizeof(CL_Cons)) {
+            n_dead++;
+            dead_bytes += size;
+            off += size;
+            continue;
+        }
+        counts[type]++;
+        bytes[type] += size;
+        live_objs++;
+        live_bytes += size;
+        switch (type) {
+        case TYPE_STRUCT:
+            hc_tally(tab, &overflow, ((CL_Struct *)hp)->type_desc, TYPE_STRUCT, size);
+            break;
+        case TYPE_CLOSURE:
+            hc_tally(tab, &overflow, ((CL_Closure *)hp)->bytecode, TYPE_CLOSURE, size);
+            break;
+        case TYPE_SYMBOL:
+            if (CL_NULL_P(((CL_Symbol *)hp)->package)) sym_uninterned++;
+            break;
+        case TYPE_VECTOR:
+            hc_single(vecs, (CL_Obj)off, ((CL_Vector *)hp)->length, size);
+            break;
+        case TYPE_HASHTABLE:
+            hc_single(hts, (CL_Obj)off, ((CL_Hashtable *)hp)->count, size);
+            break;
+        default:
+            break;
+        }
+        off += size;
+    }
+
+    hc_say("heap-census: %lu live objects, %lu bytes; %lu dead blocks, %lu bytes\n",
+           (unsigned long)live_objs, (unsigned long)live_bytes,
+           (unsigned long)n_dead, (unsigned long)dead_bytes);
+
+    /* By heap type, largest first. */
+    for (i = 0; i <= CL_TYPE_MAX; i++) order[i] = i;
+    for (i = 1; i <= CL_TYPE_MAX; i++) {
+        int v = order[i];
+        for (j = i; j > 0 && bytes[order[j - 1]] < bytes[v]; j--) order[j] = order[j - 1];
+        order[j] = v;
+    }
+    hc_say("\nby type:\n");
+    for (i = 0; i <= CL_TYPE_MAX; i++) {
+        int ty = order[i];
+        if (counts[ty] == 0) continue;
+        hc_say("  %10lu bytes %9lu  %s\n", (unsigned long)bytes[ty],
+               (unsigned long)counts[ty], hc_type_label(ty));
+    }
+    hc_say("  symbols without a home package: %lu\n", (unsigned long)sym_uninterned);
+
+    /* Structures / instances and closures, largest first. */
+    qsort(tab, HC_KEYS, sizeof(HC_Entry), hc_by_bytes);
+    for (j = 0; j < 2; j++) {
+        uint8_t kind = j == 0 ? TYPE_STRUCT : TYPE_CLOSURE;
+        hc_say(j == 0 ? "\nstructures and instances by type (top %d):\n"
+                      : "\nclosures by function (top %d):\n", top_n);
+        for (i = 0, shown = 0; i < HC_KEYS && shown < top_n; i++) {
+            char nb[96];
+            if (tab[i].kind == 0) break;
+            if (tab[i].kind != kind) continue;
+            shown++;
+            if (kind == TYPE_STRUCT) {
+                hc_say("  %10lu bytes %9lu  %s\n", (unsigned long)tab[i].bytes,
+                       (unsigned long)tab[i].count,
+                       cl_obj_brief(tab[i].key, nb, sizeof(nb)));
+            } else {
+                CL_Obj bco = tab[i].key;
+                if (CL_HEAP_P(bco) && bco < cl_heap.bump &&
+                    CL_HDR_TYPE(CL_OBJ_TO_PTR(bco)) == TYPE_BYTECODE) {
+                    CL_Bytecode *bc = (CL_Bytecode *)CL_OBJ_TO_PTR(bco);
+                    hc_say("  %10lu bytes %9lu  %s  (%s:%u)\n",
+                           (unsigned long)tab[i].bytes, (unsigned long)tab[i].count,
+                           CL_NULL_P(bc->name) ? "(lambda)"
+                                               : cl_obj_brief(bc->name, nb, sizeof(nb)),
+                           bc->source_file ? bc->source_file : "?",
+                           (unsigned)bc->source_line);
+                } else {
+                    hc_say("  %10lu bytes %9lu  %s\n", (unsigned long)tab[i].bytes,
+                           (unsigned long)tab[i].count,
+                           cl_obj_brief(bco, nb, sizeof(nb)));
+                }
+            }
+        }
+    }
+    if (overflow)
+        hc_say("  (%lu objects of further kinds not tallied: table full)\n",
+               (unsigned long)overflow);
+
+    hc_say("\nlargest general vectors (length, bytes):\n");
+    for (i = 0; i < HC_SINGLES && vecs[i].obj; i++)
+        hc_say("  %9lu %10lu  @0x%08lx\n", (unsigned long)vecs[i].n,
+               (unsigned long)vecs[i].bytes, (unsigned long)vecs[i].obj);
+    hc_say("\nfullest hash tables (entries, buckets):\n");
+    for (i = 0; i < HC_SINGLES && hts[i].obj; i++) {
+        CL_Hashtable *ht = (CL_Hashtable *)CL_OBJ_TO_PTR(hts[i].obj);
+        static const char *const tests[] = { "EQ", "EQL", "EQUAL", "EQUALP" };
+        hc_say("  %9lu %10lu  %s  @0x%08lx\n", (unsigned long)ht->count,
+               (unsigned long)ht->bucket_count,
+               ht->test < 4 ? tests[ht->test] : "?", (unsigned long)hts[i].obj);
+    }
+
+    if (multithread) cl_gc_resume_the_world();
+    platform_free(tab);
+    return rep.buf;
+}
+#undef hc_say

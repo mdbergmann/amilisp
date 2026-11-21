@@ -280,7 +280,7 @@ test_batch test_repl_values test_repl_paste test_banner test_color test_boot_log
                 test_mt_dispatch_cache_race test_mt_thread_exit_gc test_mt_thread_identity \
                 test_mt_intern_stw test_mt_stream_close_race test_mt_interrupt_parked \
                 test_mt_thread_exit_drain test_mt_stop_workers test_mt_thread_death_hook \
-                test_lock_diag test_break_diag test_call_diag test_call_gen test_jit_a64 test_jit_a64_walk test_heap_verify test_cpu_selftest test_debugger_backtrace test_backtrace_lines test_backtrace_after_handled_error \
+                test_lock_diag test_break_diag test_call_diag test_call_gen test_jit_a64 test_jit_a64_walk test_heap_verify test_heap_census test_cpu_selftest test_debugger_backtrace test_backtrace_lines test_backtrace_after_handled_error \
                 test_debugger_eof test_inspect_eof \
                 test_io_diag test_ql_socket_timeouts test_stream_outbuf_leak \
                 test_shutdown_leak \
@@ -428,6 +428,8 @@ endif
 	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 sh $(TEST_SRCDIR)/test_md2guide.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 	@echo "--- test_heap_verify (AMILISP_GC_STRESS=1, forced compaction: the verifier collects and allocates its report; light churn) ---"
 	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 sh $(TEST_SRCDIR)/test_heap_verify.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
+	@echo "--- test_heap_census (AMILISP_GC_STRESS=1, forced compaction: the census collects and allocates its report; small kept set) ---"
+	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 sh $(TEST_SRCDIR)/test_heap_census.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 	@echo "--- test_call_diag (AMILISP_GC_STRESS=1, forced compaction: the diagnostics' error messages) ---"
 	@$(TEST_TMPDIR_ENV) AMILISP_GC_STRESS=1 sh $(TEST_SRCDIR)/test_call_diag.sh $(GC_STRESS_BUILDDIR)/amilisp$(EXE)
 	@echo "--- test_call_gen (AMILISP_GC_STRESS=1, forced compaction: every collection must bump the call generation) ---"

@@ -404,6 +404,13 @@ int cl_gc_audit_hdr_index(void);
 int cl_gc_verify_heap(void);
 const char *cl_gc_verify_heap_report(void);
 
+/* Live-heap census: collects, then counts every live object by heap type,
+ * structures/instances by type name, closures by function, and lists the
+ * largest vectors and fullest hash tables.  Answers the report text (a
+ * buffer the next call replaces) or NULL without memory for the tallies.
+ * (ext:%heap-census) in Lisp. */
+char *cl_gc_heap_census(int top_n);   /* caller platform_free()s the report */
+
 
 /* Retire a thread's allocation cursor (flush cons accounting, drop the
  * region — see the cursor section in mem.c).  A chunk's uncut remainder is
